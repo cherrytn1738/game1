@@ -1,0 +1,30 @@
+local Field = {
+ Width = 6600, GroundTop = 0.02, GroundThickness = 8, MaximumPartSize = 2000,
+ MarkerInterval = 100, DistantMarkerInterval = 500, DenseMarkersUntil = 1000,
+ StopLinearSpeed = 1, StopSurfaceSpeed = 2, StopHoldSeconds = 0.75,
+ RollingDeceleration = 12, MaximumFlightSeconds = 120,
+}
+function Field.GetSection(distance, world)
+ if distance < 0 or distance > world.endDistance + world.runoutDistance then return nil end
+ for index, section in world.sections do
+  if distance >= section.startDistance
+   and (distance < section.endDistance or index == #world.sections) then return section end
+ end
+ return nil
+end
+function Field.GetById(id, world)
+ for _, section in world.sections do if section.id == id then return section end end
+ return nil
+end
+function Field.GetForwardDistance(position, origin, forward)
+ return math.max(0, (position - origin):Dot(forward))
+end
+function Field.GetSectionAtPosition(position, origin, forward, world)
+ local displacement = position - origin
+ if math.abs(displacement:Dot(forward:Cross(Vector3.yAxis))) > Field.Width / 2 then return nil end
+ return Field.GetSection(displacement:Dot(forward), world)
+end
+function Field.GetRewardSection(distance, world)
+ return Field.GetSection(distance, world)
+end
+return Field

@@ -1,0 +1,54 @@
+{
+  "name": "BaseballSimulator",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+        "$className": "ReplicatedStorage",
+
+        "BattingTiming": {
+            "$className": "RemoteEvent"
+        },
+
+        "EquipmentUpgrade": {
+            "$className": "RemoteEvent"
+        },
+
+        "WorldTravel": {
+            "$className": "RemoteEvent"
+        },
+
+        "$path": "src/replicated"
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$path": "src/server"
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$path": "src/player"
+      }
+    },
+
+    "StarterPack": {
+      "$className": "StarterPack",
+
+      "Bat": {
+        "$className": "Tool",
+
+        "BatClient": {
+          "$path": "src/tools/Bat/BatClient.client.luau"
+        },
+
+        "BatTimingClient": {
+          "$path": "src/tools/Bat/BatTimingClient.client.luau"
+        }
+      }
+    }
+  }
+}
