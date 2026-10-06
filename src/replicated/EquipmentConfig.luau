@@ -1,8 +1,10 @@
 -- Stable IDs are persisted; prices, stats, and primitive appearances are configured here.
 -- Add an item and link the previous item through nextId to extend a progression.
 local Equipment = {
+ CategoryOrder = {"Bat", "Ball", "Tee"},
  Categories = {
   Bat = {
+   displayName = "Bats", ownedField = "OwnedBats",
    startingId = "wood_bat",
    items = {
     wood_bat = {
@@ -35,6 +37,7 @@ local Equipment = {
    },
   },
   Ball = {
+   displayName = "Balls", ownedField = "OwnedBalls",
    startingId = "baseball",
    items = {
     baseball = {
@@ -67,6 +70,7 @@ local Equipment = {
    },
   },
   Tee = {
+   displayName = "Tees", ownedField = "OwnedTees",
    startingId = "basic_tee",
    items = {
     basic_tee = {
@@ -101,7 +105,31 @@ local Equipment = {
  },
 }
 
+-- Derive catalog order from the existing nextId links in one place.
+local byId = {}
+local ordered = {}
+for _, category in Equipment.CategoryOrder do
+ local definition = Equipment.Categories[category]
+ local items = {}
+ local id = definition.startingId
+ while id do
+  local item = definition.items[id]
+  assert(item and item.id == id and not byId[id], "Invalid or repeated equipment ID: " .. id)
+  assert(type(item.price) == "number" and item.price >= 0 and item.price < math.huge
+   and item.price % 1 == 0, "Invalid equipment price: " .. id)
+  item.category, item.order = category, #items + 1
+  byId[id] = item
+  table.insert(items, item)
+  id = item.nextId
+ end
+ for itemId in definition.items do
+  assert(byId[itemId] and byId[itemId].category == category, "Unlinked equipment: " .. itemId)
+ end
+ ordered[category] = items
+end
+
 function Equipment.Get(category, id)
+ if type(category) ~= "string" or (id ~= nil and type(id) ~= "string") then return nil end
  local definition = Equipment.Categories[category]
  if not definition then return nil end
  return definition.items[id or definition.startingId]
@@ -111,6 +139,54 @@ function Equipment.GetNext(category, currentId)
  local current = Equipment.Get(category, currentId)
  if not current or not current.nextId then return nil end
  return Equipment.Get(category, current.nextId)
+end
+
+function Equipment.GetById(id)
+ return type(id) == "string" and byId[id] or nil
+end
+
+function Equipment.GetItems(category)
+ return ordered[category] or {}
+end
+
+function Equipment.IsStarting(category, id)
+ local definition = Equipment.Categories[category]
+ return definition ~= nil and definition.startingId == id
+end
+
+function Equipment.IsFinal(category, id)
+ local item = Equipment.Get(category, id)
+ return item ~= nil and item.nextId == nil
+end
+
+function Equipment.GetNextPurchase(category, owned)
+ -- Legacy saves can own the starting item and a later item without the items
+ -- between them. Continue past their furthest owned item; equipping never moves it.
+ local furthest
+ for _, item in Equipment.GetItems(category) do
+  if owned[item.id] == true then furthest = item end
+ end
+ return furthest and Equipment.GetNext(category, furthest.id) or nil
+end
+
+function Equipment.NormalizeOwnership(category, saved, equippedId, legacySave)
+ local definition = Equipment.Categories[category]
+ local owned = {}
+ if type(saved) == "table" then
+  for id, value in saved do
+   if type(id) == "string" and value == true and Equipment.Get(category, id) then
+    owned[id] = true
+   end
+  end
+ end
+ owned[definition.startingId] = true
+ if type(equippedId) ~= "string" or not Equipment.Get(category, equippedId) then
+  equippedId = definition.startingId
+ end
+ -- Only saves from before ownership existed may prove ownership by equipped ID.
+ if legacySave then owned[equippedId] = true end
+ if not owned[equippedId] then equippedId = definition.startingId end
+ return owned, equippedId
 end
 
 return Equipment

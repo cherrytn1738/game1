@@ -7,6 +7,10 @@ while Player:GetAttribute("DataLoaded") ~= true do
  Player:GetAttributeChangedSignal("DataLoaded"):Wait()
 end
 local cash = Player:WaitForChild("leaderstats"):WaitForChild("Cash")
+local ownership = {}
+for _, category in Equipment.CategoryOrder do
+ ownership[category] = Player:WaitForChild(Equipment.Categories[category].ownedField)
+end
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "EquipmentShopGui"
@@ -35,7 +39,7 @@ local panel = Instance.new("Frame")
 panel.Name = "ShopPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = UDim2.fromScale(0.5, 0.53)
-panel.Size = UDim2.fromOffset(620, 360)
+panel.Size = UDim2.fromOffset(620, 450)
 panel.BackgroundColor3 = Color3.fromRGB(25, 29, 38)
 panel.BorderSizePixel = 0
 panel.Visible = false
@@ -73,12 +77,22 @@ close.TextColor3 = Color3.new(1, 1, 1)
 close.BackgroundColor3 = Color3.fromRGB(63, 70, 84)
 close.Parent = panel
 Instance.new("UICorner", close)
-label(panel, "Hint", "Your equipped gear. Equipment effects apply to your next hit.", 20, 45, 580, 24, 13)
-local feedback = label(panel, "Feedback", "", 20, 319, 580, 30, 14)
+label(panel, "Hint", "Own equipment permanently. Equip any owned item for your next hit.", 20, 45, 580, 24, 13)
+local feedback = label(panel, "Feedback", "", 20, 404, 580, 36, 14)
 feedback.TextWrapped = true
 
 local rows = {}
+local tabs = {}
+local selectedCategory = Equipment.CategoryOrder[1]
 local pending = false
+local list = Instance.new("ScrollingFrame")
+list.Name = "EquipmentList"
+list.Position = UDim2.fromOffset(20, 112)
+list.Size = UDim2.fromOffset(580, 280)
+list.BackgroundTransparency = 1
+list.BorderSizePixel = 0
+list.ScrollBarThickness = 6
+list.Parent = panel
 local function effect(category, item)
  if category == "Bat" then return string.format("%.2fx launch power", item.powerMultiplier) end
  if category == "Ball" then return string.format("%.2fx Cash rewards", item.rewardMultiplier) end
@@ -87,55 +101,93 @@ end
 
 local function refresh()
  balance.Text = string.format("%d Cash", cash.Value)
- for category, row in rows do
-  local currentId = Player:GetAttribute("Equipped" .. category)
-  local current = Equipment.Get(category, currentId)
-  local nextItem = Equipment.GetNext(category, currentId)
-  row.title.Text = string.upper(category) .. "  |  " .. current.displayName
-  row.current.Text = "Current: " .. effect(category, current)
-  row.next.Text = nextItem and ("Next: " .. nextItem.displayName .. " - " .. effect(category, nextItem))
-   or "Maximum currently available equipment"
-  row.button.Text = nextItem and string.format("PURCHASE\n%d Cash", nextItem.price) or "MAX EQUIPMENT"
-  row.button.Active = nextItem ~= nil and not pending
+ local owned = ownership[selectedCategory]:GetAttributes()
+ local equippedId = Player:GetAttribute("Equipped" .. selectedCategory)
+ local nextItem = Equipment.GetNextPurchase(selectedCategory, owned)
+ for category, tab in tabs do
+  local name = Equipment.Categories[category].displayName
+  tab.Text = category == selectedCategory and ("[ " .. name .. " ]") or name
+ end
+ for id, row in rows do
+  local item = Equipment.Get(selectedCategory, id)
+  local equipped = id == equippedId
+  local isOwned = owned[id] == true
+  local isNext = nextItem and nextItem.id == id
+  row.title.Text = item.displayName
+  row.current.Text = effect(selectedCategory, item)
+  row.next.Text = equipped and "Equipped" or isOwned and "Owned"
+   or isNext and "Next in progression" or "Not owned"
+  row.button.Text = equipped and "EQUIPPED" or isOwned and "EQUIP"
+   or isNext and string.format("PURCHASE\n%d Cash", item.price) or "LOCKED"
+  row.button.Active = not equipped and (isOwned or isNext == true) and not pending
+   and not Player:GetAttribute("BattingActive")
   row.button.AutoButtonColor = row.button.Active
-  row.button.BackgroundColor3 = nextItem and cash.Value >= nextItem.price
+  row.button.BackgroundColor3 = row.button.Active and (isOwned or cash.Value >= item.price)
    and Color3.fromRGB(44, 118, 83) or Color3.fromRGB(67, 73, 87)
  end
 end
 
-for index, category in {"Bat", "Ball", "Tee"} do
- local row = Instance.new("Frame")
- row.Name = category
- row.Position = UDim2.fromOffset(20, 78 + (index - 1) * 80)
- row.Size = UDim2.fromOffset(580, 72)
- row.BackgroundColor3 = Color3.fromRGB(36, 42, 53)
- row.BorderSizePixel = 0
- row.Parent = panel
- Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
- local title = label(row, "Equipment", "", 12, 4, 380, 23, 15)
- local current = label(row, "Current", "", 12, 28, 380, 18, 13)
- local nextEffect = label(row, "Next", "", 12, 48, 380, 18, 13)
- nextEffect.TextColor3 = Color3.fromRGB(134, 217, 167)
- local button = Instance.new("TextButton")
- button.Name = "Upgrade"
- button.Position = UDim2.fromOffset(424, 10)
- button.Size = UDim2.fromOffset(144, 52)
- button.Font = Enum.Font.GothamBold
- button.TextSize = 14
- button.TextColor3 = Color3.new(1, 1, 1)
- button.Parent = row
- Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
- rows[category] = {title = title, current = current, next = nextEffect, button = button}
- button.Activated:Connect(function()
-  if pending or Player:GetAttribute("BattingActive") then return end
-  local currentId = Player:GetAttribute("Equipped" .. category)
-  if not Equipment.GetNext(category, currentId) then return end
-  pending = true
-  feedback.Text = "Purchasing..."
-  refresh()
-  Remote:FireServer(category)
- end)
+local function showCategory(category)
+ selectedCategory = category
+ for _, child in list:GetChildren() do child:Destroy() end
+ table.clear(rows)
+ list.CanvasPosition = Vector2.zero
+ local items = Equipment.GetItems(category)
+ list.CanvasSize = UDim2.fromOffset(0, #items * 80)
+ for index, item in items do
+  local row = Instance.new("Frame")
+  row.Name = item.id
+  row.Position = UDim2.fromOffset(0, (index - 1) * 80)
+  row.Size = UDim2.fromOffset(570, 72)
+  row.BackgroundColor3 = Color3.fromRGB(36, 42, 53)
+  row.BorderSizePixel = 0
+  row.Parent = list
+  Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+  local title = label(row, "Equipment", "", 12, 4, 380, 23, 15)
+  local current = label(row, "Current", "", 12, 28, 380, 18, 13)
+  local nextEffect = label(row, "Next", "", 12, 48, 380, 18, 13)
+  nextEffect.TextColor3 = Color3.fromRGB(134, 217, 167)
+  local button = Instance.new("TextButton")
+  button.Name = "Upgrade"
+  button.Position = UDim2.fromOffset(414, 10)
+  button.Size = UDim2.fromOffset(144, 52)
+  button.Font = Enum.Font.GothamBold
+  button.TextSize = 14
+  button.TextColor3 = Color3.new(1, 1, 1)
+  button.Parent = row
+  Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
+  rows[item.id] = {title = title, current = current, next = nextEffect, button = button}
+  button.Activated:Connect(function()
+   if pending or not button.Active or Player:GetAttribute("BattingActive") then return end
+   local owned = ownership[category]:GetAttributes()
+   local nextItem = Equipment.GetNextPurchase(category, owned)
+   local action, value
+   if owned[item.id] == true then
+    action, value = "Equip", item.id
+   elseif nextItem and nextItem.id == item.id then
+    action, value = "Purchase", Player:GetAttribute("EquipmentPurchaseToken_" .. category)
+   else return end
+   if not value then return end
+   pending = true
+   feedback.Text = action == "Purchase" and "Purchasing..." or "Equipping..."
+   refresh()
+   Remote:FireServer(action, category, value)
+  end)
+ end
+ refresh()
+end
+
+for index, category in Equipment.CategoryOrder do
+ local tab = Instance.new("TextButton")
+ tab.Name = category .. "Tab"
+ tab.Position = UDim2.fromOffset(20 + (index - 1) * 196, 76)
+ tab.Size = UDim2.fromOffset(188, 28)
+ tab.Parent = panel
+ tabs[category] = tab
+ tab.Activated:Connect(function() showCategory(category) end)
+ ownership[category].AttributeChanged:Connect(refresh)
  Player:GetAttributeChangedSignal("Equipped" .. category):Connect(refresh)
+ Player:GetAttributeChangedSignal("EquipmentPurchaseToken_" .. category):Connect(refresh)
 end
 
 Remote.OnClientEvent:Connect(function(success, message)
@@ -160,10 +212,10 @@ Player:GetAttributeChangedSignal("BattingActive"):Connect(battingChanged)
 local function resize()
  local camera = workspace.CurrentCamera
  if camera then
-  scale.Scale = math.min(1, (camera.ViewportSize.X - 24) / 620, (camera.ViewportSize.Y - 100) / 360)
+  scale.Scale = math.min(1, (camera.ViewportSize.X - 24) / 620, (camera.ViewportSize.Y - 100) / 450)
  end
 end
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(resize)
 resize()
 battingChanged()
-refresh()
+showCategory(selectedCategory)

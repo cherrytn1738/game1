@@ -7,7 +7,7 @@ local Equipment = require(game:GetService("ReplicatedStorage"):WaitForChild("Equ
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 
 local STORE_NAME = "PlayerProgression"
-local SCHEMA_VERSION = 2
+local SCHEMA_VERSION = 3
 local AUTOSAVE_SECONDS = 60
 local LEASE_SECONDS = 180
 local LEASE_SAFETY_SECONDS = 15
@@ -15,7 +15,7 @@ local MAX_ATTEMPTS = 3
 local REQUEST_SECONDS = 20
 local SHUTDOWN_SECONDS = 25
 local MAX_CASH = 9000000000000 -- Safely below the integer precision limit.
-local CATEGORIES = {"Bat", "Ball", "Tee"}
+local CATEGORIES = Equipment.CategoryOrder
 
 local PlayerData = {}
 local sessions = {}
@@ -46,9 +46,12 @@ local function validate(record)
  end
  for _, category in CATEGORIES do
   local field = "Equipped" .. category
-  if typeof(data[field]) ~= "string" or not Equipment.Get(category, data[field]) then
-   if data[field] ~= nil then table.insert(repairs, field .. "=" .. tostring(data[field])) end
-   data[field] = Equipment.Categories[category].startingId
+  local ownedField = Equipment.Categories[category].ownedField
+  local previousId = data[field]
+  data[ownedField], data[field] = Equipment.NormalizeOwnership(
+   category, data[ownedField], previousId, (version or 1) < 3)
+  if previousId ~= nil and previousId ~= data[field] then
+   table.insert(repairs, field .. "=" .. tostring(previousId))
   end
  end
  -- Version 1 records have no world fields. Preserve their Cash/equipment.
@@ -104,6 +107,53 @@ function PlayerData.IsReady(player)
   and os.time() < session.expiresAt - LEASE_SAFETY_SECONDS
 end
 
+function PlayerData.OwnsEquipment(player, category, id)
+ if not PlayerData.IsReady(player) or type(id) ~= "string" or not Equipment.Get(category, id) then return false end
+ return sessions[player].owned[category][id] == true
+end
+
+function PlayerData.GetNextEquipment(player, category)
+ if not PlayerData.IsReady(player) or not Equipment.Categories[category] then return nil end
+ return Equipment.GetNextPurchase(category, sessions[player].owned[category])
+end
+
+function PlayerData.PurchaseNextEquipment(player, category, purchaseToken)
+ if not PlayerData.IsReady(player) then return false, "Your data is not ready. Please wait." end
+ local definition = Equipment.Categories[category]
+ if not definition then return false, "Invalid equipment category." end
+ if player:GetAttribute("BattingActive") then return false, "Press Space to leave batting before shopping." end
+ local session = sessions[player]
+ -- This opaque server-issued token identifies the current offer. Retrying an old
+ -- request can never buy the following item, even after the request cooldown.
+ if type(purchaseToken) ~= "string" or purchaseToken ~= session.purchaseTokens[category] then
+  return false, "That purchase is out of date. Check the current equipment list."
+ end
+ local item = PlayerData.GetNextEquipment(player, category)
+ if not item then return false, "No additional equipment is currently available." end
+ if session.owned[category][item.id] then return false, "You already own this equipment." end
+ local cash = player.leaderstats.Cash
+ local price = item.price
+ if not validCash(price) or not validCash(cash.Value) then return false, "Invalid purchase data." end
+ if cash.Value < price then return false, string.format("Not enough Cash. Need %d more.", price - cash.Value) end
+ -- No yields between validation, deduction, ownership, and equipping.
+ cash.Value -= price
+ session.owned[category][item.id] = true
+ session.purchaseTokens[category] = HttpService:GenerateGUID(false)
+ player[definition.ownedField]:SetAttribute(item.id, true)
+ player:SetAttribute("Equipped" .. category, item.id)
+ player:SetAttribute("EquipmentPurchaseToken_" .. category, session.purchaseTokens[category])
+ return true, "Purchased and equipped " .. item.displayName .. "!"
+end
+
+function PlayerData.EquipEquipment(player, category, id)
+ if not PlayerData.IsReady(player) then return false, "Your data is not ready. Please wait." end
+ if player:GetAttribute("BattingActive") then return false, "Press Space to leave batting before equipping." end
+ if not PlayerData.OwnsEquipment(player, category, id) then return false, "You do not own that equipment in this category." end
+ local item = Equipment.Get(category, id)
+ player:SetAttribute("Equipped" .. category, item.id)
+ return true, "Equipped " .. item.displayName .. "."
+end
+
 local function fail(player, session, reason)
  if session.failed then return end
  session.failed = true
@@ -117,6 +167,7 @@ local function fail(player, session, reason)
 end
 
 local function snapshot(player)
+ local session = sessions[player]
  local stats = player:FindFirstChild("leaderstats")
  local cash = stats and stats:FindFirstChild("Cash")
  if not cash or not cash:IsA("IntValue") or not validCash(cash.Value) then return nil end
@@ -124,7 +175,14 @@ local function snapshot(player)
  for _, category in CATEGORIES do
   local field = "Equipped" .. category
   local id = player:GetAttribute(field)
-  if typeof(id) ~= "string" or not Equipment.Get(category, id) then return nil end
+  local owned = session.owned[category]
+  if typeof(id) ~= "string" or not Equipment.Get(category, id) or owned[id] ~= true then return nil end
+  local definition = Equipment.Categories[category]
+  if owned[definition.startingId] ~= true then return nil end
+  for ownedId, value in owned do
+   if type(ownedId) ~= "string" or value ~= true or not Equipment.Get(category, ownedId) then return nil end
+  end
+  data[definition.ownedField] = table.clone(owned)
   data[field] = id
  end
  data.UnlockedWorlds, data.CompletedWorlds = {}, {}
@@ -239,8 +297,18 @@ local function loadPlayer(player)
  cash.Name = "Cash"
  cash.Value = record.Cash
  cash.Parent = stats
+ session.owned, session.purchaseTokens = {}, {}
  for _, category in CATEGORIES do
   local field = "Equipped" .. category
+  local ownedField = Equipment.Categories[category].ownedField
+  session.owned[category] = table.clone(record[ownedField])
+  session.purchaseTokens[category] = HttpService:GenerateGUID(false)
+  -- Replicated display state is a copy; purchase/equip/save checks use the private set.
+  local ownedFolder = Instance.new("Folder")
+  ownedFolder.Name = ownedField
+  for id in session.owned[category] do ownedFolder:SetAttribute(id, true) end
+  ownedFolder.Parent = player
+  player:SetAttribute("EquipmentPurchaseToken_" .. category, session.purchaseTokens[category])
   player:SetAttribute(field, record[field])
  end
  for _, world in Worlds.Worlds do
