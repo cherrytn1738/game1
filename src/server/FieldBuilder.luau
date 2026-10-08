@@ -1,7 +1,95 @@
--- Rebuilds only the generated runway. Add sections in WorldConfig to extend it.
+-- Generates the configured runways and optional empty hubs.
 local Field = require(game:GetService("ReplicatedStorage"):WaitForChild("FieldConfig"))
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local Builder = {}
+
+local function buildHub(world, area)
+ local config = world.hub
+ if not config then return end
+ assert(config.width > 0 and config.depth > 0, "Hub dimensions must be positive")
+ local origin = area.Tee.Stem.BallPosition.WorldPosition
+ local difference = area.HitDirection.Position - origin
+ local forward = Vector3.new(difference.X, 0, difference.Z).Unit
+ -- A small surface separation prevents the old baseplate texture bleeding through.
+ local surfaceY = Field.GroundTop + 0.1
+ local edge = Vector3.new(origin.X, surfaceY, origin.Z)
+ local frame = CFrame.lookAt(edge, edge + forward)
+ local hub = workspace:FindFirstChild(config.name)
+ if not hub then
+  hub = Instance.new("Model")
+  hub.Name = config.name
+  hub.Parent = workspace
+ end
+ hub:SetAttribute("WorldId", world.id)
+ local function part(name, size, position, color, collidable)
+  local p = hub:FindFirstChild(name) or Instance.new("Part")
+  p.Name, p.Size = name, size
+  p.CFrame = frame * CFrame.new(position)
+  p.Anchored = true
+  p.CanCollide, p.CanTouch, p.CanQuery = collidable, false, collidable
+  p.Material, p.Color = Enum.Material.SmoothPlastic, color
+  p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+  p.Parent = hub
+ end
+ part("Floor", Vector3.new(config.width, Field.GroundThickness, config.depth),
+  Vector3.new(0, -Field.GroundThickness / 2, config.depth / 2), Color3.fromRGB(160, 166, 172), true)
+ -- Flush boundary strips define the rectangle without walls or movement barriers.
+ local boundaryColor = Color3.fromRGB(100, 108, 116)
+ for _, side in {-1, 1} do
+  part(side == -1 and "LeftBoundary" or "RightBoundary", Vector3.new(1, 0.025, config.depth),
+   Vector3.new(side * (config.width / 2 - 0.5), 0.0125, config.depth / 2), boundaryColor, false)
+ end
+ part("BackBoundary", Vector3.new(config.width, 0.025, 1),
+  Vector3.new(0, 0.0125, config.depth - 0.5), boundaryColor, false)
+ local interactions = hub:FindFirstChild("Interactions") or Instance.new("Folder")
+ interactions.Name, interactions.Parent = "Interactions", hub
+ for _, definition in config.interactions or {} do
+  local station = interactions:FindFirstChild(definition.id) or Instance.new("Model")
+  station.Name, station.Parent = definition.id, interactions
+  local pad = station:FindFirstChild("Pad") or Instance.new("Part")
+  pad.Name, pad.Size = "Pad", definition.size
+  pad.CFrame = frame * CFrame.new(definition.position + Vector3.new(0, definition.size.Y / 2, 0))
+  pad.Anchored, pad.CanCollide = true, false
+  pad.Material, pad.Color = Enum.Material.SmoothPlastic, boundaryColor
+  pad.Parent = station
+  local post = station:FindFirstChild("Interaction") or Instance.new("Part")
+  post.Name, post.Size = "Interaction", Vector3.new(4, 3, 4)
+  post.CFrame = frame * CFrame.new(definition.position + Vector3.new(0, 1.5, 0))
+  post.Anchored = true
+  post.Material, post.Color = Enum.Material.SmoothPlastic, boundaryColor
+  post.Parent = station
+  local prompt = post:FindFirstChild("Prompt") or Instance.new("ProximityPrompt")
+  prompt.Name, prompt.ActionText = "Prompt", definition.actionText
+  prompt.ObjectText = definition.id == "Shop" and "Equipment" or "Worlds"
+  prompt.MaxActivationDistance, prompt.HoldDuration = config.promptDistance, 0
+  prompt.RequiresLineOfSight = false
+  prompt:SetAttribute("HubAction", definition.id)
+  prompt:SetAttribute("WorldId", world.id)
+  prompt.Parent = post
+  if definition.id == "Shop" then
+   -- Empty placement references only; future displays can use these attachments.
+   for index, category in {"Bat", "Ball", "Tee"} do
+    local slot = pad:FindFirstChild(category .. "Display") or Instance.new("Attachment")
+    slot.Name = category .. "Display"
+    slot.Position = Vector3.new((index - 2) * 8, 0.05, -8)
+    slot.Parent = pad
+   end
+  end
+ end
+ if world.id == Worlds.StartingWorldId then
+  local spawn = workspace:FindFirstChild("SpawnLocation") or hub:FindFirstChild("SpawnLocation")
+  if not spawn then spawn = Instance.new("SpawnLocation") end
+  spawn.Name, spawn.Size = "SpawnLocation", Vector3.new(12, 0.1, 12)
+  spawn.CFrame = CFrame.new(world.arrival.Position.X, surfaceY + 0.05, world.arrival.Position.Z)
+   * world.arrival.Rotation
+  spawn.Anchored, spawn.CanCollide, spawn.Transparency = true, false, 1
+  spawn.Neutral, spawn.Enabled = true, true
+  for _, child in spawn:GetChildren() do
+   if child:IsA("Decal") or child:IsA("Texture") then child.Transparency = 1 end
+  end
+  spawn.Parent = hub
+ end
+end
 
 local function buildField(world)
  local area = workspace:WaitForChild(world.stationName)
@@ -137,6 +225,7 @@ function Builder.Build()
   area:SetAttribute("WorldId", world.id)
   area.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
   buildField(world)
+  buildHub(world, area)
   if world.id ~= Worlds.StartingWorldId then
    local arrivalName = world.stationName .. "ArrivalFloor"
    if not workspace:FindFirstChild(arrivalName) then

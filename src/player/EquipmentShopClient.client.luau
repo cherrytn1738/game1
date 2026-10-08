@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local Remote = ReplicatedStorage:WaitForChild("EquipmentUpgrade")
+local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
 while Player:GetAttribute("DataLoaded") ~= true do
  Player:GetAttributeChangedSignal("DataLoaded"):Wait()
 end
@@ -120,7 +121,7 @@ local function refresh()
   row.button.Text = equipped and "EQUIPPED" or isOwned and "EQUIP"
    or isNext and string.format("PURCHASE\n%d Cash", item.price) or "LOCKED"
   row.button.Active = not equipped and (isOwned or isNext == true) and not pending
-   and not Player:GetAttribute("BattingActive")
+   and Interfaces.CanOpen()
   row.button.AutoButtonColor = row.button.Active
   row.button.BackgroundColor3 = row.button.Active and (isOwned or cash.Value >= item.price)
    and Color3.fromRGB(44, 118, 83) or Color3.fromRGB(67, 73, 87)
@@ -158,7 +159,7 @@ local function showCategory(category)
   Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
   rows[item.id] = {title = title, current = current, next = nextEffect, button = button}
   button.Activated:Connect(function()
-   if pending or not button.Active or Player:GetAttribute("BattingActive") then return end
+   if pending or not button.Active or not Interfaces.CanOpen() then return end
    local owned = ownership[category]:GetAttributes()
    local nextItem = Equipment.GetNextPurchase(category, owned)
    local action, value
@@ -198,17 +199,25 @@ Remote.OnClientEvent:Connect(function(success, message)
 end)
 cash:GetPropertyChangedSignal("Value"):Connect(refresh)
 openButton.Activated:Connect(function()
- if Player:GetAttribute("BattingActive") then return end
- panel.Visible = not panel.Visible
- if panel.Visible then feedback.Text = "" refresh() end
+ if panel.Visible then panel.Visible = false else Interfaces.Open("Shop") end
+end)
+Interfaces.Register("Shop", function(visible)
+ panel.Visible = visible
+ if visible then feedback.Text = "" refresh() end
 end)
 close.Activated:Connect(function() panel.Visible = false end)
 local function battingChanged()
- local active = Player:GetAttribute("BattingActive") == true
- openButton.Visible = not active
- if active then panel.Visible = false end
+ openButton.Visible = Interfaces.CanOpen() and not Interfaces.HasPhysicalHub()
+ if not Interfaces.CanOpen() then panel.Visible = false end
+ refresh()
 end
 Player:GetAttributeChangedSignal("BattingActive"):Connect(battingChanged)
+Player:GetAttributeChangedSignal("HitActive"):Connect(battingChanged)
+Player:GetAttributeChangedSignal("CurrentWorldId"):Connect(battingChanged)
+Player.CharacterAdded:Connect(function(character)
+ character:WaitForChild("Humanoid", 10)
+ battingChanged()
+end)
 local function resize()
  local camera = workspace.CurrentCamera
  if camera then

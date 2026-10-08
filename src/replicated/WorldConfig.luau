@@ -4,7 +4,16 @@ local Worlds = {
  Worlds = {
   {id = "world_1", displayName = "World 1", order = 1, endDistance = 5000,
    stationName = "BattingArea", fieldName = "LongRangeField",
-   offset = Vector3.zero, arrival = CFrame.new(0, 4, 0), nextWorldId = "world_2",
+   -- Hub extends behind the existing tee at (-17.2, 0, -21.2); forward is -Z.
+   -- Spawn is 100 studs behind the tee, leaving 40 studs of open space at the back.
+   offset = Vector3.zero, arrival = CFrame.new(-17.2, 4, 78.8), nextWorldId = "world_2",
+   hub = {name = "World1Hub", width = 210, depth = 140,
+    promptDistance = 10,
+    -- Positions relative to the batting edge: +Z is back into the hub.
+    interactions = {
+     {id = "Shop", actionText = "Open Equipment Shop", position = Vector3.new(-70, 0, 65), size = Vector3.new(28, 0.1, 24)},
+     {id = "Travel", actionText = "Open World Travel", position = Vector3.new(35, 0, 120), size = Vector3.new(14, 0.1, 12)},
+    }},
    runoutDistance = 2000,
    sections = {
     {id = "grass", displayName = "Grass", startDistance = 0, endDistance = 300,

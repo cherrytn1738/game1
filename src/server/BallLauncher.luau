@@ -35,6 +35,7 @@ local function cleanup(station, hit)
  if station.hit ~= hit then return end
  station.hit = nil
  hit.finished = true
+ hit.player:SetAttribute("HitActive", false)
  if hit.tracking then hit.tracking:Disconnect() end
  if hit.groundContact then hit.groundContact:Disconnect() end
  if hit.force then hit.force:Destroy() end
@@ -225,6 +226,7 @@ function BallLauncher.TryLaunch(player, result, tool)
   or player:GetAttribute("CurrentWorldId") ~= result.worldId then return false end
  local hit = {player = player, tool = tool, result = result}
  station.hit = hit
+ player:SetAttribute("HitActive", true)
  station.ball:SetAttribute("BallState", "Reserved")
  task.delay(CONTACT_DELAY, launch, station, hit)
  return true

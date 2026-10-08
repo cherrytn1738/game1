@@ -51,6 +51,14 @@ Longer hits generally produce better rewards and allow the player to reach farth
 
 ## Equipment
 
+### Hub access
+
+World 1 uses deliberate physical interactions to open the equipment and world travel interfaces.
+Only one hub interface is open at a time. Browsing does not lock movement; batting, an active hit,
+death, respawning, and world changes close these interfaces. Equipment changes wait until the
+hit has finished and the player has left batting mode. Worlds without a physical hub retain
+on-screen access to the same interfaces.
+
 There are three primary equipment categories:
 
 ### Bat

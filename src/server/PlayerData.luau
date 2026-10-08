@@ -121,7 +121,9 @@ function PlayerData.PurchaseNextEquipment(player, category, purchaseToken)
  if not PlayerData.IsReady(player) then return false, "Your data is not ready. Please wait." end
  local definition = Equipment.Categories[category]
  if not definition then return false, "Invalid equipment category." end
- if player:GetAttribute("BattingActive") then return false, "Press Space to leave batting before shopping." end
+ if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") then
+  return false, "Finish your hit and leave batting before shopping."
+ end
  local session = sessions[player]
  -- This opaque server-issued token identifies the current offer. Retrying an old
  -- request can never buy the following item, even after the request cooldown.
@@ -147,7 +149,9 @@ end
 
 function PlayerData.EquipEquipment(player, category, id)
  if not PlayerData.IsReady(player) then return false, "Your data is not ready. Please wait." end
- if player:GetAttribute("BattingActive") then return false, "Press Space to leave batting before equipping." end
+ if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") then
+  return false, "Finish your hit and leave batting before equipping."
+ end
  if not PlayerData.OwnsEquipment(player, category, id) then return false, "You do not own that equipment in this category." end
  local item = Equipment.Get(category, id)
  player:SetAttribute("Equipped" .. category, item.id)
