@@ -1,83 +1,86 @@
-local Players = game:GetService("Players")
+local Player = game.Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Player = Players.LocalPlayer
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Travel = ReplicatedStorage:WaitForChild("WorldTravel")
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "WorldTravelGui"
-gui.ResetOnSpawn = false
-gui.Parent = Player:WaitForChild("PlayerGui")
-local panel = Instance.new("Frame")
-panel.Name = "TravelPanel"
-panel.Size = UDim2.fromScale(1, 1)
-panel.BackgroundTransparency = 1
-panel.Visible = false
-panel.Parent = gui
-Interfaces.Register("Travel", function(visible) panel.Visible = visible end)
-local close = Instance.new("TextButton")
-close.Name, close.Text = "Close", "Close"
-close.Size = UDim2.fromOffset(190, 28)
-close.Position = UDim2.new(0, 12, 1, -112)
-close.Parent = panel
-close.Activated:Connect(function() panel.Visible = false end)
-local open = Instance.new("TextButton")
-open.Name, open.Text = "OpenTravel", "WORLD TRAVEL"
-open.Size = UDim2.fromOffset(190, 32)
-open.Position = UDim2.new(0, 12, 1, -120)
-open.Parent = gui
-open.Activated:Connect(function() Interfaces.Open("Travel") end)
-local buttons = {}
-for index, world in Worlds.Worlds do
- local button = Instance.new("TextButton")
- button.Name = world.id
- button.Size = UDim2.fromOffset(190, 32)
- button.Position = UDim2.new(0, 12, 1, -152 - (#Worlds.Worlds - index) * 36)
- button.Parent = panel
- buttons[world.id] = button
- button.Activated:Connect(function()
-  if Interfaces.CanOpen() and Player:GetAttribute("WorldUnlocked_" .. world.id) == true then
-   Interfaces.CloseAll()
-   Travel:FireServer(world.id)
-  end
- end)
-end
-local status = Instance.new("TextLabel")
-status.Name = "WorldStatus"
-status.Size = UDim2.fromOffset(260, 60)
-status.Position = UDim2.new(0, 12, 1, -80)
-status.TextWrapped = true
-status.Text = ""
-status.Parent = gui
+local UI = require(script.Parent:WaitForChild("UICommon"))
+local gui, panel, show = UI.Menu("WorldTravelGui","World travel","Hit farther to unlock your next destination.",Interfaces.CloseAll)
+local list = UI.Scroll(panel,"WorldList")
+list.Position, list.Size = UDim2.fromOffset(14,94), UDim2.new(1,-28,1,-150)
+local feedback = UI.Label(panel,"Feedback","Your world unlocks are saved.",14,UI.Colors.Muted)
+feedback.Position, feedback.Size, feedback.TextWrapped = UDim2.new(0,16,1,-44), UDim2.new(1,-32,0,36), true
+local rows = {}
+local pending, requestVersion = false, 0
 
 local function refresh()
- gui.Enabled = Player:GetAttribute("DataLoaded") == true
- open.Visible = Interfaces.CanOpen() and not Interfaces.HasPhysicalHub() and not panel.Visible
  for _, world in Worlds.Worlds do
-  local unlocked = Player:GetAttribute("WorldUnlocked_" .. world.id) == true
+  local row = rows[world.id]
+  local ready = Player:GetAttribute("DataLoaded") == true
+  local unlocked = ready and Player:GetAttribute("WorldUnlocked_"..world.id) == true
   local current = Player:GetAttribute("CurrentWorldId") == world.id
-  buttons[world.id].Text = world.displayName .. (unlocked and (current and " — Return to arrival" or " — Travel") or " — Locked")
-  buttons[world.id].Active = unlocked
+  local predecessor
+  for _, previous in Worlds.Worlds do if previous.nextWorldId == world.id then predecessor = previous end end
+  row.state.Text = not ready and "Loading destinations..." or current and "Current world" or unlocked and "Unlocked" or "Locked"
+  row.state.TextColor3 = current and UI.Colors.Accent or UI.Colors.Muted
+  row.detail.Text = unlocked and ("Field end · " .. UI.Number(world.endDistance) .. " studs")
+   or predecessor and ("Reach " .. UI.Number(predecessor.endDistance) .. " studs in " .. predecessor.displayName .. " to unlock.") or "Not available yet."
+  UI.SetButton(row.button,pending and "PLEASE WAIT" or unlocked and (current and "RETURN TO ARRIVAL" or "TRAVEL") or "LOCKED",ready and not pending and Interfaces.CanOpen(),unlocked)
+  local narrow = panel.AbsoluteSize.X < 540
+  row.frame.Size = UDim2.new(1,-10,0,narrow and 174 or 124)
+  row.title.Size, row.state.Size, row.detail.Size = UDim2.new(1,narrow and -28 or -214,0,26), UDim2.new(1,narrow and -28 or -214,0,22), UDim2.new(1,narrow and -28 or -214,0,48)
+  row.button.Position = narrow and UDim2.fromOffset(14,124) or UDim2.new(1,-184,0,36)
+  row.button.Size = narrow and UDim2.new(1,-28,0,40) or UDim2.fromOffset(170,52)
  end
 end
+
+for index, world in Worlds.Worlds do
+ local frame = UI.Surface(list,world.id,UI.Colors.Card)
+ frame.LayoutOrder = index
+ local title = UI.Label(frame,"WorldName",world.displayName,20)
+ title.Font, title.Position = Enum.Font.GothamBold, UDim2.fromOffset(14,10)
+ local state = UI.Label(frame,"State","",14)
+ state.Position = UDim2.fromOffset(14,39)
+ local detail = UI.Label(frame,"Requirement","",14,UI.Colors.Muted)
+ detail.Position, detail.TextWrapped = UDim2.fromOffset(14,64), true
+ local button = UI.Button(frame,"Travel","")
+ rows[world.id] = {frame=frame,title=title,state=state,detail=detail,button=button}
+ button.Activated:Connect(function()
+  if pending or not button.Active or not Interfaces.CanOpen() then return end
+  if Player:GetAttribute("WorldUnlocked_"..world.id) ~= true then
+   feedback.Text, feedback.TextColor3 = detail.Text, UI.Colors.Error
+   return
+  end
+  pending = true
+  requestVersion += 1
+  local version = requestVersion
+  feedback.Text = "Travelling to " .. world.displayName .. "..."
+  refresh()
+  Travel:FireServer(world.id)
+  task.delay(8,function()
+   if pending and version == requestVersion then
+    pending = false
+    feedback.Text = "No response yet. Please try again."
+    refresh()
+   end
+  end)
+ end)
+ Player:GetAttributeChangedSignal("WorldUnlocked_"..world.id):Connect(refresh)
+end
+Interfaces.Register("Travel",function(visible)
+ show(visible)
+ if visible then feedback.Text, feedback.TextColor3 = "Your world unlocks are saved.", UI.Colors.Muted refresh() end
+end)
+panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
 Player:GetAttributeChangedSignal("DataLoaded"):Connect(refresh)
 Player:GetAttributeChangedSignal("CurrentWorldId"):Connect(refresh)
-Player:GetAttributeChangedSignal("BattingActive"):Connect(refresh)
-Player:GetAttributeChangedSignal("HitActive"):Connect(refresh)
-panel:GetPropertyChangedSignal("Visible"):Connect(refresh)
-Player.CharacterAdded:Connect(function(character)
- character:WaitForChild("Humanoid", 10)
+Travel.OnClientEvent:Connect(function(message)
+ pending = false
+ requestVersion += 1
+ local success = type(message) == "string" and message:sub(1,7) == "Arrived"
+ if success then Interfaces.CloseAll() end
+ feedback.Text = success and message or "That destination is unavailable. Check its unlock requirement."
+ feedback.TextColor3 = success and UI.Colors.Accent or UI.Colors.Error
+ if not gui.Scrim.Visible then UI.Notify(feedback.Text,success and "success" or "error") end
  refresh()
-end)
-for _, world in Worlds.Worlds do Player:GetAttributeChangedSignal("WorldUnlocked_" .. world.id):Connect(refresh) end
-status:GetPropertyChangedSignal("Text"):Connect(function() status.Visible = status.Text ~= "" end)
-status.Visible = false
-Player:GetAttributeChangedSignal("CurrentWorldId"):Connect(function() status.Text = "" end)
-Player.CharacterRemoving:Connect(function() status.Text = "" end)
-Travel.OnClientEvent:Connect(function(message) status.Text = message end)
-ReplicatedStorage:WaitForChild("BattingTiming").OnClientEvent:Connect(function(_, result)
- local final = result.kind == "Distance" and result.distanceResult
- if final and final.worldCompletionMessage then status.Text = final.worldCompletionMessage end
 end)
 refresh()

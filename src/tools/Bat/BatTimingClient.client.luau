@@ -116,81 +116,6 @@ local function moveIndicator(position)
  marker.Rotation = degrees
 end
 
-local distanceGui = Instance.new("ScreenGui")
-distanceGui.Name = "BatDistanceGui"
-distanceGui.ResetOnSpawn = true
-distanceGui.DisplayOrder = 11
-distanceGui.Enabled = false
-distanceGui.Parent = Player:WaitForChild("PlayerGui")
-
-local distancePanel = Instance.new("Frame")
-distancePanel.AnchorPoint = Vector2.new(0.5, 0)
-distancePanel.Position = UDim2.new(0.5, 0, 0, 24)
-distancePanel.Size = UDim2.new(0.8, 0, 0, 72)
-distancePanel.BackgroundColor3 = Color3.fromRGB(25, 29, 38)
-distancePanel.BorderSizePixel = 0
-distancePanel.Parent = distanceGui
-local distanceConstraint = Instance.new("UISizeConstraint")
-distanceConstraint.MaxSize = Vector2.new(360, 72)
-distanceConstraint.Parent = distancePanel
-local distanceCorner = Instance.new("UICorner")
-distanceCorner.CornerRadius = UDim.new(0, 8)
-distanceCorner.Parent = distancePanel
-local distanceLabel = Instance.new("TextLabel")
-distanceLabel.BackgroundTransparency = 1
-distanceLabel.Size = UDim2.fromScale(1, 1)
-distanceLabel.Font = Enum.Font.GothamBold
-distanceLabel.TextSize = 18
-distanceLabel.TextColor3 = Color3.new(1, 1, 1)
-distanceLabel.Text = ""
-distanceLabel.Parent = distancePanel
-local showDistanceUntil = 0
-
-local cashGui = Instance.new("ScreenGui")
-cashGui.Name = "CashGui"
-cashGui.ResetOnSpawn = true
-cashGui.DisplayOrder = 11
-cashGui.Parent = Player:WaitForChild("PlayerGui")
-
-local cashPanel = Instance.new("Frame")
-cashPanel.AnchorPoint = Vector2.new(1, 0)
-cashPanel.Position = UDim2.new(1, -20, 0, 24)
-cashPanel.Size = UDim2.fromOffset(190, 48)
-cashPanel.BackgroundColor3 = Color3.fromRGB(25, 29, 38)
-cashPanel.BorderSizePixel = 0
-cashPanel.Parent = cashGui
-local cashCorner = Instance.new("UICorner")
-cashCorner.CornerRadius = UDim.new(0, 8)
-cashCorner.Parent = cashPanel
-
-local cashLabel = Instance.new("TextLabel")
-cashLabel.Name = "CashBalance"
-cashLabel.BackgroundTransparency = 1
-cashLabel.Size = UDim2.fromScale(1, 1)
-cashLabel.Font = Enum.Font.GothamBold
-cashLabel.TextSize = 20
-cashLabel.TextColor3 = Color3.fromRGB(255, 220, 95)
-cashLabel.Parent = cashPanel
-
-local cashValueConnection
-local function updateCashDisplay()
- if cashValueConnection then cashValueConnection:Disconnect() end
- cashValueConnection = nil
- local stats = Player:FindFirstChild("leaderstats")
- local cash = stats and stats:FindFirstChild("Cash")
- if cash and cash:IsA("IntValue") and Player:GetAttribute("DataLoaded") == true then
-  cashLabel.Text = string.format("%d Cash", cash.Value)
-  cashValueConnection = cash:GetPropertyChangedSignal("Value"):Connect(updateCashDisplay)
- else
-  cashLabel.Text = "Loading data..."
- end
-end
-local dataLoadedConnection = Player:GetAttributeChangedSignal("DataLoaded"):Connect(updateCashDisplay)
-local cashDescendantConnection = Player.DescendantAdded:Connect(function(child)
- if child.Name == "Cash" and child.Parent.Name == "leaderstats" then updateCashDisplay() end
-end)
-updateCashDisplay()
-
 local cameraActive = false
 local savedFieldOfView
 local flightCameraActive = false
@@ -269,8 +194,10 @@ local function updateBattingState(active)
  if active then
   if not exitBound then
    ContextActionService:BindActionAtPriority(
-    "ExitBatting", exitAction, false, 3000, Enum.KeyCode.Space
+    "ExitBatting", exitAction, true, 3000, Enum.KeyCode.Space
    )
+   ContextActionService:SetTitle("ExitBatting", "Leave")
+   ContextActionService:SetPosition("ExitBatting", UDim2.new(1, -90, 1, -180))
    exitBound = true
   end
   enterBattingCamera()
@@ -289,7 +216,6 @@ local function bindWorld()
  bindingVersion += 1
  local version = bindingVersion
  updateBattingState(false)
- showDistanceUntil = 0
  boundWorldId, ball = nil, nil
  local world = Worlds.Get(Player:GetAttribute("CurrentWorldId"))
  if not world then return end
@@ -320,7 +246,6 @@ local renderConnection = RunService.RenderStepped:Connect(function()
   and Player:GetAttribute("BattingActive") == true
   and ball ~= nil and boundWorldId == Player:GetAttribute("CurrentWorldId")
  updateBattingState(active)
- distanceGui.Enabled = os.clock() < showDistanceUntil
  if not active then return end
 
  local ballState = ball:GetAttribute("BallState")
@@ -347,34 +272,13 @@ local renderConnection = RunService.RenderStepped:Connect(function()
  moveIndicator(Timing.GetPosition(now, startTime))
 end)
 
-local resultConnection = Remote.OnClientEvent:Connect(function(tool, result)
- if tool ~= Tool or result.kind ~= "Distance" then return end
- local distanceResult = result.distanceResult
- if not distanceResult or distanceResult.worldId ~= Player:GetAttribute("CurrentWorldId")
-  or distanceResult.swingId ~= Player:GetAttribute("LastBatDistanceSwingId") then
-  return
- end
- distanceLabel.Text = string.format("%.1f studs — %s\n+%d Cash%s",
-  distanceResult.distanceStuds, distanceResult.sectionName or "",
-  result.cashEarned or distanceResult.cashEarned or 0,
-  distanceResult.newPersonalBest and "\nNEW SESSION BEST!" or "")
- showDistanceUntil = os.clock() + 6
- distanceGui.Enabled = true
-end)
-
 Tool.Destroying:Connect(function()
  bindingVersion += 1
  worldConnection:Disconnect()
- dataLoadedConnection:Disconnect()
- cashDescendantConnection:Disconnect()
  equippedTeeConnection:Disconnect()
  if exitBound then ContextActionService:UnbindAction("ExitBatting") end
  leaveBattingCamera()
  equippedConnection:Disconnect()
  renderConnection:Disconnect()
- resultConnection:Disconnect()
  gui:Destroy()
- distanceGui:Destroy()
- cashGui:Destroy()
- if cashValueConnection then cashValueConnection:Disconnect() end
 end)

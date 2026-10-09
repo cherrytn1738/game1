@@ -5,6 +5,13 @@ local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local player = Players.LocalPlayer
 local Interfaces = {}
 local panels = {}
+local currentMenu
+local changed = Instance.new("BindableEvent")
+Interfaces.Changed = changed.Event
+
+function Interfaces.IsOpen()
+ return currentMenu ~= nil
+end
 
 function Interfaces.CanOpen()
  local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
@@ -14,12 +21,15 @@ end
 
 function Interfaces.CloseAll()
  for _, show in panels do show(false) end
+ if currentMenu then currentMenu = nil changed:Fire() end
 end
 
 function Interfaces.Open(name)
  if not Interfaces.CanOpen() or not panels[name] then return end
  Interfaces.CloseAll()
  panels[name](true)
+ currentMenu = name
+ changed:Fire()
 end
 
 function Interfaces.Register(name, show)
