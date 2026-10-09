@@ -104,7 +104,7 @@ end
 
 local function equip()
 	cleanup()
-	if not Player:GetAttribute("BattingActive") or Tool.Parent ~= Player.Character then return end
+	if not (Player:GetAttribute("BattingActive") or Player:GetAttribute("TrainingActive")) or Tool.Parent ~= Player.Character then return end
 	local character = Tool.Parent
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	root = character:FindFirstChild("HumanoidRootPart")
@@ -156,26 +156,19 @@ local function equip()
 end
 
 Tool.Equipped:Connect(equip)
-Player:GetAttributeChangedSignal("BattingActive"):Connect(function()
- if Player:GetAttribute("BattingActive") then
+local function updateMode()
+ if Player:GetAttribute("BattingActive") or Player:GetAttribute("TrainingActive") then
   if Tool.Parent == Player.Character then equip() end
- else
-  cleanup()
- end
-end)
-
+ else cleanup() end
+end
+Player:GetAttributeChangedSignal("BattingActive"):Connect(updateMode)
+Player:GetAttributeChangedSignal("TrainingActive"):Connect(updateMode)
 Tool.Unequipped:Connect(cleanup)
 Tool.Destroying:Connect(cleanup)
-Tool.Activated:Connect(function()
-	if not equipped or swinging or Player:GetAttribute("HitActive") or not Player:GetAttribute("BattingActive") or Tool:GetAttribute("ExitPending") then return end
-	local now = workspace:GetServerTimeNow()
-	local session = Tool:GetAttribute("BattingSession")
-	local nextSwing = game:GetService("Players").LocalPlayer:GetAttribute("BatNextSwingTime") or 0
-	if not session or now < nextSwing then return end
-	swinging = true
-	-- Animation is local; the server validates this session and owns the launch.
-	BattingRemote:FireServer(session)
-	local token = generation
+local function playSwing()
+ if not equipped or swinging then return end
+ swinging = true
+ local token = generation
 	if not stage(LOAD, LOAD_TIME, token) then return end
 	if not stage(DRIVE, DRIVE_TIME, token) then return end
 	if not stage(CONTACT, CONTACT_TIME, token) then return end
@@ -183,4 +176,20 @@ Tool.Activated:Connect(function()
 	task.wait(HOLD_TIME)
 	if not stage(READY, RETURN_TIME, token) then return end
 	if token == generation then swinging = false end
+end
+
+Tool.Activated:Connect(function()
+ if not equipped or swinging or Player:GetAttribute("TrainingActive") or Player:GetAttribute("HitActive")
+  or not Player:GetAttribute("BattingActive") or Tool:GetAttribute("ExitPending") then return end
+ local session = Tool:GetAttribute("BattingSession")
+ if not session or workspace:GetServerTimeNow() < (Player:GetAttribute("BatNextSwingTime") or 0) then return end
+ BattingRemote:FireServer(session)
+ playSwing()
+end)
+
+-- Client-local presentation signal. It cannot launch a real ball or grant Power.
+local practice = Instance.new("BindableEvent")
+practice.Name, practice.Parent = "PracticeSwing", Tool
+practice.Event:Connect(function()
+ if Player:GetAttribute("TrainingActive") then playSwing() end
 end)

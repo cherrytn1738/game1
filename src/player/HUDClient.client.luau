@@ -71,7 +71,7 @@ local function refresh()
  alive = alive and alive.Health > 0
  local batting = ready and alive and Player:GetAttribute("BattingActive") == true
  local playing = ready and alive and Player:GetAttribute("HitActive") == true
- local hideBackpack = Interfaces.IsOpen() or batting
+ local hideBackpack = Interfaces.IsOpen() or batting or Player:GetAttribute("TrainingActive")
  if hideBackpack and savedBackpackEnabled == nil then
   savedBackpackEnabled = StarterGui:GetCoreGuiEnabled(Enum.CoreGuiType.Backpack)
   StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
@@ -106,7 +106,7 @@ local function resize()
 end
 root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
 Interfaces.Changed:Connect(refresh)
-for _, name in {"DataLoaded","BattingActive","HitActive"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
+for _, name in {"DataLoaded","BattingActive","TrainingActive","HitActive"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
 for _, name in {"Power","Level","LevelCap","Rebirths"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
 local lastLevel = Player:GetAttribute("DataLoaded") and Player:GetAttribute("Level") or nil
 local noticePending = false
@@ -121,7 +121,7 @@ Player:GetAttributeChangedSignal("Level"):Connect(function()
   noticePending = false
   local level = Player:GetAttribute("Level")
   if Player:GetAttribute("DataLoaded") and lastLevel and level > lastLevel then
-   UI.Notify("LEVEL UP - Level " .. UI.Number(level),"success")
+   UI.Notify("LEVEL UP - Level " .. UI.Number(level) .. (level >= Player:GetAttribute("LevelCap") and " - Level cap reached" or ""),"success")
   end
   lastLevel = level
  end)

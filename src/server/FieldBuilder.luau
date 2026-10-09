@@ -1,6 +1,7 @@
 -- Generates the configured runways and optional empty hubs.
 local Field = require(game:GetService("ReplicatedStorage"):WaitForChild("FieldConfig"))
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
+local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 local Builder = {}
 
 local function buildHub(world, area)
@@ -77,6 +78,29 @@ local function buildHub(world, area)
   end
  end
  if world.id == Worlds.StartingWorldId then
+  local stadium = hub:FindFirstChild("TrainingStadium") or Instance.new("Model")
+  stadium.Name, stadium.Parent = "TrainingStadium", hub
+  local plate = stadium:FindFirstChild("TrainingPlate") or Instance.new("Part")
+  plate.Name, plate.Size = "TrainingPlate", Training.PlateSize
+  plate.CFrame = frame * CFrame.new(Training.PlatePosition + Vector3.yAxis * Training.PlateSize.Y / 2)
+  plate.Anchored, plate.CanCollide = true, false
+  plate.Color = Color3.fromRGB(110,110,110)
+  plate.Parent = stadium
+  for name, offset in {PitchOrigin = Training.PitchOffset, ContactPosition = Training.ContactOffset} do
+   local reference = plate:FindFirstChild(name) or Instance.new("Attachment")
+   reference.Name, reference.Position, reference.Parent = name, offset, plate
+  end
+  local selector = stadium:FindFirstChild("Selector") or Instance.new("Part")
+  selector.Name, selector.Size = "Selector", Vector3.new(3,0.1,3)
+  selector.CFrame = plate.CFrame * CFrame.new(Training.SelectorOffset)
+  selector.Anchored, selector.CanCollide = true, false
+  selector.Color, selector.Parent = plate.Color, stadium
+  local prompt = selector:FindFirstChild("Prompt") or Instance.new("ProximityPrompt")
+  prompt.Name, prompt.ActionText, prompt.ObjectText = "Prompt", "Choose Training Ground", "Training"
+  prompt.HoldDuration, prompt.MaxActivationDistance, prompt.RequiresLineOfSight = 0, config.promptDistance, false
+  prompt:SetAttribute("HubAction", "Training")
+  prompt:SetAttribute("WorldId", world.id)
+  prompt.Parent = selector
   local spawn = workspace:FindFirstChild("SpawnLocation") or hub:FindFirstChild("SpawnLocation")
   if not spawn then spawn = Instance.new("SpawnLocation") end
   spawn.Name, spawn.Size = "SpawnLocation", Vector3.new(12, 0.1, 12)

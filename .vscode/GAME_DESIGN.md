@@ -6,7 +6,7 @@ A Power/Level-based baseball batting simulator where players hit a ball from a b
 
 The core gameplay loop is:
 
-Gain Power (training in a future milestone) → Level up → hit farther → earn Cash → reach farther sections → unlock worlds → reach Level Cap → Rebirth → repeat
+Train to gain Power → Level up → hit farther → earn Cash → reach farther sections → unlock worlds → reach Level Cap → Rebirth → repeat
 
 The game is not intended to simulate traditional baseball games. The focus is on satisfying batting, distance progression, equipment progression, and reaching increasingly distant environments.
 
@@ -181,7 +181,7 @@ Malformed new fields are repaired; LevelCap is derived, never trusted from a sav
 - At the cap, Power is zero and excess grants are discarded (no overflow bank).
 - Level cap = `10 + 10 * Rebirths`; Power gain multiplier = `Rebirths + 1`.
 - A valid finalized field hit grants base 2 Power, once, through server-only
-  `PlayerData.GrantPower(player, baseAmount, source)`. Future training uses this API.
+  `PlayerData.GrantPower(player, baseAmount, source)`. Active training uses this API; offline grants use the same private grant path inside the atomic load transaction.
 - Speed = `55 + 15 * (Level - 1)` studs/second, with fixed 38-degree loft.
   Level is snapshotted at swing acceptance; Power, Rebirths, Bat, Ball, and Tee
   do not modify launch speed. Physics still determines actual final distance.
@@ -198,7 +198,60 @@ session (and optional `Exit`); the server sends final distance/reward feedback.
 Contact delay remains 0.20 seconds and swing cooldown remains 0.84 seconds.
 Natural stopping, sections, world endpoints, and Cash formulas are unchanged.
 
-No training mechanics, final Rebirth experience, or new cosmetics are included.
+Milestone 15A added no training mechanics or Rebirth UI. Training is added below in Milestone 15B.
+## Training and Offline Power (Milestone 15B)
+
+Training is the primary Power source. One plain TrainingStadium occupies the reserved
+right side of World1Hub. Its plate is at hub-relative (70, 0, 70), currently near
+(52.8, 0.17, 48.8); the selector is 10 studs left and 5 studs behind it. Only two
+plain Parts and two pitch/contact Attachments are needed. The builder reuses them.
+Shop, Travel, normal batting, and world endpoints remain unchanged.
+
+TrainingConfig defines logical grounds, not additional stadiums:
+
+| Ground ID | Rebirth requirement | Base Power / interval |
+| --- | --- | --- |
+| basic_training | 0 | 20 / 2 seconds |
+| advanced_training | 1 | 50 / 2 seconds |
+| expert_training | 2 | 100 / 2 seconds |
+
+Use the nearby prompt to choose an unlocked ground at no Cash cost. Walk onto the
+5-by-5 plate to train automatically. One player occupies it at a time. Selection
+is private per-player state, persisted as SelectedTrainingGround; access derives
+from Rebirths. Leave training before changing ground, shopping, or rebirthing.
+Space/touch Leave restores movement and requires stepping off before re-entry.
+Death, respawn, disconnect, invalid data/character, and travel release the stadium.
+Normal batting and active-hit state exclude training.
+
+The server grants a configured tick through PlayerData.GrantPower. Rebirth
+multiplication, Level advancement, and cap overflow rules remain unchanged.
+Ticks do not catch up in bursts after server stalls. At the cap, no Power grant
+calls are made. Client-local pitches and the reused Bat swing are presentation
+only: no real ball launch, Cash, distance, sections, or world completion occurs.
+
+Schema 5 adds SelectedTrainingGround and LastLogoutTime to PlayerProgression.
+Existing profiles keep Cash, Power, Level, Rebirths, equipment, and worlds.
+Missing/locked/unknown selections fall back to Basic Training. Old schemas and
+missing, zero, malformed, or future timestamps grant no historical offline Power.
+
+Offline base Power = floor(min(elapsed seconds, 8 hours) * selected ground's
+base Power / interval * 0.25). The same server grant path applies the Rebirth
+multiplier and cap rules. These are placeholder balance values. The selected
+ground is used even when a higher one is unlocked. Offline earning does not
+require leaving while actively training.
+
+The login UpdateAsync commits the reward, consumes LastLogoutTime, and claims the
+session atomically. A lost-response retry recognizes its own session and does not
+grant again. There is no client offline-claim operation. Normal exit records the
+server close time; autosaves record a checkpoint time for crash recovery. No
+extra periodic DataStore writes are added. A crash before the first autosave after
+login conservatively has no new offline timestamp to use.
+
+TrainingRequest accepts only Select(id) or Exit(session). No remote starts
+training or accepts rates, Power, timestamps, duration, or Rebirths. The HUD shows
+training state/rate alongside existing Power/Level values. Offline notifications
+are shown once per client session for positive rewards covering at least 60 seconds.
+No themes, stadium art, equipment cosmetics, or final Rebirth UI are included.
 ## Server Authority
 
 Important progression and gameplay state must remain server-authoritative.

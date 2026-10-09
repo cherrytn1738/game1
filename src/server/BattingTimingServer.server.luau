@@ -8,6 +8,7 @@ local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local BallLauncher = require(script.Parent:WaitForChild("BallLauncher"))
 
 local PlayerData = require(script.Parent:WaitForChild("PlayerData"))
+local Training = require(script.Parent:WaitForChild("TrainingService"))
 
 local CHECK_INTERVAL = 0.1
 local ENTRY_HEIGHT = 6
@@ -50,7 +51,7 @@ local function leave(player)
 end
 
 local function enter(player, character, humanoid, root)
- if not PlayerData.IsReady(player) then return end
+ if not PlayerData.IsReady(player) or player:GetAttribute("TrainingActive") then return end
  local state = states[player]
  local world = Worlds.Get(player:GetAttribute("CurrentWorldId"))
  if not world or player:GetAttribute("WorldUnlocked_" .. world.id) ~= true then return end
@@ -135,6 +136,7 @@ Travel.OnServerEvent:Connect(function(player, destinationId)
  local root = character and character:FindFirstChild("HumanoidRootPart")
  if not humanoid or humanoid.Health <= 0 or not root then return end
  state.lastTravel = os.clock()
+ Training.Stop(player)
  leave(player)
  BallLauncher.CancelPlayer(player)
  state.session += 1

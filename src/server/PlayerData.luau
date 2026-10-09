@@ -6,9 +6,10 @@ local Equipment = require(game:GetService("ReplicatedStorage"):WaitForChild("Equ
 
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local Progression = require(game.ReplicatedStorage:WaitForChild("ProgressionConfig"))
+local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 
 local STORE_NAME = "PlayerProgression"
-local SCHEMA_VERSION = 4
+local SCHEMA_VERSION = 5
 local AUTOSAVE_SECONDS = 60
 local LEASE_SECONDS = 180
 local LEASE_SAFETY_SECONDS = 15
@@ -40,6 +41,9 @@ local function validate(record)
  local repairs = {}
  data.SchemaVersion = SCHEMA_VERSION
  for field, value in Progression.Normalize(record, (version or 1) < 4) do data[field] = value end
+ data.SelectedTrainingGround = Training.ValidSelection(data.SelectedTrainingGround, data.Rebirths)
+ -- Old schemas cannot manufacture historical offline rewards.
+ if (version or 1) < 5 then data.LastLogoutTime = nil end
  if data.Cash == nil then
   data.Cash = 0
  elseif not validCash(data.Cash) then
@@ -119,18 +123,47 @@ function PlayerData.GetProgression(player)
  return table.clone(sessions[player].progression)
 end
 
-function PlayerData.GrantPower(player, baseAmount, source)
- if not PlayerData.IsReady(player) then return false, "Player data is not ready." end
+-- Single grant path, also used on the private save snapshot during atomic login.
+local function grantProgression(state, baseAmount, source)
  if not Progression.IsInteger(baseAmount, 0, Progression.MaxBaseGrant)
   or type(source) ~= "string" or #source == 0 or #source > 64 then
   return false, "Invalid Power grant."
  end
- local state = sessions[player].progression
  local oldLevel = state.Level
  local amount = state.Level < state.LevelCap and baseAmount * Progression.GetPowerMultiplier(state.Rebirths) or 0
  Progression.Advance(state, amount)
- publishProgression(player, state)
  return true, {powerGranted = amount, oldLevel = oldLevel, newLevel = state.Level, source = source}
+end
+
+function PlayerData.GrantPower(player, baseAmount, source)
+ if not PlayerData.IsReady(player) then return false, "Player data is not ready." end
+ local state = sessions[player].progression
+ local ok, result = grantProgression(state, baseAmount, source)
+ if ok then publishProgression(player, state) end
+ return ok, result
+end
+
+function PlayerData.GetTrainingGround(player)
+ if not PlayerData.IsReady(player) then return nil end
+ local session = sessions[player]
+ local id = session.selectedTrainingGround
+ if not Training.IsUnlocked(id, session.progression.Rebirths) then return nil end
+ return Training.Get(id)
+end
+
+function PlayerData.SelectTrainingGround(player, id)
+ if not PlayerData.IsReady(player) then return false, "Player data is not ready." end
+ if player:GetAttribute("TrainingActive") or player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") then
+  return false, "Leave training or batting before selecting a ground."
+ end
+ local ground = type(id) == "string" and Training.Get(id)
+ if not ground then return false, "Unknown Training Ground." end
+ if not Training.IsUnlocked(id, sessions[player].progression.Rebirths) then
+  return false, string.format("Requires %d Rebirths.", ground.requiredRebirths)
+ end
+ sessions[player].selectedTrainingGround = id
+ player:SetAttribute("SelectedTrainingGround", id)
+ return true, "Selected " .. ground.displayName .. "."
 end
 
 function PlayerData.CanRebirth(player)
@@ -141,8 +174,8 @@ end
 
 function PlayerData.TryRebirth(player)
  if not PlayerData.CanRebirth(player) then return false, "Reach your Level Cap first." end
- if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") then
-  return false, "Finish your hit and leave batting before rebirthing."
+ if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") or player:GetAttribute("TrainingActive") then
+  return false, "Leave training or batting before rebirthing."
  end
  local state = sessions[player].progression
  state.Rebirths += 1
@@ -166,8 +199,8 @@ function PlayerData.PurchaseNextEquipment(player, category, purchaseToken)
  if not PlayerData.IsReady(player) then return false, "Your data is not ready. Please wait." end
  local definition = Equipment.Categories[category]
  if not definition then return false, "Invalid equipment category." end
- if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") then
-  return false, "Finish your hit and leave batting before shopping."
+ if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") or player:GetAttribute("TrainingActive") then
+  return false, "Leave training or batting before shopping."
  end
  local session = sessions[player]
  -- This opaque server-issued token identifies the current offer. Retrying an old
@@ -194,8 +227,8 @@ end
 
 function PlayerData.EquipEquipment(player, category, id)
  if not PlayerData.IsReady(player) then return false, "Your data is not ready. Please wait." end
- if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") then
-  return false, "Finish your hit and leave batting before equipping."
+ if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") or player:GetAttribute("TrainingActive") then
+  return false, "Leave training or batting before equipping."
  end
  if not PlayerData.OwnsEquipment(player, category, id) then return false, "You do not own that equipment in this category." end
  local item = Equipment.Get(category, id)
@@ -221,6 +254,7 @@ local function snapshot(player)
  local cash = stats and stats:FindFirstChild("Cash")
  if not cash or not cash:IsA("IntValue") or not validCash(cash.Value) then return nil end
  local data = {SchemaVersion = SCHEMA_VERSION, Cash = cash.Value}
+ data.SelectedTrainingGround = session.selectedTrainingGround
  for field, value in session.progression do data[field] = value end
  for _, category in CATEGORIES do
   local field = "Equipped" .. category
@@ -262,6 +296,8 @@ local function save(player, session, release)
   end
   local updated = table.clone(current)
   for field, value in data do updated[field] = value end
+  -- Autosave is also a crash checkpoint; normal exit uses the actual close time.
+  updated.LastLogoutTime = release and session.logoutTime or os.time()
   updated.LastWriteId = writeId
   if release then
    updated.Session = nil
@@ -285,6 +321,7 @@ local function save(player, session, release)
 end
 
 local function close(player, session)
+ session.logoutTime = session.logoutTime or os.time()
  session.closing = true
  player:SetAttribute("DataLoaded", false)
  if not session.failed then player:SetAttribute("DataLoadState", "Closing") end
@@ -308,6 +345,7 @@ local function loadPlayer(player)
  player:SetAttribute("DataLoadState", "Loading")
  local rejection, repairs
  local newRecord = false
+ local offlineResult, offlineSeconds
  local ok, record = update(session, function(current)
   rejection = nil
   if session.closing or shuttingDown then return nil end
@@ -328,6 +366,17 @@ local function loadPlayer(player)
   end
   -- Remember NEW across retries of our own successful claim.
   newRecord = current == nil or (owns(current, session) and newRecord)
+  if not owns(current, session) then
+   local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), data.SelectedTrainingGround)
+   local progression = Progression.Normalize(data, false)
+   local granted, result = grantProgression(progression, baseAmount, "OfflineTraining")
+   if not granted then rejection = "invalid offline reward configuration" return nil end
+   for field, value in progression do data[field] = value end
+   offlineResult, offlineSeconds = result, seconds
+  end
+  -- Reward and timestamp consumption commit WITH the session claim. A response-loss
+  -- retry sees our session ID and cannot apply the reward a second time.
+  data.LastLogoutTime = nil
   repairs = warnings
   data.Session = {Id = session.id, ExpiresAt = os.time() + LEASE_SECONDS}
   return data
@@ -341,6 +390,10 @@ local function loadPlayer(player)
  end
  session.expiresAt = record.Session.ExpiresAt
  session.progression = Progression.Normalize(record, false)
+ session.selectedTrainingGround = record.SelectedTrainingGround
+ player:SetAttribute("SelectedTrainingGround", session.selectedTrainingGround)
+ player:SetAttribute("OfflinePowerEarned", offlineResult and offlineResult.powerGranted or 0)
+ player:SetAttribute("OfflineSeconds", offlineSeconds or 0)
  publishProgression(player, session.progression)
  -- Publish the complete authoritative runtime state only after a successful claim.
  local stats = Instance.new("Folder")

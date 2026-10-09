@@ -16,7 +16,7 @@ end
 function Interfaces.CanOpen()
  local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
  return player:GetAttribute("DataLoaded") == true and humanoid ~= nil and humanoid.Health > 0
-  and not player:GetAttribute("BattingActive") and not player:GetAttribute("HitActive")
+  and not player:GetAttribute("TrainingActive") and not player:GetAttribute("BattingActive") and not player:GetAttribute("HitActive")
 end
 
 function Interfaces.CloseAll()
@@ -53,7 +53,7 @@ Prompts.PromptTriggered:Connect(function(prompt, triggeringPlayer)
  Interfaces.Open(prompt:GetAttribute("HubAction"))
 end)
 
-for _, attribute in {"BattingActive", "HitActive", "DataLoaded", "CurrentWorldId"} do
+for _, attribute in {"BattingActive", "TrainingActive", "HitActive", "DataLoaded", "CurrentWorldId"} do
  player:GetAttributeChangedSignal(attribute):Connect(Interfaces.CloseAll)
 end
 player.CharacterRemoving:Connect(Interfaces.CloseAll)

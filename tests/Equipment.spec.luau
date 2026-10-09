@@ -50,7 +50,9 @@ return function(sources)
  local Equipment = assert(loadstring(sources.EquipmentConfig))()
  local Worlds = assert(loadstring(sources.WorldConfig))()
  local Progression = assert(loadstring(sources.ProgressionConfig))()
+ local Training = assert(loadstring(sources.TrainingConfig))()
  local saved, calls, simulatedFailures = {}, {}, {}
+ local loseResponse = {}
  local store = {}
  function store:UpdateAsync(key, transform)
   calls[key] = (calls[key] or 0) + 1
@@ -58,6 +60,7 @@ return function(sources)
   local value = transform(copy(saved[key]))
   if value == nil then return nil end
   saved[key] = copy(value)
+  if loseResponse[key] then loseResponse[key]=nil error("simulated committed response loss") end
   return copy(value)
  end
  local players = object("Players")
@@ -69,7 +72,7 @@ return function(sources)
  function remote:FireClient(player, success, message) self.replies[player] = {success, message} end
  local storage = {}
  function storage:WaitForChild(name) return name end
- local modules = {EquipmentConfig = Equipment, WorldConfig = Worlds, ProgressionConfig = Progression}
+ local modules = {EquipmentConfig = Equipment, WorldConfig = Worlds, ProgressionConfig = Progression, TrainingConfig = Training}
  local env = setmetatable({
   game = {
    ReplicatedStorage = storage,
@@ -173,7 +176,7 @@ return function(sources)
  check(b:GetAttribute("EquippedBat") == "metal_bat" and b.leaderstats.Cash.Value == 1700, "forged request inputs rejected")
  check(Data.EquipEquipment(a, "Bat", "wood_bat"), "select old item before saving")
  leave(a)
- check(saved.Player_1.SchemaVersion == 4 and saved.Player_1.Session == nil, "version 4 save and lease release")
+ check(saved.Player_1.SchemaVersion == 5 and saved.Player_1.Session == nil, "version 5 save and lease release")
  check(saved.Player_1.OwnedBats.carbon_bat and saved.Player_1.EquippedBat == "wood_bat", "ownership and selection saved separately")
  check(saved.Player_1.OtherProgress == 42 and saved.Player_1.UnlockedWorlds.world_2, "other progression preserved")
  local returned = join(1)
@@ -260,5 +263,65 @@ return function(sources)
  local over = Progression.Normalize({Level=2, Power=1305, Rebirths=0},false)
  check(over.Level == 4 and over.Power == 5, "saved excess Power normalizes consistently")
  check(Worlds.Get("world_1").endDistance == 5000 and Worlds.Get("world_2").endDistance == 6000, "world endpoints unchanged")
- return {passed = passed, message = "Equipment, progression, grants, cap, Rebirth, validation, migration, save/rejoin, failure safety"}
+ -- Training uses a private selection, and offline grants share the atomic login transaction.
+ local trainee = join(30)
+ check(trainee:GetAttribute("SelectedTrainingGround")==Training.DefaultGround and trainee:GetAttribute("OfflinePowerEarned")==0,"new player ground and no historical reward")
+ check(not Data.SelectTrainingGround(trainee,"advanced_training"),"locked ground rejected")
+ check(not Data.SelectTrainingGround(trainee,{}) and not Data.SelectTrainingGround(trainee,"fake"),"malformed selections rejected")
+ trainee:SetAttribute("SelectedTrainingGround","expert_training")
+ check(Data.GetTrainingGround(trainee).id==Training.DefaultGround,"display selection not authoritative")
+ check(Data.GrantPower(trainee,1000000,"Test") and Data.TryRebirth(trainee),"Rebirth unlock setup")
+ check(Data.SelectTrainingGround(trainee,"advanced_training"),"Rebirth unlocks ground")
+ trainee:SetAttribute("TrainingActive",true)
+ check(not Data.SelectTrainingGround(trainee,"basic_training"),"cannot switch during training")
+ check(not Data.EquipEquipment(trainee,"Bat","wood_bat"),"training blocks equipment changes")
+ local ground=Data.GetTrainingGround(trainee)
+ local ok, gain=Data.GrantPower(trainee,ground.basePower,"ActiveTraining")
+ check(ok and gain.powerGranted==100 and trainee:GetAttribute("Level")==2,"active training uses central multiplier/advancement")
+ trainee:SetAttribute("TrainingActive",false)
+ leave(trainee)
+ check(saved.Player_30.SelectedTrainingGround=="advanced_training" and saved.Player_30.LastLogoutTime==math.floor(now),"selection and logout saved")
+ trainee=join(30)
+ check(trainee:GetAttribute("SelectedTrainingGround")=="advanced_training" and trainee:GetAttribute("OfflinePowerEarned")==0,"selection rejoin and zero offline duration")
+ local nowStamp=100000
+ local amount, seconds=Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training")
+ check(amount==150 and seconds==60,"short offline duration")
+ amount,seconds=Training.GetOfflineReward(nowStamp-3600,nowStamp,"advanced_training")
+ check(amount==22500 and seconds==3600,"selected ground offline rate")
+ amount,seconds=Training.GetOfflineReward(1,nowStamp,"basic_training")
+ check(seconds==Training.MaximumOfflineSeconds and amount==72000,"offline cap enforced")
+ for _, timestamp in {0,-1,"bad",math.huge,0/0,1.5,nowStamp+10} do
+  check(Training.GetOfflineReward(timestamp,nowStamp,"basic_training")==0,"malformed or future timestamp cannot award")
+ end
+ check(Training.GetOfflineReward(nil,nowStamp,"basic_training")==0,"missing timestamp cannot award")
+ saved.Player_31={SchemaVersion=5,Cash=321,Power=0,Level=1,Rebirths=2,LevelCap=30,SelectedTrainingGround="advanced_training",LastLogoutTime=math.floor(now)-10,OtherProgress=123}
+ loseResponse.Player_31=true
+ local offline=join(31)
+ check(offline:GetAttribute("OfflinePowerEarned")==186 and offline:GetAttribute("Level")==2
+  and offline:GetAttribute("Power")==86,"offline grant once despite committed response loss")
+ check(saved.Player_31.LastLogoutTime==nil and saved.Player_31.OtherProgress==123,"timestamp consumed atomically and unknown fields preserved")
+ check(offline.leaderstats.Cash.Value==321 and Data.GetTrainingGround(offline).id=="advanced_training","selected ground used instead of highest eligible")
+ players.PlayerAdded:Fire(offline)
+ check(offline:GetAttribute("Power")==86,"same session cannot reprocess offline reward")
+ saved.Player_32={SchemaVersion=5,Cash=777,Power=3,Level=1,Rebirths=0,SelectedTrainingGround="expert_training",LastLogoutTime=math.floor(now)-60}
+ local fallback=join(32)
+ check(fallback:GetAttribute("SelectedTrainingGround")=="basic_training" and fallback:GetAttribute("OfflinePowerEarned")==150,"inaccessible selection falls back before offline grant")
+ check(fallback:GetAttribute("Level")==2 and fallback:GetAttribute("Power")==53 and fallback.leaderstats.Cash.Value==777,"offline progression preserves Cash")
+ saved.Player_33={SchemaVersion=4,Cash=999,Power=41,Level=2,Rebirths=1,LastLogoutTime=1}
+ local legacy=join(33)
+ check(legacy:GetAttribute("Power")==41 and legacy:GetAttribute("Level")==2 and legacy:GetAttribute("OfflinePowerEarned")==0,"migration preserves progression without fabricated offline time")
+ saved.Player_34={SchemaVersion=5,Cash=500,Power=0,Level=10,Rebirths=0,SelectedTrainingGround="fake",LastLogoutTime=1}
+ local atCap=join(34)
+ check(atCap:GetAttribute("Power")==0 and atCap:GetAttribute("Level")==10 and atCap:GetAttribute("OfflinePowerEarned")==0,"offline cap overflow discarded")
+ check(not Data.GetTrainingGround(failed),"failed loads cannot train")
+ local offlineBase=Training.GetOfflineReward(100,7300,"basic_training")
+ local simulated=Progression.Normalize({},false)
+ Progression.Advance(simulated,offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths))
+ check(simulated.Level==8 and simulated.Power==4000,"several hours advance multiple levels")
+ offlineBase=Training.GetOfflineReward(100,100000,"expert_training")
+ simulated=Progression.Normalize({Rebirths=2,Level=1,Power=0},false)
+ Progression.Advance(simulated,offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths))
+ check(simulated.Level==30 and simulated.Power==0,"capped offline duration can reach cap but never exceed it")
+ check(Data.GetTrainingGround(trainee).id=="advanced_training" and Data.GetTrainingGround(fallback).id=="basic_training","players have independent selections")
+ return {passed = passed, message = "Equipment, progression, training selection/grants, offline atomicity, migration, save/rejoin, failure safety"}
 end
