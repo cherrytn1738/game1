@@ -128,7 +128,8 @@ function UI.Notify(message, kind)
  if not notification then
   local gui = UI.Screen("NotificationGui", 40)
   notification = UI.Surface(gui, "Notice")
-  notification.AnchorPoint, notification.Position = Vector2.new(.5,0), UDim2.new(.5,0,0,88)
+  -- Below the progression HUD, including on narrow screens.
+  notification.AnchorPoint, notification.Position = Vector2.new(.5,0), UDim2.new(.5,0,0,164)
   notification.Size = UDim2.new(1,-24,0,90)
   local limit = Instance.new("UISizeConstraint", notification)
   limit.MaxSize = Vector2.new(400,90)

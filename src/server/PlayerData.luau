@@ -5,9 +5,10 @@ local HttpService = game:GetService("HttpService")
 local Equipment = require(game:GetService("ReplicatedStorage"):WaitForChild("EquipmentConfig"))
 
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
+local Progression = require(game.ReplicatedStorage:WaitForChild("ProgressionConfig"))
 
 local STORE_NAME = "PlayerProgression"
-local SCHEMA_VERSION = 3
+local SCHEMA_VERSION = 4
 local AUTOSAVE_SECONDS = 60
 local LEASE_SECONDS = 180
 local LEASE_SAFETY_SECONDS = 15
@@ -38,6 +39,7 @@ local function validate(record)
  local data = table.clone(record)
  local repairs = {}
  data.SchemaVersion = SCHEMA_VERSION
+ for field, value in Progression.Normalize(record, (version or 1) < 4) do data[field] = value end
  if data.Cash == nil then
   data.Cash = 0
  elseif not validCash(data.Cash) then
@@ -105,6 +107,49 @@ function PlayerData.IsReady(player)
  return session ~= nil and session.loaded and not session.closing and not session.failed
   and not shuttingDown and player.Parent == Players
   and os.time() < session.expiresAt - LEASE_SAFETY_SECONDS
+end
+
+local function publishProgression(player, state)
+ for field, value in state do player:SetAttribute(field, value) end
+end
+
+-- Replicated attributes are display copies; gameplay and saves use private state.
+function PlayerData.GetProgression(player)
+ if not PlayerData.IsReady(player) then return nil end
+ return table.clone(sessions[player].progression)
+end
+
+function PlayerData.GrantPower(player, baseAmount, source)
+ if not PlayerData.IsReady(player) then return false, "Player data is not ready." end
+ if not Progression.IsInteger(baseAmount, 0, Progression.MaxBaseGrant)
+  or type(source) ~= "string" or #source == 0 or #source > 64 then
+  return false, "Invalid Power grant."
+ end
+ local state = sessions[player].progression
+ local oldLevel = state.Level
+ local amount = state.Level < state.LevelCap and baseAmount * Progression.GetPowerMultiplier(state.Rebirths) or 0
+ Progression.Advance(state, amount)
+ publishProgression(player, state)
+ return true, {powerGranted = amount, oldLevel = oldLevel, newLevel = state.Level, source = source}
+end
+
+function PlayerData.CanRebirth(player)
+ if not PlayerData.IsReady(player) then return false end
+ local state = sessions[player].progression
+ return state.Level >= state.LevelCap and state.Rebirths < Progression.MaxRebirths
+end
+
+function PlayerData.TryRebirth(player)
+ if not PlayerData.CanRebirth(player) then return false, "Reach your Level Cap first." end
+ if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") then
+  return false, "Finish your hit and leave batting before rebirthing."
+ end
+ local state = sessions[player].progression
+ state.Rebirths += 1
+ state.Level, state.Power = Progression.StartingLevel, Progression.StartingPower
+ state.LevelCap = Progression.GetLevelCap(state.Rebirths)
+ publishProgression(player, state)
+ return true, "Rebirth complete."
 end
 
 function PlayerData.OwnsEquipment(player, category, id)
@@ -176,6 +221,7 @@ local function snapshot(player)
  local cash = stats and stats:FindFirstChild("Cash")
  if not cash or not cash:IsA("IntValue") or not validCash(cash.Value) then return nil end
  local data = {SchemaVersion = SCHEMA_VERSION, Cash = cash.Value}
+ for field, value in session.progression do data[field] = value end
  for _, category in CATEGORIES do
   local field = "Equipped" .. category
   local id = player:GetAttribute(field)
@@ -294,6 +340,8 @@ local function loadPlayer(player)
   return
  end
  session.expiresAt = record.Session.ExpiresAt
+ session.progression = Progression.Normalize(record, false)
+ publishProgression(player, session.progression)
  -- Publish the complete authoritative runtime state only after a successful claim.
  local stats = Instance.new("Folder")
  stats.Name = "leaderstats"

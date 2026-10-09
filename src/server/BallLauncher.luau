@@ -2,16 +2,13 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Timing = require(ReplicatedStorage:WaitForChild("BattingTimingConfig"))
+local Progression = require(ReplicatedStorage:WaitForChild("ProgressionConfig"))
 local Field = require(ReplicatedStorage:WaitForChild("FieldConfig"))
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local PlayerData = require(script.Parent:WaitForChild("PlayerData"))
 local Progress = require(script.Parent:WaitForChild("WorldProgress"))
 
-local CONTACT_DELAY = 0.20
-local BASE_LAUNCH_SPEED = 130
 local CASH_PER_STUD = 1
-local VALID_QUALITY = {Perfect = true, Good = true, Okay = true}
 local BallLauncher = {}
 local stations = {}
 
@@ -26,7 +23,7 @@ local function resetBall(station)
  ball.AssemblyLinearVelocity, ball.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
  ball.CFrame = teeFrame(station)
  ball:SetAttribute("BallState", "Ready")
- for _, name in {"LastHitQuality", "LaunchAngleDegrees", "HorizontalAngleDegrees", "LaunchSpeed", "CurrentSectionId"} do
+ for _, name in {"LaunchLevel", "LaunchAngleDegrees", "LaunchSpeed", "CurrentSectionId"} do
   ball:SetAttribute(name, nil)
  end
 end
@@ -62,7 +59,7 @@ local function launch(station, hit)
  local humanoid = character and character:FindFirstChildOfClass("Humanoid")
  if not PlayerData.IsReady(player) or player:GetAttribute("CurrentWorldId") ~= station.world.id
   or not player:GetAttribute("BattingActive") or station.area.BatterPosition:GetAttribute("OccupantUserId") ~= player.UserId
-  or tool.Parent ~= character or tool:GetAttribute("TimingSession") ~= result.session
+  or tool.Parent ~= character or tool:GetAttribute("BattingSession") ~= result.session
   or not humanoid or humanoid.Health <= 0 then cleanup(station, hit) return end
 
  local ball, world = station.ball, station.world
@@ -71,20 +68,17 @@ local function launch(station, hit)
  local flat = Vector3.new(difference.X, 0, difference.Z)
  if flat.Magnitude < 0.01 then warn("HitDirection must be separated from the tee.") cleanup(station, hit) return end
  local forward = flat.Unit
- result.horizontalAngleDegrees = Timing.GetHorizontalAngleDegrees(result.timingOffset)
- result.launchAngleDegrees = Timing.GetLaunchAngleDegrees(result.timingOffset)
- result.launchSpeed = BASE_LAUNCH_SPEED * result.batPowerMultiplier * Timing.GetPowerMultiplier(result.timingOffset)
- local direction = CFrame.fromAxisAngle(Vector3.yAxis, -math.rad(result.horizontalAngleDegrees)):VectorToWorldSpace(forward)
+ result.launchAngleDegrees = Progression.LaunchAngleDegrees
+ result.launchSpeed = Progression.GetLaunchSpeed(result.launchLevel)
  local loft = math.rad(result.launchAngleDegrees)
  ball.CFrame = originFrame
  ball.Anchored = false
  ball:SetNetworkOwner(nil)
- ball.AssemblyLinearVelocity = direction * (result.launchSpeed * math.cos(loft)) + Vector3.yAxis * (result.launchSpeed * math.sin(loft))
+ ball.AssemblyLinearVelocity = forward * (result.launchSpeed * math.cos(loft)) + Vector3.yAxis * (result.launchSpeed * math.sin(loft))
  ball.AssemblyAngularVelocity = Vector3.zero
  ball:SetAttribute("BallState", "InFlight")
- ball:SetAttribute("LastHitQuality", result.quality)
+ ball:SetAttribute("LaunchLevel", result.launchLevel)
  ball:SetAttribute("LaunchAngleDegrees", result.launchAngleDegrees)
- ball:SetAttribute("HorizontalAngleDegrees", result.horizontalAngleDegrees)
  ball:SetAttribute("LaunchSpeed", result.launchSpeed)
  player:AddReplicationFocus(ball)
  hit.focused = true
@@ -134,8 +128,8 @@ local function launch(station, hit)
   local finalSection = lastGroundPosition and Field.GetRewardSection(lastGroundDistance, world)
   local distance = lastGroundPosition and lastGroundDistance or 0
   local final = {
-   swingId = result.swingId, worldId = world.id, quality = result.quality,
-   launchAngleDegrees = result.launchAngleDegrees, horizontalAngleDegrees = result.horizontalAngleDegrees,
+   swingId = result.swingId, worldId = world.id, launchLevel = result.launchLevel,
+   launchAngleDegrees = result.launchAngleDegrees,
    launchSpeed = result.launchSpeed, ballRewardMultiplier = result.ballRewardMultiplier,
    distanceStuds = distance, startPosition = origin, finalPosition = lastGroundPosition or origin,
    firstGroundDistanceStuds = firstGroundDistance, farthestDistanceStuds = farthestDistance,
@@ -163,6 +157,9 @@ local function launch(station, hit)
     player.leaderstats.Cash.Value += cashEarned
     player:SetAttribute("LastBatCashEarned", cashEarned)
     player:SetAttribute("LastBatCashSwingId", result.swingId)
+    local granted, powerResult = PlayerData.GrantPower(player, Progression.HitPowerReward, "CompletedHit")
+    final.powerEarned = granted and powerResult.powerGranted or 0
+    player:SetAttribute("LastBatPowerEarned", final.powerEarned)
     final.worldCompletionMessage = Progress.Complete(player, world, distance)
    end
    final.personalBestStuds = player:GetAttribute("SessionBestDistanceStuds") or 0
@@ -216,19 +213,20 @@ local function launch(station, hit)
   elseif position.Y < Field.GroundTop - 50 then finish("out of bounds", true)
   elseif os.clock() - startedAt >= Field.MaximumFlightSeconds then finish("timeout", true) end
  end)
- print(string.format("[BallLaunch] %s / %s: spray %+.1f, loft %.1f, speed %.1f",
-  player.Name, world.id, result.horizontalAngleDegrees, result.launchAngleDegrees, result.launchSpeed))
+ print(string.format("[BallLaunch] %s / %s: Level %d, loft %.1f, speed %.1f",
+  player.Name, world.id, result.launchLevel, result.launchAngleDegrees, result.launchSpeed))
 end
 
 function BallLauncher.TryLaunch(player, result, tool)
  local station = stations[result.worldId]
- if not station or station.hit or not PlayerData.IsReady(player) or not VALID_QUALITY[result.quality]
+ if not station or station.hit or not PlayerData.IsReady(player)
+  or not Progression.IsInteger(result.launchLevel, Progression.StartingLevel, Progression.GetLevelCap(Progression.MaxRebirths))
   or player:GetAttribute("CurrentWorldId") ~= result.worldId then return false end
  local hit = {player = player, tool = tool, result = result}
  station.hit = hit
  player:SetAttribute("HitActive", true)
  station.ball:SetAttribute("BallState", "Reserved")
- task.delay(CONTACT_DELAY, launch, station, hit)
+ task.delay(Progression.ContactDelay, launch, station, hit)
  return true
 end
 

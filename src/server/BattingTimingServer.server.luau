@@ -1,7 +1,8 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Timing = require(ReplicatedStorage:WaitForChild("BattingTimingConfig"))
+local Progression = require(ReplicatedStorage:WaitForChild("ProgressionConfig"))
+-- Legacy Rojo/Remote name retained; requests now contain only session and optional Exit.
 local Remote = ReplicatedStorage:WaitForChild("BattingTiming")
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local BallLauncher = require(script.Parent:WaitForChild("BallLauncher"))
@@ -32,8 +33,7 @@ local function leave(player)
  player:SetAttribute("BattingActive", false)
  state.mustLeavePad = true -- Space must not immediately re-enter the same area.
  if state.tool then
-  state.tool:SetAttribute("TimingStartTime", nil)
-  state.tool:SetAttribute("TimingSession", nil)
+  state.tool:SetAttribute("BattingSession", nil)
  end
  if state.root and state.root.Parent then
   state.root.Anchored = state.saved.anchored
@@ -46,7 +46,7 @@ local function leave(player)
   humanoid.AutoRotate = state.saved.autoRotate
   humanoid:UnequipTools()
  end
- state.tool, state.startTime, state.root, state.humanoid, state.worldId = nil, nil, nil, nil, nil
+ state.tool, state.root, state.humanoid, state.worldId = nil, nil, nil, nil
 end
 
 local function enter(player, character, humanoid, root)
@@ -66,9 +66,7 @@ local function enter(player, character, humanoid, root)
  state.saved = {anchored = root.Anchored, walkSpeed = humanoid.WalkSpeed,
   jumpPower = humanoid.JumpPower, jumpHeight = humanoid.JumpHeight, autoRotate = humanoid.AutoRotate}
  state.session += 1
- state.startTime = workspace:GetServerTimeNow() + Timing.StartDelay
- tool:SetAttribute("TimingSession", state.session)
- tool:SetAttribute("TimingStartTime", state.startTime)
+ tool:SetAttribute("BattingSession", state.session)
  pad:SetAttribute("OccupantUserId", player.UserId)
  pad.EntryLabel.Enabled = false
  player:SetAttribute("BattingActive", true)
@@ -191,36 +189,23 @@ Remote.OnServerEvent:Connect(function(player, session, action)
  if not tool or tool.Parent ~= character or not tool.Enabled then return end
  if not humanoid or humanoid.Health <= 0 or root ~= state.root then return end
  if (root.Position - state.battingFrame.Position).Magnitude > 1 then return end
- if now < state.startTime or now < state.nextSwingTime then return end
+ if now < state.nextSwingTime then return end
 
-	state.nextSwingTime = now + Timing.SwingCooldown
+	local progression = PlayerData.GetProgression(player)
+ if not progression then return end
+	state.nextSwingTime = now + Progression.SwingCooldown
 	player:SetAttribute("BatNextSwingTime", state.nextSwingTime)
 	state.swingId += 1
-	local rawOffset = Timing.GetOffset(now, state.startTime)
- local teeScale = Equipment.Get("Tee", player:GetAttribute("EquippedTee")).timingScale
- local offset = Timing.GetEffectiveOffset(rawOffset, teeScale)
-	-- Every accepted swing starts the next meter pass at the left edge.
-	state.startTime = now
-	tool:SetAttribute("TimingStartTime", state.startTime)
-	-- This server-created result is the future input to server hit/launch logic.
+	-- Snapshot the server's Level and Ball reward effect at swing acceptance.
 	local result = {
 		swingId = state.swingId,
   worldId = state.worldId,
 		session = state.session,
-		quality = Timing.GetQuality(offset),
-		timingOffset = offset,
-  rawTimingOffset = rawOffset,
-  teeTimingScale = teeScale,
-  batPowerMultiplier = Equipment.Get("Bat", player:GetAttribute("EquippedBat")).powerMultiplier,
+  launchLevel = progression.Level,
   ballRewardMultiplier = Equipment.Get("Ball", player:GetAttribute("EquippedBall")).rewardMultiplier,
 		evaluatedAt = now,
 	}
 	result.contact = BallLauncher.TryLaunch(player, result, tool)
 	state.lastResult = result
-	player:SetAttribute("LastBatQuality", result.quality)
-	player:SetAttribute("LastBatTimingOffset", result.timingOffset)
 	player:SetAttribute("LastBatSwingId", result.swingId)
-	print(string.format("[BatTiming] %s #%d: %s (%+.0f ms)",
-		player.Name, result.swingId, result.quality, offset * 1000))
-	Remote:FireClient(player, tool, result)
 end)

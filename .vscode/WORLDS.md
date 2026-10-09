@@ -71,7 +71,7 @@ There are:
 
 If the player's ball has enough power to physically reach a section, the player has reached that section.
 
-This makes equipment progression directly visible through hit distance.
+This makes Level progression directly visible through hit distance.
 
 ## Section Rewards
 
@@ -120,7 +120,7 @@ World 1
 → unlock World 2
 
 World 2
-→ continue equipment progression
+→ continue Power/Level progression
 → reach farther sections
 → hit to World 2 end
 → unlock World 3
@@ -220,10 +220,10 @@ Exact values such as:
 - Section boundaries
 - World lengths
 - Reward multipliers
-- Equipment power required to complete a world
+- Level required to complete a world
 
 are not considered final design decisions yet.
 
 These values should remain configurable while the core progression and economy are tested.
 
-Early-game equipment should produce relatively short hits compared with the total length of World 1, leaving substantial room for future progression.
+Early Levels should produce relatively short hits compared with the total length of World 1, leaving substantial room for future progression.

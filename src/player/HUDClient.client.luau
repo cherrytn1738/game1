@@ -2,6 +2,7 @@ local Player = game.Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
+local Progression = require(ReplicatedStorage:WaitForChild("ProgressionConfig"))
 local Remote = ReplicatedStorage:WaitForChild("BattingTiming")
 local UI = require(script.Parent:WaitForChild("UICommon"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
@@ -17,6 +18,12 @@ local worldLabel = UI.Label(wallet,"World","Loading player data...",13,UI.Colors
 worldLabel.Position, worldLabel.Size = UDim2.fromOffset(14,7), UDim2.new(1,-28,0,20)
 local cashLabel = UI.Label(wallet,"Cash","Please wait",22,UI.Colors.Gold)
 cashLabel.Position, cashLabel.Size, cashLabel.Font = UDim2.fromOffset(14,29), UDim2.new(1,-28,0,30), Enum.Font.GothamBold
+local levelLabel = UI.Label(wallet,"Level","",16)
+levelLabel.Position, levelLabel.Size = UDim2.fromOffset(14,65), UDim2.new(1,-28,0,22)
+local powerLabel = UI.Label(wallet,"Power","",14,UI.Colors.Muted)
+powerLabel.Position, powerLabel.Size = UDim2.fromOffset(14,89), UDim2.new(1,-28,0,22)
+local rebirthLabel = UI.Label(wallet,"Rebirths","",14,UI.Colors.Muted)
+rebirthLabel.Position, rebirthLabel.Size = UDim2.fromOffset(14,113), UDim2.new(1,-28,0,22)
 
 local navigation = Instance.new("Frame")
 navigation.Name, navigation.BackgroundTransparency = "Navigation", 1
@@ -54,6 +61,12 @@ local function refresh()
  local world = Worlds.Get(Player:GetAttribute("CurrentWorldId"))
  worldLabel.Text = ready and world and world.displayName or "Loading player data..."
  cashLabel.Text = ready and cash and UI.Number(cash.Value) .. " Cash" or "Please wait"
+ local level, cap = Player:GetAttribute("Level"), Player:GetAttribute("LevelCap")
+ local power, rebirths = Player:GetAttribute("Power"), Player:GetAttribute("Rebirths")
+ levelLabel.Text = ready and string.format("Level %d / %d",level,cap) or ""
+ powerLabel.Text = ready and (level >= cap and "Power: Level cap reached"
+  or "Power: " .. UI.Number(power) .. " / " .. UI.Number(Progression.PowerRequiredForNextLevel(level))) or ""
+ rebirthLabel.Text = ready and "Rebirths: " .. UI.Number(rebirths) or ""
  local alive = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
  alive = alive and alive.Health > 0
  local batting = ready and alive and Player:GetAttribute("BattingActive") == true
@@ -87,13 +100,32 @@ local function clearTransient()
 end
 local function resize()
  local width = root.AbsoluteSize.X
- wallet.Size = UDim2.fromOffset(math.min(260,width-24),66)
+ wallet.Size = UDim2.fromOffset(math.min(260,width-24),144)
  result.Size = UDim2.fromOffset(math.min(360,width-24),128)
  flight.Size = UDim2.fromOffset(math.min(300,width-24),46)
 end
 root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
 Interfaces.Changed:Connect(refresh)
 for _, name in {"DataLoaded","BattingActive","HitActive"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
+for _, name in {"Power","Level","LevelCap","Rebirths"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
+local lastLevel = Player:GetAttribute("DataLoaded") and Player:GetAttribute("Level") or nil
+local noticePending = false
+Player:GetAttributeChangedSignal("DataLoaded"):Connect(function()
+ lastLevel = Player:GetAttribute("DataLoaded") and Player:GetAttribute("Level") or nil
+end)
+Player:GetAttributeChangedSignal("Level"):Connect(function()
+ if noticePending or not Player:GetAttribute("DataLoaded") then return end
+ noticePending = true
+ -- Coalesce a multi-level grant into one notification; loading/resetting is silent.
+ task.defer(function()
+  noticePending = false
+  local level = Player:GetAttribute("Level")
+  if Player:GetAttribute("DataLoaded") and lastLevel and level > lastLevel then
+   UI.Notify("LEVEL UP - Level " .. UI.Number(level),"success")
+  end
+  lastLevel = level
+ end)
+end)
 Player:GetAttributeChangedSignal("CurrentWorldId"):Connect(clearTransient)
 Player.CharacterRemoving:Connect(clearTransient)
 local function characterAdded(character)
@@ -124,6 +156,7 @@ Remote.OnClientEvent:Connect(function(_, message)
  distance.Text = UI.Number(final.distanceStuds,1) .. " studs"
  section.Text = final.sectionName or "No field landing"
  reward.Text = "+" .. UI.Number(message.cashEarned or final.cashEarned or 0) .. " Cash"
+  .. "  +" .. UI.Number(final.powerEarned or 0) .. " Power"
  resultUntil = os.clock() + 6
  refresh()
  if final.worldCompletionMessage then UI.Notify(final.worldCompletionMessage,"unlock") end

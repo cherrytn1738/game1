@@ -1,7 +1,7 @@
 local RunService = game:GetService("RunService")
 local Tool = script.Parent
 local Player = game:GetService("Players").LocalPlayer
-local TimingRemote = game:GetService("ReplicatedStorage"):WaitForChild("BattingTiming")
+local BattingRemote = game:GetService("ReplicatedStorage"):WaitForChild("BattingTiming")
 
 -- Phase 1 only. Targets are relative to HumanoidRootPart.
 local LOAD_TIME, DRIVE_TIME, CONTACT_TIME = 0.10, 0.10, 0.08
@@ -167,14 +167,14 @@ end)
 Tool.Unequipped:Connect(cleanup)
 Tool.Destroying:Connect(cleanup)
 Tool.Activated:Connect(function()
-	if not equipped or swinging or not Player:GetAttribute("BattingActive") or Tool:GetAttribute("ExitPending") then return end
+	if not equipped or swinging or Player:GetAttribute("HitActive") or not Player:GetAttribute("BattingActive") or Tool:GetAttribute("ExitPending") then return end
 	local now = workspace:GetServerTimeNow()
-	local startTime = Tool:GetAttribute("TimingStartTime")
+	local session = Tool:GetAttribute("BattingSession")
 	local nextSwing = game:GetService("Players").LocalPlayer:GetAttribute("BatNextSwingTime") or 0
-	if not startTime or now < startTime or now < nextSwing then return end
+	if not session or now < nextSwing then return end
 	swinging = true
-	-- Only request evaluation; the server owns timing and hit quality.
-	TimingRemote:FireServer(Tool:GetAttribute("TimingSession"))
+	-- Animation is local; the server validates this session and owns the launch.
+	BattingRemote:FireServer(session)
 	local token = generation
 	if not stage(LOAD, LOAD_TIME, token) then return end
 	if not stage(DRIVE, DRIVE_TIME, token) then return end

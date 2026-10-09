@@ -19,9 +19,8 @@ local pending, requestVersion = false, 0
 local cash
 
 local function effect(category, item)
- if category == "Bat" then return string.format("%.2fx hitting power", item.powerMultiplier) end
  if category == "Ball" then return string.format("%.2fx Cash rewards", item.rewardMultiplier) end
- return string.format("%.2fx timing window", item.timingScale)
+ return "No gameplay bonus"
 end
 
 local function layoutRows()

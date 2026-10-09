@@ -2,11 +2,11 @@
 
 ## Core Concept
 
-A timing-based baseball batting simulator where players hit a ball from a batting tee and progress by increasing how far they can hit.
+A Power/Level-based baseball batting simulator where players hit a ball from a batting tee and progress by increasing how far they can hit.
 
 The core gameplay loop is:
 
-Hit ball → measure distance → earn Cash → improve equipment → hit farther → reach farther sections → unlock new worlds → repeat
+Gain Power (training in a future milestone) → Level up → hit farther → earn Cash → reach farther sections → unlock worlds → reach Level Cap → Rebirth → repeat
 
 The game is not intended to simulate traditional baseball games. The focus is on satisfying batting, distance progression, equipment progression, and reaching increasingly distant environments.
 
@@ -17,12 +17,10 @@ Players approach a batting tee to enter batting mode.
 While batting:
 
 - The player is positioned and locked at the batting location.
-- A timing display controls the result of the swing.
-- The player swings based on the timing indicator.
-- Timing affects the horizontal direction of the hit.
-- Better timing also provides some advantage to hitting power.
-- Every valid batting swing makes contact; poor timing does not create a complete miss.
-- The server remains authoritative over gameplay-relevant hit results.
+- Click/tap to swing; every valid swing launches straight downfield at a fixed configured loft.
+- Level alone determines launch speed. There is no timing fan, quality, spray, or timing power bonus.
+- The server validates station occupancy, session, cooldown, ball readiness, Level, and launch.
+- Space / touch Leave exits batting; the established animation and camera remain.
 
 After being hit, the ball uses Roblox physics.
 
@@ -63,21 +61,21 @@ There are three primary equipment categories:
 
 ### Bat
 
-Bats primarily increase hitting power.
+Bats remain owned, purchasable, equippable, and persistent. They do not affect launch strength or distance.
 
-Better Bats allow the player to hit farther and eventually reach sections/worlds that were previously unreachable.
+No replacement Bat gameplay bonus is defined yet.
 
 ### Ball
 
 Balls primarily increase rewards earned from distance.
 
-The equipped Ball provides a reward multiplier without being the primary source of hitting power.
+The equipped Ball multiplies Cash rewards only. It does not affect launch strength or Power grants.
 
 ### Tee
 
-Tees primarily improve the timing mechanic.
+Tees remain owned, purchasable, equippable, and persistent. Their timing assistance is retired.
 
-Better Tees make favorable timing easier while preserving the importance of player timing skill.
+No replacement Tee gameplay bonus is defined yet.
 
 ## Equipment Progression
 
@@ -157,7 +155,7 @@ Progression should be physically visible through batting performance.
 
 A new player should hit relatively short distances.
 
-As equipment improves, the player should:
+As Level increases, the player should:
 
 - Hit farther
 - Reach new field sections
@@ -168,8 +166,39 @@ As equipment improves, the player should:
 
 The beginning of the game should leave substantial visible room for future power growth.
 
-Starting equipment should not be capable of approaching the end of the first world.
+Level 1 should produce a short hit far below the World 1 endpoint.
 
+## Power, Level, and Rebirth (Milestone 15A)
+
+`ProgressionConfig` owns the placeholder formulas. Schema 4 extends the existing
+`PlayerProgression` store with Power, Level, Rebirths, and LevelCap. Older saves
+receive 0 Power, Level 1, 0 Rebirths, and cap 10 without converting equipment.
+Cash, ownership, equipped selections, worlds, and unknown saved fields are preserved.
+Malformed new fields are repaired; LevelCap is derived, never trusted from a save.
+
+- Power is progress toward the next Level. Requirement = `100 * Level^2`.
+- Requirements are consumed on advancement; one grant can advance multiple Levels.
+- At the cap, Power is zero and excess grants are discarded (no overflow bank).
+- Level cap = `10 + 10 * Rebirths`; Power gain multiplier = `Rebirths + 1`.
+- A valid finalized field hit grants base 2 Power, once, through server-only
+  `PlayerData.GrantPower(player, baseAmount, source)`. Future training uses this API.
+- Speed = `55 + 15 * (Level - 1)` studs/second, with fixed 38-degree loft.
+  Level is snapshotted at swing acceptance; Power, Rebirths, Bat, Ball, and Tee
+  do not modify launch speed. Physics still determines actual final distance.
+- `PlayerData.CanRebirth(player)` checks eligibility. `TryRebirth(player)` also
+  rejects active batting/hits, increments Rebirths, resets Level/Power, derives
+  the new cap, and preserves all other progression. There is no client Rebirth
+  remote or final UI yet. Technical safety limit: 1,000 Rebirths.
+- Replicated progression attributes are HUD copies. Grants, launches, Rebirths,
+  and saves read private server session state.
+
+The historical `BattingTiming` Remote and script filenames remain for Rojo
+compatibility, but no timing mechanics remain. The client sends only its batting
+session (and optional `Exit`); the server sends final distance/reward feedback.
+Contact delay remains 0.20 seconds and swing cooldown remains 0.84 seconds.
+Natural stopping, sections, world endpoints, and Cash formulas are unchanged.
+
+No training mechanics, final Rebirth experience, or new cosmetics are included.
 ## Server Authority
 
 Important progression and gameplay state must remain server-authoritative.
