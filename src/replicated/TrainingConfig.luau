@@ -18,7 +18,6 @@ local Training = {
  ContactOffset = Vector3.new(3, 3, 0),
  PracticeCycleSeconds = 2,
  PracticePitchSeconds = 1.1,
- SwingLeadSeconds = 0.2,
 }
 
 function Training.Get(id)

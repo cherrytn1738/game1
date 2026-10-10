@@ -10,8 +10,6 @@ local Progression = {
  BaseLaunchSpeed = 55,
  LaunchSpeedPerLevel = 15,
  LaunchAngleDegrees = 38,
- SwingCooldown = 0.84,
- ContactDelay = 0.20,
  -- Technical validation limits, not progression rewards or client inputs.
  MaxRebirths = 1000,
  MaxPower = 9000000000000,

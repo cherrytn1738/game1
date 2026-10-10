@@ -23,7 +23,18 @@ levelLabel.Position, levelLabel.Size = UDim2.fromOffset(14,65), UDim2.new(1,-28,
 local powerLabel = UI.Label(wallet,"Power","",14,UI.Colors.Muted)
 powerLabel.Position, powerLabel.Size = UDim2.fromOffset(14,89), UDim2.new(1,-28,0,22)
 local rebirthLabel = UI.Label(wallet,"Rebirths","",14,UI.Colors.Muted)
-rebirthLabel.Position, rebirthLabel.Size = UDim2.fromOffset(14,113), UDim2.new(1,-28,0,22)
+rebirthLabel.Position, rebirthLabel.Size = UDim2.fromOffset(14,137), UDim2.new(1,-28,0,22)
+local multiplierLabel = UI.Label(wallet,"PowerMultiplier","",14,UI.Colors.Muted)
+multiplierLabel.Position, multiplierLabel.Size = UDim2.fromOffset(14,159), UDim2.new(1,-28,0,22)
+local powerTrack = UI.Surface(wallet,"PowerTrack",UI.Colors.Card)
+powerTrack.Position, powerTrack.Size, powerTrack.ClipsDescendants = UDim2.fromOffset(14,117), UDim2.new(1,-28,0,10), true
+local powerFill = Instance.new("Frame")
+powerFill.Name, powerFill.BorderSizePixel, powerFill.BackgroundColor3 = "Fill",0,UI.Colors.Accent
+powerFill.Size, powerFill.Parent = UDim2.fromScale(0,1),powerTrack
+local rebirthShortcut = UI.Button(root,"RebirthShortcut","REBIRTH AVAILABLE")
+rebirthShortcut.AnchorPoint, rebirthShortcut.Position = Vector2.new(1,0),UDim2.new(1,-12,0,208)
+rebirthShortcut.Size = UDim2.fromOffset(260,40)
+rebirthShortcut.Activated:Connect(function() Interfaces.Open("Rebirth") end)
 
 local navigation = Instance.new("Frame")
 navigation.Name, navigation.BackgroundTransparency = "Navigation", 1
@@ -64,9 +75,14 @@ local function refresh()
  local level, cap = Player:GetAttribute("Level"), Player:GetAttribute("LevelCap")
  local power, rebirths = Player:GetAttribute("Power"), Player:GetAttribute("Rebirths")
  levelLabel.Text = ready and string.format("Level %d / %d",level,cap) or ""
- powerLabel.Text = ready and (level >= cap and "Power: Level cap reached"
+ local capped = ready and level >= cap
+ powerLabel.Text = ready and (capped and "MAX LEVEL"
   or "Power: " .. UI.Number(power) .. " / " .. UI.Number(Progression.PowerRequiredForNextLevel(level))) or ""
+ powerLabel.TextColor3 = capped and UI.Colors.Accent or UI.Colors.Muted
  rebirthLabel.Text = ready and "Rebirths: " .. UI.Number(rebirths) or ""
+ multiplierLabel.Text = ready and "Power Gain: " .. UI.Number(Progression.GetPowerMultiplier(rebirths)) .. "x" or ""
+ powerTrack.Visible = ready
+ powerFill.Size = UDim2.fromScale(ready and (capped and 1 or math.clamp(power / Progression.PowerRequiredForNextLevel(level),0,1)) or 0,1)
  local alive = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
  alive = alive and alive.Health > 0
  local batting = ready and alive and Player:GetAttribute("BattingActive") == true
@@ -80,6 +96,8 @@ local function refresh()
   savedBackpackEnabled = nil
  end
  wallet.Visible = not Interfaces.IsOpen()
+ rebirthShortcut.Visible = capped and rebirths < Progression.MaxRebirths and not Interfaces.IsOpen() and alive == true
+ UI.SetButton(rebirthShortcut,"REBIRTH AVAILABLE",Interfaces.CanOpen(),true)
  navigation.Visible = Interfaces.CanOpen() and not Interfaces.HasPhysicalHub() and not Interfaces.IsOpen()
  hint.Visible = batting and not playing
  hint.Text = UserInputService.TouchEnabled and "Tap to swing · Use Leave to exit" or "Click to swing · Space to leave"
@@ -99,14 +117,20 @@ local function clearTransient()
  refresh()
 end
 local function resize()
- local width = root.AbsoluteSize.X
- wallet.Size = UDim2.fromOffset(math.min(260,width-24),144)
- result.Size = UDim2.fromOffset(math.min(360,width-24),128)
- flight.Size = UDim2.fromOffset(math.min(300,width-24),46)
+ local width, height = root.AbsoluteSize.X, root.AbsoluteSize.Y
+ wallet.Size = UDim2.fromOffset(math.min(260,width-24),190)
+ rebirthShortcut.Size = UDim2.fromOffset(math.min(260,width-24),40)
+ local landscape = height < 440 and width >= 600
+ result.AnchorPoint = landscape and Vector2.new(0,1) or Vector2.new(.5,1)
+ flight.AnchorPoint = result.AnchorPoint
+ result.Position = landscape and UDim2.new(0,12,1,-50) or UDim2.new(.5,0,1,-70)
+ flight.Position = result.Position
+ result.Size = UDim2.fromOffset(math.min(360,landscape and width-296 or width-24),128)
+ flight.Size = UDim2.fromOffset(math.min(300,landscape and width-296 or width-24),46)
 end
 root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
 Interfaces.Changed:Connect(refresh)
-for _, name in {"DataLoaded","BattingActive","TrainingActive","HitActive"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
+for _, name in {"DataLoaded","BattingActive","TrainingActive","HitActive","WorldTraveling"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
 for _, name in {"Power","Level","LevelCap","Rebirths"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
 local lastLevel = Player:GetAttribute("DataLoaded") and Player:GetAttribute("Level") or nil
 local noticePending = false
@@ -121,7 +145,9 @@ Player:GetAttributeChangedSignal("Level"):Connect(function()
   noticePending = false
   local level = Player:GetAttribute("Level")
   if Player:GetAttribute("DataLoaded") and lastLevel and level > lastLevel then
-   UI.Notify("LEVEL UP - Level " .. UI.Number(level) .. (level >= Player:GetAttribute("LevelCap") and " - Level cap reached" or ""),"success")
+   local atCap = level >= Player:GetAttribute("LevelCap")
+   UI.Notify("Level " .. UI.Number(lastLevel) .. " → " .. UI.Number(level)
+    .. (atCap and "\nMAX LEVEL REACHED\nREBIRTH AVAILABLE" or ""),atCap and "cap" or "level")
   end
   lastLevel = level
  end)

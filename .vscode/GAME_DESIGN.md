@@ -186,16 +186,16 @@ Malformed new fields are repaired; LevelCap is derived, never trusted from a sav
   Level is snapshotted at swing acceptance; Power, Rebirths, Bat, Ball, and Tee
   do not modify launch speed. Physics still determines actual final distance.
 - `PlayerData.CanRebirth(player)` checks eligibility. `TryRebirth(player)` also
-  rejects active batting/hits, increments Rebirths, resets Level/Power, derives
-  the new cap, and preserves all other progression. There is no client Rebirth
-  remote or final UI yet. Technical safety limit: 1,000 Rebirths.
+  rejects active training/batting/hits, dead characters, and world travel, increments Rebirths, resets Level/Power, derives
+  the new cap, revalidates the selected ground, and preserves all other progression.
+  The confirmed Rebirth interface calls this server transaction. Technical safety limit: 1,000 Rebirths.
 - Replicated progression attributes are HUD copies. Grants, launches, Rebirths,
   and saves read private server session state.
 
 The historical `BattingTiming` Remote and script filenames remain for Rojo
 compatibility, but no timing mechanics remain. The client sends only its batting
 session (and optional `Exit`); the server sends final distance/reward feedback.
-Contact delay remains 0.20 seconds and swing cooldown remains 0.84 seconds.
+SwingConfig provides a single phase timeline: the named Contact marker is at 0.36 seconds in a 0.96-second swing. ContactTime and Duration drive the visual swing and existing server contact/cooldown; the client-local SwingMarkerReached event reports the marker without requesting a launch.
 Natural stopping, sections, world endpoints, and Cash formulas are unchanged.
 
 Milestone 15A added no training mechanics or Rebirth UI. Training is added below in Milestone 15B.
@@ -250,8 +250,42 @@ login conservatively has no new offline timestamp to use.
 TrainingRequest accepts only Select(id) or Exit(session). No remote starts
 training or accepts rates, Power, timestamps, duration, or Rebirths. The HUD shows
 training state/rate alongside existing Power/Level values. Offline notifications
-are shown once per client session for positive rewards covering at least 60 seconds.
-No themes, stadium art, equipment cosmetics, or final Rebirth UI are included.
+are shown once per client session for absences covering at least 60 seconds,
+including capped sessions with no further Power gain.
+No themes, stadium art, or equipment cosmetics are included.
+## Confirmed Rebirth and Swing Presentation (Milestone 16)
+
+The plain Rebirth interaction is at hub-relative (-35, 0, 120), currently near
+(-52.2, 1.62, 98.8), separated from training, batting, and World Travel. The menu
+shows current/next multiplier and cap, eligibility, and exact reset/keep/gain
+consequences. Rebirth then Confirm are separate actions; Cancel/close/death/travel
+clear confirmation. A capped HUD shortcut provides access in other worlds.
+
+RebirthRequest accepts intent only, with no arguments. The server checks session,
+private cap eligibility, alive character, active gameplay/travel, per-player
+cooldown, and processing state. TryRebirth commits Level, Power, Rebirths, derived
+cap, and a validated training selection without yielding. Cash, equipment and
+worlds are preserved. Completion schedules an important save through the existing
+serialized autosave loop (normally within its next five-second check). A save
+already in flight cannot clear a later Rebirth's pending save. Schema 5 and the
+existing store/session leases remain unchanged.
+
+Ground access updates from Rebirths and TrainingConfig immediately. Basic,
+Advanced, and Expert rates and all level/world balance remain placeholders.
+Rebirth multiplies Power, never Cash or same-Level launch speed. The HUD shows a
+Power progress bar, multiplier, aggregated level changes, and capped/Rebirth state.
+Offline feedback includes the selected ground, credited time, Power, and resulting
+level range/cap without adding a new claim request.
+
+The R15 swing remains a local procedural pose using existing bat geometry and hand
+IK. A short load precedes hip rotation, torso/shoulder rotation, accelerating bat
+contact, extension, follow-through, and recovery. Legs shift weight and the neck
+counter-rotates. Smooth keyframe curves stagger the hips, chest, hands, and barrel;
+foot IK plants the lead side and pivots the rear foot about its toe. The absolute shared timeline avoids chained-wait drift. Training
+uses the same swing/contact time but its server Power ticks remain independent.
+Unsupported or failed presentation cannot disable valid server swing requests.
+Exit/reset/destruction restore original joints/grip and remove temporary IK state.
+No third-party animation assets or new cosmetic models are used.
 ## Server Authority
 
 Important progression and gameplay state must remain server-authoritative.

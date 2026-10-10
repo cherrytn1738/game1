@@ -23,14 +23,10 @@ Do not over-engineer early versions of the game.
 -   VS Code with Codex as the primary AI-assisted coding environment
 -   Roblox Studio MCP for inspecting and modifying the open Studio place
 -   Git/GitHub for version control
--   Do not use Rojo unless the developer explicitly decides to adopt it
-    later
--   Do not create or modify `default.project.json` or other Rojo
-    configuration files
+-   Rojo is adopted; repository .luau files are the source of truth
+-   Keep Rojo mappings stable unless the requested feature requires a change
 
-When Studio changes are required, prefer using the Roblox Studio MCP
-tools to inspect and modify the actual DataModel rather than creating a
-parallel Rojo/file-based project structure.
+Edit script source in the filesystem repository. Use Studio/MCP to inspect and test the live game and manage necessary non-source physical objects. Never directly edit Rojo-managed Source in Studio.
 
 ## Working Style
 
@@ -59,24 +55,21 @@ Do not make unrelated changes while implementing or debugging a feature.
 
 ## Game Identity
 
-This is a timing-based baseball batting simulator.
+This is a Power/Level-based baseball batting simulator.
 
 Core loop:
 
-Hit ball -\> measure distance -\> earn rewards -\> upgrade equipment -\>
-hit farther -\> unlock new worlds -\> earn better rewards -\> repeat
+Train -> Power -> Level -> hit farther -> Cash/sections/worlds -> Level Cap -> confirmed Rebirth -> higher Power gain/cap -> better Training Grounds -> repeat
 
 Players hit a ball from a batting tee into progressively larger themed
 worlds rather than playing traditional baseball games.
 
 Established design decisions:
 
--   Bat upgrades primarily increase hitting power.
--   Ball upgrades primarily increase rewards earned from distance.
--   Tee upgrades primarily make the timing mechanic easier or more
-    consistent.
--   Batting should reward timing skill rather than being simple
-    click-to-launch gameplay.
+-   Level alone determines authoritative launch strength; every valid hit launches straight at a configured loft.
+-   Ball equipment multiplies Cash only. Bat and Tee ownership remain, without gameplay bonuses.
+-   Training is the primary Power source; hits give a small Power reward. Offline training is capped.
+-   Rebirth resets Level/Power and increases the Power gain multiplier and Level Cap; preserve other progression.
 -   Progression worlds should provide meaningful gameplay/economic
     progression, not only cosmetic changes.
 
@@ -84,17 +77,7 @@ Do not reconsider these decisions unless explicitly asked.
 
 ## Current Development Priority
 
-Build and validate the core batting experience before expanding the
-simulator systems.
-
-Current Phase 1 foundation:
-
-Tee -\> Ball -\> Timing -\> Swing -\> Hit Quality -\> Ball Flight -\>
-Distance
-
-Until Phase 1 is complete, do not implement economy, stores, upgrades,
-worlds, DataStores, monetization, or other progression systems unless
-they are strictly required for the batting foundation.
+Preserve the implemented core loop, persistence, training, equipment, worlds, and server authority. Expand only the requested milestone. Keep placeholder balance configurable.
 
 Current implementation should be inspected through Roblox Studio MCP
 before assuming what has already been built.
@@ -142,11 +125,11 @@ Before modifying an existing system:
 
 When making changes:
 
--   Modify the currently open Roblox Studio place directly.
+-   Edit repository source and let Rojo sync; use Studio/MCP for runtime tests and required non-source objects.
 -   Keep object names descriptive and consistent.
 -   Keep scripts focused on one clear responsibility.
 -   Do not silently restructure unrelated parts of the game.
--   Do not introduce Rojo configuration.
+-   Avoid unnecessary Rojo mapping changes.
 
 When possible after implementation:
 
@@ -243,7 +226,7 @@ Codex should act as the primary implementation agent.
 For routine implementation:
 
 -   Inspect the current Studio state.
--   Make the changes directly through MCP.
+-   Edit repository source; use MCP for runtime verification and required physical objects.
 -   Test when practical.
 -   Report a concise summary and manual verification steps.
 
@@ -253,27 +236,8 @@ making changes.
 
 Do not create complexity simply because an AI agent can generate it.
 
-## Current Phase 1 Scope
+## Current Scope Boundaries
 
-The first playable batting foundation should establish, in order of
-dependency:
+Normal batting is deterministic: one input starts the presentation, then the server launches a straight physics hit using Level. Animation never decides rewards or launch strength. Timing quality and equipment-level progression are retired.
 
-1.  Physical batting setup
-2.  Usable bat and swing
-3.  Timing mechanic
-4.  Hit detection / swing-ball interaction
-5.  Hit quality
-6.  Server-authoritative ball launch
-7.  Ball flight
-8.  Distance measurement
-9.  Integration and basic polish
-
-Closely related pieces may be implemented together when that produces a
-faster, cleaner development cycle.
-
-Phase 1 success means the player can use timing skill to swing at a tee
-ball, produce a hit whose quality affects a believable ball flight, and
-receive a measured distance result.
-
-Do not expand into simulator progression until this foundation is fun
-and reliable.
+Training Grounds are logical per-player selections using one plain physical stadium. Keep environmental art, equipment cosmetics, new simulator systems, and future worlds out of scope unless explicitly requested.

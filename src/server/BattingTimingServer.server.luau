@@ -1,7 +1,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Progression = require(ReplicatedStorage:WaitForChild("ProgressionConfig"))
+local Swing = require(ReplicatedStorage:WaitForChild("SwingConfig"))
 -- Legacy Rojo/Remote name retained; requests now contain only session and optional Exit.
 local Remote = ReplicatedStorage:WaitForChild("BattingTiming")
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
@@ -136,6 +136,7 @@ Travel.OnServerEvent:Connect(function(player, destinationId)
  local root = character and character:FindFirstChild("HumanoidRootPart")
  if not humanoid or humanoid.Health <= 0 or not root then return end
  state.lastTravel = os.clock()
+ player:SetAttribute("WorldTraveling", true)
  Training.Stop(player)
  leave(player)
  BallLauncher.CancelPlayer(player)
@@ -145,6 +146,7 @@ Travel.OnServerEvent:Connect(function(player, destinationId)
  player:SetAttribute("CurrentWorldId", world.id)
  root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
  character:PivotTo(world.arrival)
+ player:SetAttribute("WorldTraveling", false)
  Travel:FireClient(player, "Arrived in " .. world.displayName)
 end)
 
@@ -195,7 +197,7 @@ Remote.OnServerEvent:Connect(function(player, session, action)
 
 	local progression = PlayerData.GetProgression(player)
  if not progression then return end
-	state.nextSwingTime = now + Progression.SwingCooldown
+	state.nextSwingTime = now + Swing.Duration
 	player:SetAttribute("BatNextSwingTime", state.nextSwingTime)
 	state.swingId += 1
 	-- Snapshot the server's Level and Ball reward effect at swing acceptance.

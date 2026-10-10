@@ -15,6 +15,7 @@ return function(sources)
  end
  local function object(className)
   local props, attributes, children = {ClassName = className}, {}, {}
+  if className == "RemoteEvent" then props.OnServerEvent, props.replies = signal(), {} end
   local methods = {
    GetAttribute = function(_, name) return attributes[name] end,
    SetAttribute = function(_, name, value) attributes[name] = value end,
@@ -23,8 +24,12 @@ return function(sources)
    FindFirstChild = function(_, name)
     for _, child in children do if child.Name == name then return child end end
    end,
+   FindFirstChildOfClass = function(_, name)
+    for _, child in children do if child:IsA(name) then return child end end
+   end,
    IsA = function(_, name) return name == className end,
    Kick = function(self, reason) self.KickReason = reason end,
+   FireClient = function(self, player, ...) self.replies[player] = table.pack(...) end,
   }
   return setmetatable({}, {
    __index = function(self, key)
@@ -68,10 +73,11 @@ return function(sources)
  function players:GetPlayers() return self:GetChildren() end
  local now, tokenId = 100, 0
  local shutdown
- local remote = {OnServerEvent = signal(), replies = {}}
- function remote:FireClient(player, success, message) self.replies[player] = {success, message} end
- local storage = {}
- function storage:WaitForChild(name) return name end
+ local storage = object("ReplicatedStorage")
+ function storage:WaitForChild(name) return self:FindFirstChild(name) or name end
+ local remote = object("RemoteEvent")
+ remote.Name, remote.Parent = "EquipmentUpgrade", storage
+ local workspace = object("Workspace")
  local modules = {EquipmentConfig = Equipment, WorldConfig = Worlds, ProgressionConfig = Progression, TrainingConfig = Training}
  local env = setmetatable({
   game = {
@@ -103,6 +109,10 @@ return function(sources)
  Data.Start()
  local function join(id)
   local p = object("Player") p.UserId, p.Name = id, "Test" .. id p.Parent = players
+  local character = object("Model") character.Name, character.Parent = p.Name, workspace
+  local humanoid = object("Humanoid") humanoid.Name, humanoid.Health, humanoid.Parent = "Humanoid", 100, character
+  local root = object("Part") root.Name, root.Parent = "HumanoidRootPart", character
+  p.Character = character
   players.PlayerAdded:Fire(p)
   return p
  end
@@ -156,7 +166,6 @@ return function(sources)
  check(not Data.PurchaseNextEquipment(b, "Bat", b:GetAttribute("EquipmentPurchaseToken_Bat")), "insufficient Cash")
 
  -- Exercise the real remote handler with malformed/spam requests and two players.
- function storage:WaitForChild(name) return name == "EquipmentUpgrade" and remote or name end
  local serverFn = assert(loadstring(sources.EquipmentServer)) setfenv(serverFn, env) serverFn()
  b.leaderstats.Cash.Value = 2000
  local bOffer = b:GetAttribute("EquipmentPurchaseToken_Bat")
@@ -323,5 +332,236 @@ return function(sources)
  Progression.Advance(simulated,offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths))
  check(simulated.Level==30 and simulated.Power==0,"capped offline duration can reach cap but never exceed it")
  check(Data.GetTrainingGround(trainee).id=="advanced_training" and Data.GetTrainingGround(fallback).id=="basic_training","players have independent selections")
- return {passed = passed, message = "Equipment, progression, training selection/grants, offline atomicity, migration, save/rejoin, failure safety"}
+ -- Two complete Rebirth cycles use the same public server operations as gameplay.
+ local cyclist = join(100)
+ cyclist.leaderstats.Cash.Value = 8000
+ for _, category in Equipment.CategoryOrder do
+  check(Data.PurchaseNextEquipment(cyclist, category, cyclist:GetAttribute("EquipmentPurchaseToken_" .. category)), "cycle equipment purchase")
+ end
+ cyclist:SetAttribute("WorldUnlocked_world_2", true)
+ cyclist:SetAttribute("WorldCompleted_world_1", true)
+ local preservedCash = cyclist.leaderstats.Cash.Value
+ for rebirths = 0, 1 do
+  state = Data.GetProgression(cyclist)
+  local selected = Data.GetTrainingGround(cyclist).id
+  check(state.Rebirths == rebirths and state.LevelCap == Progression.GetLevelCap(rebirths), "cycle starts at derived cap")
+  check(not Data.CanRebirth(cyclist), "each cycle requires reaching its own cap")
+  check(Data.GrantPower(cyclist, 1000000, "Test") and Data.CanRebirth(cyclist), "large grant reaches cycle cap")
+  check(Data.GetProgression(cyclist).Level == Progression.GetLevelCap(rebirths), "large grant cannot exceed cycle cap")
+  check(Data.TryRebirth(cyclist), "next cycle Rebirth succeeds")
+  state = Data.GetProgression(cyclist)
+  check(state.Rebirths == rebirths + 1 and state.Level == Progression.StartingLevel
+   and state.Power == Progression.StartingPower and state.LevelCap == Progression.GetLevelCap(rebirths + 1), "complete atomic cycle result")
+  check(not Data.TryRebirth(cyclist), "one capped state permits only one Rebirth")
+  check(Data.GetTrainingGround(cyclist).id == selected, "valid selected ground survives Rebirth")
+  check(cyclist.leaderstats.Cash.Value == preservedCash and cyclist:GetAttribute("WorldUnlocked_world_2")
+   and cyclist:GetAttribute("WorldCompleted_world_1"), "cycle preserves Cash and world progression")
+  for _, category in Equipment.CategoryOrder do
+   local entries = Equipment.GetItems(category)
+   check(Data.OwnsEquipment(cyclist, category, entries[1].id) and Data.OwnsEquipment(cyclist, category, entries[2].id)
+    and cyclist:GetAttribute("Equipped" .. category) == entries[2].id, "cycle preserves owned and equipped equipment")
+  end
+  local nextGround = Training.Grounds[rebirths + 2]
+  check(Data.SelectTrainingGround(cyclist, nextGround.id), "newly eligible ground immediately selectable")
+  local granted, tick = Data.GrantPower(cyclist, nextGround.basePower, "ActiveTraining")
+  check(granted and tick.powerGranted == nextGround.basePower * Progression.GetPowerMultiplier(rebirths + 1), "new ground and Rebirth multiplier compose")
+ end
+ leave(cyclist)
+ local cycleRecord = saved.Player_100
+ check(cycleRecord.Rebirths == 2 and cycleRecord.LevelCap == 30 and cycleRecord.SelectedTrainingGround == "expert_training", "two Rebirths and selected ground saved")
+ check(cycleRecord.LastLogoutTime == math.floor(now) and cycleRecord.Session == nil, "Rebirth save retains offline lifecycle and releases lease")
+ cyclist = join(100)
+ check(Data.GetProgression(cyclist).Rebirths == 2 and Data.GetTrainingGround(cyclist).id == "expert_training"
+  and cyclist.leaderstats.Cash.Value == preservedCash, "multiple cycles survive rejoin")
+ check(Data.GetProgression(b).Rebirths == 0 and Data.GetTrainingGround(b).id == Training.DefaultGround, "cycles do not change another player's state")
+
+ -- Configuration may evolve after a selection; the transaction must revalidate it.
+ saved.Player_101 = {SchemaVersion=5, Cash=42, Rebirths=1, Level=20, Power=0, SelectedTrainingGround="advanced_training"}
+ local changedGround = join(101)
+ local advanced = Training.Get("advanced_training")
+ local previousRequirement = advanced.requiredRebirths
+ advanced.requiredRebirths = 3
+ check(Data.TryRebirth(changedGround), "configuration change does not break valid Rebirth")
+ check(Data.GetTrainingGround(changedGround).id == Training.DefaultGround
+  and changedGround:GetAttribute("SelectedTrainingGround") == Training.DefaultGround, "invalid selection safely falls back during Rebirth")
+ advanced.requiredRebirths = previousRequirement
+
+ -- Load the actual request script. The client sends intent only, with no values.
+ local rebirthFn = assert(loadstring(sources.RebirthServer)) setfenv(rebirthFn, env) rebirthFn()
+ local rebirthRemote = assert(storage:FindFirstChild("RebirthRequest"), "Rebirth remote must exist")
+ local function cappedPlayer(id)
+  local player = join(id)
+  assert(Data.GrantPower(player, 1000000, "Test"))
+  return player
+ end
+ local requester = join(110)
+ requester:SetAttribute("Level", 9999)
+ requester:SetAttribute("LevelCap", 1)
+ requester:SetAttribute("Rebirths", 999)
+ requester:SetAttribute("PowerGainMultiplier", 1000000)
+ rebirthRemote.OnServerEvent:Fire(requester)
+ check(Data.GetProgression(requester).Rebirths == 0 and Data.GetProgression(requester).Level == 1, "forged display progression cannot make Rebirth eligible")
+ check(Data.GrantPower(requester, 10, "Test") and Data.GetProgression(requester).Power == 10, "forged multiplier cannot increase Power gain")
+ check(rebirthRemote.replies[requester][1] == false, "ineligible request provides failure feedback")
+ check(Data.GrantPower(requester, 1000000, "Test"), "remote capped fixture")
+ for _, payload in {{99}, {{Rebirths=99, LevelCap=999, Power=1000}}, {"Confirm"}, {true}} do
+  now += 2.1
+  rebirthRemote.OnServerEvent:Fire(requester, table.unpack(payload))
+  check(Data.GetProgression(requester).Rebirths == 0, "client supplied Rebirth values rejected")
+ end
+ now += 2.1
+ rebirthRemote.OnServerEvent:Fire(requester, nil)
+ check(Data.GetProgression(requester).Rebirths == 0, "even an explicit nil argument is rejected")
+ now += 2.1
+ rebirthRemote.OnServerEvent:Fire(requester)
+ check(Data.GetProgression(requester).Rebirths == 1 and rebirthRemote.replies[requester][1] == true, "zero argument request performs authoritative Rebirth")
+ for _ = 1, 25 do rebirthRemote.OnServerEvent:Fire(requester) end
+ check(Data.GetProgression(requester).Rebirths == 1, "duplicate confirmation spam cannot repeat Rebirth")
+ now += 2.1
+ rebirthRemote.OnServerEvent:Fire(requester)
+ check(Data.GetProgression(requester).Rebirths == 1 and rebirthRemote.replies[requester][1] == false, "stale request stays ineligible after cooldown")
+
+ local busy = cappedPlayer(111)
+ for _, attribute in {"TrainingActive", "BattingActive", "HitActive", "WorldTraveling"} do
+  busy:SetAttribute(attribute, true)
+  rebirthRemote.OnServerEvent:Fire(busy)
+  check(Data.GetProgression(busy).Rebirths == 0 and rebirthRemote.replies[busy][1] == false, "Rebirth rejects " .. attribute)
+  busy:SetAttribute(attribute, false)
+  now += 2.1
+ end
+ local character, humanoid = busy.Character, busy.Character:FindFirstChildOfClass("Humanoid")
+ humanoid.Health = 0
+ rebirthRemote.OnServerEvent:Fire(busy)
+ check(Data.GetProgression(busy).Rebirths == 0, "death before execution cannot Rebirth")
+ humanoid.Health = 100
+ now += 2.1
+ busy.Character = nil
+ rebirthRemote.OnServerEvent:Fire(busy)
+ check(Data.GetProgression(busy).Rebirths == 0, "missing character cannot Rebirth")
+ busy.Character = character
+ now += 2.1
+ character.Parent = nil
+ rebirthRemote.OnServerEvent:Fire(busy)
+ check(Data.GetProgression(busy).Rebirths == 0, "removed character cannot Rebirth")
+ character.Parent = workspace
+ now += 2.1
+ rebirthRemote.OnServerEvent:Fire(busy)
+ check(Data.GetProgression(busy).Rebirths == 1, "valid request recovers after invalid states clear")
+
+ local independentA, independentB = cappedPlayer(112), cappedPlayer(113)
+ rebirthRemote.OnServerEvent:Fire(independentA)
+ rebirthRemote.OnServerEvent:Fire(independentB)
+ check(Data.GetProgression(independentA).Rebirths == 1 and Data.GetProgression(independentB).Rebirths == 1, "request cooldown and processing state isolated per player")
+ local nested = cappedPlayer(114)
+ local originalTryRebirth, operationCalls = Data.TryRebirth, 0
+ Data.TryRebirth = function(player)
+  operationCalls += 1
+  if operationCalls == 1 then rebirthRemote.OnServerEvent:Fire(player) end
+  return originalTryRebirth(player)
+ end
+ rebirthRemote.OnServerEvent:Fire(nested)
+ Data.TryRebirth = originalTryRebirth
+ check(operationCalls == 1 and Data.GetProgression(nested).Rebirths == 1, "reentrant duplicate cannot enter a second transaction")
+ local disconnected = cappedPlayer(115)
+ leave(disconnected)
+ local disconnectedRecord = copy(saved.Player_115)
+ rebirthRemote.OnServerEvent:Fire(disconnected)
+ check(saved.Player_115.Rebirths == disconnectedRecord.Rebirths and not Data.IsReady(disconnected), "disconnect before execution makes request inert")
+ rebirthRemote.OnServerEvent:Fire(future)
+ rebirthRemote.OnServerEvent:Fire(failed)
+ check(saved.Player_4.SchemaVersion == 999 and saved.Player_6 == nil, "failed-load and future-schema requests never overwrite saves")
+
+ local durable = cappedPlayer(116)
+ rebirthRemote.OnServerEvent:Fire(durable)
+ loseResponse.Player_116 = true
+ leave(durable)
+ check(saved.Player_116.Rebirths == 1 and saved.Player_116.Level == 1
+  and saved.Player_116.Power == 0 and saved.Player_116.Session == nil, "Rebirth close save survives committed response loss exactly once")
+ durable = join(116)
+ check(Data.GetProgression(durable).Rebirths == 1 and Data.GetProgression(durable).LevelCap == 20, "saved Rebirth is restored after response loss")
+ saved.Player_117 = {SchemaVersion=5, Cash=9, Rebirths=Progression.MaxRebirths,
+  Level=Progression.GetLevelCap(Progression.MaxRebirths), LevelCap=1, Power=0}
+ local maximum = join(117)
+ check(not Data.CanRebirth(maximum) and not Data.TryRebirth(maximum), "technical Rebirth bound cannot overflow")
+ check(Data.GetProgression(maximum).LevelCap == Progression.GetLevelCap(Progression.MaxRebirths), "saved cap is always derived even at maximum Rebirths")
+
+ -- Pure boundary arithmetic covers every ground/rate, including locked combinations.
+ -- Real login fixtures separately verify that locked selections fall back before payout.
+ for rebirths = 0, 2 do
+  for index, trainingGround in Training.Grounds do
+   local label = trainingGround.id .. "/Rebirth" .. rebirths
+   local multiplier = Progression.GetPowerMultiplier(rebirths)
+   check(Training.IsUnlocked(trainingGround.id, rebirths) == (rebirths >= trainingGround.requiredRebirths), "central ground eligibility " .. label)
+   local priorRate = index > 1 and Training.Grounds[index-1].basePower / Training.Grounds[index-1].interval or 0
+   check(trainingGround.basePower / trainingGround.interval > priorRate, "ground base rates increase " .. label)
+   for _, duration in {12, 3*60*60, Training.MaximumOfflineSeconds, Training.MaximumOfflineSeconds+60*60} do
+    local base, seconds = Training.GetOfflineReward(nowStamp-duration, nowStamp, trainingGround.id)
+    local eligibleSeconds = math.min(duration, Training.MaximumOfflineSeconds)
+    local expectedBase = math.floor(eligibleSeconds * trainingGround.basePower / trainingGround.interval * Training.OfflinePowerRateMultiplier)
+    check(base == expectedBase and seconds == eligibleSeconds, "offline duration boundary " .. label .. "/" .. duration)
+    local rateState = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
+    Progression.Advance(rateState, base * multiplier)
+    check(rateState.Level <= Progression.GetLevelCap(rebirths)
+     and (rateState.Level < rateState.LevelCap or rateState.Power == 0), "offline multiplier respects cap " .. label .. "/" .. duration)
+   end
+  end
+ end
+
+ -- Move the fake clock only after earlier session assertions; every login below gets
+ -- a fresh lease. These are actual PlayerData loads/grants/saves, never live DataStores.
+ now = nowStamp
+ local fixtureId = 200
+ for rebirths = 0, 2 do
+  for _, trainingGround in Training.Grounds do
+   fixtureId += 1
+   local key = "Player_" .. fixtureId
+   saved[key] = {SchemaVersion=5, Cash=456, Rebirths=rebirths, Level=1, Power=0,
+    LevelCap=999999, SelectedTrainingGround=trainingGround.id, LastLogoutTime=now-12,
+    UnlockedWorlds={world_1=true, world_2=true}, CompletedWorlds={world_1=true}, OtherProgress=73}
+   local fixture = join(fixtureId)
+   local validId = Training.ValidSelection(trainingGround.id, rebirths)
+   local validGround = Training.Get(validId)
+   local baseOffline = math.floor(12 * validGround.basePower / validGround.interval * Training.OfflinePowerRateMultiplier)
+   local expected = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
+   Progression.Advance(expected, baseOffline * Progression.GetPowerMultiplier(rebirths))
+   local actual = Data.GetProgression(fixture)
+   check(fixture:GetAttribute("OfflinePowerEarned") == baseOffline * Progression.GetPowerMultiplier(rebirths)
+    and actual.Level == expected.Level and actual.Power == expected.Power, "actual offline login ground/Rebirth cross-product")
+   check(Data.GetTrainingGround(fixture).id == validId and actual.LevelCap == Progression.GetLevelCap(rebirths), "actual login repairs locked grounds and saved caps")
+   local granted, tick = Data.GrantPower(fixture, validGround.basePower, "ActiveTraining")
+   check(granted and tick.powerGranted == validGround.basePower * Progression.GetPowerMultiplier(rebirths), "actual active grant ground/Rebirth cross-product")
+   leave(fixture)
+   check(saved[key].Cash == 456 and saved[key].OtherProgress == 73 and saved[key].UnlockedWorlds.world_2
+    and saved[key].CompletedWorlds.world_1 and saved[key].SelectedTrainingGround == validId, "offline and active grants preserve unrelated fields")
+  end
+ end
+
+ saved.Player_220 = {SchemaVersion=5, Cash=100, Rebirths=2, Level=29,
+  Power=Progression.PowerRequiredForNextLevel(29)-1, SelectedTrainingGround="expert_training", LastLogoutTime=now-12}
+ local offlineCap = join(220)
+ check(Data.GetProgression(offlineCap).Level == 30 and Data.GetProgression(offlineCap).Power == 0
+  and Data.CanRebirth(offlineCap), "offline login reaches cap and permits explicit Rebirth without automatic reset")
+ check(Data.GetProgression(offlineCap).Rebirths == 2, "offline cap never automatically Rebirths")
+ local oneBelow = Progression.Normalize({Rebirths=0, Level=9,
+  Power=Progression.PowerRequiredForNextLevel(9)-1}, false)
+ Progression.Advance(oneBelow, 1)
+ check(oneBelow.Level == 10 and oneBelow.Power == 0, "exact Power boundary advances to cap")
+ for _, forgedRebirths in {-1, 0/0, math.huge, 1.5, "2", Progression.MaxRebirths+1} do
+  local normalized = Progression.Normalize({Rebirths=forgedRebirths, Level=1, Power=0, LevelCap=99999}, false)
+  check(normalized.Rebirths == 0 and normalized.LevelCap == Progression.BaseLevelCap, "malformed Rebirth cannot inflate derived cap")
+ end
+ for version = 1, 4 do
+  local id = 230 + version
+  saved["Player_" .. id] = {SchemaVersion=version, Cash=1234, EquippedBat="metal_bat",
+   OwnedBats={wood_bat=true, metal_bat=true}, UnlockedWorlds={world_1=true, world_2=true},
+   CompletedWorlds={world_1=true}, Power=12, Level=2, Rebirths=1,
+   SelectedTrainingGround="advanced_training", LastLogoutTime=1}
+  local migration = join(id)
+  local progress = Data.GetProgression(migration)
+  check(migration.leaderstats.Cash.Value == 1234 and Data.OwnsEquipment(migration,"Bat","metal_bat")
+   and migration:GetAttribute("EquippedBat") == "metal_bat" and migration:GetAttribute("WorldUnlocked_world_2"), "each old schema preserves economy/equipment/worlds")
+  check(progress.Rebirths == (version < 4 and 0 or 1) and progress.LevelCap == (version < 4 and 10 or 20)
+   and migration:GetAttribute("OfflinePowerEarned") == 0, "each old schema defaults progression only when needed and fabricates no offline time")
+ end
+ return {passed = passed, message = "Equipment, repeated Rebirths, remote abuse/state isolation, active/offline rate matrix, caps, migration, save/rejoin, failure safety"}
 end

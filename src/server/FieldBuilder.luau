@@ -61,7 +61,7 @@ local function buildHub(world, area)
   post.Parent = station
   local prompt = post:FindFirstChild("Prompt") or Instance.new("ProximityPrompt")
   prompt.Name, prompt.ActionText = "Prompt", definition.actionText
-  prompt.ObjectText = definition.id == "Shop" and "Equipment" or "Worlds"
+  prompt.ObjectText = definition.objectText or (definition.id == "Shop" and "Equipment" or "Worlds")
   prompt.MaxActivationDistance, prompt.HoldDuration = config.promptDistance, 0
   prompt.RequiresLineOfSight = false
   prompt:SetAttribute("HubAction", definition.id)

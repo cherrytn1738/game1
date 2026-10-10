@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Progression = require(ReplicatedStorage:WaitForChild("ProgressionConfig"))
+local Swing = require(ReplicatedStorage:WaitForChild("SwingConfig"))
 local Field = require(ReplicatedStorage:WaitForChild("FieldConfig"))
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local PlayerData = require(script.Parent:WaitForChild("PlayerData"))
@@ -226,7 +227,7 @@ function BallLauncher.TryLaunch(player, result, tool)
  station.hit = hit
  player:SetAttribute("HitActive", true)
  station.ball:SetAttribute("BallState", "Reserved")
- task.delay(Progression.ContactDelay, launch, station, hit)
+ task.delay(Swing.ContactTime, launch, station, hit)
  return true
 end
 

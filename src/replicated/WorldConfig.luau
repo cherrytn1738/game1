@@ -13,6 +13,7 @@ local Worlds = {
     interactions = {
      {id = "Shop", actionText = "Open Equipment Shop", position = Vector3.new(-70, 0, 65), size = Vector3.new(28, 0.1, 24)},
      {id = "Travel", actionText = "Open World Travel", position = Vector3.new(35, 0, 120), size = Vector3.new(14, 0.1, 12)},
+     {id = "Rebirth", actionText = "View Rebirth", objectText = "Rebirth", position = Vector3.new(-35, 0, 120), size = Vector3.new(8, 0.1, 8)},
     }},
    runoutDistance = 2000,
    sections = {

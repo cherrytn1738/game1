@@ -114,6 +114,7 @@ function UI.Menu(name, title, subtitle, close)
 end
 
 local notification, noticeText, noticeTitle, noticeVersion = nil, nil, nil, 0
+local resizeNotice
 local previousText, previousTime = "", 0
 function UI.ClearNotifications()
  noticeVersion += 1
@@ -128,22 +129,44 @@ function UI.Notify(message, kind)
  if not notification then
   local gui = UI.Screen("NotificationGui", 40)
   notification = UI.Surface(gui, "Notice")
-  -- Below the progression HUD, including on narrow screens.
-  notification.AnchorPoint, notification.Position = Vector2.new(.5,0), UDim2.new(.5,0,0,164)
-  notification.Size = UDim2.new(1,-24,0,90)
-  local limit = Instance.new("UISizeConstraint", notification)
-  limit.MaxSize = Vector2.new(400,90)
+  notification.AutomaticSize = Enum.AutomaticSize.Y
+  notification.Size = UDim2.new(1,-24,0,0)
+  local padding = Instance.new("UIPadding",notification)
+  padding.PaddingLeft, padding.PaddingRight = UDim.new(0,14), UDim.new(0,14)
+  padding.PaddingTop, padding.PaddingBottom = UDim.new(0,10), UDim.new(0,12)
+  local layout = Instance.new("UIListLayout",notification)
+  layout.Padding, layout.SortOrder = UDim.new(0,6),Enum.SortOrder.LayoutOrder
   noticeTitle = UI.Label(notification,"Title","",13)
-  noticeTitle.Position, noticeTitle.Size = UDim2.fromOffset(14,8), UDim2.new(1,-28,0,20)
+  noticeTitle.Size, noticeTitle.LayoutOrder = UDim2.new(1,0,0,20),1
   noticeText = UI.Label(notification,"Message","",15)
-  noticeText.Position, noticeText.Size, noticeText.TextWrapped = UDim2.fromOffset(14,30), UDim2.new(1,-28,0,52), true
+  noticeText.Size, noticeText.TextWrapped = UDim2.new(1,0,0,0),true
+  noticeText.AutomaticSize, noticeText.LayoutOrder = Enum.AutomaticSize.Y,2
+  resizeNotice = function()
+   local size = gui.AbsoluteSize
+   local hud = player.PlayerGui:FindFirstChild("GameHUD")
+   local hudRoot = hud and hud:FindFirstChild("Root")
+   local shortcut = hudRoot and hudRoot:FindFirstChild("RebirthShortcut")
+   if size.Y < 440 and size.X >= 600 then
+    -- Leave the progression HUD on the right and touch controls at the bottom.
+    notification.AnchorPoint, notification.Position = Vector2.zero,UDim2.fromOffset(12,10)
+    notification.Size = UDim2.fromOffset(math.min(400,size.X-296),0)
+   else
+    local top = size.X >= 1040 and 18 or (shortcut and shortcut.Visible and 262 or 214)
+    notification.AnchorPoint, notification.Position = Vector2.new(.5,0),UDim2.new(.5,0,0,top)
+    notification.Size = UDim2.fromOffset(math.min(400,size.X-24),0)
+   end
+  end
+  gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(resizeNotice)
  end
- noticeTitle.Text = kind == "unlock" and "WORLD PROGRESS" or kind == "error" and "PLEASE TRY AGAIN" or "UPDATE"
+ noticeTitle.Text = kind == "unlock" and "WORLD PROGRESS" or kind == "error" and "PLEASE TRY AGAIN"
+  or kind == "level" and "LEVEL UP!" or kind == "cap" and "MAX LEVEL REACHED"
+  or kind == "offline" and "OFFLINE TRAINING" or kind == "rebirth" and "REBIRTH COMPLETE" or "UPDATE"
  noticeTitle.TextColor3 = kind == "error" and UI.Colors.Error or UI.Colors.Accent
  noticeText.Text, notification.Visible = message, true
+ resizeNotice()
  noticeVersion += 1
  local version = noticeVersion
- task.delay(kind == "unlock" and 8 or 4, function()
+ task.delay((kind == "unlock" or kind == "offline") and 8 or 5, function()
   if version == noticeVersion then notification.Visible = false end
  end)
 end

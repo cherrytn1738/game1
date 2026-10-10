@@ -17,6 +17,7 @@ function Interfaces.CanOpen()
  local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
  return player:GetAttribute("DataLoaded") == true and humanoid ~= nil and humanoid.Health > 0
   and not player:GetAttribute("TrainingActive") and not player:GetAttribute("BattingActive") and not player:GetAttribute("HitActive")
+  and not player:GetAttribute("WorldTraveling")
 end
 
 function Interfaces.CloseAll()
@@ -53,9 +54,13 @@ Prompts.PromptTriggered:Connect(function(prompt, triggeringPlayer)
  Interfaces.Open(prompt:GetAttribute("HubAction"))
 end)
 
-for _, attribute in {"BattingActive", "TrainingActive", "HitActive", "DataLoaded", "CurrentWorldId"} do
+for _, attribute in {"BattingActive", "TrainingActive", "HitActive", "DataLoaded", "CurrentWorldId", "WorldTraveling"} do
  player:GetAttributeChangedSignal(attribute):Connect(Interfaces.CloseAll)
 end
+-- An arrival may return to the same world, without changing CurrentWorldId.
+game.ReplicatedStorage:WaitForChild("WorldTravel").OnClientEvent:Connect(function(message)
+ if type(message) == "string" and message:sub(1,7) == "Arrived" then Interfaces.CloseAll() end
+end)
 player.CharacterRemoving:Connect(Interfaces.CloseAll)
 local function characterAdded(character)
  Interfaces.CloseAll()

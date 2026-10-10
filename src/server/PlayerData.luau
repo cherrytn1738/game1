@@ -11,6 +11,7 @@ local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 local STORE_NAME = "PlayerProgression"
 local SCHEMA_VERSION = 5
 local AUTOSAVE_SECONDS = 60
+local IMPORTANT_SAVE_SECONDS = 5 -- Rebirth joins the existing serialized save loop.
 local LEASE_SECONDS = 180
 local LEASE_SAFETY_SECONDS = 15
 local MAX_ATTEMPTS = 3
@@ -174,15 +175,29 @@ end
 
 function PlayerData.TryRebirth(player)
  if not PlayerData.CanRebirth(player) then return false, "Reach your Level Cap first." end
+ local character = player.Character
+ local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+ if not character or not character.Parent or not humanoid or humanoid.Health <= 0
+  or player:GetAttribute("WorldTraveling") then
+  return false, "Wait until you are alive and world travel has finished."
+ end
  if player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") or player:GetAttribute("TrainingActive") then
   return false, "Leave training or batting before rebirthing."
  end
- local state = sessions[player].progression
+ local session = sessions[player]
+ local state = table.clone(session.progression)
  state.Rebirths += 1
  state.Level, state.Power = Progression.StartingLevel, Progression.StartingPower
  state.LevelCap = Progression.GetLevelCap(state.Rebirths)
+ local selected = Training.ValidSelection(session.selectedTrainingGround, state.Rebirths)
+ -- No yields: validate first, then commit the complete private state and its display copies.
+ session.progression, session.selectedTrainingGround = state, selected
+ session.importantSavePending = true
+ session.nextSave = math.min(session.nextSave, os.clock() + IMPORTANT_SAVE_SECONDS)
+ player:SetAttribute("SelectedTrainingGround", selected)
  publishProgression(player, state)
- return true, "Rebirth complete."
+ return true, string.format("REBIRTH COMPLETE\nRebirths: %d | Power Gain: %dx | Level Cap: %d",
+  state.Rebirths, Progression.GetPowerMultiplier(state.Rebirths), state.LevelCap)
 end
 
 function PlayerData.OwnsEquipment(player, category, id)
@@ -283,6 +298,9 @@ local function save(player, session, release)
  local data = snapshot(player)
  if not data then fail(player, session, "invalid runtime progression; save refused") return end
  session.saving = true
+ -- A Rebirth during this yielding save sets the flag again for a follow-up snapshot.
+ local importantSave = session.importantSavePending
+ session.importantSavePending = false
  local writeId = HttpService:GenerateGUID(false)
  local rejection
  local ok, record = update(session, function(current)
@@ -314,6 +332,7 @@ local function save(player, session, release)
  elseif rejection then
   fail(player, session, rejection)
  else
+  if importantSave then session.importantSavePending = true end
   warn(string.format("[PlayerData] SAVE FAILED %d (%s): %s",
    player.UserId, release and "leave/shutdown" or "autosave", tostring(record)))
   -- An autosave failure may recover next interval while the lease is still safe.
@@ -394,6 +413,9 @@ local function loadPlayer(player)
  player:SetAttribute("SelectedTrainingGround", session.selectedTrainingGround)
  player:SetAttribute("OfflinePowerEarned", offlineResult and offlineResult.powerGranted or 0)
  player:SetAttribute("OfflineSeconds", offlineSeconds or 0)
+ player:SetAttribute("OfflineTrainingGround", session.selectedTrainingGround)
+ player:SetAttribute("OfflineOldLevel", offlineResult and offlineResult.oldLevel or session.progression.Level)
+ player:SetAttribute("OfflineNewLevel", offlineResult and offlineResult.newLevel or session.progression.Level)
  publishProgression(player, session.progression)
  -- Publish the complete authoritative runtime state only after a successful claim.
  local stats = Instance.new("Folder")
@@ -453,7 +475,7 @@ function PlayerData.Start()
     if session.loaded and not session.closing and not session.failed then
      if os.time() >= session.expiresAt - LEASE_SAFETY_SECONDS then
       fail(player, session, "autosave could not renew the session safely")
-     elseif not session.saving and os.clock() >= session.nextSave then
+     elseif not session.saving and (session.importantSavePending or os.clock() >= session.nextSave) then
       session.nextSave = os.clock() + AUTOSAVE_SECONDS
       task.spawn(save, player, session, false)
      end
