@@ -20,7 +20,7 @@ local cash
 
 local function effect(category, item)
  if category == "Ball" then return string.format("%.2fx Cash rewards", item.rewardMultiplier) end
- return "No gameplay bonus"
+ return string.format("%.2fx Power gain", item.powerGainMultiplier)
 end
 
 local function layoutRows()
@@ -109,10 +109,11 @@ local function showCategory(category)
  refresh()
 end
 
+local tabCount = #Equipment.CategoryOrder
 for index, category in Equipment.CategoryOrder do
  local tab = UI.Button(panel,category.."Tab",Equipment.Categories[category].displayName)
- tab.Position = UDim2.new((index-1)/3,16-(index-1)*8,0,116)
- tab.Size = UDim2.new(1/3,-16,0,40)
+ tab.Position = UDim2.new((index-1)/tabCount,16-(index-1)*8,0,116)
+ tab.Size = UDim2.new(1/tabCount,-20,0,40)
  tabs[category] = tab
  tab.Activated:Connect(function() if not pending then showCategory(category) end end)
 end

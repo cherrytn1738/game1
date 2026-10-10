@@ -9,7 +9,7 @@ local Progression = require(game.ReplicatedStorage:WaitForChild("ProgressionConf
 local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 
 local STORE_NAME = "PlayerProgression"
-local SCHEMA_VERSION = 5
+local SCHEMA_VERSION = 6
 local AUTOSAVE_SECONDS = 60
 local IMPORTANT_SAVE_SECONDS = 5 -- Rebirth joins the existing serialized save loop.
 local LEASE_SECONDS = 180
@@ -41,6 +41,8 @@ local function validate(record)
  local data = table.clone(record)
  local repairs = {}
  data.SchemaVersion = SCHEMA_VERSION
+ -- Schema 6 retires player Tee equipment; malformed legacy fields are harmless.
+ data.OwnedTees, data.EquippedTee = nil, nil
  for field, value in Progression.Normalize(record, (version or 1) < 4) do data[field] = value end
  data.SelectedTrainingGround = Training.ValidSelection(data.SelectedTrainingGround, data.Rebirths)
  -- Old schemas cannot manufacture historical offline rewards.
@@ -125,21 +127,27 @@ function PlayerData.GetProgression(player)
 end
 
 -- Single grant path, also used on the private save snapshot during atomic login.
-local function grantProgression(state, baseAmount, source)
+local function grantProgression(state, baseAmount, source, batId)
  if not Progression.IsInteger(baseAmount, 0, Progression.MaxBaseGrant)
   or type(source) ~= "string" or #source == 0 or #source > 64 then
   return false, "Invalid Power grant."
  end
+ local bat = Equipment.Get("Bat", batId)
+ if not bat then return false, "Invalid Bat for Power grant." end
  local oldLevel = state.Level
- local amount = state.Level < state.LevelCap and baseAmount * Progression.GetPowerMultiplier(state.Rebirths) or 0
+ local amount = state.Level < state.LevelCap
+  and Progression.GetPowerGrant(baseAmount, state.Rebirths, bat.powerGainMultiplier) or 0
  Progression.Advance(state, amount)
  return true, {powerGranted = amount, oldLevel = oldLevel, newLevel = state.Level, source = source}
 end
 
-function PlayerData.GrantPower(player, baseAmount, source)
+function PlayerData.GrantPower(player, baseAmount, source, hitBatId)
  if not PlayerData.IsReady(player) then return false, "Player data is not ready." end
+ -- The optional ID is a server-created hit snapshot, never a client multiplier.
+ local batId = hitBatId or player:GetAttribute("EquippedBat")
+ if not PlayerData.OwnsEquipment(player, "Bat", batId) then return false, "Invalid equipped Bat." end
  local state = sessions[player].progression
- local ok, result = grantProgression(state, baseAmount, source)
+ local ok, result = grantProgression(state, baseAmount, source, batId)
  if ok then publishProgression(player, state) end
  return ok, result
 end
@@ -196,7 +204,7 @@ function PlayerData.TryRebirth(player)
  session.nextSave = math.min(session.nextSave, os.clock() + IMPORTANT_SAVE_SECONDS)
  player:SetAttribute("SelectedTrainingGround", selected)
  publishProgression(player, state)
- return true, string.format("REBIRTH COMPLETE\nRebirths: %d | Power Gain: %dx | Level Cap: %d",
+ return true, string.format("REBIRTH COMPLETE\nRebirths: %d | Rebirth Power: %dx | Level Cap: %d",
   state.Rebirths, Progression.GetPowerMultiplier(state.Rebirths), state.LevelCap)
 end
 
@@ -313,6 +321,7 @@ local function save(player, session, release)
    return nil
   end
   local updated = table.clone(current)
+  updated.OwnedTees, updated.EquippedTee = nil, nil
   for field, value in data do updated[field] = value end
   -- Autosave is also a crash checkpoint; normal exit uses the actual close time.
   updated.LastLogoutTime = release and session.logoutTime or os.time()
@@ -388,7 +397,7 @@ local function loadPlayer(player)
   if not owns(current, session) then
    local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), data.SelectedTrainingGround)
    local progression = Progression.Normalize(data, false)
-   local granted, result = grantProgression(progression, baseAmount, "OfflineTraining")
+   local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBat)
    if not granted then rejection = "invalid offline reward configuration" return nil end
    for field, value in progression do data[field] = value end
    offlineResult, offlineSeconds = result, seconds

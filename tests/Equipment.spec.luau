@@ -185,7 +185,7 @@ return function(sources)
  check(b:GetAttribute("EquippedBat") == "metal_bat" and b.leaderstats.Cash.Value == 1700, "forged request inputs rejected")
  check(Data.EquipEquipment(a, "Bat", "wood_bat"), "select old item before saving")
  leave(a)
- check(saved.Player_1.SchemaVersion == 5 and saved.Player_1.Session == nil, "version 5 save and lease release")
+ check(saved.Player_1.SchemaVersion == 6 and saved.Player_1.Session == nil, "version 6 save and lease release")
  check(saved.Player_1.OwnedBats.carbon_bat and saved.Player_1.EquippedBat == "wood_bat", "ownership and selection saved separately")
  check(saved.Player_1.OtherProgress == 42 and saved.Player_1.UnlockedWorlds.world_2, "other progression preserved")
  local returned = join(1)
@@ -248,13 +248,13 @@ return function(sources)
  check(fresh.leaderstats.Cash.Value == 1700 and Data.OwnsEquipment(fresh,"Bat","metal_bat")
   and fresh:GetAttribute("EquippedBat") == "metal_bat" and fresh:GetAttribute("WorldUnlocked_world_2"), "Rebirth preserves unrelated progression")
  ok, state = Data.GrantPower(fresh, 30, "FutureTraining")
- check(ok and state.powerGranted == 60 and fresh:GetAttribute("Power") == 60, "central Rebirth multiplier")
+ check(ok and state.powerGranted == 90 and fresh:GetAttribute("Power") == 90, "central Bat and Rebirth multipliers")
  check(Progression.GetLaunchSpeed(Data.GetProgression(fresh).Level) == Progression.GetLaunchSpeed(1), "Power/Rebirth do not affect same-level launch")
  check(Progression.GetLaunchSpeed(10) > Progression.GetLaunchSpeed(1) * 3, "Level 10 launch substantially stronger")
  leave(fresh)
  fresh = join(20)
  state = Data.GetProgression(fresh)
- check(state.Rebirths == 1 and state.LevelCap == 20 and state.Level == 1 and state.Power == 60, "new progression saves and rejoins")
+ check(state.Rebirths == 1 and state.LevelCap == 20 and state.Level == 1 and state.Power == 90, "new progression saves and rejoins")
  check(fresh.leaderstats.Cash.Value == 1700 and fresh:GetAttribute("EquippedBat") == "metal_bat"
   and fresh:GetAttribute("WorldCompleted_world_1"), "equipment Cash and worlds survive new schema")
  check(returned:GetAttribute("Level") == 1 and returned:GetAttribute("Power") == 0, "legacy saves gain defaults without Bat conversion")
@@ -364,7 +364,7 @@ return function(sources)
   local nextGround = Training.Grounds[rebirths + 2]
   check(Data.SelectTrainingGround(cyclist, nextGround.id), "newly eligible ground immediately selectable")
   local granted, tick = Data.GrantPower(cyclist, nextGround.basePower, "ActiveTraining")
-  check(granted and tick.powerGranted == nextGround.basePower * Progression.GetPowerMultiplier(rebirths + 1), "new ground and Rebirth multiplier compose")
+  check(granted and tick.powerGranted == nextGround.basePower * 1.5 * Progression.GetPowerMultiplier(rebirths + 1), "new ground, Bat and Rebirth multipliers compose")
  end
  leave(cyclist)
  local cycleRecord = saved.Player_100
@@ -620,6 +620,76 @@ return function(sources)
   check(not Data.GrantPower(unavailable, 100, "Test") and not Data.TryRebirth(unavailable)
    and not Data.SelectTrainingGround(unavailable, "basic_training"), "unavailable profile cannot progress or choose ground")
  end
+
+ -- Schema 6 removes only retired player equipment; its physical station is unrelated.
+ check(#Equipment.CategoryOrder == 2 and Equipment.Categories.Tee == nil
+  and Equipment.Get("Tee", "basic_tee") == nil, "catalog contains only Bat/Ball")
+ saved.Player_300 = {SchemaVersion=5, Cash=4321, Power=7, Level=3, Rebirths=2,
+  OwnedBats={wood_bat=true,metal_bat=true}, EquippedBat="metal_bat",
+  OwnedBalls={baseball=true,practice_ball=true}, EquippedBall="practice_ball",
+  OwnedTees="malformed retired data", EquippedTee={invalid=true},
+  SelectedTrainingGround="advanced_training", LastLogoutTime=math.floor(now),
+  UnlockedWorlds={world_1=true,world_2=true},CompletedWorlds={world_1=true},OtherProgress=123}
+ local migrated=join(300)
+ check(Data.IsReady(migrated) and migrated.leaderstats.Cash.Value==4321
+  and migrated:GetAttribute("Power")==7 and migrated:GetAttribute("Level")==3
+  and migrated:GetAttribute("Rebirths")==2, "schema 5 migration preserves progression")
+ check(not migrated:FindFirstChild("OwnedTees") and migrated:GetAttribute("EquippedTee")==nil
+  and migrated:GetAttribute("EquipmentPurchaseToken_Tee")==nil, "no retired runtime state")
+ check(saved.Player_300.OwnedTees==nil and saved.Player_300.EquippedTee==nil
+  and saved.Player_300.SchemaVersion==6, "atomic migration discards even malformed Tee fields")
+ check(not Data.PurchaseNextEquipment(migrated,"Tee","fake")
+  and not Data.EquipEquipment(migrated,"Tee","basic_tee"), "removed category operations rejected")
+ local migratedCash=migrated.leaderstats.Cash.Value
+ remote.OnServerEvent:Fire(migrated,"Purchase","Tee","fake")
+ remote.OnServerEvent:Fire(migrated,"Equip","Tee","basic_tee")
+ remote.OnServerEvent:Fire(migrated,"Equip","Bat",{powerGainMultiplier=100000})
+ check(migrated.leaderstats.Cash.Value==migratedCash and migrated:GetAttribute("EquippedBat")=="metal_bat",
+  "removed category and fake multiplier remote inputs do not change equipment or Cash")
+ leave(migrated)
+ check(saved.Player_300.OwnedTees==nil and saved.Player_300.EquippedTee==nil
+  and saved.Player_300.OtherProgress==123 and saved.Player_300.UnlockedWorlds.world_2
+  and saved.Player_300.SelectedTrainingGround=="advanced_training", "save retains valid unrelated fields")
+ migrated=join(300)
+ check(migrated:GetAttribute("EquippedBat")=="metal_bat" and migrated:GetAttribute("EquippedBall")=="practice_ball"
+  and Data.OwnsEquipment(migrated,"Bat","wood_bat"), "schema 6 rejoin preserves Bat/Ball equipment")
+
+ local fixtureId=400
+ for _,entry in {{id="wood_bat",gain=1},{id="metal_bat",gain=1.5},{id="alloy_bat",gain=2},{id="carbon_bat",gain=2.5}} do
+  for rebirths=0,2 do
+   fixtureId+=1
+   local key="Player_"..fixtureId
+   saved[key]={SchemaVersion=5,Cash=5000,Power=0,Level=1,Rebirths=rebirths,
+    OwnedBats={wood_bat=true,[entry.id]=true},EquippedBat=entry.id,
+    SelectedTrainingGround="basic_training",LastLogoutTime=math.floor(now)-12}
+   local fixture=join(fixtureId)
+   check(fixture:GetAttribute("OfflinePowerEarned")==30*entry.gain*(rebirths+1),
+    "offline bonus uses saved Bat and Rebirth exactly once")
+   local trainingOk,tick=Data.GrantPower(fixture,20,"ActiveTraining")
+   check(trainingOk and tick.powerGranted==20*entry.gain*(rebirths+1), "active Training composes Bat and Rebirth")
+   local hitOk,hit=Data.GrantPower(fixture,2,"CompletedHit",entry.id)
+   check(hitOk and hit.powerGranted==2*entry.gain*(rebirths+1), "hit snapshot composes Bat and Rebirth")
+   check(Data.PurchaseNextEquipment(fixture,"Ball",fixture:GetAttribute("EquipmentPurchaseToken_Ball")),
+    "Ball purchase still works")
+   local _,afterBall=Data.GrantPower(fixture,2,"CompletedHit",entry.id)
+   check(afterBall.powerGranted==hit.powerGranted,"Ball reward bonus does not affect Power")
+   fixture:SetAttribute("TrainingActive",true)
+   check(not Data.EquipEquipment(fixture,"Bat","wood_bat"),"Bat switch blocked during Training")
+   fixture:SetAttribute("TrainingActive",false)
+   fixture:SetAttribute("HitActive",true)
+   check(not Data.EquipEquipment(fixture,"Bat","wood_bat"),"Bat switch blocked during flight")
+   fixture:SetAttribute("HitActive",false)
+   check(Data.EquipEquipment(fixture,"Bat","wood_bat"),"owned Bat switches after activity")
+   local _,olderHit=Data.GrantPower(fixture,2,"CompletedHit",entry.id)
+   check(olderHit.powerGranted==hit.powerGranted,"accepted hit snapshot survives later equipment selection")
+   local _,newTick=Data.GrantPower(fixture,20,"ActiveTraining")
+   check(newTick.powerGranted==20*(rebirths+1),"next Training uses newly equipped Bat")
+   check(not Data.GrantPower(fixture,20,"ActiveTraining",1000),"a number cannot supply a Bat bonus")
+  end
+ end
+ check(not Data.GrantPower(migrated,20,"CompletedHit","carbon_bat"),"unowned snapshot rejected")
+ check(Progression.GetPowerGrant(3,1,1.5)==9 and Progression.GetPowerGrant(1,0,1.5)==1,
+  "whole Power rounds only after composing bonuses")
  local expiring = join(251)
  expiring.leaderstats.Cash.Value = 1000
  local expiredOffer = expiring:GetAttribute("EquipmentPurchaseToken_Bat")

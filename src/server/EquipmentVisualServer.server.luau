@@ -37,17 +37,14 @@ end
 local function refreshStation(world)
  local area = workspace:FindFirstChild(world.stationName)
  if not area then return end
- local ball, tee, pad = area.Baseball, area.Tee, area.BatterPosition
+ local ball, pad = area.Baseball, area.BatterPosition
  -- Retain the hitter's ball throughout windup/flight, even if they leave the tee.
  if ball:GetAttribute("BallState") ~= "Ready" then return end
  local userId = pad:GetAttribute("OccupantUserId")
  local player = userId and Players:GetPlayerByUserId(userId)
  local ballItem = Equipment.Get("Ball", player and player:GetAttribute("EquippedBall"))
- local teeItem = Equipment.Get("Tee", player and player:GetAttribute("EquippedTee"))
  paint(ball, ballItem.appearance)
- paintParts(tee, teeItem.appearance)
  ball:SetAttribute("EquipmentId", ballItem.id)
- tee:SetAttribute("EquipmentId", teeItem.id)
 end
 
 local function refreshStations()
@@ -58,7 +55,6 @@ local function watch(player)
  connections[player] = {
   player:GetAttributeChangedSignal("EquippedBat"):Connect(function() applyBat(player) end),
   player:GetAttributeChangedSignal("EquippedBall"):Connect(refreshStations),
-  player:GetAttributeChangedSignal("EquippedTee"):Connect(refreshStations),
   player.DescendantAdded:Connect(function(child)
    if child:IsA("Tool") and child.Name == "Bat" then
     task.defer(applyBat, player)

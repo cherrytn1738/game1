@@ -200,12 +200,13 @@ Remote.OnServerEvent:Connect(function(player, session, action)
 	state.nextSwingTime = now + Swing.Duration
 	player:SetAttribute("BatNextSwingTime", state.nextSwingTime)
 	state.swingId += 1
-	-- Snapshot the server's Level and Ball reward effect at swing acceptance.
+	-- Snapshot the server's Level, Bat ID, and Ball reward effect at swing acceptance.
 	local result = {
 		swingId = state.swingId,
   worldId = state.worldId,
 		session = state.session,
   launchLevel = progression.Level,
+  batId = player:GetAttribute("EquippedBat"),
   ballRewardMultiplier = Equipment.Get("Ball", player:GetAttribute("EquippedBall")).rewardMultiplier,
 		evaluatedAt = now,
 	}

@@ -67,7 +67,7 @@ worlds rather than playing traditional baseball games.
 Established design decisions:
 
 -   Level alone determines authoritative launch strength; every valid hit launches straight at a configured loft.
--   Ball equipment multiplies Cash only. Bat and Tee ownership remain, without gameplay bonuses.
+-   Bat equipment multiplies Power from Training, hits, and offline Training; Ball equipment multiplies Cash only. Tee is not player equipment; the physical batting tee remains.
 -   Training is the primary Power source; hits give a small Power reward. Offline training is capped.
 -   Rebirth resets Level/Power and increases the Power gain multiplier and Level Cap; preserve other progression.
 -   Progression worlds should provide meaningful gameplay/economic

@@ -31,12 +31,16 @@ return function(sources)
   self:GetAttributeChangedSignal(name):Fire()
  end
  player.Character={FindFirstChildOfClass=function() return {Health=100} end}
- local buttons,requests={},{}
+ local buttons,requests,labels={},{},{}
  local UI={Colors={},Number=tostring,Notify=function() end}
  function UI.Menu() return object("Menu"),object("Panel"),function() end end
  function UI.Scroll(_,name) return object(name) end
  function UI.Surface(_,name) return object(name) end
- function UI.Label(_,name) return object(name) end
+ function UI.Label(parent,name)
+  local label=object(name)
+  labels[parent.Name .. "." .. name]=label
+  return label
+ end
  function UI.Screen(name) return object(name) end
  function UI.Button(parent,name)
   local button=object(name)
@@ -53,6 +57,7 @@ return function(sources)
  end
  local remote={OnClientEvent=signal(),FireServer=function(_,...) table.insert(requests,table.pack(...)) end}
  local modules={UICommon=UI,HubInterfaces=Interfaces,TrainingRequest=remote,
+  EquipmentConfig=compile(sources.EquipmentConfig)(),
   TrainingConfig=compile(sources.TrainingConfig)(),
   ProgressionConfig=compile(sources.ProgressionConfig)(),SwingConfig={},WorldConfig={}}
  local storage={WaitForChild=function(_,name) return name end}
@@ -68,6 +73,13 @@ return function(sources)
  local client=compile(sources.TrainingClient)
  setfenv(client,environment)
  client()
+ check(labels["basic_training.Rate"].Text == "20 Power / second", "starting Bat stacks with Rebirth in rate preview")
+ player:SetAttribute("EquippedBat","carbon_bat")
+ check(labels["basic_training.Rate"].Text == "50 Power / second", "equipping Bat updates effective Training rate")
+ player:SetAttribute("EquippedBall","championship_ball")
+ check(labels["basic_training.Rate"].Text == "50 Power / second", "Ball does not alter Training preview")
+ player:SetAttribute("EquippedBat","metal_bat")
+ check(labels["advanced_training.Rate"].Text == "75 Power / second", "ground, Bat and Rebirth compose once in preview")
  check(buttons.basic_training.Active,"unlocked alternative starts selectable")
  check(not buttons.advanced_training.Active,"selected ground stays disabled")
  check(not buttons.expert_training.Active,"locked ground stays disabled")

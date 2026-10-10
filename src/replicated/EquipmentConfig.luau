@@ -1,7 +1,7 @@
 -- Stable IDs are persisted; prices, stats, and primitive appearances are configured here.
 -- Add an item and link the previous item through nextId to extend a progression.
 local Equipment = {
- CategoryOrder = {"Bat", "Ball", "Tee"},
+ CategoryOrder = {"Bat", "Ball"},
  Categories = {
   Bat = {
    displayName = "Bats", ownedField = "OwnedBats",
@@ -9,24 +9,28 @@ local Equipment = {
    items = {
     wood_bat = {
      id = "wood_bat", displayName = "Wood Bat", price = 0,
+     powerGainMultiplier = 1, -- Placeholder Power gain balance.
      nextId = "metal_bat",
      modelPath = "StarterPack.Bat",
      appearance = {BatBody = {color = Color3.fromRGB(160, 110, 60), material = Enum.Material.Wood}, BatGrip = {color = Color3.fromRGB(160, 110, 60), material = Enum.Material.Wood}, BatKnob = {color = Color3.fromRGB(160, 110, 60), material = Enum.Material.Wood}},
     },
     metal_bat = {
      id = "metal_bat", displayName = "Metal Bat", price = 300,
+     powerGainMultiplier = 1.5, -- Placeholder Power gain balance.
      nextId = "alloy_bat",
      modelPath = "StarterPack.Bat",
      appearance = {BatBody = {color = Color3.fromRGB(195, 205, 220), material = Enum.Material.Metal}, BatGrip = {color = Color3.fromRGB(35, 40, 50), material = Enum.Material.SmoothPlastic}, BatKnob = {color = Color3.fromRGB(35, 40, 50), material = Enum.Material.SmoothPlastic}},
     },
     alloy_bat = {
      id = "alloy_bat", displayName = "Alloy Bat", price = 900,
+     powerGainMultiplier = 2, -- Placeholder Power gain balance.
      nextId = "carbon_bat",
      modelPath = "StarterPack.Bat",
      appearance = {BatBody = {color = Color3.fromRGB(200, 45, 45), material = Enum.Material.Metal}, BatGrip = {color = Color3.fromRGB(30, 30, 35), material = Enum.Material.SmoothPlastic}, BatKnob = {color = Color3.fromRGB(30, 30, 35), material = Enum.Material.SmoothPlastic}},
     },
     carbon_bat = {
      id = "carbon_bat", displayName = "Carbon Bat", price = 2000,
+     powerGainMultiplier = 2.5, -- Placeholder Power gain balance.
      modelPath = "StarterPack.Bat",
      appearance = {BatBody = {color = Color3.fromRGB(30, 35, 45), material = Enum.Material.Slate}, BatGrip = {color = Color3.fromRGB(240, 180, 50), material = Enum.Material.Metal}, BatKnob = {color = Color3.fromRGB(240, 180, 50), material = Enum.Material.Metal}},
     },
@@ -65,35 +69,7 @@ local Equipment = {
     },
    },
   },
-  Tee = {
-   displayName = "Tees", ownedField = "OwnedTees",
-   startingId = "basic_tee",
-   items = {
-    basic_tee = {
-     id = "basic_tee", displayName = "Basic Tee", price = 0,
-     nextId = "rubber_tee",
-     modelPath = "Workspace.BattingArea.Tee",
-     appearance = {Base = {color = Color3.fromRGB(163, 162, 165), material = Enum.Material.Plastic}, Stem = {color = Color3.fromRGB(163, 162, 165), material = Enum.Material.Plastic}},
-    },
-    rubber_tee = {
-     id = "rubber_tee", displayName = "Rubber Tee", price = 250,
-     nextId = "steel_tee",
-     modelPath = "Workspace.BattingArea.Tee",
-     appearance = {Base = {color = Color3.fromRGB(40, 110, 70), material = Enum.Material.SmoothPlastic}, Stem = {color = Color3.fromRGB(35, 40, 40), material = Enum.Material.SmoothPlastic}},
-    },
-    steel_tee = {
-     id = "steel_tee", displayName = "Steel Tee", price = 750,
-     nextId = "pro_tee",
-     modelPath = "Workspace.BattingArea.Tee",
-     appearance = {Base = {color = Color3.fromRGB(35, 85, 170), material = Enum.Material.Metal}, Stem = {color = Color3.fromRGB(195, 205, 220), material = Enum.Material.Metal}},
-    },
-    pro_tee = {
-     id = "pro_tee", displayName = "Pro Tee", price = 1600,
-     modelPath = "Workspace.BattingArea.Tee",
-     appearance = {Base = {color = Color3.fromRGB(30, 35, 45), material = Enum.Material.Metal}, Stem = {color = Color3.fromRGB(240, 180, 50), material = Enum.Material.Metal}},
-    },
-   },
-  },
+
  },
 }
 
@@ -109,6 +85,10 @@ for _, category in Equipment.CategoryOrder do
   assert(item and item.id == id and not byId[id], "Invalid or repeated equipment ID: " .. id)
   assert(type(item.price) == "number" and item.price >= 0 and item.price < math.huge
    and item.price % 1 == 0, "Invalid equipment price: " .. id)
+  if category == "Bat" then
+   assert(type(item.powerGainMultiplier) == "number" and item.powerGainMultiplier >= 1
+    and item.powerGainMultiplier < math.huge, "Invalid Bat Power multiplier: " .. id)
+  end
   item.category, item.order = category, #items + 1
   byId[id] = item
   table.insert(items, item)

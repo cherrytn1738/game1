@@ -150,7 +150,6 @@ At minimum, persistent player data includes:
 - Cash
 - Equipped Bat
 - Equipped Ball
-- Equipped Tee
 - Unlocked worlds
 
 World 1 is always unlocked.

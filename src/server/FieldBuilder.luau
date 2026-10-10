@@ -69,7 +69,9 @@ local function buildHub(world, area)
   prompt.Parent = post
   if definition.id == "Shop" then
    -- Empty placement references only; future displays can use these attachments.
-   for index, category in {"Bat", "Ball", "Tee"} do
+   local retiredSlot = pad:FindFirstChild("TeeDisplay")
+   if retiredSlot then retiredSlot:Destroy() end
+   for index, category in {"Bat", "Ball"} do
     local slot = pad:FindFirstChild(category .. "Display") or Instance.new("Attachment")
     slot.Name = category .. "Display"
     slot.Position = Vector3.new((index - 2) * 8, 0.05, -8)

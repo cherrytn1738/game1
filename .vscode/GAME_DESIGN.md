@@ -63,7 +63,7 @@ There are three primary equipment categories:
 
 Bats remain owned, purchasable, equippable, and persistent. They do not affect launch strength or distance.
 
-No replacement Bat gameplay bonus is defined yet.
+Each configured Bat increases Power gain from active Training, real hits, and offline Training. Its `powerGainMultiplier` stacks with Rebirth; it never changes Cash, launch speed, loft, or direction. Multiplier values are placeholder balance.
 
 ### Ball
 
@@ -71,17 +71,13 @@ Balls primarily increase rewards earned from distance.
 
 The equipped Ball multiplies Cash rewards only. It does not affect launch strength or Power grants.
 
-### Tee
-
-Tees remain owned, purchasable, equippable, and persistent. Their timing assistance is retired.
-
-No replacement Tee gameplay bonus is defined yet.
+The physical batting tee remains part of each station. It is not purchasable, owned, or equipped by players.
 
 ## Equipment Progression
 
 Equipment progression is based on distinct equipment rather than numeric equipment levels.
 
-Players progress from one Bat, Ball, or Tee to another piece of equipment with its own configuration and gameplay effects.
+Players progress from one Bat or Ball to another piece of equipment with its own configuration and gameplay effects.
 
 Equipment uses stable internal IDs and is server-authoritative.
 
@@ -168,6 +164,14 @@ The beginning of the game should leave substantial visible room for future power
 
 Level 1 should produce a short hit far below the World 1 endpoint.
 
+## Equipment Roles and Save Migration (Milestone 18)
+
+Active categories are Bat and Ball only. Schema 6 reuses PlayerProgression and removes OwnedTees/EquippedTee during load and save. Cash, Power, Levels, Rebirths, Bat/Ball ownership and selections, grounds, worlds, and valid offline metadata remain intact. Older schema rules still apply; no progression is wiped or converted into refunds.
+
+PlayerData owns the Power grant pipeline. Active Training resolves the server-equipped Bat. Offline grants resolve the normalized saved Bat in the atomic login transaction. Real hits snapshot the Bat ID at acceptance and use it for their once-only reward: `floor(base hit Power * Bat multiplier * Rebirth multiplier)`. Equipment remains locked throughout Training and active hits. Clients send equipment intent, never bonuses or rewards.
+
+Training rate previews use the same whole-Power arithmetic divided by the tick interval. HUD and Rebirth previews show the combined Bat/Rebirth multiplier. Ball Cash rewards and Level-based launch calculations are unchanged.
+
 ## Power, Level, and Rebirth (Milestone 15A)
 
 `ProgressionConfig` owns the placeholder formulas. Schema 4 extends the existing
@@ -183,7 +187,7 @@ Malformed new fields are repaired; LevelCap is derived, never trusted from a sav
 - A valid finalized field hit grants base 2 Power, once, through server-only
   `PlayerData.GrantPower(player, baseAmount, source)`. Active training uses this API; offline grants use the same private grant path inside the atomic load transaction.
 - Speed = `55 + 15 * (Level - 1)` studs/second, with fixed 38-degree loft.
-  Level is snapshotted at swing acceptance; Power, Rebirths, Bat, Ball, and Tee
+  Level is snapshotted at swing acceptance; Power, Rebirths, Bat, and Ball
   do not modify launch speed. Physics still determines actual final distance.
 - `PlayerData.CanRebirth(player)` checks eligibility. `TryRebirth(player)` also
   rejects active training/batting/hits, dead characters, and world travel, increments Rebirths, resets Level/Power, derives
@@ -223,8 +227,7 @@ Space/touch Leave restores movement and requires stepping off before re-entry.
 Death, respawn, disconnect, invalid data/character, and travel release the stadium.
 Normal batting and active-hit state exclude training.
 
-The server grants a configured tick through PlayerData.GrantPower. Rebirth
-multiplication, Level advancement, and cap overflow rules remain unchanged.
+The server grants a configured tick through PlayerData.GrantPower: `floor(ground base Power * equipped Bat multiplier * Rebirth multiplier)`. Level advancement and cap overflow rules remain unchanged.
 Ticks do not catch up in bursts after server stalls. At the cap, no Power grant
 calls are made. Client-local pitches and the reused Bat swing are presentation
 only: no real ball launch, Cash, distance, sections, or world completion occurs.
@@ -235,8 +238,7 @@ Missing/locked/unknown selections fall back to Basic Training. Old schemas and
 missing, zero, malformed, or future timestamps grant no historical offline Power.
 
 Offline base Power = floor(min(elapsed seconds, 8 hours) * selected ground's
-base Power / interval * 0.25). The same server grant path applies the Rebirth
-multiplier and cap rules. These are placeholder balance values. The selected
+base Power / interval * 0.25). The same server grant path multiplies that base by the saved, ownership-validated Bat multiplier and Rebirth multiplier, floors the result to whole Power, and applies cap rules. These are placeholder balance values. The selected
 ground is used even when a higher one is unlocked. Offline earning does not
 require leaving while actively training.
 
@@ -267,8 +269,7 @@ cooldown, and processing state. TryRebirth commits Level, Power, Rebirths, deriv
 cap, and a validated training selection without yielding. Cash, equipment and
 worlds are preserved. Completion schedules an important save through the existing
 serialized autosave loop (normally within its next five-second check). A save
-already in flight cannot clear a later Rebirth's pending save. Schema 5 and the
-existing store/session leases remain unchanged.
+already in flight cannot clear a later Rebirth's pending save. The existing store/session leases remain unchanged.
 
 Ground access updates from Rebirths and TrainingConfig immediately. Basic,
 Advanced, and Expert rates and all level/world balance remain placeholders.
@@ -315,4 +316,4 @@ The client primarily handles:
 
 Gameplay systems should be developed and validated before major visual polish.
 
-Environment themes, equipment appearances, Ball effects, Tee effects, UI styling, and other cosmetic work should be handled in dedicated visual milestones rather than being added piecemeal during gameplay-system development.
+Environment themes, equipment appearances, Ball effects, UI styling, and other cosmetic work should be handled in dedicated visual milestones rather than being added piecemeal during gameplay-system development.

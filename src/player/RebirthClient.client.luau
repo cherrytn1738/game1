@@ -2,6 +2,7 @@
 local Player = game.Players.LocalPlayer
 local Storage = game:GetService("ReplicatedStorage")
 local Progression = require(Storage:WaitForChild("ProgressionConfig"))
+local Equipment = require(Storage:WaitForChild("EquipmentConfig"))
 local Training = require(Storage:WaitForChild("TrainingConfig"))
 local Remote = Storage:WaitForChild("RebirthRequest")
 local UI = require(script.Parent:WaitForChild("UICommon"))
@@ -57,10 +58,11 @@ local function refresh()
  local count = Player:GetAttribute("Rebirths") or Progression.StartingRebirths
  local level = Player:GetAttribute("Level") or Progression.StartingLevel
  local cap = Player:GetAttribute("LevelCap") or Progression.GetLevelCap(count)
+ local batMultiplier = Equipment.Get("Bat", Player:GetAttribute("EquippedBat")).powerGainMultiplier
  local nextCount = math.min(count + 1,Progression.MaxRebirths)
  summaryHeading.Text = "REBIRTH " .. UI.Number(count) .. " → " .. UI.Number(nextCount)
  summary.Text = "Current Level: " .. UI.Number(level) .. " / " .. UI.Number(cap)
-  .. "\nPower gain: " .. UI.Number(Progression.GetPowerMultiplier(count)) .. "x → " .. UI.Number(Progression.GetPowerMultiplier(nextCount)) .. "x"
+  .. "\nPower gain: " .. UI.Number(Progression.GetPowerMultiplier(count) * batMultiplier, 2) .. "x → " .. UI.Number(Progression.GetPowerMultiplier(nextCount) * batMultiplier, 2) .. "x"
   .. "\nLevel Cap: " .. UI.Number(cap) .. " → " .. UI.Number(Progression.GetLevelCap(nextCount))
  local grounds = {}
  for _, ground in Training.Grounds do
@@ -115,7 +117,7 @@ Interfaces.Register("Rebirth",function(open)
  show(open)
  refresh()
 end)
-for _, attribute in {"DataLoaded","Level","LevelCap","Rebirths","TrainingActive","BattingActive","HitActive","WorldTraveling","CurrentWorldId"} do
+for _, attribute in {"DataLoaded","EquippedBat","Level","LevelCap","Rebirths","TrainingActive","BattingActive","HitActive","WorldTraveling","CurrentWorldId"} do
  Player:GetAttributeChangedSignal(attribute):Connect(function()
   confirming = false
   refresh()

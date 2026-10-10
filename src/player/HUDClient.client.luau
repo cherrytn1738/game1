@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Progression = require(ReplicatedStorage:WaitForChild("ProgressionConfig"))
+local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local Remote = ReplicatedStorage:WaitForChild("BattingTiming")
 local UI = require(script.Parent:WaitForChild("UICommon"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
@@ -80,7 +81,9 @@ local function refresh()
   or "Power: " .. UI.Number(power) .. " / " .. UI.Number(Progression.PowerRequiredForNextLevel(level))) or ""
  powerLabel.TextColor3 = capped and UI.Colors.Accent or UI.Colors.Muted
  rebirthLabel.Text = ready and "Rebirths: " .. UI.Number(rebirths) or ""
- multiplierLabel.Text = ready and "Power Gain: " .. UI.Number(Progression.GetPowerMultiplier(rebirths)) .. "x" or ""
+ local bat = Equipment.Get("Bat", Player:GetAttribute("EquippedBat"))
+ multiplierLabel.Text = ready and "Power Gain: "
+  .. UI.Number(Progression.GetPowerMultiplier(rebirths) * bat.powerGainMultiplier, 2) .. "x" or ""
  powerTrack.Visible = ready
  powerFill.Size = UDim2.fromScale(ready and (capped and 1 or math.clamp(power / Progression.PowerRequiredForNextLevel(level),0,1)) or 0,1)
  local alive = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
@@ -131,7 +134,7 @@ end
 root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
 Interfaces.Changed:Connect(refresh)
 for _, name in {"DataLoaded","BattingActive","TrainingActive","HitActive","WorldTraveling"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
-for _, name in {"Power","Level","LevelCap","Rebirths"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
+for _, name in {"Power","Level","LevelCap","Rebirths","EquippedBat"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
 local lastLevel = Player:GetAttribute("DataLoaded") and Player:GetAttribute("Level") or nil
 local noticePending = false
 Player:GetAttributeChangedSignal("DataLoaded"):Connect(function()

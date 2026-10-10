@@ -33,6 +33,11 @@ function Progression.GetPowerMultiplier(rebirths)
  return rebirths + 1
 end
 
+-- Integer Power is rounded once after both bonuses; shared with rate previews.
+function Progression.GetPowerGrant(baseAmount, rebirths, batMultiplier)
+ return math.floor(baseAmount * batMultiplier * Progression.GetPowerMultiplier(rebirths))
+end
+
 function Progression.GetLaunchSpeed(level)
  return Progression.BaseLaunchSpeed + (level - Progression.StartingLevel) * Progression.LaunchSpeedPerLevel
 end

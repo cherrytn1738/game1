@@ -158,7 +158,7 @@ local function launch(station, hit)
     player.leaderstats.Cash.Value += cashEarned
     player:SetAttribute("LastBatCashEarned", cashEarned)
     player:SetAttribute("LastBatCashSwingId", result.swingId)
-    local granted, powerResult = PlayerData.GrantPower(player, Progression.HitPowerReward, "CompletedHit")
+    local granted, powerResult = PlayerData.GrantPower(player, Progression.HitPowerReward, "CompletedHit", result.batId)
     final.powerEarned = granted and powerResult.powerGranted or 0
     player:SetAttribute("LastBatPowerEarned", final.powerEarned)
     final.worldCompletionMessage = Progress.Complete(player, world, distance)

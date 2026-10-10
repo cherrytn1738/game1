@@ -5,6 +5,7 @@ local Storage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 local Config = require(Storage:WaitForChild("TrainingConfig"))
 local Progression = require(Storage:WaitForChild("ProgressionConfig"))
+local Equipment = require(Storage:WaitForChild("EquipmentConfig"))
 local Swing = require(Storage:WaitForChild("SwingConfig"))
 local Worlds = require(Storage:WaitForChild("WorldConfig"))
 local Remote = Storage:WaitForChild("TrainingRequest")
@@ -109,11 +110,13 @@ end
 
 local function refresh()
  local rebirths = Player:GetAttribute("Rebirths") or 0
+ local bat = Equipment.Get("Bat", Player:GetAttribute("EquippedBat"))
+ local batMultiplier = bat and bat.powerGainMultiplier or 1
  for _, ground in Config.Grounds do
   local row = rows[ground.id]
   local unlocked = Config.IsUnlocked(ground.id,rebirths)
   local selected = ground.id == Player:GetAttribute("SelectedTrainingGround")
-  row.rate.Text = UI.Number(ground.basePower/ground.interval * Progression.GetPowerMultiplier(rebirths)) .. " Power / second"
+  row.rate.Text = UI.Number(Progression.GetPowerGrant(ground.basePower, rebirths, batMultiplier)/ground.interval,1) .. " Power / second"
   row.status.Text = (unlocked and (selected and "Selected" or "Unlocked") or "Locked")
    .. " | Required Rebirths: " .. UI.Number(ground.requiredRebirths)
   UI.SetButton(row.button,selected and "SELECTED" or unlocked and "SELECT" or "Requires " .. UI.Number(ground.requiredRebirths) .. " Rebirths",
@@ -127,13 +130,13 @@ local function refresh()
  if not ground then stopPresentation() return end
  local capped = Player:GetAttribute("Level") >= Player:GetAttribute("LevelCap")
  detail.Text = ground.displayName .. "\n" .. (capped and "MAX LEVEL - Rebirth available"
-  or UI.Number(ground.basePower/ground.interval*Progression.GetPowerMultiplier(rebirths)) .. " Power / second")
+  or UI.Number(Progression.GetPowerGrant(ground.basePower, rebirths, batMultiplier)/ground.interval,1) .. " Power / second")
   .. "\nLevel " .. UI.Number(Player:GetAttribute("Level")) .. " / " .. UI.Number(Player:GetAttribute("LevelCap"))
   .. (capped and " | Gains paused" or " | Power " .. UI.Number(Player:GetAttribute("Power")) .. " / "
    .. UI.Number(Progression.PowerRequiredForNextLevel(Player:GetAttribute("Level"))))
  startPresentation()
 end
-for _, name in {"DataLoaded","TrainingActive","BattingActive","HitActive","SelectedTrainingGround","Rebirths","Level","LevelCap","Power","WorldTraveling"} do
+for _, name in {"DataLoaded","TrainingActive","BattingActive","HitActive","SelectedTrainingGround","EquippedBat","Rebirths","Level","LevelCap","Power","WorldTraveling"} do
  Player:GetAttributeChangedSignal(name):Connect(refresh)
 end
 Player.CharacterRemoving:Connect(stopPresentation)
