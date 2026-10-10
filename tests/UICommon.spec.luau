@@ -1,0 +1,85 @@
+-- Deterministic hover-completion races using the real UICommon source and fake buttons.
+-- No live UI, player state, or Instances are modified.
+return function(sources)
+ local passed = 0
+ local function check(condition,message) assert(condition,message) passed+=1 end
+ local function signal()
+  local callbacks = {}
+  local event = {}
+  function event:Connect(callback)
+   local connection = {Connected=true}
+   function connection:Disconnect() self.Connected=false end
+   table.insert(callbacks,{connection=connection,callback=callback})
+   return connection
+  end
+  function event:Once(callback)
+   local connection
+   connection=self:Connect(function(...) connection:Disconnect() callback(...) end)
+   return connection
+  end
+  function event:Fire(...)
+   for _,entry in table.clone(callbacks) do if entry.connection.Connected then entry.callback(...) end end
+  end
+  return event
+ end
+ local function object()
+  local attributes = {}
+  local result = {MouseEnter=signal(),MouseLeave=signal(),Destroying=signal()}
+  function result:SetAttribute(name,value) attributes[name]=value end
+  function result:GetAttribute(name) return attributes[name] end
+  function result:Destroy() self.Destroying:Fire() end
+  return result
+ end
+ local pending = {}
+ local tweens = {}
+ function tweens:Create(target,_,properties)
+  local tween = {Completed=signal()}
+  function tween:Play() pending[self]={target=target,properties=properties} end
+  function tween:Cancel() pending[self]=nil self.Completed:Fire(Enum.PlaybackState.Cancelled) end
+  function tween:Destroy() pending[self]=nil end
+  return tween
+ end
+ local function completeTweens()
+  for tween,entry in table.clone(pending) do
+   if not pending[tween] then continue end
+   pending[tween]=nil
+   for property,value in entry.properties do entry.target[property]=value end
+   tween.Completed:Fire(Enum.PlaybackState.Completed)
+  end
+ end
+ local environment = setmetatable({
+  game={Players={LocalPlayer={}},GetService=function(_,name) assert(name=="TweenService") return tweens end},
+  Instance={new=object},
+ },{__index=getfenv()})
+ local module = assert(loadstring(sources.UICommon))
+ setfenv(module,environment)
+ local UI = module()
+ local ball,tee = UI.Button({},"BallTab","Balls"),UI.Button({},"TeeTab","Tees")
+ ball.MouseEnter:Fire()
+ UI.SetButton(ball,"Balls",true,true)
+ completeTweens()
+ check(ball.BackgroundColor3==UI.Colors.Accent,"finishing a stale hover must not erase a newly selected tab")
+ ball.MouseLeave:Fire()
+ tee.MouseEnter:Fire()
+ UI.SetButton(ball,"Balls",true,false)
+ UI.SetButton(tee,"Tees",true,true)
+ completeTweens()
+ check(ball.BackgroundColor3==UI.Colors.Card,"a previous selection must not regain its accent")
+ check(tee.BackgroundColor3==UI.Colors.Accent,"the newly selected tab must keep its accent")
+ tee.MouseEnter:Fire()
+ UI.SetButton(tee,"Unavailable",false,false)
+ completeTweens()
+ check(tee.BackgroundColor3==UI.Colors.Card and not tee.Active,"disabling a hovered button must preserve its disabled appearance")
+ UI.SetButton(tee,"Tees",true,true)
+ tee.MouseEnter:Fire()
+ completeTweens()
+ check(tee.BackgroundColor3==UI.Colors.Accent:Lerp(Color3.new(1,1,1),.12),"hover tint still works after a selection update")
+ tee.MouseLeave:Fire()
+ completeTweens()
+ check(tee.BackgroundColor3==UI.Colors.Accent,"leaving hover restores the current selection color")
+ tee.MouseEnter:Fire()
+ tee:Destroy()
+ check(next(pending)==nil,"destroying a button releases its pending tween")
+ ball:Destroy()
+ return {passed=passed}
+end

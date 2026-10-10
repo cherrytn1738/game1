@@ -133,7 +133,7 @@ local function refresh()
    .. UI.Number(Progression.PowerRequiredForNextLevel(Player:GetAttribute("Level"))))
  startPresentation()
 end
-for _, name in {"DataLoaded","TrainingActive","SelectedTrainingGround","Rebirths","Level","LevelCap","Power","WorldTraveling"} do
+for _, name in {"DataLoaded","TrainingActive","BattingActive","HitActive","SelectedTrainingGround","Rebirths","Level","LevelCap","Power","WorldTraveling"} do
  Player:GetAttributeChangedSignal(name):Connect(refresh)
 end
 Player.CharacterRemoving:Connect(stopPresentation)

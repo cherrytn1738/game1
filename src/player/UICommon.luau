@@ -2,6 +2,14 @@
 local TweenService = game:GetService("TweenService")
 local player = game.Players.LocalPlayer
 local UI = {}
+local tintTweens = {}
+local function cancelTint(button)
+ local tween = tintTweens[button]
+ if not tween then return end
+ tintTweens[button] = nil
+ tween:Cancel()
+ tween:Destroy()
+end
 UI.Colors = {
  Panel = Color3.fromRGB(22, 30, 43), Card = Color3.fromRGB(33, 44, 60),
  Border = Color3.fromRGB(66, 83, 104), Text = Color3.fromRGB(242, 246, 251),
@@ -47,6 +55,8 @@ function UI.Label(parent, name, text, size, color)
 end
 
 function UI.SetButton(button, text, enabled, accent)
+ -- A previous hover must not overwrite the newly selected/disabled state.
+ cancelTint(button)
  button.Text, button.Active, button.Selectable = text, enabled, enabled
  button:SetAttribute("Accent", accent == true)
  button.BackgroundColor3 = accent and UI.Colors.Accent or UI.Colors.Card
@@ -64,11 +74,18 @@ function UI.Button(parent, name, text)
  UI.SetButton(button, text, true, false)
  local function tint(hover)
   if not button.Active then return end
+  cancelTint(button)
   local base = button:GetAttribute("Accent") and UI.Colors.Accent or UI.Colors.Card
-  TweenService:Create(button, TweenInfo.new(0.1), {BackgroundColor3 = hover and base:Lerp(Color3.new(1,1,1), 0.12) or base}):Play()
+  local tween = TweenService:Create(button, TweenInfo.new(0.1), {BackgroundColor3 = hover and base:Lerp(Color3.new(1,1,1), 0.12) or base})
+  tintTweens[button] = tween
+  tween.Completed:Once(function()
+   if tintTweens[button] == tween then tintTweens[button] = nil end
+  end)
+  tween:Play()
  end
  button.MouseEnter:Connect(function() tint(true) end)
  button.MouseLeave:Connect(function() tint(false) end)
+ button.Destroying:Connect(function() cancelTint(button) end)
  return button
 end
 

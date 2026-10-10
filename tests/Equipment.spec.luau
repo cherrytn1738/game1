@@ -563,5 +563,74 @@ return function(sources)
   check(progress.Rebirths == (version < 4 and 0 or 1) and progress.LevelCap == (version < 4 and 10 or 20)
    and migration:GetAttribute("OfflinePowerEarned") == 0, "each old schema defaults progression only when needed and fabricates no offline time")
  end
+ -- Three sessions combine every persistent field through real public data operations.
+ -- These keys exist only in the in-memory store, so accelerated progress cannot touch
+ -- a development player's legitimate save.
+ local cyclePlayer = join(250)
+ cyclePlayer.leaderstats.Cash.Value = 10000
+ for _, category in Equipment.CategoryOrder do
+  check(Data.PurchaseNextEquipment(cyclePlayer, category, cyclePlayer:GetAttribute("EquipmentPurchaseToken_" .. category)), "session A purchases each equipment category")
+ end
+ check(Data.GrantPower(cyclePlayer, 1000000, "Test") and Data.TryRebirth(cyclePlayer), "session A gains Levels and Rebirth")
+ check(Data.SelectTrainingGround(cyclePlayer, "advanced_training"), "session A selects eligible ground")
+ check(Data.GrantPower(cyclePlayer, 123, "Test"), "session A gains post-Rebirth Power")
+ cyclePlayer:SetAttribute("WorldUnlocked_world_2", true)
+ cyclePlayer:SetAttribute("WorldCompleted_world_1", true)
+ local firstState, firstCash = Data.GetProgression(cyclePlayer), cyclePlayer.leaderstats.Cash.Value
+ leave(cyclePlayer)
+ cyclePlayer = join(250)
+ local secondState = Data.GetProgression(cyclePlayer)
+ check(secondState.Level == firstState.Level and secondState.Power == firstState.Power
+  and secondState.Rebirths == firstState.Rebirths and secondState.LevelCap == firstState.LevelCap, "session B restores all progression fields")
+ check(cyclePlayer.leaderstats.Cash.Value == firstCash and Data.GetTrainingGround(cyclePlayer).id == "advanced_training"
+  and cyclePlayer:GetAttribute("WorldUnlocked_world_2") and cyclePlayer:GetAttribute("WorldCompleted_world_1"), "session B restores economy, selected ground, and worlds")
+ for _, category in Equipment.CategoryOrder do
+  local items = Equipment.GetItems(category)
+  check(Data.OwnsEquipment(cyclePlayer, category, items[1].id) and Data.OwnsEquipment(cyclePlayer, category, items[2].id)
+   and cyclePlayer:GetAttribute("Equipped" .. category) == items[2].id, "session B restores ownership and equipped selection")
+  check(Data.PurchaseNextEquipment(cyclePlayer, category, cyclePlayer:GetAttribute("EquipmentPurchaseToken_" .. category)), "session B purchases next configured item")
+  check(Data.EquipEquipment(cyclePlayer, category, items[1].id), "session B re-equips starting item without losing purchases")
+ end
+ check(Data.GrantPower(cyclePlayer, 456, "Test") and Data.SelectTrainingGround(cyclePlayer, "basic_training"), "session B changes Power and ground")
+ local latestState, latestCash = Data.GetProgression(cyclePlayer), cyclePlayer.leaderstats.Cash.Value
+ leave(cyclePlayer)
+ cyclePlayer = join(250)
+ local restoredState = Data.GetProgression(cyclePlayer)
+ check(restoredState.Level == latestState.Level and restoredState.Power == latestState.Power
+  and restoredState.Rebirths == latestState.Rebirths and restoredState.LevelCap == latestState.LevelCap, "session C restores latest progression rather than first snapshot")
+ check(cyclePlayer.leaderstats.Cash.Value == latestCash and Data.GetTrainingGround(cyclePlayer).id == "basic_training"
+  and cyclePlayer:GetAttribute("WorldUnlocked_world_2") and cyclePlayer:GetAttribute("WorldCompleted_world_1"), "session C restores latest economy/ground and preserves worlds")
+ for _, category in Equipment.CategoryOrder do
+  local items = Equipment.GetItems(category)
+  check(Data.OwnsEquipment(cyclePlayer, category, items[2].id) and Data.OwnsEquipment(cyclePlayer, category, items[3].id)
+   and cyclePlayer:GetAttribute("Equipped" .. category) == items[1].id, "session C retains all purchases and latest equipped choice")
+ end
+ local beforeDuplicateLogin = Data.GetProgression(cyclePlayer)
+ for _ = 1, 5 do players.PlayerAdded:Fire(cyclePlayer) end
+ check(Data.GetProgression(cyclePlayer).Power == beforeDuplicateLogin.Power
+  and Data.GetProgression(cyclePlayer).Level == beforeDuplicateLogin.Level, "repeated login callbacks cannot repeat offline progression")
+
+ -- Failed and expired sessions cannot execute economy/progression operations, even
+ -- if a client has a previously valid request token or changes its display copies.
+ for _, unavailable in {failed, future, invalid, locked, disconnected} do
+  for _, category in Equipment.CategoryOrder do
+   check(not Data.PurchaseNextEquipment(unavailable, category, "forged-offer")
+    and not Data.EquipEquipment(unavailable, category, Equipment.Categories[category].startingId), "unavailable profile cannot purchase or equip")
+  end
+  check(not Data.GrantPower(unavailable, 100, "Test") and not Data.TryRebirth(unavailable)
+   and not Data.SelectTrainingGround(unavailable, "basic_training"), "unavailable profile cannot progress or choose ground")
+ end
+ local expiring = join(251)
+ expiring.leaderstats.Cash.Value = 1000
+ local expiredOffer = expiring:GetAttribute("EquipmentPurchaseToken_Bat")
+ now += 181
+ check(not Data.IsReady(expiring), "expired session lease immediately blocks gameplay")
+ check(not Data.PurchaseNextEquipment(expiring, "Bat", expiredOffer)
+  and not Data.EquipEquipment(expiring, "Bat", "wood_bat") and not Data.GrantPower(expiring, 50, "Test")
+  and not Data.TryRebirth(expiring) and not Data.SelectTrainingGround(expiring, "basic_training"), "expired lease cannot mutate progression through public operations")
+ local recordBeforeExpiredClose = copy(saved.Player_251)
+ leave(expiring)
+ check(saved.Player_251.Cash == recordBeforeExpiredClose.Cash and expiring.KickReason ~= nil
+  and saved.Player_251.Session.Id == recordBeforeExpiredClose.Session.Id, "expired close refuses a stale save instead of overwriting owned data")
  return {passed = passed, message = "Equipment, repeated Rebirths, remote abuse/state isolation, active/offline rate matrix, caps, migration, save/rejoin, failure safety"}
 end
