@@ -2,54 +2,48 @@
 
 ## Purpose
 
-Help build a Roblox baseball batting simulator while teaching the
-developer Roblox development.
+Help build a Roblox baseball batting simulator while teaching the developer Roblox development.
 
 Priorities, in order:
 
-1.  Fun and reliable gameplay
-2.  Simple, maintainable architecture
-3.  Security for important game state
-4.  Incremental development
-5.  Scalability when justified
+1. Fun and reliable gameplay
+2. Simple, maintainable architecture
+3. Security for important game state
+4. Incremental development
+5. Scalability when justified
 
 Do not over-engineer early versions of the game.
 
 ## Development Environment
 
--   Windows
--   Roblox Studio
--   Luau
--   VS Code with Codex as the primary AI-assisted coding environment
--   Roblox Studio MCP for inspecting and modifying the open Studio place
--   Git/GitHub for version control
--   Rojo is adopted; repository .luau files are the source of truth
--   Keep Rojo mappings stable unless the requested feature requires a change
+- Windows
+- Roblox Studio
+- Luau
+- Claude as the primary AI-assisted coding environment
+- Roblox Studio MCP for inspecting and testing the open Studio place
+- Git/GitHub for version control
+- Rojo is adopted; repository `.luau` files are the source of truth
+- Keep Rojo mappings stable unless the requested feature requires a change
 
 Edit script source in the filesystem repository. Use Studio/MCP to inspect and test the live game and manage necessary non-source physical objects. Never directly edit Rojo-managed Source in Studio.
 
 ## Working Style
 
-The developer is learning Roblox development. Explain important Roblox
-concepts clearly, but avoid unnecessary theory.
+The developer is learning Roblox development. Explain important Roblox concepts clearly, but avoid unnecessary theory.
 
 Before making a significant change:
 
-1.  Inspect the relevant existing Studio objects/scripts first.
-2.  Preserve working behavior unless the requested change requires
-    replacing it.
-3.  Explain the intended change briefly.
-4.  Implement the smallest coherent milestone.
-5.  Inspect the result for obvious problems.
-6.  Playtest through MCP when useful and supported.
-7.  Tell the developer what to manually verify in Roblox Studio.
+1. Inspect the relevant existing files and Studio objects first.
+2. Preserve working behavior unless the requested change requires replacing it.
+3. Explain the intended change briefly.
+4. Implement the smallest coherent milestone.
+5. Inspect the result for obvious problems.
+6. Playtest through MCP when useful and supported.
+7. Report what still requires manual verification in Roblox Studio.
 
-For small changes, bug fixes, syntax fixes, property changes, and
-obvious implementation tasks, skip unnecessary explanation and make the
-change directly.
+For small changes, bug fixes, syntax fixes, property changes, and obvious implementation tasks, skip unnecessary explanation and make the change directly.
 
-Prefer completing coherent milestones over splitting routine work into
-many tiny steps.
+Prefer completing coherent milestones over splitting routine work into many tiny steps.
 
 Do not make unrelated changes while implementing or debugging a feature.
 
@@ -59,28 +53,34 @@ This is a Power/Level-based baseball batting simulator.
 
 Core loop:
 
-Train -> Power -> Level -> hit farther -> Cash/sections/worlds -> Level Cap -> confirmed Rebirth -> higher Power gain/cap -> better Training Grounds -> repeat
+Train -> Power -> Level -> hit farther -> earn Cash -> reach Level Cap -> Rebirth -> higher Power gain/cap -> better Training Grounds -> progress through Worlds -> repeat
 
-Players hit a ball from a batting tee into progressively larger themed
-worlds rather than playing traditional baseball games.
+Players hit a ball from a batting tee into long progression fields rather than playing traditional baseball games.
 
 Established design decisions:
 
--   Level alone determines authoritative launch strength; every valid hit launches straight at a configured loft.
--   Bat equipment multiplies Power from Training, hits, and offline Training; Ball equipment multiplies Cash only. Tee is not player equipment; the physical batting tee remains.
--   Training is the primary Power source; hits give a small Power reward. Offline training is capped.
--   Rebirth resets Level/Power and increases the Power gain multiplier and Level Cap; preserve other progression.
--   Progression worlds should provide meaningful gameplay/economic
-    progression, not only cosmetic changes.
+- Level alone determines authoritative launch strength.
+- Every valid batting hit launches straight at a configured loft; the old timing mechanic is retired.
+- Bat equipment multiplies Power gained from Training, real hits, and offline Training.
+- Ball equipment multiplies Cash rewards only.
+- Tee is not player equipment; the physical batting tee remains part of the batting station.
+- Training is the primary Power source; real hits give a small Power reward.
+- Offline Training is supported and capped.
+- Rebirth resets Level/Power and increases Power gain multiplier and Level Cap while preserving unrelated progression.
+- Training Grounds are logical per-player selections using one physical Training Stadium.
+- Worlds are unlocked through legitimate batting distance progression, not by buying them with Cash.
 
 Do not reconsider these decisions unless explicitly asked.
 
 ## Current Development Priority
 
-Preserve the implemented core loop, persistence, training, equipment, worlds, and server authority. Expand only the requested milestone. Keep placeholder balance configurable.
+Preserve the implemented core loop, persistence, training, equipment, worlds, UI foundation, and server authority.
 
-Current implementation should be inspected through Roblox Studio MCP
-before assuming what has already been built.
+Expand only the requested milestone.
+
+Keep placeholder balance configurable.
+
+Do not assume discussed/planned work is implemented; inspect the current repository and Studio state first.
 
 ## Architecture Principles
 
@@ -88,156 +88,385 @@ Use server authority for important or exploitable gameplay state.
 
 The server should control or validate:
 
--   Currency and rewards
--   Purchases
--   Upgrade ownership
--   Progression and world unlocks
--   Important gameplay results
--   Authoritative hit/launch results when those systems are implemented
+- Cash, Power, rewards, and progression
+- Level, Rebirths, and Level Cap
+- Purchases and equipment ownership/equipping
+- Training Ground selection and Training Power grants
+- Offline Training calculations
+- World unlocks and travel eligibility
+- Important gameplay results
+- Authoritative launch strength/direction/angle
+- Final hit distance
 
 The client should primarily handle:
 
--   Player input
--   UI
--   Animations
--   Local visual/audio feedback
+- Player input
+- UI
+- Camera
+- Animations
+- Practice-ball visuals
+- Local visual/audio feedback
 
-Do not trust client-provided values for rewards, distance, prices,
-ownership, progression, or other important results without server
-validation.
+Do not trust client-provided values for rewards, distance, prices, ownership, progression, multipliers, Power, Level, or other important results without server validation.
 
 Keep RemoteEvents and networking minimal and understandable.
 
-Do not introduce complex frameworks, service architectures,
-abstractions, dependencies, or premature optimization unless they solve
-a real problem in the current project.
+Do not introduce complex frameworks, service architectures, abstractions, dependencies, or premature optimization unless they solve a real current problem.
 
 ## Roblox Studio MCP Rules
 
-Use Roblox Studio MCP as the primary way to work with the live game.
+Use Roblox Studio MCP to inspect and verify the live game.
 
 Before modifying an existing system:
 
--   Inspect the relevant DataModel hierarchy.
--   Read the relevant scripts.
--   Check existing properties/configuration rather than guessing.
--   Avoid duplicating Instances that already exist.
+- Inspect the relevant DataModel hierarchy.
+- Read the relevant repository files.
+- Check existing properties/configuration rather than guessing.
+- Avoid duplicating Instances that already exist.
 
 When making changes:
 
--   Edit repository source and let Rojo sync; use Studio/MCP for runtime tests and required non-source objects.
--   Keep object names descriptive and consistent.
--   Keep scripts focused on one clear responsibility.
--   Do not silently restructure unrelated parts of the game.
--   Avoid unnecessary Rojo mapping changes.
+- Edit repository source and let Rojo sync.
+- Use Studio/MCP for runtime tests and required non-source objects.
+- Keep object names descriptive and consistent.
+- Keep scripts focused on one clear responsibility.
+- Do not silently restructure unrelated parts of the game.
+- Avoid unnecessary Rojo mapping changes.
 
 When possible after implementation:
 
--   Check Studio output for errors.
--   Use MCP playtesting for basic verification.
--   Still tell the developer what gameplay/visual behavior requires
-    manual verification.
+- Check Studio Output for errors.
+- Use MCP playtesting for relevant verification.
+- Report what gameplay/visual behavior still requires manual verification.
 
-Visual correctness must be judged from actual playtesting, not only from
-property inspection.
+Visual correctness must be judged from actual playtesting, not only property inspection.
+
+## Rojo Workflow
+
+The filesystem repository is authoritative.
+
+Normal workflow:
+
+Design -> Edit filesystem -> Rojo sync -> Test in Studio -> Fix -> Commit -> Push
+
+Do not directly edit Rojo-managed Script/LocalScript/ModuleScript source through Studio MCP.
+
+Do not bypass Git by treating the live Studio place as the source of truth for scripts.
 
 ## Development Workflow
 
 Use:
 
-Design -\> Implement -\> Test -\> Fix -\> Commit -\> Continue
+Design -> Implement -> Test -> Fix -> Commit -> Continue
 
-Before significantly changing a working system, consider whether a Git
-checkpoint should be created.
+Before significantly changing a working system, consider whether a Git checkpoint should be created.
 
 For debugging:
 
-1.  Identify the likely cause.
-2.  Inspect the relevant code/objects.
-3.  Make the smallest useful change.
-4.  Test it.
-5.  Avoid unrelated refactoring.
+1. Identify the likely cause.
+2. Inspect only the relevant code/objects.
+3. Make the smallest useful change.
+4. Test it.
+5. Avoid unrelated refactoring.
 
-If a visual/cosmetic issue does not block the current gameplay
-milestone, prefer recording it for later polish rather than repeatedly
-blocking development on it.
+If a visual/cosmetic issue does not block the current gameplay milestone, prefer recording it for later polish rather than repeatedly blocking development on it.
 
 ## Code Guidelines
 
--   Write clear, beginner-readable Luau.
--   Prefer descriptive names over clever abstractions.
--   Keep scripts focused on a clear responsibility.
--   Use Roblox APIs and patterns appropriate for the current Roblox
-    Studio version.
--   Avoid unnecessary dependencies.
--   Avoid premature optimization.
--   Use comments only where they explain non-obvious intent.
--   Preserve existing working behavior when modifying code unless the
-    task requires changing it.
--   Keep important tuning values easy to find rather than scattering
-    magic numbers.
--   When multiple implementations are valid, choose the simplest option
-    that is secure and maintainable.
+- Write clear, beginner-readable Luau.
+- Prefer descriptive names over clever abstractions.
+- Keep scripts focused on a clear responsibility.
+- Use Roblox APIs and patterns appropriate for the current Roblox Studio version.
+- Avoid unnecessary dependencies.
+- Avoid premature optimization.
+- Use comments only where they explain non-obvious intent.
+- Preserve existing working behavior unless the task requires changing it.
+- Keep important tuning values easy to find rather than scattering magic numbers.
+- When multiple implementations are valid, choose the simplest option that is secure and maintainable.
+
+## Current Progression Model
+
+### Power / Level
+
+- Power requirements currently scale as `100 * Level^2`.
+- Level Cap currently scales as `10 + 10 * Rebirths`.
+- Rebirth Power multiplier currently scales as `Rebirths + 1`.
+- These are implementation/balance values, not immutable design decisions.
+- Level is the sole long-term determinant of batting distance.
+
+### Bat
+
+Bat equipment increases Power gain.
+
+Current placeholder multipliers:
+
+- Wood: 1.0x
+- Metal: 1.5x
+- Alloy: 2.0x
+- Carbon: 2.5x
+
+Bat does not affect launch distance.
+
+### Ball
+
+Ball equipment increases Cash rewards from batting.
+
+Ball does not affect Power gain or launch distance.
+
+### Training Grounds
+
+Current logical Grounds:
+
+- Basic
+- Advanced
+- Expert
+
+They unlock through Rebirth progression and use one physical Training Stadium.
+
+Current placeholder base Power values are configurable and should not be treated as final balance.
+
+## Batting
+
+The old timing mechanic is retired.
+
+Normal batting flow:
+
+Player enters batting position
+-> presses/taps Swing
+-> swing animation plays
+-> server launches the ball straight downfield
+-> Level determines launch strength
+-> Roblox physics handles flight/bounces/roll
+-> ball naturally stops
+-> final forward distance is calculated
+-> rewards are granted
+-> ball resets
+
+Do not reintroduce:
+
+- timing fan
+- Perfect/Good/Okay/Miss
+- timing-based power
+- timing-based horizontal direction
+
+Animation is presentation only and must not determine authoritative gameplay results.
+
+## Ball Physics
+
+The ball uses Roblox physics.
+
+Normal lifecycle:
+
+- flight
+- bounce
+- roll
+- natural slowdown
+- stopped-state confirmation
+- final distance
+- rewards
+- reset
+
+Rolling distance counts.
+
+Distance is authoritative server-side forward/downfield distance, not total 3D displacement.
+
+Preserve the existing natural-stop and ground-contact logic unless a task explicitly requires changing it.
+
+## Training
+
+Training is the primary Power source.
+
+There is one physical Training Stadium.
+
+The player steps into the Training position:
+
+- Training starts automatically
+- character is positioned/locked
+- client practice pitch/swing loop plays
+- server grants Power on the configured interval
+
+Training practice visuals do not:
+
+- calculate distance
+- award Cash
+- unlock Worlds
+- use the real batting result pipeline
+
+Training stops cleanly on Leave, death, travel, disconnect, or other valid cleanup.
+
+## Offline Training
+
+Offline Power:
+
+- uses authoritative server timestamps
+- uses the player's selected Training Ground
+- applies configured offline-rate limits
+- applies Bat Power multiplier
+- applies Rebirth multiplier
+- respects Level Cap behavior
+- grants once per valid login/session
+
+Never trust client time or client-provided offline duration.
+
+## Worlds
+
+Each World uses:
+
+Hub / batting area
+-> long field/runway
+-> progression sections
+-> world endpoint
+
+World completion is based on authoritative final forward distance.
+
+Completing a World permanently unlocks the next World.
+
+World unlocks persist.
+
+Players may travel between unlocked Worlds.
+
+Do not assume future runway/environment redesigns are implemented unless the current code confirms them.
+
+## UI
+
+A functional UI foundation exists for:
+
+- HUD
+- Equipment
+- Training Grounds
+- Rebirth
+- Worlds
+- Offline Training
+- notifications
+- mobile/touch controls
+
+For major UI work, use the installed Check-UI skill in:
+
+`.agents/skills/check-ui-clean-roblox/`
+
+Relevant files:
+
+- `SKILL.md`
+- `DESIGN_SYSTEM.md`
+
+Use that skill as a design foundation, not as a reason to make every screen identical.
+
+Preserve the game's own visual identity.
+
+Do not copy another game's proprietary assets, branding, or exact UI layout.
+
+## Persistence
+
+Use the existing player-data lifecycle.
+
+Do not create separate DataStores for new systems unless explicitly justified.
+
+Preserve existing protections:
+
+- distinguish failed loads from new players
+- failed-load sessions must not overwrite known data with defaults
+- periodic autosave
+- PlayerRemoving save
+- BindToClose save
+- validation/sanitization
+- bounded retry behavior
+
+Current confirmed schema after equipment cleanup is Schema 6.
+
+Tee equipment data is obsolete and should not be reintroduced.
+
+## Multiplayer
+
+Important systems have already received a major multiplayer stabilization pass.
+
+Player state must remain isolated.
+
+Physical stations use server-authoritative occupancy where relevant.
+
+Leaving/death/travel/disconnect must clean up:
+
+- batting occupancy
+- Training occupancy
+- active hits
+- UI state
+- animation state
+
+Do not introduce shared player progression state.
 
 ## Project Documentation
 
-Treat project documentation as the source of truth for details that
-evolve over time.
+Treat project documentation as the source of truth for evolving design details.
 
-Relevant files may include:
+Relevant files include:
 
--   `GAME_DESIGN.md` - gameplay rules and feature design
--   `ARCHITECTURE.md` - current technical architecture
--   `SYSTEMS.md` - implemented systems and how they interact
--   `ECONOMY.md` - rewards, currencies, prices, and progression balance
--   `WORLDS.md` - world progression and unlock rules
--   `SECURITY.md` - exploit risks and server validation rules
--   `ROADMAP.md` - planned and completed work
--   `DECISIONS.md` - important design/architecture decisions and
-    reasoning
+- `GAME_DESIGN.md` - gameplay rules and feature design
+- `WORLDS.md` - world progression and unlock rules
+- `README.md` - repository/project overview
+- `CLAUDE.md` - Claude-specific current project context when present
+- `CURRENT_STATE.md` - optional current development snapshot when present
 
-Do not duplicate large amounts of these documents unnecessarily.
+Other documentation may be added later when justified, such as:
 
-If a significant design or architectural decision becomes final, suggest
-updating the appropriate documentation.
+- `ARCHITECTURE.md`
+- `SYSTEMS.md`
+- `ECONOMY.md`
+- `SECURITY.md`
+- `ROADMAP.md`
+- `DECISIONS.md`
 
-If documentation conflicts with current code or the developer's latest
-explicit instruction, point out the conflict rather than silently
-guessing.
+Do not create documentation files merely because they are listed here.
+
+If documentation conflicts with current code or the developer's latest explicit instruction, point out the conflict rather than silently guessing.
 
 ## Context Efficiency
 
-Use the smallest relevant set of files, scripts, and Studio objects
-needed for the current task.
+Use the smallest relevant set of files, scripts, and Studio objects needed for the current task.
 
-Do not inspect or rewrite the entire project when only a few
-objects/scripts are relevant.
+Do not inspect or rewrite the entire project for a focused change.
+
+Do not repeatedly reread every documentation file for small tasks.
 
 Do not repeatedly restate established game design or architecture.
 
-Ask for clarification only when the ambiguity materially affects
-implementation. Otherwise inspect the project and make the simplest
-reasonable choice.
+Ask for clarification only when ambiguity materially affects implementation. Otherwise inspect the project and make the simplest reasonable choice.
 
-## AI Development Behavior
+## Claude Development Behavior
 
-Codex should act as the primary implementation agent.
+Claude is the primary implementation agent.
 
 For routine implementation:
 
--   Inspect the current Studio state.
--   Edit repository source; use MCP for runtime verification and required physical objects.
--   Test when practical.
--   Report a concise summary and manual verification steps.
+- inspect the relevant repository files and Studio state
+- edit repository source
+- let Rojo sync
+- use MCP for runtime verification and required physical objects
+- test when practical
+- report a concise summary and remaining manual checks
 
-For architecture, security-sensitive systems, difficult debugging, major
-refactors, or important tradeoffs, spend more time reasoning before
-making changes.
+For architecture, security-sensitive systems, difficult debugging, major refactors, or important tradeoffs, reason more carefully before editing.
 
-Do not create complexity simply because an AI agent can generate it.
+Do not create complexity simply because a capable model can generate it.
 
 ## Current Scope Boundaries
 
-Normal batting is deterministic: one input starts the presentation, then the server launches a straight physics hit using Level. Animation never decides rewards or launch strength. Timing quality and equipment-level progression are retired.
+Do not invent unrelated simulator systems unless explicitly requested.
 
-Training Grounds are logical per-player selections using one plain physical stadium. Keep environmental art, equipment cosmetics, new simulator systems, and future worlds out of scope unless explicitly requested.
+Unless asked, do not add:
+
+- pets
+- crates
+- quests
+- daily rewards
+- monetization
+- leaderboards
+- trading
+- rarity systems
+- new currencies
+- additional Worlds
+- new equipment categories
+
+Normal batting is deterministic and Level-based.
+
+Training Grounds are logical per-player selections using one physical stadium.
+
+Environmental art, equipment cosmetics, final balance, and future content should remain separate from gameplay architecture unless explicitly requested.
