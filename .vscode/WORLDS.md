@@ -212,6 +212,11 @@ Future sections may use different environments and themes, but examples such as 
 
 Environment art, terrain, props, effects, and other cosmetic work should be implemented during dedicated visual/content milestones.
 
+### Current World Layouts
+
+- **World 1** uses a 160-stud-wide themed runway with ten sections (Meadow Run through Starlight Finish). The themes are cosmetic and keep the original reward tiers: 1.0× (0–300), 1.15× (300–800), 1.35× (800–5000 and runout). See `GAME_DESIGN.md` → World 1 Runway Themes.
+- **World 2** still uses the original wide field with three generic sections (Section 1–3). It has no runway theme yet.
+
 ## Current Balance
 
 Exact values such as:

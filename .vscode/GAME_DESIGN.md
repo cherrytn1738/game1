@@ -57,7 +57,7 @@ death, respawning, and world changes close these interfaces. Equipment changes w
 hit has finished and the player has left batting mode. Worlds without a physical hub retain
 on-screen access to the same interfaces.
 
-There are three primary equipment categories:
+There are two player equipment categories:
 
 ### Bat
 
@@ -163,6 +163,81 @@ As Level increases, the player should:
 The beginning of the game should leave substantial visible room for future power growth.
 
 Level 1 should produce a short hit far below the World 1 endpoint.
+
+## UI Presentation (Milestone 19B)
+
+UICommon owns Check-UI presentation inspired by the four navigation tiles: rounded cyan faces, dark outlines, inset highlights, translucent navy shells, recessed state-colored cards, and outlined GothamBlack typography. Equipment uses a pink accent, Rebirth purple, Worlds cyan, Training gold, and Welcome Back lime. Shared controls have centered hover/press motion and menus have a brief opening pop. Existing client controllers and HubInterfaces still own the same gameplay intents. Only one hub modal is shown at a time; activity, travel, and character cleanup close menus and release the single local blur.
+
+The HUD shows icon-based Cash/Rebirth counters, current world, and a blue studded Level/Power bar with Level Cap and Bat × Rebirth gain. Power fill changes tween locally. QuickMenu keeps its 2×2 tile design and opens Shop, Rebirth, Training (the Training Grounds selector), and Worlds (the World Travel menu) in every world; the unimplemented Inventory/Rewards stubs are retired. Equipment and Worlds use numbered badges rather than invented preview art. Equipment prices, ownership and action states remain separate and readable. Rebirth has a distinct confirmation view; Cancel sends no gameplay request. Short landscape screens compact the headers and confirmation content, and scrolling keeps actions accessible. Portrait cards stack their actions. Mobile modal actions use 52–54 logical pixel targets with a minimum 0.8 scale. Explicit Swing/Leave buttons invoke the existing Tool and server requests; click/Space still work. Touch movement and the hotbar are restored after menus/activities. No progression or reward calculation moved to the client.
+
+Offline gains are already granted by the server. CONTINUE only dismisses the once-per-login presentation; the Power icon and rotating sunburst are cosmetic. Hit results separate distance, Cash and Power and expire after six seconds. Shared notifications replace the current notice and suppress immediate duplicates. Icons reuse already approved image references; the CheckUIIcons registry was not installed in this place. The Worlds globe is made from UI geometry. This presentation pass adds no new systems, monetization controls or environment changes.
+
+## World 1 Runway Themes
+
+World 1's open field is replaced by a 160-stud-wide runway (`WorldConfig` `runway.width`). World 2 keeps the original wide field; width is per-world through `Field.GetWidth(world)`, and the out-of-runway check uses it.
+
+The runway is divided into ten themed sections. `FieldBuilder` builds the collidable ground; `RunwayDecor` builds all scenery from `WorldConfig`:
+
+| # | ID | Name | Distance (studs) | Cash multiplier |
+| --- | --- | --- | --- | --- |
+| 1 | grass | Meadow Run | 0–300 | 1.00 |
+| 2 | snow | Frost Pass | 300–800 | 1.15 |
+| 3 | stone | Crystal Ridge | 800–1300 | 1.35 |
+| 4 | desert | Golden Dunes | 1300–1800 | 1.35 |
+| 5 | candy | Candy Crossing | 1800–2300 | 1.35 |
+| 6 | jungle | Emerald Grove | 2300–2800 | 1.35 |
+| 7 | lava | Ember Canyon | 2800–3300 | 1.35 |
+| 8 | neon | Neon Circuit | 3300–3800 | 1.35 |
+| 9 | sky | Skyway | 3800–4400 | 1.35 |
+| 10 | cosmic | Starlight Finish | 4400–5000 | 1.35 |
+
+The first three IDs and all reward thresholds are unchanged from the earlier Grass/Snow/Stone layout; sections 3–10 subdivide the former Stone tier without changing its 1.35× Cash multiplier. The World 1 endpoint (5000) and 2000-stud runout are unchanged.
+
+Scenery (all cosmetic):
+
+- **Floor:** each section's `material` sets the ground's look only. Ground physics stay fixed through an explicit `CustomPhysicalProperties`, so materials never change bounces or rolling. Optional per-section extras: `floorPattern` (a faint caustic texture), `floorGrid` (neon grid lines), and `floorCracks` (glowing lava cracks). Flush edge stripes line both sides, and a checkered band marks each section start.
+- **Walls:** two-tone checkered walls (`wallHeight`, `wallThickness`, `wallTileLength`) with a rounded cream cap. `wallTileColor` can override the light tile color for dark themes.
+- **Decks and props:** a raised deck behind each wall (`deckWidth`, `deckMaterial`) holds the section's `props`, cycling every `propSpacing` and staggered between sides. Props are scaled up by `propScale`, and small filler clusters by `fillerScale`. Disc-shaped props (lollipops, the rainbow) face back toward the tee.
+- **Backdrop:** outer ground (`outerGroundWidth`) with large themed shapes (`backdrop`) every `backdropSpacing` for a horizon.
+- **Section titles:** each section's name floats as text on a fully transparent, non-colliding anchor 40 studs up, facing the tee (Meadow Run's floats at 60 studs so it is not over the batter). There are no physical gates or signs. A checkered finish line and a floating "WORLD 1 FINISH" title mark the 5000-stud endpoint, and plain walls continue through the runout.
+- **Mesh props:** props listed in `RunwayDecor`'s `MESH_PROPS` use imported Blender models from `ServerStorage.RunwayAssets`, tinted per section. These templates live in the place file, not Rojo/Git, so the place must be saved after importing. Generator scripts and FBX exports are in `tools/blender/` and `assets/models/`. If a template is missing, the prop falls back to its primitive-part version. Every runway prop, filler, and backdrop now has a mesh template (31 in total):
+- `MeadowTree` (`tools/blender/meadow_tree.py`): Meadow and jungle trees, and the jungle canopy backdrop.
+- Batch 1 (`batch1_props.py`, `RunwayBatch1.fbx`): `Mushroom`, `FlowerPatch`, `Fern`.
+- Batch 2 (`batch2_props.py`, `RunwayBatch2.fbx`): fillers `Bush` and `Rock` (per-section `fillers` list, default both), plus Candy Crossing's `Lollipop`, `Cake`, `Gumdrops`, and `CandyCane`.
+- Batch 3 (`batch3_props.py`, `RunwayBatch3.fbx`): `Pine`, `Snowman`, `Ice`, `Crystal`, `Geode`, `Cactus`, `Mesa`, `Dune`, `Spire`, `LavaRock`, `Beacon`, `Arch`, `Cloud`, `Rainbow`, `Island`, `Planet`, `Star`, `Moon`, and backdrops `Mountain`, `Volcano`, `Hill`.
+
+Shared Blender helpers live in `tools/blender/prop_helpers.py`. Every model is authored under ~20 units so the import stays below Roblox's 2048-stud part limit; backdrops are scaled up through `BACKDROP_MESHES`. Mesh definitions can also set `materials` (Neon for glowing parts), `lift` (floating props), and `faceTee` (`true` allows a half turn; `"exact"` plus `yawOffset` keeps an authored front toward the tee).
+
+Roblox imports these FBX files at 100× scale; templates are scaled back to their Blender size (1 unit = 1 stud) and pivoted at their base.
+
+The runway has no floating distance labels or floor tick lines; the live HUD shows distance during a hit. World 2's open field keeps its original distance markers.
+
+Every `RunwayDecor` part is anchored with collision, touch, and query disabled, so scenery cannot affect ball flight, measured distance, rewards, or camera occlusion. The full runway is about 3,000 decoration parts.
+
+## Sky
+
+`SkyServer` applies one stylized golden-hour sky to the whole game at server start:
+- a late-afternoon sun about 34° up, behind and to the left of the batter, so it lights the runway but never sits in the camera's view of the ball (an earlier sun placed straight down the runway made the ball hard to see)
+- warm pink and purple atmosphere, soft pink dynamic clouds, and gentle bloom and sun rays
+- a light saturation boost
+
+It reuses the place's existing Lighting effects rather than adding duplicates. All values are look-only and tunable at the top of the script. The sky does not change per section.
+
+## 2× Ball Flight (disabled)
+
+**Currently disabled** via `FieldConfig.FlightSpeedUpEnabled = false`. While disabled, the server rejects every `SpeedUp` request, no `BallFlightSpeed` state is published, and the HUD hides the 2× button. The code path stays in place and tested for if it is fixed and re-enabled.
+
+When enabled, the batter can press **2×** during their own hit to watch the ball travel at double speed, as a convenience.
+
+- The client sends only the batting session and the `SpeedUp` action. The server checks that the hit belongs to the player, the session matches, the player is still batting and alive, and their data is ready.
+- The server time-scales the ball: velocity and spin ×2, and an extra downward force so total gravity is ×4. Rolling resistance and the stop thresholds/timer are scaled to match. Launch speed, loft, and Level snapshot are unchanged.
+- **One-way per hit.** Once 2× is on, it stays on until the hit finishes; further requests are rejected and the button shows ON (disabled). Every new hit starts at normal speed.
+- **Known issue (unresolved): 2× changes final distance.** The airborne arc scales exactly (first landing matches normal hits), but bounces and rolling do not. The 0.8-stud ball moves more than its own diameter per physics step at impact, so bounce results depend on impact timing, and enabling 2× shifts that timing. Level 20 playtest results (normal ≈ 1,820–1,960 studs):
+  - 2× enabled at launch: 1,734–1,763 studs, with occasional ~1,110-stud outliers.
+  - 2× enabled 0.7 s into flight: ≈ 2,340–2,380 studs, repeatable (+25%).
+  
+  Because switch timing is player-controlled, 2× could be used to inflate distance, Cash, and World completion. One-way switching did not fix this, so the feature is disabled until bounce/roll behavior can be made timing-independent.
+- `BallFlightSpeed` (1 or 2, nil when no hit is active) is replicated for the HUD only. Rewards, distance, and world completion still come from the server's measured final position, granted once.
 
 ## Equipment Roles and Save Migration (Milestone 18)
 
