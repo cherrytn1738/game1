@@ -2,6 +2,7 @@
 local Field = require(game:GetService("ReplicatedStorage"):WaitForChild("FieldConfig"))
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
+local RunwayDecor = require(script.Parent:WaitForChild("RunwayDecor"))
 local Builder = {}
 
 local function buildHub(world, area)
@@ -34,6 +35,13 @@ local function buildHub(world, area)
  end
  part("Floor", Vector3.new(config.width, Field.GroundThickness, config.depth),
   Vector3.new(0, -Field.GroundThickness / 2, config.depth / 2), Color3.fromRGB(160, 166, 172), true)
+ -- Keep the original baseplate underneath the hub, rather than surrounding the
+ -- narrow runway with the old open field. Its physics material stays unchanged.
+ local baseplate = workspace:FindFirstChild("Baseplate")
+ if world.runway and baseplate then
+  baseplate.Size = Vector3.new(config.width,baseplate.Size.Y,config.depth)
+  baseplate.CFrame = frame * CFrame.new(0,-baseplate.Size.Y/2-.1,config.depth/2)
+ end
  -- Flush boundary strips define the rectangle without walls or movement barriers.
  local boundaryColor = Color3.fromRGB(100, 108, 116)
  for _, side in {-1, 1} do
@@ -118,6 +126,7 @@ local function buildHub(world, area)
 end
 
 local function buildField(world)
+ local runwayWidth = Field.GetWidth(world)
  local area = workspace:WaitForChild(world.stationName)
  local origin = area.Tee.Stem.BallPosition.WorldPosition
  local difference = area.HitDirection.Position - origin
@@ -134,7 +143,7 @@ local function buildField(world)
   previousEnd = section.endDistance
  end
  assert(previousEnd == world.endDistance, "Last section must end at the world end distance")
- assert(Field.Width > 0 and Field.MaximumPartSize > 0 and Field.MaximumPartSize <= 2048)
+ assert(runwayWidth > 0 and Field.MaximumPartSize > 0 and Field.MaximumPartSize <= 2048)
  local existing = workspace:FindFirstChild(world.fieldName)
  if existing then existing:Destroy() end
  local field = Instance.new("Model")
@@ -152,7 +161,7 @@ local function buildField(world)
   local p = Instance.new("Part")
   p.Name, p.Size = name, size
   p.CFrame = frame * CFrame.new(localPosition)
-  p.Color, p.Material = color or baseplate.Color, material or Enum.Material.Plastic
+  p.Color, p.Material = color or (baseplate and baseplate.Color) or Color3.fromRGB(110,130,140), material or Enum.Material.SmoothPlastic
   p.Anchored = true
   p.CanCollide, p.CanTouch, p.CanQuery = collidable, collidable, collidable
   p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
@@ -164,9 +173,9 @@ local function buildField(world)
   local start = section.startDistance
   while start < section.endDistance do
    local length = math.min(Field.MaximumPartSize, section.endDistance - start)
-   local left = -Field.Width / 2
-   while left < Field.Width / 2 do
-    local width = math.min(Field.MaximumPartSize, Field.Width / 2 - left)
+   local left = -runwayWidth / 2
+   while left < runwayWidth / 2 do
+    local width = math.min(Field.MaximumPartSize, runwayWidth / 2 - left)
     local p = part(section.id, Vector3.new(width, Field.GroundThickness, length),
      Vector3.new(left + width / 2, -Field.GroundThickness / 2, -start - length / 2),
      section.color, section.material, ground, true)
@@ -177,63 +186,72 @@ local function buildField(world)
   end
  end
  -- Plain runout gives a ball room to roll past the end marker and stop.
- -- It belongs to the final reward section, without extending its cosmetic theme.
+ -- It belongs to the final reward section; on runways it uses a darker shade of that theme.
+ local lastSection = world.sections[#world.sections]
+ local runoutColor = world.runway and lastSection.color:Lerp(Color3.new(), 0.35) or nil
+ local runoutMaterial = world.runway and lastSection.material or nil
  local runoutStart = world.endDistance
  while runoutStart < world.endDistance + world.runoutDistance do
   local length = math.min(Field.MaximumPartSize, world.endDistance + world.runoutDistance - runoutStart)
-  local left = -Field.Width / 2
-  while left < Field.Width / 2 do
-   local width = math.min(Field.MaximumPartSize, Field.Width / 2 - left)
+  local left = -runwayWidth / 2
+  while left < runwayWidth / 2 do
+   local width = math.min(Field.MaximumPartSize, runwayWidth / 2 - left)
    part("Runout", Vector3.new(width, Field.GroundThickness, length),
     Vector3.new(left + width / 2, -Field.GroundThickness / 2, -runoutStart - length / 2),
-    nil, nil, ground, true)
+    runoutColor, runoutMaterial, ground, true)
    left += width
   end
   runoutStart += length
  end
- local distances = {}
- local distance = Field.MarkerInterval
- while distance <= previousEnd do
-  distances[distance] = true
-  distance += distance < Field.DenseMarkersUntil and Field.MarkerInterval or Field.DistantMarkerInterval
- end
- for _, section in world.sections do distances[section.startDistance] = true end
- distances[previousEnd] = true
- for markerDistance in distances do
-  local section = Field.GetSection(markerDistance, world)
-  local boundary = section and section.startDistance == markerDistance
-  local left = -Field.Width / 2
-  while left < Field.Width / 2 do
-   local width = math.min(Field.MaximumPartSize, Field.Width / 2 - left)
-   part("DistanceLine", Vector3.new(width, 0.025, boundary and 1.2 or 0.25),
-    Vector3.new(left + width / 2, 0.025, -markerDistance),
-    Color3.fromRGB(235, 224, 169), Enum.Material.SmoothPlastic, markers, false)
-   left += width
+ -- Themed runways carry their own section gates and finish line (RunwayDecor) and
+ -- no distance markers; the live HUD already shows distance during a hit.
+ if world.runway then
+  RunwayDecor.Build(field, world, frame)
+ else
+  local distances = {}
+  local distance = Field.MarkerInterval
+  while distance <= previousEnd do
+   distances[distance] = true
+   distance += distance < Field.DenseMarkersUntil and Field.MarkerInterval or Field.DistantMarkerInterval
   end
-  local anchor = part("Marker_" .. markerDistance, Vector3.new(0.1, 0.1, 0.1),
-   Vector3.new(12, 3, -markerDistance), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, markers, false)
-  anchor.Transparency = 1
-  local gui = Instance.new("BillboardGui")
-  gui.Size = UDim2.fromOffset(190, 50)
-  gui.MaxDistance = 250
-  gui.AlwaysOnTop = false
-  gui.Parent = anchor
-  local label = Instance.new("TextLabel")
-  label.Size = UDim2.fromScale(1, 1)
-  label.BackgroundTransparency = 0.25
-  label.BackgroundColor3 = Color3.fromRGB(25, 30, 35)
-  label.TextColor3 = Color3.new(1, 1, 1)
-  label.Font = Enum.Font.GothamBold
-  label.TextSize = 17
-  label.Text = string.format("%d studs%s", markerDistance,
-   boundary and ("\n" .. section.displayName) or "")
-  if markerDistance == world.endDistance then label.Text = world.displayName .. " END\n" .. markerDistance .. " studs" end
-  label.Parent = gui
+  for _, section in world.sections do distances[section.startDistance] = true end
+  distances[previousEnd] = true
+  for markerDistance in distances do
+   local section = Field.GetSection(markerDistance, world)
+   local boundary = section and section.startDistance == markerDistance
+   local left = -runwayWidth / 2
+   while left < runwayWidth / 2 do
+    local width = math.min(Field.MaximumPartSize, runwayWidth / 2 - left)
+    part("DistanceLine", Vector3.new(width, 0.025, boundary and 1.2 or 0.25),
+     Vector3.new(left + width / 2, 0.025, -markerDistance),
+     Color3.fromRGB(235, 224, 169), Enum.Material.SmoothPlastic, markers, false)
+    left += width
+   end
+   local anchor = part("Marker_" .. markerDistance, Vector3.new(0.1, 0.1, 0.1),
+    Vector3.new(12, 3, -markerDistance), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic, markers, false)
+   anchor.Transparency = 1
+   local gui = Instance.new("BillboardGui")
+   gui.Size = UDim2.fromOffset(190, 50)
+   gui.MaxDistance = 250
+   gui.AlwaysOnTop = false
+   gui.Parent = anchor
+   local label = Instance.new("TextLabel")
+   label.Size = UDim2.fromScale(1, 1)
+   label.BackgroundTransparency = 0.25
+   label.BackgroundColor3 = Color3.fromRGB(25, 30, 35)
+   label.TextColor3 = Color3.new(1, 1, 1)
+   label.Font = Enum.Font.GothamBold
+   label.TextSize = 17
+   label.Text = string.format("%d studs%s", markerDistance,
+    boundary and ("\n" .. section.displayName) or "")
+   if markerDistance == world.endDistance then label.Text = world.displayName .. " END\n" .. markerDistance .. " studs" end
+   label.Parent = gui
+  end
  end
  field:SetAttribute("WorldId", world.id)
  field:SetAttribute("LengthStuds", previousEnd)
  field:SetAttribute("RunoutStuds", world.runoutDistance)
- field:SetAttribute("WidthStuds", Field.Width)
+ field:SetAttribute("WidthStuds", runwayWidth)
  field.Parent = workspace
  return field
 end

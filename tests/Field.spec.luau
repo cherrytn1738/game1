@@ -26,13 +26,13 @@ return function(sources)
    local origin = Vector3.new(1500,3,-7200)
    local right = forward:Cross(Vector3.yAxis)
    for _, height in {-100,0,10000} do
-    for _, side in {-500,0,500} do
+    for _, side in {-Field.GetWidth(world)/3,0,Field.GetWidth(world)/3} do
      local point = origin+forward*350+Vector3.yAxis*height+right*side
      check(math.abs(Field.GetForwardDistance(point,origin,forward)-350)<0.001, "height/lateral/global offset cannot inflate progression")
      check(Field.GetSectionAtPosition(point,origin,forward,world)==Field.GetSection(350,world), "all field queries share downfield boundaries")
     end
    end
-   check(Field.GetSectionAtPosition(origin+forward*350+right*(Field.Width/2+1),origin,forward,world)==nil, "outside runway excluded")
+   check(Field.GetSectionAtPosition(origin+forward*350+right*(Field.GetWidth(world)/2+1),origin,forward,world)==nil, "outside runway excluded")
    check(Field.GetSectionAtPosition(origin-forward,origin,forward,world)==nil, "behind tee excluded spatially")
   end
  end
@@ -64,6 +64,12 @@ return function(sources)
  local Progress = run()
  local a,b = player(),player()
  local first = Worlds.Get(Worlds.StartingWorldId)
+ check(#first.sections==10,"World 1 has ten ordered runway themes")
+ check(Field.GetWidth(first)==160 and Field.GetWidth(Worlds.Get("world_2"))==Field.Width,"width is per-world; World 2 remains unchanged")
+ for _,distance in {0,299,300,799,800,1299,1800,4400,5000,6500} do
+  local expected=distance<300 and 1 or distance<800 and 1.15 or 1.35
+  check(Field.GetSection(distance,first).rewardMultiplier==expected,"new themes preserve existing reward tiers")
+ end
  check(Progress.Complete(a,first,first.endDistance-0.001)==nil,"below endpoint does not unlock")
  check(Progress.Complete(a,first,0/0)==nil and Progress.Complete(a,first,math.huge)==nil,"nonfinite final distance rejected")
  a.ready=false
