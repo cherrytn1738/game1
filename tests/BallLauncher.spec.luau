@@ -27,7 +27,7 @@ return function(sources)
  local Swing=assert(loadstring(sources.SwingConfig))()
  local world=Worlds.Get(Worlds.StartingWorldId)
  local heartbeat=signal()
- local workspaceFake={GetServerTimeNow=os.clock,Raycast=function() return {} end}
+ local workspaceFake={Gravity=196.2,GetServerTimeNow=os.clock,Raycast=function() return {} end}
  local balls={}
  for _,definition in Worlds.Worlds do
   local ball=object()
@@ -64,13 +64,16 @@ return function(sources)
  local storage={WaitForChild=function(_,name) return name end,BattingTiming={FireClient=function() end}}
  local services={Workspace=workspaceFake,RunService={Heartbeat=heartbeat},Players=players,ReplicatedStorage=storage}
  local ready={GetAttribute=function() return true end}
+ local created={}
+ local testTime = 100
  local env=setmetatable({
   game={GetService=function(_,name) return assert(services[name],name) end},
   script={Parent={WaitForChild=function(_,name) return name=="FieldServer" and ready or name end}},
   require=function(name) return assert(modules[name],name) end,
-  Instance={new=function() return object() end},
+  Instance={new=function(class) local instance=object() instance.ClassName=class table.insert(created,instance) return instance end},
   task={delay=function(_,fn,...) table.insert(delayed,{fn=fn,args=table.pack(...)}) end},
   print=function() end,
+  os={clock=function() return testTime end},
  },{__index=getfenv()})
  local run=assert(loadstring(sources.BallLauncher))
  setfenv(run,env)
@@ -104,6 +107,60 @@ return function(sources)
    check(ball:GetAttribute("BallState")=="Ready" and not Launcher.IsBusy(world.id),"hit resets cleanly")
   end
  end
+ -- Shipped config: 2x is disabled, so requests are rejected and no speed state is published.
+ check(not Field.FlightSpeedUpEnabled,"2x ball flight ships disabled")
+ local disabled={worldId=world.id,session=1,swingId=800,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ check(Launcher.TryLaunch(player,disabled,tool),"hit accepted while 2x is disabled")
+ local disabledLaunch=table.remove(delayed,1)
+ disabledLaunch.fn(table.unpack(disabledLaunch.args,1,disabledLaunch.args.n))
+ local disabledVelocity=balls[world.id].AssemblyLinearVelocity
+ check(player:GetAttribute("BallFlightSpeed")==nil,"no 2x button state is published while disabled")
+ check(not Launcher.SpeedUp(player,1) and (balls[world.id].AssemblyLinearVelocity-disabledVelocity).Magnitude<.00001,
+  "disabled 2x requests never change the ball")
+ Launcher.CancelPlayer(player)
+ -- The remaining checks keep the 2x code path tested in case it is re-enabled.
+ Field.FlightSpeedUpEnabled=true
+ local result={worldId=world.id,session=1,swingId=900,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ check(not Launcher.SpeedUp(player,1),"no hit cannot speed up")
+ check(Launcher.TryLaunch(player,result,tool),"speed test hit accepted")
+ check(not Launcher.SpeedUp(player,1),"cannot speed up before contact")
+ local callback=table.remove(delayed,1)
+ callback.fn(table.unpack(callback.args,1,callback.args.n))
+ local ball=balls[world.id]
+ local normalVelocity=ball.AssemblyLinearVelocity
+ local stranger=object()
+ stranger:SetAttribute("CurrentWorldId",world.id)
+ check(not Launcher.SpeedUp(stranger,1),"another player cannot accelerate this ball")
+ check(not Launcher.SpeedUp(player,2),"wrong session rejected")
+ check(Launcher.SpeedUp(player,1),"owner may speed up live hit")
+ check((ball.AssemblyLinearVelocity-normalVelocity*2).Magnitude<.00001,"velocity doubles")
+ local force=created[#created]
+ check(force.ClassName=="VectorForce" and math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*3)<.0001,
+  "extra gravity scales total acceleration by four without changing workspace gravity")
+ check(player:GetAttribute("BallFlightSpeed")==2,"speed replicated for UI")
+ for _=1,3 do
+  testTime += 1
+  check(not Launcher.SpeedUp(player,1),"2x is one-way: later requests cannot turn it off or reapply it")
+ end
+ check((ball.AssemblyLinearVelocity-normalVelocity*2).Magnitude<.00001 and player:GetAttribute("BallFlightSpeed")==2,
+  "rejected requests never compound or restore velocity")
+ check(math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*3)<.0001,"rejected requests leave the 2x gravity unchanged")
+ check(result.launchSpeed==115,"speedup does not change Level launch strength")
+ ball.CFrame=CFrame.new(0,.5,-100)
+ ball.AssemblyLinearVelocity,ball.AssemblyAngularVelocity=Vector3.zero,Vector3.zero
+ local cash=player.leaderstats.Cash.Value
+ heartbeat:Fire(Field.StopHoldSeconds/2+.01)
+ check(result.distanceResult and result.distanceResult.distanceStuds==100,"scaled stop timer finalizes real position")
+ check(player.leaderstats.Cash.Value==cash+100,"speedup does not multiply Cash")
+ heartbeat:Fire(10)
+ check(player.leaderstats.Cash.Value==cash+100,"accelerated hit awards only once")
+ check(player:GetAttribute("BallFlightSpeed")==nil and ball:GetAttribute("BallState")=="Ready","reset clears speed state")
+ check(Launcher.TryLaunch(player,table.clone(result),tool),"next hit can start")
+ callback=table.remove(delayed,1)
+ callback.fn(table.unpack(callback.args,1,callback.args.n))
+ check(player:GetAttribute("BallFlightSpeed")==1,"next hit starts at normal speed")
+ Launcher.CancelPlayer(player)
+ check(player:GetAttribute("BallFlightSpeed")==nil,"cancellation clears speed")
  for _,definition in Worlds.Worlds do workspaceFake[definition.fieldName].Ground:Destroy() end
- return {passed=passed,message="Real launch/finalization: all Bat/Ball combinations, fixed Level velocity, distance/Cash isolation, snapshot and once-only rewards"}
+ return {passed=passed,message="Launch/rewards and 2x flight: authorization, one-way speed, acceleration, reset and once-only rewards"}
 end

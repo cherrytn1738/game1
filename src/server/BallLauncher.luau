@@ -10,6 +10,7 @@ local PlayerData = require(script.Parent:WaitForChild("PlayerData"))
 local Progress = require(script.Parent:WaitForChild("WorldProgress"))
 
 local CASH_PER_STUD = 1
+local FLIGHT_SPEEDUP = 2
 local BallLauncher = {}
 local stations = {}
 
@@ -34,6 +35,7 @@ local function cleanup(station, hit)
  station.hit = nil
  hit.finished = true
  hit.player:SetAttribute("HitActive", false)
+ hit.player:SetAttribute("BallFlightSpeed", nil)
  if hit.tracking then hit.tracking:Disconnect() end
  if hit.groundContact then hit.groundContact:Disconnect() end
  if hit.force then hit.force:Destroy() end
@@ -51,6 +53,32 @@ end
 function BallLauncher.IsBusy(worldId)
  local station = stations[worldId]
  return not station or station.hit ~= nil
+end
+
+function BallLauncher.SpeedUp(player, session)
+ if not Field.FlightSpeedUpEnabled then return false end
+ local station = stations[player:GetAttribute("CurrentWorldId")]
+ local hit = station and station.hit
+ if not hit or hit.player ~= player or hit.finished or not hit.force
+  or hit.result.session ~= session or not hit.speed
+  or not PlayerData.IsReady(player) or not player:GetAttribute("BattingActive") then return false end
+ local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+ if player.Character ~= hit.character or not humanoid or humanoid.Health <= 0 then return false end
+ -- One-way per hit: repeated on/off switching measurably changed final distance
+ -- in playtests, so 2x stays on until this hit finishes.
+ if hit.speed ~= 1 then return false end
+ -- Time scaling: velocity scales by 2, acceleration by 4. Scaling only velocity
+ -- would turn this convenience action into a large distance/power upgrade.
+ -- The airborne arc is preserved approximately; Roblox collision/rolling
+ -- responses are not time-scalable, so final distances can still differ.
+ local ball = station.ball
+ ball.AssemblyLinearVelocity *= FLIGHT_SPEEDUP
+ ball.AssemblyAngularVelocity *= FLIGHT_SPEEDUP
+ local gravity = Vector3.yAxis * ball.AssemblyMass * Workspace.Gravity
+ hit.force.Force = hit.force.Force * FLIGHT_SPEEDUP^2 - gravity * (FLIGHT_SPEEDUP^2 - 1)
+ hit.speed = FLIGHT_SPEEDUP
+ player:SetAttribute("BallFlightSpeed", FLIGHT_SPEEDUP)
+ return true
 end
 
 local function launch(station, hit)
@@ -97,10 +125,14 @@ local function launch(station, hit)
  hit.force.RelativeTo = Enum.ActuatorRelativeTo.World
  hit.force.Force = Vector3.zero
  hit.force.Parent = ball
+ hit.speed = 1
+ -- Only publish the speed when 2x is available; the HUD shows its button from this.
+ if Field.FlightSpeedUpEnabled then player:SetAttribute("BallFlightSpeed", 1) end
 
  local origin = originFrame.Position
  local startedAt = os.clock()
  local slowTime = 0
+ local simulationSeconds = 0
  local farthestDistance, farthestSection = 0, nil
  local lastGroundPosition, firstGroundDistance
  local lastGroundDistance = 0
@@ -191,6 +223,8 @@ local function launch(station, hit)
   if not PlayerData.IsReady(player) or player.Character ~= hit.character or not h or h.Health <= 0
    or player:GetAttribute("CurrentWorldId") ~= world.id then cleanup(station, hit) return end
   local position, velocity = ball.Position, ball.AssemblyLinearVelocity
+  local speed = hit.speed
+  simulationSeconds += dt * speed
   if position.Magnitude ~= position.Magnitude or velocity.Magnitude ~= velocity.Magnitude
    or position.Magnitude == math.huge or velocity.Magnitude == math.huge then finish("invalid physics", true) return end
   local contact = Workspace:Raycast(position, -Vector3.yAxis * (ball.Size.Y / 2 + 0.1), rayParams)
@@ -198,21 +232,21 @@ local function launch(station, hit)
   local grounded = section ~= nil and contact ~= nil
   if ball:GetAttribute("CurrentSectionId") ~= (section and section.id) then ball:SetAttribute("CurrentSectionId", section and section.id) end
   local horizontal = Vector3.new(velocity.X, 0, velocity.Z)
-  if grounded and math.abs(velocity.Y) < 2 and horizontal.Magnitude > 0.01 then
-   local acceleration = math.min(Field.RollingDeceleration, horizontal.Magnitude / math.max(dt, 1/240) * 0.5)
-   hit.force.Force = -horizontal.Unit * ball.AssemblyMass * acceleration
-  else
-   hit.force.Force = Vector3.zero
+  local force = -Vector3.yAxis * ball.AssemblyMass * Workspace.Gravity * (speed^2 - 1)
+  if grounded and math.abs(velocity.Y) < 2 * speed and horizontal.Magnitude > 0.01 then
+   local acceleration = math.min(Field.RollingDeceleration * speed^2, horizontal.Magnitude / math.max(dt, 1/240) * 0.5)
+   force -= horizontal.Unit * ball.AssemblyMass * acceleration
   end
+  hit.force.Force = force
   local surfaceSpeed = ball.AssemblyAngularVelocity.Magnitude * ball.Size.Y / 2
-  if grounded and velocity.Magnitude <= Field.StopLinearSpeed and surfaceSpeed <= Field.StopSurfaceSpeed then
-   slowTime += dt
+  if grounded and velocity.Magnitude <= Field.StopLinearSpeed * speed and surfaceSpeed <= Field.StopSurfaceSpeed * speed then
+   slowTime += dt * speed
   else
    slowTime = 0
   end
   if slowTime >= Field.StopHoldSeconds then finish("stopped", false)
   elseif position.Y < Field.GroundTop - 50 then finish("out of bounds", true)
-  elseif os.clock() - startedAt >= Field.MaximumFlightSeconds then finish("timeout", true) end
+  elseif simulationSeconds >= Field.MaximumFlightSeconds then finish("timeout", true) end
  end)
  print(string.format("[BallLaunch] %s / %s: Level %d, loft %.1f, speed %.1f",
   player.Name, world.id, result.launchLevel, result.launchAngleDegrees, result.launchSpeed))
@@ -226,6 +260,7 @@ function BallLauncher.TryLaunch(player, result, tool)
  local hit = {player = player, tool = tool, result = result}
  station.hit = hit
  player:SetAttribute("HitActive", true)
+ player:SetAttribute("BallFlightSpeed", nil)
  station.ball:SetAttribute("BallState", "Reserved")
  task.delay(Swing.ContactTime, launch, station, hit)
  return true

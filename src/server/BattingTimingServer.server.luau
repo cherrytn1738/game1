@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Swing = require(ReplicatedStorage:WaitForChild("SwingConfig"))
--- Legacy Rojo/Remote name retained; requests now contain only session and optional Exit.
+-- Legacy Rojo/Remote name retained; clients send only a session and optional action.
 local Remote = ReplicatedStorage:WaitForChild("BattingTiming")
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local BallLauncher = require(script.Parent:WaitForChild("BallLauncher"))
@@ -182,6 +182,7 @@ Remote.OnServerEvent:Connect(function(player, session, action)
  local state = states[player]
  if not state or not state.worldId or occupants[state.worldId] ~= player or session ~= state.session then return end
  if action == "Exit" then leave(player) return end
+ if action == "SpeedUp" then BallLauncher.SpeedUp(player, session) return end
  if action ~= nil or not PlayerData.IsReady(player) or BallLauncher.IsBusy(state.worldId) then return end
  local now = workspace:GetServerTimeNow()
  if now - state.lastRequest < 0.05 then return end
