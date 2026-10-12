@@ -5,7 +5,7 @@ return function(player)
  player = player or game:GetService("Players").LocalPlayer
  local playerGui = assert(player and player:FindFirstChildOfClass("PlayerGui"), "Run on a client with PlayerGui.")
  local names = {GameHUD=true, EquipmentShopGui=true, WorldTravelGui=true, TrainingGroundGui=true,
-  RebirthGui=true, TrainingHUD=true, NotificationGui=true, ContextActionGui=true}
+  RebirthGui=true, TrainingHUD=true, OfflineTrainingGui=true, NotificationGui=true, ContextActionGui=true}
  local report = {duplicates={}, offscreen={}, textDoesNotFit={}, visibleButtons={}, scrollingFrames={},
   screens={}, inspected=0, hidden=0, clippedByAncestors=0}
  local function rect(object)

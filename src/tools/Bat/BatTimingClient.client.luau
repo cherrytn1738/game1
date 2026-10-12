@@ -104,10 +104,9 @@ local function updateBattingState(active)
  if active then
   if not exitBound then
    ContextActionService:BindActionAtPriority(
-    "ExitBatting", exitAction, true, 3000, Enum.KeyCode.Space
+    "ExitBatting", exitAction, false, 3000, Enum.KeyCode.Space
    )
-   ContextActionService:SetTitle("ExitBatting", "Leave")
-   ContextActionService:SetPosition("ExitBatting", UDim2.new(1, -90, 1, -180))
+   -- HUD owns the visible Leave button; keep the Space binding here.
    exitBound = true
   end
   enterBattingCamera()

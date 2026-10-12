@@ -14,7 +14,7 @@ return function(sources)
   }
  end
  local function object(name)
-  return {Name=name,Activated=signal(),GetPropertyChangedSignal=function() return signal() end}
+  return {Name=name,AbsoluteSize=Vector2.new(720,550),Activated=signal(),GetPropertyChangedSignal=function() return signal() end}
  end
  local attributes = {DataLoaded=true,Rebirths=1,Level=4,LevelCap=20,Power=0,
   SelectedTrainingGround="advanced_training",OfflineSeconds=0}
@@ -32,10 +32,13 @@ return function(sources)
  end
  player.Character={FindFirstChildOfClass=function() return {Health=100} end}
  local buttons,requests,labels={},{},{}
- local UI={Colors={},Number=tostring,Notify=function() end}
+ local UI={Colors={},Icons={},Number=tostring,Compact=tostring,Notify=function() end,CardState=function() end}
+ function UI.Badge() return object("Badge") end
+ function UI.Icon() return object("Icon") end
  function UI.Menu() return object("Menu"),object("Panel"),function() end end
  function UI.Scroll(_,name) return object(name) end
  function UI.Surface(_,name) return object(name) end
+ function UI.Hero() return object("Hero") end
  function UI.Label(parent,name)
   local label=object(name)
   labels[parent.Name .. "." .. name]=label
@@ -50,7 +53,7 @@ return function(sources)
  function UI.SetButton(button,text,enabled)
   button.Text,button.Active=text,enabled
  end
- local Interfaces={CloseAll=function() end,Register=function() end}
+ local Interfaces={CloseAll=function() end,Register=function() end,Changed=signal(),IsOpen=function() return false end}
  function Interfaces.CanOpen()
   return attributes.DataLoaded and not attributes.TrainingActive and not attributes.BattingActive
    and not attributes.HitActive and not attributes.WorldTraveling

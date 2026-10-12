@@ -24,9 +24,10 @@ return function(sources)
  end
  local function object()
   local attributes = {}
-  local result = {MouseEnter=signal(),MouseLeave=signal(),Destroying=signal()}
+  local result = {MouseEnter=signal(),MouseLeave=signal(),MouseButton1Down=signal(),MouseButton1Up=signal(),Destroying=signal(),SelectionGained=signal(),SelectionLost=signal()}
   function result:SetAttribute(name,value) attributes[name]=value end
   function result:GetAttribute(name) return attributes[name] end
+  function result:GetPropertyChangedSignal() return signal() end
   function result:Destroy() self.Destroying:Fire() end
   return result
  end
@@ -69,7 +70,7 @@ return function(sources)
  bat.MouseEnter:Fire()
  UI.SetButton(bat,"Unavailable",false,false)
  completeTweens()
- check(bat.BackgroundColor3==UI.Colors.Card and not bat.Active,"disabling a hovered button must preserve its disabled appearance")
+ check(bat.BackgroundColor3==UI.Colors.Locked and not bat.Active,"disabling a hovered button must preserve its disabled appearance")
  UI.SetButton(bat,"Bats",true,true)
  bat.MouseEnter:Fire()
  completeTweens()
@@ -81,5 +82,14 @@ return function(sources)
  bat:Destroy()
  check(next(pending)==nil,"destroying a button releases its pending tween")
  ball:Destroy()
+ check(UI.Compact(1250)=="1,250" and UI.Compact(12500)=="12.5K" and UI.Compact(1200000)=="1.2M", "compact HUD formatting retains readable magnitudes")
+ local action=UI.Button({},"Purchase","PURCHASE")
+ UI.SetButton(action,"PURCHASE",true,true)
+ action.MouseButton1Down:Fire()
+ UI.SetButton(action,"EQUIPPED",false,true)
+ action.MouseButton1Up:Fire()
+ completeTweens()
+ check(action.BackgroundColor3==UI.Colors.Accent and not action.Active,"press release cannot override a server-confirmed equipped state")
+ action:Destroy()
  return {passed=passed}
 end
