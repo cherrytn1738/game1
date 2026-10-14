@@ -84,13 +84,13 @@ local function showCategory(category)
  for index, item in Equipment.GetItems(category) do
   local frame = UI.Surface(list,item.id,UI.Colors.Card)
   frame.LayoutOrder = index
-  local badge = UI.Badge(frame,string.format("%02d",index),category=="Bat" and UI.Colors.Gold or UI.Colors.Success)
+  local badge = UI.Badge(frame,string.format("%02d",index),category=="Bat" and UI.Colors.Gold or UI.Colors.Accent)
   badge.Position, badge.Size = UDim2.fromOffset(16,20),UDim2.fromOffset(70,70)
   local categoryLabel=UI.Label(frame,"Category",string.upper(category),13,UI.Colors.Muted)
   categoryLabel.Position,categoryLabel.Size,categoryLabel.TextXAlignment=UDim2.fromOffset(16,96),UDim2.fromOffset(70,22),Enum.TextXAlignment.Center
   local title = UI.Label(frame,"Equipment",item.displayName,25)
   title.Font = UI.Font
-  local stat = UI.Label(frame,"Effect",effect(category,item),19,category=="Bat" and UI.Colors.Gold or UI.Colors.Success)
+  local stat = UI.Label(frame,"Effect",effect(category,item),19,category=="Bat" and UI.Colors.Gold or UI.Colors.Accent)
   local state = UI.Label(frame,"State","",15,UI.Colors.Muted)
   state.TextWrapped = true
   local price = UI.Label(frame,"Price","",17,UI.Colors.Gold)

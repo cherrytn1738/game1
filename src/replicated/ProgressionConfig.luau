@@ -33,9 +33,10 @@ function Progression.GetPowerMultiplier(rebirths)
  return rebirths + 1
 end
 
--- Integer Power is rounded once after both bonuses; shared with rate previews.
-function Progression.GetPowerGrant(baseAmount, rebirths, batMultiplier)
- return math.floor(baseAmount * batMultiplier * Progression.GetPowerMultiplier(rebirths))
+-- Integer Power is rounded once after every bonus; shared with rate previews.
+-- boostMultiplier is the active Juice Power bonus (1 when none or not applicable).
+function Progression.GetPowerGrant(baseAmount, rebirths, batMultiplier, boostMultiplier)
+ return math.floor(baseAmount * batMultiplier * Progression.GetPowerMultiplier(rebirths) * (boostMultiplier or 1))
 end
 
 function Progression.GetLaunchSpeed(level)

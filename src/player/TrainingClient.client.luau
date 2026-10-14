@@ -9,31 +9,45 @@ local Equipment = require(Storage:WaitForChild("EquipmentConfig"))
 local Swing = require(Storage:WaitForChild("SwingConfig"))
 local Worlds = require(Storage:WaitForChild("WorldConfig"))
 local Remote = Storage:WaitForChild("TrainingRequest")
+local Teleport = Storage:WaitForChild("TrainingTeleport")
 local UI = require(script.Parent.UICommon)
 local Interfaces = require(script.Parent.HubInterfaces)
 
 local gui, panel, show = UI.Menu("TrainingGroundGui","Training Grounds","Train → gain Power → Level Up → hit farther.",Interfaces.CloseAll)
 local list = UI.Scroll(panel,"Grounds")
 list.Position, list.Size = UDim2.fromOffset(14,110), UDim2.new(1,-28,1,-166)
-local offlineDetail = UI.Label(panel,"Feedback","Select a ground, then use the training plate.\nOffline: "
- .. UI.Number(Config.MaximumOfflineSeconds/3600) .. "h maximum at " .. UI.Number(Config.OfflinePowerRateMultiplier*100) .. "% of your Power rate.",13,UI.Colors.Muted)
+local offlineDetail = UI.Label(panel,"Feedback","Walk onto any unlocked ground's plate to train.\nOffline: "
+ .. UI.Number(Config.MaximumOfflineSeconds/3600) .. "h maximum at " .. UI.Number(Config.OfflinePowerRateMultiplier*100) .. "% of your best ground's rate.",13,UI.Colors.Muted)
 offlineDetail.Position, offlineDetail.Size, offlineDetail.TextWrapped = UDim2.new(0,16,1,-48),UDim2.new(1,-32,0,44),true
+
+-- The server decides access; these only describe it and send intent (teleport / buy prompt).
+local function usable(ground)
+ if Config.IsPaid(ground) then return Player:GetAttribute("TrainingPass_" .. ground.id) == true end
+ return (Player:GetAttribute("Rebirths") or 0) >= ground.requiredRebirths
+end
+
 local rows = {}
 for index, ground in Config.Grounds do
- local row = UI.Surface(list,ground.id)
- row.Size, row.LayoutOrder = UDim2.new(1,-10,0,190), index
- local badge = UI.Badge(row,string.format("%02d",index),UI.Colors.Gold)
+ local row = UI.Surface(list,ground.id,UI.Colors.Card)
+ row.Size, row.LayoutOrder = UDim2.new(1,-10,0,166), index
+ local badge = UI.Badge(row,string.format("%02d",index),Config.IsPaid(ground) and UI.Colors.Accent or UI.Colors.Gold)
  badge.Position = UDim2.fromOffset(16,18)
  local name = UI.Label(row,"Name",ground.displayName,24)
- name.Position, name.Size = UDim2.fromOffset(98,12), UDim2.new(1,-114,0,30)
- local rate = UI.Label(row,"Rate","",21,UI.Colors.Gold)
- rate.Position, rate.Size = UDim2.fromOffset(98,46), UDim2.new(1,-114,0,28)
+ name.Position, name.Size = UDim2.fromOffset(98,10), UDim2.new(1,-114,0,30)
+ local rate = UI.Label(row,"Rate","",19,UI.Colors.Gold)
+ rate.Position, rate.Size = UDim2.fromOffset(98,42), UDim2.new(1,-114,0,26)
  local status = UI.Label(row,"Status","",15,UI.Colors.Muted)
- status.Position, status.Size, status.TextWrapped = UDim2.fromOffset(98,78), UDim2.new(1,-114,0,42),true
- local button = UI.Button(row,"Select","SELECT")
- button.Position, button.Size = UDim2.fromOffset(16,124), UDim2.new(1,-32,0,54)
+ status.Position, status.Size, status.TextWrapped = UDim2.fromOffset(98,70), UDim2.new(1,-114,0,24),true
+ local button = UI.Button(row,"Action","GO")
+ button.Position, button.Size = UDim2.fromOffset(16,104), UDim2.new(1,-32,0,50)
  button.Activated:Connect(function()
-  if button.Active and Interfaces.CanOpen() then Remote:FireServer("Select",ground.id) end
+  if not button.Active or not Interfaces.CanOpen() then return end
+  if usable(ground) then
+   Interfaces.CloseAll()
+   Teleport:FireServer(ground.id)
+  elseif Config.IsPaid(ground) then
+   Remote:FireServer("Buy",ground.id)
+  end
  end)
  rows[ground.id] = {rate=rate,status=status,button=button}
 end
@@ -42,7 +56,8 @@ Remote.OnClientEvent:Connect(function(ok,message) UI.Notify(message,ok and "succ
 
 local hud = UI.Screen("TrainingHUD",12)
 local box = UI.Surface(hud,"Status")
-box.BackgroundColor3,box.BackgroundTransparency=Color3.fromRGB(24,70,102),.2
+box.BackgroundColor3,box.BackgroundTransparency=UI.Colors.Panel,0
+UI.Shrink(box)
 box.AnchorPoint, box.Position, box.Size = Vector2.new(.5,1), UDim2.new(.5,0,1,-80), UDim2.new(1,-24,0,128)
 local heading = UI.Label(box,"Heading","TRAINING",16,UI.Colors.Accent)
 heading.Position, heading.Size = UDim2.fromOffset(48,10), UDim2.new(1,-60,0,24)
@@ -67,6 +82,7 @@ hud:GetPropertyChangedSignal("AbsoluteSize"):Connect(resizeStatus)
 task.defer(resizeStatus)
 
 local visual, rendering, leaveBound
+local refresh
 local function stopVisual()
  if rendering then rendering:Disconnect() rendering=nil end
  if visual then visual:Destroy() visual=nil end
@@ -88,11 +104,13 @@ local function startPresentation()
   leaveBound = true
  end
  local hub = workspace:FindFirstChild(Worlds.Get(Worlds.StartingWorldId).hub.name)
- local stadium = hub and hub:FindFirstChild("TrainingStadium")
+ local grounds = hub and hub:FindFirstChild("TrainingGrounds")
+ local stadium = grounds and grounds:FindFirstChild(Player:GetAttribute("TrainingGround") or "")
  local plate = stadium and stadium:FindFirstChild("TrainingPlate")
  local pitchOrigin = plate and plate:FindFirstChild("PitchOrigin")
  local contact = plate and plate:FindFirstChild("ContactPosition")
- if not plate or not pitchOrigin or not contact then return end
+ -- The cage may still be streaming in; try again shortly.
+ if not plate or not pitchOrigin or not contact then task.delay(0.5, refresh) return end
  visual = Instance.new("Part")
  visual.Name, visual.Shape, visual.Size = "TrainingPracticeBall", Enum.PartType.Ball, Vector3.new(.65,.65,.65)
  visual.Anchored, visual.CanCollide, visual.CanTouch, visual.CanQuery = true,false,false,false
@@ -113,28 +131,34 @@ local function startPresentation()
  end)
 end
 
-local function refresh()
+function refresh()
  local short = panel.AbsoluteSize.Y < 400
  list.Position, list.Size = UDim2.fromOffset(14,short and 80 or 110),UDim2.new(1,-28,1,short and -136 or -166)
  local rebirths = Player:GetAttribute("Rebirths") or 0
  local bat = Equipment.Get("Bat", Player:GetAttribute("EquippedBat"))
  local batMultiplier = bat and bat.powerGainMultiplier or 1
+ local trainingAt = Player:GetAttribute("TrainingActive") and Player:GetAttribute("TrainingGround")
  for _, ground in Config.Grounds do
   local row = rows[ground.id]
-  local unlocked = Config.IsUnlocked(ground.id,rebirths)
-  local selected = ground.id == Player:GetAttribute("SelectedTrainingGround")
-  row.rate.Text = UI.Number(Progression.GetPowerGrant(ground.basePower, rebirths, batMultiplier)/ground.interval,1) .. " Power / second"
-  row.status.Text = (unlocked and (selected and "Selected" or "Unlocked") or "Locked")
-   .. " | Required Rebirths: " .. UI.Number(ground.requiredRebirths)
-  UI.CardState(row.button.Parent,selected and "selected" or unlocked and "available" or "locked")
-  UI.SetButton(row.button,selected and "SELECTED" or unlocked and "SELECT" or "Requires " .. UI.Number(ground.requiredRebirths) .. " Rebirths",
-   unlocked and not selected and Interfaces.CanOpen(),unlocked)
+  local open = usable(ground)
+  local paid = Config.IsPaid(ground)
+  row.rate.Text = "x" .. UI.Number(ground.powerMultiplier) .. " POWER  |  "
+   .. UI.Number(Progression.GetPowerGrant(ground.basePower, rebirths, batMultiplier)/ground.interval,1) .. " Power / second"
+  row.status.Text = trainingAt == ground.id and "Training here now"
+   or open and (paid and "Pass owned" or "Unlocked")
+   or paid and "Robux pass - no Rebirths needed"
+   or "Locked | Requires " .. UI.Number(ground.requiredRebirths) .. " Rebirths"
+  local onSale = paid and ground.gamePassId > 0
+  local label = open and "GO" or paid and (onSale and "BUY  R$ " .. UI.Number(ground.robuxPrice) or "COMING SOON")
+   or "REQUIRES " .. UI.Number(ground.requiredRebirths) .. " REBIRTHS"
+  UI.CardState(row.button.Parent,trainingAt == ground.id and "selected" or open and "available" or "locked")
+  UI.SetButton(row.button,label,(open or onSale) and Interfaces.CanOpen() and trainingAt ~= ground.id,open or onSale)
  end
  local humanoid = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
  local active = Player:GetAttribute("DataLoaded") and Player:GetAttribute("TrainingActive") and humanoid and humanoid.Health>0
  hud.Enabled = active == true
  if not active then stopPresentation() return end
- local ground = Config.Get(Player:GetAttribute("SelectedTrainingGround"))
+ local ground = Config.Get(Player:GetAttribute("TrainingGround"))
  if not ground then stopPresentation() return end
  local capped = Player:GetAttribute("Level") >= Player:GetAttribute("LevelCap")
  detail.Text = ground.displayName .. "\n" .. (capped and "MAX LEVEL - Rebirth available"
@@ -144,8 +168,11 @@ local function refresh()
    .. UI.Number(Progression.PowerRequiredForNextLevel(Player:GetAttribute("Level"))))
  startPresentation()
 end
-for _, name in {"DataLoaded","TrainingActive","BattingActive","HitActive","SelectedTrainingGround","EquippedBat","Rebirths","Level","LevelCap","Power","WorldTraveling"} do
+for _, name in {"DataLoaded","TrainingActive","TrainingGround","BattingActive","HitActive","EquippedBat","Rebirths","Level","LevelCap","Power","WorldTraveling"} do
  Player:GetAttributeChangedSignal(name):Connect(refresh)
+end
+for _, ground in Config.Grounds do
+ if Config.IsPaid(ground) then Player:GetAttributeChangedSignal("TrainingPass_" .. ground.id):Connect(refresh) end
 end
 panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
 Player.CharacterRemoving:Connect(stopPresentation)

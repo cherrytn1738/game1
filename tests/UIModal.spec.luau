@@ -46,6 +46,12 @@ return function(sources)
  a:Destroy()
  task.wait() -- Studio may deliver Destroying signals on the deferred event queue.
  check(not blur.Enabled,"destroyed modal releases its blur state")
+ -- Structure: solid slate box, title and close button riding over its top edge.
+ local panel=b.Scrim.Panel
+ local box=panel.Box
+ check(panel.BackgroundTransparency==1 and box.BackgroundTransparency>0 and box.BackgroundTransparency<.5 and box.BackgroundColor3==Color3.fromRGB(59,88,102),"window box is slightly see-through slate")
+ check(panel.Title.AnchorPoint.Y==.5 and panel.Title.Position.Y.Offset==box.Position.Y.Offset and box.Position.Y.Offset>0,"title is centred on the box's top edge")
+ check(panel.Close.Size==UDim2.fromOffset(38,38) and panel.Close.Position.Y.Offset==box.Position.Y.Offset,"38x38 close button on the top edge")
  b:Destroy()
  root:Destroy()
  lighting:Destroy()

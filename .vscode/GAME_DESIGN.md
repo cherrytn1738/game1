@@ -164,9 +164,72 @@ The beginning of the game should leave substantial visible room for future power
 
 Level 1 should produce a short hit far below the World 1 endpoint.
 
-## UI Presentation (Milestone 19B)
+## UI Presentation (Check-UI redo)
 
-UICommon owns Check-UI presentation inspired by the four navigation tiles: rounded cyan faces, dark outlines, inset highlights, translucent navy shells, recessed state-colored cards, and outlined GothamBlack typography. Equipment uses a pink accent, Rebirth purple, Worlds cyan, Training gold, and Welcome Back lime. Shared controls have centered hover/press motion and menus have a brief opening pop. Existing client controllers and HubInterfaces still own the same gameplay intents. Only one hub modal is shown at a time; activity, travel, and character cleanup close menus and release the single local blur.
+The UI now follows the Check-UI skill (`.agents/skills/check-ui-clean-roblox/`) strictly. `UICommon` implements it behind the same API, so clients keep their gameplay wiring.
+
+- **Windows:** a slightly see-through slate canvas (`#3B5866` at `UI.MenuBoxTransparency` 0.3, so the blurred world shows behind it; 4px corners, 3.5px `#181E22` outline) with a faint full-height checkerboard.
+- **Titles:** each menu's icon and title (GothamBlack up to 46px, thick black outline, white fading to the theme tint) ride over the top edge of the box, half above it, with the close button on the top-right corner. A 6px themed gradient strip runs along the top of the box: Shop magenta, Rebirth purple, Worlds cyan, Training amber, Welcome Back blue, Inventory orange.
+- **Close button:** the signature 38×38 beveled crimson close button.
+- **Buttons:** follow the canonical iconless blueprint: sharp rectangle, 3px `#0C141A` border, vertical state gradient, black checkerboard fading 0.91 to 0.62, triple glass rims, and a 3px outlined label.
+- **Button states:**
+  - Claim (gold): available actions. The UI uses no green; positive feedback text is gold too.
+  - Claimed (silver): equipped, selected, or disabled.
+  - Locked (crimson): locked items and destructive actions such as Leave and Cancel.
+  - Cyan: neutral buttons and the selected tab.
+- **Motion and sound:** hover 1.05, press 0.94 with a Back.Out release, and a click sound.
+- **Cards:** recessed (`#1A2C34`, black border, slate inner highlight). A cyan highlight marks the selected card; a crimson tint marks locked ones.
+- **Badges:** beveled tiles.
+- **Notifications:** solid panels with a themed top bar.
+- **Scaling:** windows scale with the skill's responsive rule (1050×620 baseline, clamped 0.52 to 1.18) times `UI.MenuScale` (0.95), never below `UI.MenuMinScale` (0.75) so menus stay large and tappable on phones. The window is capped by the screen, so it never goes off-screen.
+- **Rebirth:** follows the skill's Rebirth archetype: gold "Rebirth N ➡ Rebirth N+1" comparison cards (Power multiplier and Level Cap), an orange-to-gold Level progress bar, and a recessed requirements box, above the Reset/Keep/Gain cards.
+- **Quick menu:** matches the reference 2×2 tile design (dark outline and bevel, textured sky-blue face, colored top accent bar, large icon, outlined label) with Shop, Rebirth, Inventory, and Rewards. Rewards is a placeholder that shows "coming soon". A wide **Training** tile sits under the grid, and a **Batting** button sits under the level bar (it replaced the Rebirth Available shortcut; Rebirth is still in the quick menu):
+  - **Training** teleports the player to their best usable Training Ground (see below).
+  - **Batting** uses the `TeeTeleport` remote, which takes no arguments. It places the player 7 studs behind the batter's box of their current world, facing it, so batting never starts by itself. It shows whenever the level bar does, and is refused during a hit or while already batting.
+
+  Both teleports show no message on success, only an explanation when refused.
+- **Level bar:** styled as a baseball: white, with progress filling it as bold red diagonal stripes (the bar's only red; no seams, stitching or progress line).
+- **Batting tee:** each station is dressed with `ServerStorage.RunwayAssets.BattingTee`, from `tools/blender/batting_tee.py`, styled in FieldBuilder: a rubber home-plate base with a white plate top, a steel tube with an orange band, an adjustment collar with a knob, and a ribbed rubber tube and cup. The original Base, Stem and HomePlate stay as invisible colliders, and `Tee.Stem.BallPosition` remains the launch point; the cup lip sits exactly at it.
+
+### Inventory
+
+`InventoryClient` opens from the Inventory tile: an orange-themed Check-UI window with three tabs down the left side and a three-column card grid (two columns on narrow windows).
+- **Bats / Balls:** every item in the category, with tier-colored borders and names (gray, blue, purple, gold by item order), its effect, and a state line (EQUIPPED, TAP TO EQUIP, or a lock icon with BUY IN THE SHOP). Tapping an owned item sends the existing `EquipmentUpgrade` "Equip" intent; the server validates it as before. Counters show "BATS 2 / 4" and the equipped item. The Bats and Balls tab icons are small 3D previews.
+- **Juice:** owned and active juices, showing multiplier, effect, and duration, plus "x3 · TAP TO DRINK" and "1:57 LEFT". Tapping drinks one. With nothing owned, an empty-state message explains juice.
+- Purchasing stays in the Shop.
+
+### Juice (Schema 7)
+
+Juice is a consumable item that grants a temporary, server-timed bonus. The architecture is in place, but no juices are defined yet.
+- **Definitions:** `JuiceConfig.DEFINITIONS` entries `{id, displayName, effect, multiplier, durationSeconds, color}`, validated at load. `effect` is `Power` or `Cash`. IDs are persistent and must never be renamed or reused.
+- **Storage:** inside the existing `PlayerProgression` save (Schema 7) as `OwnedJuices` (id → count, up to 999) and `ActiveJuices` (id → whole seconds left, capped at 24 hours). Older saves start with none. A malformed (non-table) field fails closed like other progression; unknown juices and invalid entries are dropped.
+- **Server authority:** only `PlayerData` changes juice state.
+  - `GrantJuice` is server-only (for future rewards, shop, or codes).
+  - `UseJuice` runs on the client's `JuiceRequest` "Use" intent, with a 0.3s cooldown, in `JuiceServer`.
+  - `GetJuiceMultiplier` returns the combined bonus for an effect.
+  - Grants and uses schedule an important save.
+- **Timing:** active juices count down once per second by real elapsed time, only while the player is in the game; timers pause offline.
+- **Stacking:** drinking a juice that is already active adds its duration, up to the cap. Different juices with the same effect multiply.
+- **Effects:**
+  - Power juice multiplies online Power grants (active Training and real hits) inside the single grant path, so whole Power is still rounded once after all bonuses. It does not apply to offline Training.
+  - Cash juice multiplies the hit's Cash reward.
+  - Neither changes launch strength or distance.
+- **Display:** clients read `OwnedJuices` and `ActiveJuices` folder attributes on the player. The HUD multiplier includes active Power juice. The Training rate preview does not yet.
+- **Size:** `UI.SizeScale` (currently 0.75) shrinks the HUD groups, quick menu, notifications, and the Training status box, each around its own anchor (`UI.Shrink`). Windows use their own larger `UI.MenuScale` (see Scaling) and are capped at 680×550 before scaling. The quick menu never drops below 0.45, so phones stay readable and tappable. The HUD's bottom clearance for the Roblox hotbar and touch controls is not scaled.
+
+### Training teleport
+
+The quick menu's Training tile sends an intent-only `TrainingTeleport` request (a RemoteEvent the server creates at runtime). `BattingTimingServer`:
+- refuses it during an active hit or while already training, with a message
+- shares World Travel's 1-second cooldown
+- places the player 9 studs from the World 1 Training plate, facing it, so Training starts only when they step on
+- from another world, travels back to World 1 first, using the same `relocate` cleanup as World Travel (ends batting, Training, and active hits, and bumps the batting session)
+
+Because World 2 has no hub, this tile is also how players return from World 2. Travel to World 2 uses the World Travel prompt in the World 1 hub.
+
+### Earlier pass (Milestone 19B)
+
+UICommon owns Check-UI presentation inspired by the four navigation tiles: rounded cyan faces, dark outlines, inset highlights, translucent navy shells, recessed state-colored cards, and outlined GothamBlack typography. Equipment uses a pink accent, Rebirth purple, Worlds cyan, Training gold, and Welcome Back blue. Shared controls have centered hover/press motion and menus have a brief opening pop. Existing client controllers and HubInterfaces still own the same gameplay intents. Only one hub modal is shown at a time; activity, travel, and character cleanup close menus and release the single local blur.
 
 The HUD shows icon-based Cash/Rebirth counters, current world, and a blue studded Level/Power bar with Level Cap and Bat × Rebirth gain. Power fill changes tween locally. QuickMenu keeps its 2×2 tile design and opens Shop, Rebirth, Training (the Training Grounds selector), and Worlds (the World Travel menu) in every world; the unimplemented Inventory/Rewards stubs are retired. Equipment and Worlds use numbered badges rather than invented preview art. Equipment prices, ownership and action states remain separate and readable. Rebirth has a distinct confirmation view; Cancel sends no gameplay request. Short landscape screens compact the headers and confirmation content, and scrolling keeps actions accessible. Portrait cards stack their actions. Mobile modal actions use 52–54 logical pixel targets with a minimum 0.8 scale. Explicit Swing/Leave buttons invoke the existing Tool and server requests; click/Space still work. Touch movement and the hotbar are restored after menus/activities. No progression or reward calculation moved to the client.
 
@@ -222,6 +285,19 @@ Every `RunwayDecor` part is anchored with collision, touch, and query disabled, 
 - a light saturation boost
 
 It reuses the place's existing Lighting effects rather than adding duplicates. All values are look-only and tunable at the top of the script. The sky does not change per section.
+
+## Roll fast-forward
+
+Rolling made up most of each hit's time: at Level 20, about 2 s in the air and about 17 s rolling. Once a hit has landed and the ball is rolling on the field, the server time-scales the rest of the hit by `FieldConfig.RollTimeScale` (3). This is the same method as the 2× code below: velocity and spin ×3, and gravity, rolling resistance and the stop checks scaled to match.
+
+It is automatic and applied once per hit, at a well-defined moment: grounded, vertical speed under 2, and already landed. The airborne arc is never touched.
+
+| Level 20 playtest | Time | Distance |
+| --- | --- | --- |
+| Normal roll | 19.6 s | 1,913 studs |
+| Fast-forwarded roll | 9.6 s | 1,989 studs |
+
+Normal hits already range ≈ 1,820–1,960 studs (see below), so the distance effect is small but not yet measured over many hits. Lower `RollTimeScale` (1 = off) if distances drift.
 
 ## 2× Ball Flight (disabled)
 
@@ -280,41 +356,104 @@ Natural stopping, sections, world endpoints, and Cash formulas are unchanged.
 Milestone 15A added no training mechanics or Rebirth UI. Training is added below in Milestone 15B.
 ## Training and Offline Power (Milestone 15B)
 
-Training is the primary Power source. One plain TrainingStadium occupies the reserved
-right side of World1Hub. Its plate is at hub-relative (70, 0, 70), currently near
-(52.8, 0.17, 48.8); the selector is 10 studs left and 5 studs behind it. Only two
-plain Parts and two pitch/contact Attachments are needed. The builder reuses them.
-Shop, Travel, normal batting, and world endpoints remain unchanged.
+Training is the primary Power source.
 
-TrainingConfig defines logical grounds, not additional stadiums:
+### Six physical Training Grounds (supersedes the single logical stadium)
 
-| Ground ID | Rebirth requirement | Base Power / interval |
+Each Training Ground is its own batting cage, with its own plate and one occupant at a time. The six cages stand in two rows of three, parallel to the runway, either side of a walkway in World1Hub (right = right when facing down the runway), under `World1Hub.TrainingGrounds.<ground id>`.
+- Right row: Basic Training, Enchanted Grove and Sunken Atlantis, with plates at hub-relative x 42. Left row: Sky Temple, Dragon's Lair and Cosmic Rift, at x -42. Both rows start at z 35 and step 37.4 studs back into the hub (the models' 44-stud spacing, narrowed with the cages); see `TrainingConfig.Rows`.
+- The first ground of each row is nearest the runway. Cages are turned a quarter turn so their doors face the walkway and their machine ends point outward.
+- The hub was shrunk to 210 × 136, and the spawn moved into the walkway, 60 studs behind the tee. The physical Shop, World Travel and Rebirth stations and the Training Grounds board are removed for now. Their settings are commented in `WorldConfig`; FieldBuilder deletes any unconfigured station left in the place.
+- Shop, Travel, Rebirth, normal batting and world endpoints are unchanged.
+
+| # | Ground ID | Unlock | Power multiplier (× 20 Power per 2 s) |
+| --- | --- | --- | --- |
+| 1 | basic_training | start | 1× |
+| 2 | enchanted_grove | 2 Rebirths | 5× |
+| 3 | sunken_atlantis | 4 Rebirths | 10× |
+| 4 | sky_temple | 6 Rebirths | 20× |
+| 5 | dragons_lair | 500 Robux game pass | 10× |
+| 6 | cosmic_rift | 1000 Robux game pass | 30× |
+
+**Access:**
+- Walking onto a plate starts training only if the server's private Rebirths or pass ownership allow that ground.
+- Otherwise the player gets the reason once per visit. On a paid ground, the server also re-checks ownership and shows Roblox's purchase prompt.
+- Paid grounds need no Rebirths and are not lost on Rebirth.
+
+**Game passes:**
+- `gamePassId` stays 0 until the passes are created on Roblox. While it is 0, the ground shows "COMING SOON" and cannot be used or bought.
+- Ownership is read with `UserOwnsGamePassAsync` at login (before the offline grant) and updated by the server's `PromptGamePassPurchaseFinished` event.
+- Ownership is never saved and never taken from the client. A failed lookup grants nothing.
+
+**Menu and teleport:**
+- The Training Grounds menu lists every ground with its multiplier and effective rate.
+- Each card shows GO (teleport beside that plate), BUY (asks the server for the pass prompt), or the Rebirths still needed.
+- The QuickMenu Training tile teleports to the player's best usable ground.
+- Each cage shows a per-player lock sign in its doorway.
+
+### Batting cage (visual)
+
+`TrainingStadium.luau` builds a batting cage around each plate (model `Cage`), dressed in that ground's `theme` on the server. Its footprint is `TrainingConfig.Cage`: modelled 30 × 48 × 14 studs in plate space, then narrowed in game to `widthScale` (0.85) across the cage, about the pitch line, so it is 25.5 studs wide. Parts are squeezed across the cage and moved toward the pitch line; spinning parts shrink evenly to stay round. Turf, walls, door, banners, decoration slots and particle zones use the same narrowed width. The batter faces +X, the machine is at −Z, and there is extra room behind the batter so the default camera stays inside. The door is in the batter-end net.
+
+The mesh comes from `ServerStorage.RunwayAssets.TrainingCage` (Studio-managed, generated by `tools/blender/batting_cage.py` and exported at 1/4 scale, then scaled up 4×):
+- steel hoops with padded posts, and strand netting on all sides and the roof
+- a two-wheel pitching machine whose ball exit is the PitchOrigin
+- a protective screen with a window on the pitch line
+- home plate, a ball bucket and two floodlights
+
+Parts built in code: the turf, pitch lane, batter's-box chalk, three banners and invisible walls that leave the door open. The walls have CanQuery off, so camera raycasts pass through. The plain plate is hidden under the turf but still defines training occupancy. If the template is missing, the cage builds without its mesh and warns.
+
+Each ground's `theme` sets:
+- `template`: the cage mesh in RunwayAssets
+- colors by role: turf, lane, accent, frame, net, banner
+- `lights`: the floodlights
+- `decorations`: `{slot, template}` pairs cloned from RunwayAssets onto the named Attachments in `Cage.DecorSlots`. The slots are outside both long sides, behind both ends, and inside the cage away from the lane, door and camera.
+
+The banners show the ground name. Themes never affect Power.
+
+### Fantasy cages (grounds 2–6)
+
+Each fantasy ground has its own Blender model, generated by its own script in `tools/blender/`. All scripts share `cage_helpers.py`, which holds the layout and export rules, and export to their own FBX in `assets/models/`:
+
+| Ground | Script → FBX / template | Highlights |
 | --- | --- | --- |
-| basic_training | 0 | 20 / 2 seconds |
-| advanced_training | 1 | 50 / 2 seconds |
-| expert_training | 2 | 100 / 2 seconds |
+| Enchanted Grove | `grove_cage.py` → `GroveCage` | Living-wood arches, woven vine net with glowing strands, stepping stones, a tree-stump machine with a knot-hole, wicker screen, glowing mushrooms, a fairy-door tree, fireflies |
+| Sunken Atlantis | `atlantis_cage.py` → `AtlantisCage` | Fluted marble arcade under a force-field bubble dome, mosaic lane, giant clam with a pearl, porthole screen, coral, swaying kelp, chest, trident, circling fish, bobbing jellyfish, bubbles |
+| Sky Temple | `sky_temple_cage.py` → `SkyTempleCage` | Marble plinth and gold-banded columns, glowing gold lattice, sun inlay, winged golden statue, sunburst screen, cloud bank, bobbing islands with waterfalls and a shrine, spinning armillary rings, blue braziers, feathers |
+| Dragon's Lair | `dragon_lair_cage.py` → `DragonLairCage` | Obsidian shard pillars with lava veins, gabled iron roof with spiked eaves, chain-link lattice and draped chains, lava cracks, dragon-head machine, portcullis, treasure hoards, a complete dragon skeleton sprawled over the roof (sculpted skull with glowing sockets over the entrance, spine and ribcage along the ridge, legs gripping the eaves, wing bones with tattered membrane, tail coiled round a hoard), torches, lava pools, embers |
+| Cosmic Rift | `cosmic_rift_cage.py` → `CosmicRiftCage` | Chrome hex hoops with star nodes, force-field shell with constellations, spinning galaxy floor, portal machine with a swirling core, holographic screen, black hole with accretion disc, the rift tear, ringed planet, orbiting planets, asteroids, crystals, nebulae, shooting stars |
 
-Use the nearby prompt to choose an unlocked ground at no Cash cost. Walk onto the
-5-by-5 plate to train automatically. One player occupies it at a time. Selection
-is private per-player state, persisted as SelectedTrainingGround; access derives
-from Rebirths. Leave training before changing ground, shopping, or rebirthing.
-Space/touch Leave restores movement and requires stepping off before re-entry.
-Death, respawn, disconnect, invalid data/character, and travel release the stadium.
-Normal batting and active-hit state exclude training.
+All five keep the standard layout:
+- the plate at the origin
+- the ball exit at PitchOffset
+- the screen window on the pitch line
+- the door in the batter-end wall
+- nothing past the 14-stud gaps to the neighbouring cages
+
+Every model is exported at 1/4 scale and imported into `ServerStorage.RunwayAssets` under its template name. `TrainingCageStyles` (server) gives every MeshPart its color, material, transparency and glow light by name, because FBX imports carry no colors. It also sets the `Spin`, `Bob`, `Sway` and `Pulse` motion attributes and lists each cage's particle effects, which use built-in Roblox particle textures. `TrainingStadiumClient` animates those attributes on each client, relative to the server-built CFrame.
+
+The Atlantis dome and Cosmic field are tinted glass, so the view through them reads as underwater or deep space. A style `tint` (Dragon's Lair) sets Tint* attributes on the cage, and the client blends a ColorCorrectionEffect in while its camera is inside that cage.
+
+A ground whose fantasy template is not imported falls back to the standard cage in its theme colors, with a warning. Banners hang between frames so every design leaves room for them. A larger invisible block keeps players out of the bigger machines.
+
+Walk onto an unlocked ground's 5-by-5 plate to train automatically. Leave training
+before shopping or rebirthing. Space/touch Leave restores movement and requires
+stepping off before re-entry. Death, respawn, disconnect, invalid data/character,
+and travel release the plate. Normal batting and active-hit state exclude training.
 
 The server grants a configured tick through PlayerData.GrantPower: `floor(ground base Power * equipped Bat multiplier * Rebirth multiplier)`. Level advancement and cap overflow rules remain unchanged.
 Ticks do not catch up in bursts after server stalls. At the cap, no Power grant
 calls are made. Client-local pitches and the reused Bat swing are presentation
 only: no real ball launch, Cash, distance, sections, or world completion occurs.
 
-Schema 5 adds SelectedTrainingGround and LastLogoutTime to PlayerProgression.
-Existing profiles keep Cash, Power, Level, Rebirths, equipment, and worlds.
-Missing/locked/unknown selections fall back to Basic Training. Old schemas and
-missing, zero, malformed, or future timestamps grant no historical offline Power.
+Schema 5 added SelectedTrainingGround and LastLogoutTime to PlayerProgression.
+Schema 8 retires SelectedTrainingGround: grounds are physical, so nothing is
+selected or saved, and the field is dropped on load and save. Existing profiles keep Cash, Power, Level,
+Rebirths, equipment, juices and worlds. Old schemas and missing, zero, malformed, or
+future timestamps grant no historical offline Power.
 
-Offline base Power = floor(min(elapsed seconds, 8 hours) * selected ground's
-base Power / interval * 0.25). The same server grant path multiplies that base by the saved, ownership-validated Bat multiplier and Rebirth multiplier, floors the result to whole Power, and applies cap rules. These are placeholder balance values. The selected
-ground is used even when a higher one is unlocked. Offline earning does not
+Offline base Power = floor(min(elapsed seconds, 8 hours) * best usable ground's
+base Power / interval * 0.25). The best usable ground is the highest-rate ground the player can use from Rebirths and owned passes, checked at login. The same server grant path multiplies that base by the saved, ownership-validated Bat multiplier and Rebirth multiplier, floors the result to whole Power, and applies cap rules. These are placeholder balance values. Offline earning does not
 require leaving while actively training.
 
 The login UpdateAsync commits the reward, consumes LastLogoutTime, and claims the
@@ -324,33 +463,33 @@ server close time; autosaves record a checkpoint time for crash recovery. No
 extra periodic DataStore writes are added. A crash before the first autosave after
 login conservatively has no new offline timestamp to use.
 
-TrainingRequest accepts only Select(id) or Exit(session). No remote starts
-training or accepts rates, Power, timestamps, duration, or Rebirths. The HUD shows
+TrainingRequest accepts only Buy(id), which shows the pass prompt, or Exit(session). TrainingTeleport accepts an
+optional ground id; anything the player cannot use falls back to their best ground. No remote starts
+training or accepts rates, Power, ownership, timestamps, duration, or Rebirths. The HUD shows
 training state/rate alongside existing Power/Level values. Offline notifications
 are shown once per client session for absences covering at least 60 seconds,
 including capped sessions with no further Power gain.
-No themes, stadium art, or equipment cosmetics are included.
 ## Confirmed Rebirth and Swing Presentation (Milestone 16)
 
 The plain Rebirth interaction is at hub-relative (-35, 0, 120), currently near
 (-52.2, 1.62, 98.8), separated from training, batting, and World Travel. The menu
 shows current/next multiplier and cap, eligibility, and exact reset/keep/gain
 consequences. Rebirth then Confirm are separate actions; Cancel/close/death/travel
-clear confirmation. A capped HUD shortcut provides access in other worlds.
+clear confirmation. The quick menu Rebirth tile provides access in every world.
 
 RebirthRequest accepts intent only, with no arguments. The server checks session,
 private cap eligibility, alive character, active gameplay/travel, per-player
 cooldown, and processing state. TryRebirth commits Level, Power, Rebirths, derived
-cap, and a validated training selection without yielding. Cash, equipment and
+cap without yielding. Cash, equipment and
 worlds are preserved. Completion schedules an important save through the existing
 serialized autosave loop (normally within its next five-second check). A save
 already in flight cannot clear a later Rebirth's pending save. The existing store/session leases remain unchanged.
 
-Ground access updates from Rebirths and TrainingConfig immediately. Basic,
-Advanced, and Expert rates and all level/world balance remain placeholders.
+Ground access updates from Rebirths, game passes and TrainingConfig immediately. Training
+Ground rates and all level/world balance remain placeholders.
 Rebirth multiplies Power, never Cash or same-Level launch speed. The HUD shows a
 Power progress bar, multiplier, aggregated level changes, and capped/Rebirth state.
-Offline feedback includes the selected ground, credited time, Power, and resulting
+Offline feedback includes the best usable ground, credited time, Power, and resulting
 level range/cap without adding a new claim request.
 
 The R15 swing remains a local procedural pose using existing bat geometry and hand

@@ -7,6 +7,7 @@ local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Field = require(ReplicatedStorage:WaitForChild("FieldConfig"))
 local Progression = require(ReplicatedStorage:WaitForChild("ProgressionConfig"))
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
+local Juice = require(ReplicatedStorage:WaitForChild("JuiceConfig"))
 local Remote = ReplicatedStorage:WaitForChild("BattingTiming")
 local UI = require(script.Parent:WaitForChild("UICommon"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
@@ -33,9 +34,11 @@ local progression = UI.Surface(root,"Progression")
 progression.AnchorPoint = Vector2.new(.5,1)
 progression.BackgroundColor3 = Color3.new(1,1,1)
 progression.BackgroundTransparency = 0
-UI.Gradient(progression,Color3.fromRGB(0,214,255),Color3.fromRGB(0,98,238))
+-- The level bar is white; progress fills it with red diagonal stripes (its only red).
+local STRIPE_RED = Color3.fromRGB(214, 38, 46)
+UI.Gradient(progression,Color3.fromRGB(255,255,255),Color3.fromRGB(244,241,234))
 local levelLabel = UI.Label(progression,"Level","",22)
-local capLabel = UI.Label(progression,"LevelCap","",13,Color3.fromRGB(185,240,255))
+local capLabel = UI.Label(progression,"LevelCap","",13,UI.Colors.Text)
 capLabel.ZIndex=4
 levelLabel.Position, levelLabel.Size = UDim2.fromOffset(14,8), UDim2.new(.52,-14,0,28)
 local multiplierLabel = UI.Label(progression,"PowerMultiplier","",16,UI.Colors.Gold)
@@ -48,9 +51,9 @@ powerTrack:FindFirstChildOfClass("UIStroke").Enabled = false
 local powerFill = Instance.new("Frame")
 powerFill.Name, powerFill.BorderSizePixel, powerFill.BackgroundColor3 = "Fill",0,UI.Colors.Accent
 powerFill.Size, powerFill.Parent = UDim2.fromScale(0,1),powerTrack
-UI.Gradient(powerFill,Color3.fromRGB(115,243,255),Color3.fromRGB(16,131,255))
+UI.Gradient(powerFill,Color3.fromRGB(255,130,130),Color3.fromRGB(205,30,40))
 powerFill.BackgroundColor3 = Color3.new(1,1,1)
-powerFill.BackgroundTransparency = .45
+powerFill.BackgroundTransparency, powerFill.ClipsDescendants = 1, true
 local powerLabel = UI.Label(progression,"Power","",20)
 powerLabel.TextXAlignment, powerLabel.ZIndex = Enum.TextXAlignment.Right, 4
 levelLabel.ZIndex = 4
@@ -64,27 +67,57 @@ end
 local cashIcon = icon(wallet,"CashIcon","rbxassetid://88694661500877")
 local rebirthIcon = icon(wallet,"RebirthIcon","rbxassetid://17368214873")
 local powerIcon = icon(progression,"PowerIcon","rbxassetid://17368078790")
--- Soft diagonal stripes sit behind the text and are clipped to the level bar.
-local stripes = Instance.new("Frame",powerTrack)
+-- Red diagonal stripes sit behind the text and are clipped to the filled part of the bar.
+local stripes = Instance.new("Frame",powerFill)
 stripes.Name, stripes.Size, stripes.BackgroundTransparency = "DiagonalStripes",UDim2.fromScale(1,1),1
 local stripeCells = {}
 for index=1,24 do
  local stripe = Instance.new("Frame",stripes)
- stripe.AnchorPoint, stripe.Size = Vector2.new(.5,.5),UDim2.fromOffset(14,112)
- stripe.BackgroundColor3, stripe.BackgroundTransparency = Color3.fromRGB(195,248,255),.88
+ stripe.AnchorPoint, stripe.Size = Vector2.new(.5,.5),UDim2.fromOffset(10,112)
+ stripe.BackgroundColor3, stripe.BackgroundTransparency = STRIPE_RED,.3
  stripe.BorderSizePixel, stripe.Rotation = 0,25
  stripeCells[index] = stripe
 end
-local rebirthShortcut = UI.Button(root,"RebirthShortcut","REBIRTH AVAILABLE")
-rebirthShortcut.AnchorPoint = Vector2.new(.5,1)
-rebirthShortcut.Activated:Connect(function() Interfaces.Open("Rebirth") end)
+-- Under the level bar: the Batting teleport (intent only; the server picks the spot).
+local battingShortcut = UI.Button(root,"BattingShortcut","BATTING")
+battingShortcut.AnchorPoint = Vector2.new(.5,1)
+battingShortcut.Activated:Connect(function()
+ local remote = ReplicatedStorage:FindFirstChild("TeeTeleport")
+ if remote and Interfaces.CanOpen() and not Interfaces.IsOpen() then remote:FireServer() end
+end)
 
 -- Tile names map to the interface names registered by each client controller.
-local quickMenuInterfaces = {Shop = "Shop", Rebirth = "Rebirth", Training = "Training", Worlds = "Travel"}
+local quickMenuInterfaces = {Shop = "Shop", Rebirth = "Rebirth", Inventory = "Inventory"}
 local navigation = QuickMenu.Create(root, function(name)
+ if name == "TrainingTeleport" then
+  -- Intent only: the server checks eligibility and chooses the destination.
+  local remote = ReplicatedStorage:FindFirstChild(name)
+  if remote and not Interfaces.IsOpen() then remote:FireServer() end
+  return
+ end
  if not Interfaces.CanOpen() or Interfaces.IsOpen() then return end
- Interfaces.Open(quickMenuInterfaces[name])
+ if quickMenuInterfaces[name] then
+  Interfaces.Open(quickMenuInterfaces[name])
+ else
+  -- Rewards is a placeholder until that system exists.
+  UI.Notify(name .. " is coming soon!")
+ end
 end)
+for _, remoteName in {"TrainingTeleport", "TeeTeleport"} do
+ task.spawn(function()
+  ReplicatedStorage:WaitForChild(remoteName).OnClientEvent:Connect(function(message, success)
+   -- Arriving is its own feedback; only explain refusals.
+   if not success then UI.Notify(message, "error") end
+  end)
+ end)
+end
+
+-- Every HUD group shrinks around its own anchor by the shared size factor.
+local SIZE = UI.SizeScale
+local shrink = UI.Shrink
+shrink(wallet)
+shrink(progression)
+shrink(battingShortcut)
 
 local hint = UI.Label(root,"BattingHint","Click to swing · Space to leave",14,UI.Colors.Text)
 local controls = Instance.new("Frame")
@@ -128,6 +161,9 @@ flightDistance.Visible = false
 flightDistance.TextScaled = true
 local distanceTextSize = Instance.new("UITextSizeConstraint",flightDistance)
 distanceTextSize.MinTextSize, distanceTextSize.MaxTextSize = 22,44
+shrink(controls)
+shrink(hint)
+shrink(flightDistance)
 
 local cashPopup = Instance.new("CanvasGroup")
 cashPopup.Name, cashPopup.BackgroundTransparency, cashPopup.Parent = "CashPopup",1,root
@@ -170,7 +206,10 @@ local function refresh()
  powerLabel.TextColor3 = UI.Colors.Text
  rebirthLabel.Text = ready and UI.Number(rebirths) or ""
  local bat = Equipment.Get("Bat", Player:GetAttribute("EquippedBat"))
- multiplierLabel.Text = ready and "×" .. UI.Number(Progression.GetPowerMultiplier(rebirths) * bat.powerGainMultiplier, 2) .. " Multiplier" or ""
+ -- Includes any active Power juice (display copy of the server timers).
+ local activeFolder = Player:FindFirstChild("ActiveJuices")
+ local juiceBoost = activeFolder and Juice.GetMultiplier(activeFolder:GetAttributes(), "Power") or 1
+ multiplierLabel.Text = ready and "×" .. UI.Number(Progression.GetPowerMultiplier(rebirths) * bat.powerGainMultiplier * juiceBoost, 2) .. " Multiplier" or ""
  powerTrack.Visible = ready
  local fill = ready and (capped and 1 or math.clamp(power / Progression.PowerRequiredForNextLevel(level),0,1)) or 0
  if fill ~= lastFill then
@@ -209,8 +248,8 @@ local function refresh()
  end
  wallet.Visible = not Interfaces.IsOpen()
  progression.Visible = not Interfaces.IsOpen() and not Player:GetAttribute("TrainingActive") and not batting and not playing
- rebirthShortcut.Visible = capped and rebirths < Progression.MaxRebirths and not Interfaces.IsOpen() and alive == true and Interfaces.CanOpen()
- UI.SetButton(rebirthShortcut,"REBIRTH AVAILABLE",Interfaces.CanOpen(),true)
+ battingShortcut.Visible = progression.Visible and ready and alive == true and Interfaces.CanOpen()
+ UI.SetButton(battingShortcut,"BATTING",Interfaces.CanOpen(),true)
  navigation.Visible = Interfaces.CanOpen() and not Interfaces.IsOpen()
  hint.Visible = batting and not playing and os.clock() >= popupUntil
  hint.Text = UserInputService.TouchEnabled and "SWING to hit · LEAVE to exit" or "Click to swing · Space to leave"
@@ -231,9 +270,10 @@ end
 local function resize()
  local width, height = root.AbsoluteSize.X, root.AbsoluteSize.Y
  local narrow, short = width < 600, height < 440
+ -- Not scaled: this space keeps the bar clear of the Roblox hotbar and touch controls.
  local bottom = UserInputService.TouchEnabled and (narrow and 172 or 76) or 110
- local progressWidth = math.min(760,narrow and width-24 or math.max(300,width-390))
- controls.Position = UDim2.new(1,-14,1,short and -16 or -84)
+ local progressWidth = math.min(760,narrow and (width-24)/SIZE or math.max(300,width-390))
+ controls.Position = UDim2.new(1,-14,1,(short and -16 or -84) * SIZE)
  -- Reserve the bottom-left counters for desktop; touch keeps them clear of movement controls.
  local compactWallet = width < 800 or UserInputService.TouchEnabled or height < 360
  wallet.AnchorPoint = compactWallet and Vector2.new(1,0) or Vector2.new(0,1)
@@ -257,7 +297,7 @@ local function resize()
  powerAmount.TextSize = narrow and 17 or short and 20 or 26
  powerLabel.Position, powerLabel.Size = UDim2.new(.49,0,0,10),UDim2.new(.51,-16,1,-20)
  powerLabel.TextSize = narrow and 20 or short and 22 or 28
- rebirthShortcut.Position, rebirthShortcut.Size = UDim2.new(.5,0,1,-bottom+46),UDim2.fromOffset(math.min(300,progressWidth),36)
+ battingShortcut.Position, battingShortcut.Size = UDim2.new(.5,0,1,-bottom+46*SIZE),UDim2.fromOffset(math.min(300,progressWidth),36)
  for index,stripe in stripeCells do
   local x = (index-2)*36
   stripe.Visible = x <= progressWidth+36
@@ -268,7 +308,7 @@ local function resize()
  flightDistance.Position = UDim2.new(.5,0,0,narrow and 104 or 10)
  flightDistance.Size = UDim2.fromOffset(math.min(420,width-32),56)
  distanceTextSize.MaxTextSize = narrow and 34 or 44
- hint.Position = UDim2.new(.5,0,1,-bottom-100)
+ hint.Position = UDim2.new(.5,0,1,-bottom-100*SIZE)
 end
 root:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
 local viewportConnection
@@ -339,10 +379,10 @@ Remote.OnClientEvent:Connect(function(_, message)
   local version = popupVersion
   reward.Text = "+" .. UI.Compact(earned)
   cashPopup.Position, cashPopup.GroupTransparency = UDim2.fromScale(.5,.43),0
-  popupScale.Scale = .85
+  popupScale.Scale = .85 * UI.SizeScale
   popupUntil = os.clock() + 1.8
   popupTweens = {
-   TweenService:Create(popupScale,TweenInfo.new(.18,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Scale=1}),
+   TweenService:Create(popupScale,TweenInfo.new(.18,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Scale=UI.SizeScale}),
    TweenService:Create(cashPopup,TweenInfo.new(1.8,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.new(.5,0,.43,-30)}),
    TweenService:Create(cashPopup,TweenInfo.new(.65,Enum.EasingStyle.Quad,Enum.EasingDirection.In,0,false,1.15),{GroupTransparency=1}),
   }
@@ -387,3 +427,9 @@ gui.Destroying:Connect(function()
 end)
 resize()
 refresh()
+-- Refresh the multiplier readout as Power juices start and expire.
+local function watchJuices(child)
+ if child.Name == "ActiveJuices" then child.AttributeChanged:Connect(refresh) end
+end
+Player.ChildAdded:Connect(watchJuices)
+for _, child in Player:GetChildren() do watchJuices(child) end

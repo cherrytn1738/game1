@@ -228,9 +228,9 @@ Server validates purchases and equipping.
 
 Training is the primary source of Power.
 
-There is one physical Training Stadium in the World 1 hub.
+There are six physical Training Grounds (batting cages) in a row at the back of the World 1 hub, each with its own plate.
 
-Player walks onto the training plate:
+Player walks onto an unlocked ground's training plate:
 
 → Training begins automatically
 → character is positioned/locked
@@ -249,33 +249,20 @@ Training practice balls:
 
 ### Training Grounds
 
-Training Grounds are logical selectable configurations, not separate physical stadiums.
+Each Training Ground is a separate physical cage (developer decision, superseding the old single logical stadium). There is no saved selection: the plate you stand on is the ground you train at.
 
-Current Grounds:
+Current Grounds (Power multiplier on 20 Power every ~2 seconds):
 
-- Basic
-- Advanced
-- Expert
+- Basic Training: start, 1x
+- Enchanted Grove: 2 Rebirths, 5x
+- Sunken Atlantis: 4 Rebirths, 10x
+- Sky Temple: 6 Rebirths, 20x
+- Dragon's Lair: 500 Robux game pass, 10x
+- Cosmic Rift: 1000 Robux game pass, 30x
 
-They unlock based on Rebirth count.
+Paid grounds need no Rebirths. Pass ownership is server-checked through MarketplaceService and is never saved. `gamePassId` is 0 until the passes are created. Offline Training uses the best ground the player can use.
 
-Current placeholder base Power values:
-
-- Basic: 20
-- Advanced: 50
-- Expert: 100
-
-Current interval:
-
-- approximately every 2 seconds
-
-Selected Training Ground persists.
-
-Long-term design:
-
-Selecting different Grounds will eventually change the appearance/theme of the SAME physical Training Stadium.
-
-Do not invent final Training Ground aesthetics unless explicitly asked.
+Themes are fantasy after the first ground and get more intricate down the row. Each has its own Blender model (tools/blender/*_cage.py, sharing cage_helpers.py) styled by TrainingCageStyles; a ground whose model is not imported falls back to the standard cage.
 
 ---
 
@@ -371,8 +358,8 @@ Conceptual zoning:
 - front edge: batting station / field
 - center: open circulation area
 - left: equipment/shop
-- right: Training Stadium
-- rear: world/progression interactions
+- rear-center: world/progression interactions
+- both sides: two rows of three Training Grounds (parallel to the runway) with a walkway between; the Shop, Travel and Rebirth stations are removed for now
 
 The hub intentionally leaves space for future content.
 
@@ -501,7 +488,7 @@ Existing safety principles include:
 
 Preserve these protections.
 
-Current schema after equipment cleanup is Schema 6.
+Current schema is Schema 8 (Schema 6 removed Tee equipment; Schema 7 added Juice: OwnedJuices and ActiveJuices; Schema 8 retired SelectedTrainingGround).
 
 Tee equipment data was removed from active saves.
 
@@ -588,6 +575,6 @@ After Milestone 18, the following were implemented:
 - World 1 themed runway (10 sections), with a detailed scenery pass
 - 2× ball flight (implemented, currently disabled)
 
-Final hub/environment art, Training Stadium themes, and World 2 runway themes are still NOT implemented.
+Final hub/environment art and World 2 runway themes are still NOT implemented.
 
 Always inspect the current code before acting on those planned features.

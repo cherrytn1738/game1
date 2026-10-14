@@ -15,45 +15,81 @@ list.Position, list.Size = UDim2.fromOffset(14,110), UDim2.new(1,-28,1,-228)
 local function card(name, order, title)
  local frame = UI.Surface(list,name,UI.Colors.Card)
  frame.Size, frame.AutomaticSize, frame.LayoutOrder = UDim2.new(1,-10,0,0), Enum.AutomaticSize.Y, order
- local padding = Instance.new("UIPadding",frame)
+ -- Content gets its own frame so the card's inner highlight stays out of the list layout.
+ local content = Instance.new("Frame",frame)
+ content.Name, content.BackgroundTransparency = "Content", 1
+ content.Size, content.AutomaticSize = UDim2.fromScale(1,0), Enum.AutomaticSize.Y
+ local padding = Instance.new("UIPadding",content)
  padding.PaddingTop, padding.PaddingBottom = UDim.new(0,12), UDim.new(0,12)
  padding.PaddingLeft, padding.PaddingRight = UDim.new(0,12), UDim.new(0,12)
- local layout = Instance.new("UIListLayout",frame)
+ local layout = Instance.new("UIListLayout",content)
  layout.Padding, layout.SortOrder = UDim.new(0,6), Enum.SortOrder.LayoutOrder
- local heading = UI.Label(frame,"Heading",title,20,title=="RESET" and UI.Colors.Error or title=="KEEP" and UI.Colors.Accent or UI.Colors.Gold)
+ local heading = UI.Label(content,"Heading",title,20,title=="RESET" and UI.Colors.Error or title=="KEEP" and UI.Colors.Accent or UI.Colors.Gold)
  heading.Size, heading.AutomaticSize, heading.TextWrapped = UDim2.new(1,0,0,0), Enum.AutomaticSize.Y, true
  heading.LayoutOrder = 1
- local text = UI.Label(frame,"Description","",17)
+ local text = UI.Label(content,"Description","",17)
  text.Size, text.AutomaticSize, text.TextWrapped = UDim2.new(1,0,0,0), Enum.AutomaticSize.Y, true
  text.LayoutOrder = 2
  return heading, text
 end
-local benefits = UI.Surface(list,"Benefits",UI.Colors.Card)
-UI.Gradient(benefits,Color3.fromRGB(148,83,220),Color3.fromRGB(63,35,112))
-benefits.BackgroundColor3 = Color3.new(1,1,1)
-benefits.BackgroundTransparency = 0
-benefits.Size, benefits.LayoutOrder = UDim2.new(1,-10,0,176),1
-local summaryHeading = UI.Label(benefits,"Heading","",24,UI.Colors.Gold)
-summaryHeading.Position, summaryHeading.Size = UDim2.fromOffset(12,8),UDim2.new(1,-24,0,32)
-summaryHeading.TextXAlignment = Enum.TextXAlignment.Center
-local before = UI.Label(benefits,"Before","",20)
-before.Position, before.Size = UDim2.fromOffset(8,46),UDim2.new(.5,-16,0,120)
-before.TextXAlignment = Enum.TextXAlignment.Center
-local after = UI.Label(benefits,"After","",20,UI.Colors.Gold)
-after.Position, after.Size = UDim2.new(.5,8,0,46),UDim2.new(.5,-16,0,120)
-after.TextXAlignment = Enum.TextXAlignment.Center
-local arrow = UI.Label(benefits,"Arrow","→",32)
-arrow.AnchorPoint,arrow.Position,arrow.Size,arrow.TextXAlignment=Vector2.new(.5,.5),UDim2.fromScale(.5,.62),UDim2.fromOffset(40,44),Enum.TextXAlignment.Center
-local _, reset = card("Reset",2,"RESET")
+-- Check-UI Rebirth comparison flow: two gold tier cards with an arrow between them.
+local comparison = Instance.new("Frame")
+comparison.Name, comparison.BackgroundTransparency, comparison.LayoutOrder = "Comparison", 1, 1
+comparison.Size, comparison.Parent = UDim2.new(1, -10, 0, 124), list
+local function tierCard(name, anchorX, positionX)
+ local frame = Instance.new("Frame")
+ frame.Name, frame.BorderSizePixel = name, 0
+ frame.AnchorPoint, frame.Position, frame.Size = Vector2.new(anchorX, 0), UDim2.new(positionX, 0, 0, 2), UDim2.new(.5, -30, 1, -4)
+ frame.BackgroundColor3 = Color3.new(1, 1, 1)
+ UI.Gradient(frame, UI.ButtonStates.Claim[1], UI.ButtonStates.Claim[2])
+ Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
+ local outline = Instance.new("UIStroke", frame)
+ outline.Color, outline.Thickness = Color3.new(0, 0, 0), 2.8
+ UI.Damier(frame, Color3.fromRGB(176, 96, 0), 22)
+ frame.Parent = comparison
+ local tier = UI.Label(frame, "Tier", "", 18)
+ tier.Position, tier.Size, tier.TextXAlignment, tier.ZIndex = UDim2.fromOffset(6, 8), UDim2.new(1, -12, 0, 24), Enum.TextXAlignment.Center, 2
+ local value = UI.Label(frame, "Value", "", 26)
+ value.Position, value.Size, value.TextXAlignment, value.ZIndex = UDim2.fromOffset(6, 38), UDim2.new(1, -12, 0, 36), Enum.TextXAlignment.Center, 2
+ value.TextScaled = true
+ local constraint = Instance.new("UITextSizeConstraint", value)
+ constraint.MinTextSize, constraint.MaxTextSize = 14, 26
+ local cap = UI.Label(frame, "Cap", "", 16)
+ cap.Position, cap.Size, cap.TextXAlignment, cap.ZIndex = UDim2.fromOffset(6, 80), UDim2.new(1, -12, 0, 24), Enum.TextXAlignment.Center, 2
+ return tier, value, cap
+end
+local beforeTier, beforeValue, beforeCap = tierCard("Before", 0, 0)
+local afterTier, afterValue, afterCap = tierCard("After", 1, 1)
+local arrow = UI.Label(comparison, "Arrow", "➡", 34, Color3.fromRGB(235, 245, 255))
+arrow.AnchorPoint, arrow.Position, arrow.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromOffset(50, 50)
+arrow.TextXAlignment = Enum.TextXAlignment.Center
+arrow:FindFirstChildOfClass("UIStroke").Thickness = 3
+-- Level progress toward the cap, and the requirement in a recessed box.
+local progressHolder = Instance.new("Frame")
+progressHolder.Name, progressHolder.BackgroundTransparency, progressHolder.LayoutOrder = "Progress", 1, 2
+progressHolder.Size, progressHolder.Parent = UDim2.new(1, -10, 0, 34), list
+local levelBar, setLevelBar = UI.ProgressBar(progressHolder, "LevelProgress")
+levelBar.Size = UDim2.new(1, -4, 1, -4)
+levelBar.Position = UDim2.fromOffset(2, 2)
+local requirement = Instance.new("Frame")
+requirement.Name, requirement.BorderSizePixel, requirement.LayoutOrder = "Requirement", 0, 3
+requirement.BackgroundColor3, requirement.Size = Color3.fromRGB(20, 34, 42), UDim2.new(1, -10, 0, 40)
+Instance.new("UICorner", requirement).CornerRadius = UDim.new(0, 4)
+local requirementStroke = Instance.new("UIStroke", requirement)
+requirementStroke.Color, requirementStroke.Thickness = Color3.fromRGB(85, 140, 160), 1.2
+requirement.Parent = list
+local requirementText = UI.Label(requirement, "Text", "", 17)
+requirementText.Position, requirementText.Size = UDim2.fromOffset(12, 0), UDim2.new(1, -24, 1, 0)
+requirementText.TextXAlignment = Enum.TextXAlignment.Center
+local _, reset = card("Reset",4,"RESET")
 reset.Text = "Level returns to " .. Progression.StartingLevel .. ". Power returns to " .. Progression.StartingPower .. "."
-local _, keep = card("Keep",3,"KEEP")
+local _, keep = card("Keep",5,"KEEP")
 keep.Text = "Cash, owned and equipped equipment, world unlocks, your valid Training Ground selection, and other progression."
-local _, gain = card("Gain",4,"GAIN")
+local _, gain = card("Gain",6,"GAIN")
 
 local feedback = UI.Label(panel,"Feedback","",14,UI.Colors.Muted)
 feedback.Position, feedback.Size, feedback.TextWrapped = UDim2.new(0,16,1,-120), UDim2.new(1,-32,0,50), true
 local rebirth = UI.Button(panel,"Rebirth","REBIRTH")
-rebirth:SetAttribute("ActionColor",Color3.fromRGB(215,83,240))
 local confirm = UI.Button(panel,"ConfirmRebirth","CONFIRM REBIRTH")
 local cancel = UI.Button(panel,"Cancel","CANCEL")
 cancel:SetAttribute("Danger",true)
@@ -61,9 +97,8 @@ rebirth.Position, rebirth.Size = UDim2.new(0,16,1,-64), UDim2.new(1,-32,0,52)
 confirm.Position, confirm.Size = UDim2.new(0,16,1,-64), UDim2.new(.65,-22,0,52)
 cancel.Position, cancel.Size = UDim2.new(.65,2,1,-64), UDim2.new(.35,-18,0,52)
 
-local confirmation = UI.Surface(panel,"Confirmation",Color3.fromRGB(81,40,110))
+local confirmation = UI.Surface(panel,"Confirmation",UI.Colors.Card)
 confirmation.Position,confirmation.Size,confirmation.Visible=UDim2.fromOffset(16,80),UDim2.new(1,-32,1,-212),false
-confirmation.BackgroundTransparency=.1
 local confirmIcon=UI.Icon(confirmation,"Icon",UI.Icons.Rebirth)
 confirmIcon.AnchorPoint,confirmIcon.Position,confirmIcon.Size=Vector2.new(.5,0),UDim2.new(.5,0,0,14),UDim2.fromOffset(64,64)
 local confirmTitle=UI.Label(confirmation,"Title","START A STRONGER RUN?",25)
@@ -93,18 +128,18 @@ local function refresh()
  confirmReset.Position,confirmReset.Size = UDim2.fromOffset(14,compactConfirm and 36 or 140),UDim2.new(1,-28,0,compactConfirm and 24 or 34)
  confirmKeep.Position,confirmKeep.Size = UDim2.fromOffset(14,compactConfirm and 62 or 184),UDim2.new(1,-28,0,compactConfirm and 36 or 54)
  confirmReset.TextSize,confirmKeep.TextSize = compactConfirm and 18 or 22,compactConfirm and 16 or 18
- benefits.Size = UDim2.new(1,-10,0,short and 148 or 190)
- before.Position, after.Position = UDim2.fromOffset(8,38),UDim2.new(.5,8,0,38)
- before.Size, after.Size = UDim2.new(.5,-30,0,short and 100 or 134),UDim2.new(.5,-30,0,short and 100 or 134)
- before.Position,after.Position=UDim2.fromOffset(8,38),UDim2.new(.5,22,0,38)
  local count = Player:GetAttribute("Rebirths") or Progression.StartingRebirths
  local level = Player:GetAttribute("Level") or Progression.StartingLevel
  local cap = Player:GetAttribute("LevelCap") or Progression.GetLevelCap(count)
  local batMultiplier = Equipment.Get("Bat", Player:GetAttribute("EquippedBat")).powerGainMultiplier
  local nextCount = math.min(count + 1,Progression.MaxRebirths)
- summaryHeading.Text = "REBIRTH " .. UI.Number(count) .. " → " .. UI.Number(nextCount)
- before.Text = "BEFORE\n" .. UI.Number(Progression.GetPowerMultiplier(count)*batMultiplier,2) .. "x Power\nLevel Cap " .. UI.Number(cap)
- after.Text = "AFTER\n" .. UI.Number(Progression.GetPowerMultiplier(nextCount)*batMultiplier,2) .. "x Power\nLevel Cap " .. UI.Number(Progression.GetLevelCap(nextCount))
+ beforeTier.Text, afterTier.Text = "REBIRTH " .. UI.Number(count), "REBIRTH " .. UI.Number(nextCount)
+ beforeValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(count)*batMultiplier,2) .. " POWER"
+ afterValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(nextCount)*batMultiplier,2) .. " POWER"
+ beforeCap.Text, afterCap.Text = "LEVEL CAP " .. UI.Number(cap), "LEVEL CAP " .. UI.Number(Progression.GetLevelCap(nextCount))
+ setLevelBar(level / math.max(cap, 1), "LEVEL " .. UI.Number(level) .. " / " .. UI.Number(cap))
+ requirementText.Text = level >= cap and "REQUIREMENT MET: LEVEL " .. UI.Number(cap) or "REQUIREMENT: REACH LEVEL " .. UI.Number(cap)
+ requirementText.TextColor3 = level >= cap and UI.Colors.Success or UI.Colors.Muted
  panel.Title.Text = confirming and "ARE YOU SURE?" or "REBIRTH"
  local grounds = {}
  for _, ground in Training.Grounds do

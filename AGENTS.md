@@ -67,7 +67,7 @@ Established design decisions:
 - Training is the primary Power source; real hits give a small Power reward.
 - Offline Training is supported and capped.
 - Rebirth resets Level/Power and increases Power gain multiplier and Level Cap while preserving unrelated progression.
-- Training Grounds are logical per-player selections using one physical Training Stadium.
+- Training Grounds are six separate physical batting cages in a row in the World 1 hub; the plate a player stands on is the ground they train at. There is no saved ground selection.
 - Worlds are unlocked through legitimate batting distance progression, not by buying them with Cash.
 
 Do not reconsider these decisions unless explicitly asked.
@@ -91,7 +91,7 @@ The server should control or validate:
 - Cash, Power, rewards, and progression
 - Level, Rebirths, and Level Cap
 - Purchases and equipment ownership/equipping
-- Training Ground selection and Training Power grants
+- Training Ground access (Rebirths and game-pass ownership) and Training Power grants
 - Offline Training calculations
 - World unlocks and travel eligibility
 - Important gameplay results
@@ -215,15 +215,20 @@ Ball does not affect Power gain or launch distance.
 
 ### Training Grounds
 
-Current logical Grounds:
+Six physical Grounds, each its own batting cage, stand in two rows of three on either side of the World 1 hub (parallel to the runway, grounds 1-3 on the right, 4-6 on the left):
 
-- Basic
-- Advanced
-- Expert
+- Basic Training: available from the start, 1x
+- Enchanted Grove: 2 Rebirths, 5x
+- Sunken Atlantis: 4 Rebirths, 10x
+- Sky Temple: 6 Rebirths, 20x
+- Dragon's Lair: 500 Robux game pass, 10x (intentionally below Sky Temple)
+- Cosmic Rift: 1000 Robux game pass, 30x
 
-They unlock through Rebirth progression and use one physical Training Stadium.
+Multipliers apply to the first ground's base Power. Paid grounds need no Rebirths. Game-pass ownership is checked by the server through MarketplaceService, never saved and never trusted from the client.
 
-Current placeholder base Power values are configurable and should not be treated as final balance.
+Grounds 2-6 are fantasy themed and get more intricate down the row. The themes are visual only and never affect Power.
+
+Unlock requirements and multipliers are configurable and should not be treated as final balance.
 
 ## Batting
 
@@ -276,9 +281,9 @@ Preserve the existing natural-stop and ground-contact logic unless a task explic
 
 Training is the primary Power source.
 
-There is one physical Training Stadium.
+There are six physical Training Grounds, each with its own plate and at most one occupant.
 
-The player steps into the Training position:
+The player steps onto a ground's plate that they can use:
 
 - Training starts automatically
 - character is positioned/locked
@@ -299,7 +304,7 @@ Training stops cleanly on Leave, death, travel, disconnect, or other valid clean
 Offline Power:
 
 - uses authoritative server timestamps
-- uses the player's selected Training Ground
+- uses the best Training Ground the player can use (from Rebirths and owned game passes)
 - applies configured offline-rate limits
 - applies Bat Power multiplier
 - applies Rebirth multiplier
@@ -371,9 +376,9 @@ Preserve existing protections:
 - validation/sanitization
 - bounded retry behavior
 
-Current confirmed schema after equipment cleanup is Schema 6.
+Current confirmed schema is Schema 8 (Schema 6 removed Tee equipment, Schema 7 added Juice, Schema 8 retired the saved Training Ground selection).
 
-Tee equipment data is obsolete and should not be reintroduced.
+Tee equipment data and SelectedTrainingGround are obsolete and should not be reintroduced.
 
 ## Multiplayer
 
@@ -457,7 +462,7 @@ Unless asked, do not add:
 - crates
 - quests
 - daily rewards
-- monetization
+- monetization (the two Training Ground game passes are the approved exception)
 - leaderboards
 - trading
 - rarity systems
@@ -467,6 +472,6 @@ Unless asked, do not add:
 
 Normal batting is deterministic and Level-based.
 
-Training Grounds are logical per-player selections using one physical stadium.
+Training Grounds are six physical batting cages in a row; access comes from Rebirths or a game pass.
 
 Environmental art, equipment cosmetics, final balance, and future content should remain separate from gameplay architecture unless explicitly requested.

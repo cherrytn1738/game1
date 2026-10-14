@@ -3,6 +3,7 @@ local Field = require(game:GetService("ReplicatedStorage"):WaitForChild("FieldCo
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 local RunwayDecor = require(script.Parent:WaitForChild("RunwayDecor"))
+local TrainingStadium = require(script.Parent:WaitForChild("TrainingStadium"))
 local Builder = {}
 
 local function buildHub(world, area)
@@ -52,6 +53,14 @@ local function buildHub(world, area)
   Vector3.new(0, 0.0125, config.depth - 0.5), boundaryColor, false)
  local interactions = hub:FindFirstChild("Interactions") or Instance.new("Folder")
  interactions.Name, interactions.Parent = "Interactions", hub
+ -- Stations saved in the place but no longer configured are removed.
+ for _, station in interactions:GetChildren() do
+  local configured = false
+  for _, definition in config.interactions or {} do
+   if definition.id == station.Name then configured = true end
+  end
+  if not configured then station:Destroy() end
+ end
  for _, definition in config.interactions or {} do
   local station = interactions:FindFirstChild(definition.id) or Instance.new("Model")
   station.Name, station.Parent = definition.id, interactions
@@ -88,29 +97,32 @@ local function buildHub(world, area)
   end
  end
  if world.id == Worlds.StartingWorldId then
-  local stadium = hub:FindFirstChild("TrainingStadium") or Instance.new("Model")
-  stadium.Name, stadium.Parent = "TrainingStadium", hub
-  local plate = stadium:FindFirstChild("TrainingPlate") or Instance.new("Part")
-  plate.Name, plate.Size = "TrainingPlate", Training.PlateSize
-  plate.CFrame = frame * CFrame.new(Training.PlatePosition + Vector3.yAxis * Training.PlateSize.Y / 2)
-  plate.Anchored, plate.CanCollide = true, false
-  plate.Color = Color3.fromRGB(110,110,110)
-  plate.Parent = stadium
-  for name, offset in {PitchOrigin = Training.PitchOffset, ContactPosition = Training.ContactOffset} do
-   local reference = plate:FindFirstChild(name) or Instance.new("Attachment")
-   reference.Name, reference.Position, reference.Parent = name, offset, plate
+  -- The single stadium from before the row of physical grounds is retired.
+  local retired = hub:FindFirstChild("TrainingStadium")
+  if retired then retired:Destroy() end
+  local grounds = hub:FindFirstChild("TrainingGrounds") or Instance.new("Folder")
+  grounds.Name, grounds.Parent = "TrainingGrounds", hub
+  for _, ground in Training.Grounds do
+   local stadium = grounds:FindFirstChild(ground.id) or Instance.new("Model")
+   stadium.Name, stadium.Parent = ground.id, grounds
+   stadium:SetAttribute("GroundId", ground.id)
+   stadium.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+   local plate = stadium:FindFirstChild("TrainingPlate") or Instance.new("Part")
+   plate.Name, plate.Size = "TrainingPlate", Training.PlateSize
+   plate.CFrame = frame * CFrame.new(Training.GetPlatePosition(ground) + Vector3.yAxis * Training.PlateSize.Y / 2)
+    * CFrame.Angles(0, Training.GetPlateYaw(ground), 0)
+   plate.Anchored, plate.CanCollide = true, false
+   plate.Color = Color3.fromRGB(110,110,110)
+   plate.Parent = stadium
+   for name, offset in {PitchOrigin = Training.PitchOffset, ContactPosition = Training.ContactOffset} do
+    local reference = plate:FindFirstChild(name) or Instance.new("Attachment")
+    reference.Name, reference.Position, reference.Parent = name, offset, plate
+   end
+   TrainingStadium.Build(stadium, plate, ground)
   end
-  local selector = stadium:FindFirstChild("Selector") or Instance.new("Part")
-  selector.Name, selector.Size = "Selector", Vector3.new(3,0.1,3)
-  selector.CFrame = plate.CFrame * CFrame.new(Training.SelectorOffset)
-  selector.Anchored, selector.CanCollide = true, false
-  selector.Color, selector.Parent = plate.Color, stadium
-  local prompt = selector:FindFirstChild("Prompt") or Instance.new("ProximityPrompt")
-  prompt.Name, prompt.ActionText, prompt.ObjectText = "Prompt", "Choose Training Ground", "Training"
-  prompt.HoldDuration, prompt.MaxActivationDistance, prompt.RequiresLineOfSight = 0, config.promptDistance, false
-  prompt:SetAttribute("HubAction", "Training")
-  prompt:SetAttribute("WorldId", world.id)
-  prompt.Parent = selector
+  -- The Training Grounds board is removed for now, like the other hub stations.
+  local board = grounds:FindFirstChild("Board")
+  if board then board:Destroy() end
   local spawn = workspace:FindFirstChild("SpawnLocation") or hub:FindFirstChild("SpawnLocation")
   if not spawn then spawn = Instance.new("SpawnLocation") end
   spawn.Name, spawn.Size = "SpawnLocation", Vector3.new(12, 0.1, 12)
@@ -256,6 +268,40 @@ local function buildField(world)
  return field
 end
 
+-- The tee mesh (ServerStorage.RunwayAssets.BattingTee, Studio-managed, from
+-- tools/blender/batting_tee.py) dresses each station. The original Base/Stem stay as invisible
+-- colliders, and Stem.BallPosition stays the authoritative launch point.
+local TEE_LOOKS = {
+ TeeBase = {Color3.fromRGB(31, 31, 33), Enum.Material.Rubber}, TeePlate = {Color3.fromRGB(245, 245, 240), Enum.Material.SmoothPlastic},
+ TeeMetal = {Color3.fromRGB(184, 189, 199), Enum.Material.Metal}, TeeAccent = {Color3.fromRGB(255, 115, 31), Enum.Material.SmoothPlastic},
+ TeeRubber = {Color3.fromRGB(26, 26, 28), Enum.Material.Rubber},
+}
+local function dressTee(area)
+ local assets = game:GetService("ServerStorage"):FindFirstChild("RunwayAssets")
+ local template = assets and assets:FindFirstChild("BattingTee")
+ local tee = area:FindFirstChild("Tee")
+ if not template or not tee then return end
+ local old = tee:FindFirstChild("TeeMesh")
+ if old then old:Destroy() end
+ local stem, direction = tee.Stem, area.HitDirection
+ local ground = stem.Position - Vector3.new(0, stem.Size.Y / 2, 0)
+ local forward = Vector3.new(direction.Position.X - ground.X, 0, direction.Position.Z - ground.Z)
+ local model = template:Clone()
+ model.Name = "TeeMesh"
+ for _, part in model:GetDescendants() do
+  if part:IsA("BasePart") then
+   local look = TEE_LOOKS[part.Name]
+   part.Anchored, part.CanCollide, part.CanTouch, part.CanQuery = true, false, false, false
+   if look then part.Color, part.Material = look[1], look[2] end
+  end
+ end
+ model:PivotTo(CFrame.lookAt(ground, ground + forward))
+ model.Parent = tee
+ for _, part in {tee:FindFirstChild("Base"), stem, area:FindFirstChild("HomePlate")} do
+  if part then part.Transparency = 1 end
+ end
+end
+
 function Builder.Build()
  local template = workspace:WaitForChild(Worlds.Get(Worlds.StartingWorldId).stationName)
  for _, world in Worlds.Worlds do
@@ -270,6 +316,7 @@ function Builder.Build()
   area.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
   buildField(world)
   buildHub(world, area)
+  dressTee(area)
   if world.id ~= Worlds.StartingWorldId then
    local arrivalName = world.stationName .. "ArrivalFloor"
    if not workspace:FindFirstChild(arrivalName) then

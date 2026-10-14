@@ -14,6 +14,16 @@ local CHECK_INTERVAL = 0.1
 local ENTRY_HEIGHT = 6
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Travel = ReplicatedStorage:WaitForChild("WorldTravel")
+local TrainingTeleport = ReplicatedStorage:FindFirstChild("TrainingTeleport") or Instance.new("RemoteEvent")
+TrainingTeleport.Name, TrainingTeleport.Parent = "TrainingTeleport", ReplicatedStorage
+-- Where the Training teleport places a player, relative to the Training plate: a few studs
+-- back toward the hub so they arrive beside the plate instead of on it.
+local TRAINING_TELEPORT_OFFSET = Vector3.new(0, 0, 9)
+local TeeTeleport = ReplicatedStorage:FindFirstChild("TeeTeleport") or Instance.new("RemoteEvent")
+TeeTeleport.Name, TeeTeleport.Parent = "TeeTeleport", ReplicatedStorage
+-- Where the tee teleport places a player: this many studs back from the batter's box
+-- (away from the field), facing it, so batting never starts by itself.
+local TEE_TELEPORT_BACK = 7
 local states = {}
 local occupants = {}
 
@@ -122,19 +132,17 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 for _, player in Players:GetPlayers() do addPlayer(player) end
 
-Travel.OnServerEvent:Connect(function(player, destinationId)
- local state = states[player]
- if not state or not PlayerData.IsReady(player) or type(destinationId) ~= "string" then return end
- local world = Worlds.Get(destinationId)
- if not world or player:GetAttribute("WorldUnlocked_" .. world.id) ~= true then
-  Travel:FireClient(player, "That world is locked.")
-  return
- end
- if os.clock() - state.lastTravel < 1 then return end
+local function livingCharacter(player)
  local character = player.Character
  local humanoid = character and character:FindFirstChildOfClass("Humanoid")
  local root = character and character:FindFirstChild("HumanoidRootPart")
- if not humanoid or humanoid.Health <= 0 or not root then return end
+ if not humanoid or humanoid.Health <= 0 or not root then return nil end
+ return character, root
+end
+
+-- Moves an already-validated player to a location in a world, first ending batting,
+-- Training, and any active hit (shared by World Travel and the Training and tee teleports).
+local function relocate(player, state, character, root, world, destination)
  state.lastTravel = os.clock()
  player:SetAttribute("WorldTraveling", true)
  Training.Stop(player)
@@ -145,9 +153,80 @@ Travel.OnServerEvent:Connect(function(player, destinationId)
  player:SetAttribute("BatNextSwingTime", 0)
  player:SetAttribute("CurrentWorldId", world.id)
  root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
- character:PivotTo(world.arrival)
+ character:PivotTo(destination)
  player:SetAttribute("WorldTraveling", false)
+end
+
+Travel.OnServerEvent:Connect(function(player, destinationId)
+ local state = states[player]
+ if not state or not PlayerData.IsReady(player) or type(destinationId) ~= "string" then return end
+ local world = Worlds.Get(destinationId)
+ if not world or player:GetAttribute("WorldUnlocked_" .. world.id) ~= true then
+  Travel:FireClient(player, "That world is locked.")
+  return
+ end
+ if os.clock() - state.lastTravel < 1 then return end
+ local character, root = livingCharacter(player)
+ if not character then return end
+ relocate(player, state, character, root, world, world.arrival)
  Travel:FireClient(player, "Arrived in " .. world.displayName)
+end)
+
+-- Training teleport: the client may name a ground; otherwise (or if that ground is not
+-- usable) the server picks the player's best ground. It lands beside that plate, not on it,
+-- so Training never starts by itself, and travels to World 1 if needed.
+TrainingTeleport.OnServerEvent:Connect(function(player, ...)
+ local state = states[player]
+ local requested = ...
+ if select("#", ...) > 1 or (requested ~= nil and (type(requested) ~= "string" or #requested > 64))
+  or not state or not PlayerData.IsReady(player) then return end
+ if os.clock() - state.lastTravel < 1 then return end
+ if player:GetAttribute("HitActive") then
+  TrainingTeleport:FireClient(player, "Wait for your hit to finish first.", false)
+  return
+ end
+ if player:GetAttribute("TrainingActive") then
+  TrainingTeleport:FireClient(player, "You are already training.", false)
+  return
+ end
+ local character, root = livingCharacter(player)
+ if not character then return end
+ local ground = requested and PlayerData.CanUseTrainingGround(player, requested) or PlayerData.GetBestTrainingGround(player)
+ local world = Worlds.Get(Worlds.StartingWorldId)
+ local hub = workspace:FindFirstChild(world.hub.name)
+ local stadium = ground and hub and hub:FindFirstChild("TrainingGrounds") and hub.TrainingGrounds:FindFirstChild(ground.id)
+ local plate = stadium and stadium:FindFirstChild("TrainingPlate")
+ if not plate then return end
+ local standAt = (plate.CFrame * CFrame.new(TRAINING_TELEPORT_OFFSET)).Position + Vector3.new(0, 3.5, 0)
+ relocate(player, state, character, root, world, CFrame.lookAt(standAt, Vector3.new(plate.Position.X, standAt.Y, plate.Position.Z)))
+ TrainingTeleport:FireClient(player, "Teleported to " .. ground.displayName .. ". Step onto the plate to train!", true)
+end)
+
+-- Tee teleport: intent only, no arguments. Lands just behind the batter's box of the
+-- player's current world.
+TeeTeleport.OnServerEvent:Connect(function(player, ...)
+ local state = states[player]
+ if select("#", ...) ~= 0 or not state or not PlayerData.IsReady(player) then return end
+ if os.clock() - state.lastTravel < 1 then return end
+ if player:GetAttribute("HitActive") then
+  TeeTeleport:FireClient(player, "Wait for your hit to finish first.", false)
+  return
+ end
+ if player:GetAttribute("BattingActive") then
+  TeeTeleport:FireClient(player, "You are already at the tee.", false)
+  return
+ end
+ local character, root = livingCharacter(player)
+ if not character then return end
+ local world = Worlds.Get(player:GetAttribute("CurrentWorldId")) or Worlds.Get(Worlds.StartingWorldId)
+ local area = workspace:FindFirstChild(world.stationName)
+ local pad, direction = area and area:FindFirstChild("BatterPosition"), area and area:FindFirstChild("HitDirection")
+ if not pad or not direction then return end
+ local difference = direction.Position - area.Tee.Stem.Position
+ local forward = Vector3.new(difference.X, 0, difference.Z).Unit
+ local standAt = pad.Position - forward * TEE_TELEPORT_BACK + Vector3.new(0, 3.5, 0)
+ relocate(player, state, character, root, world, CFrame.lookAt(standAt, Vector3.new(pad.Position.X, standAt.Y, pad.Position.Z)))
+ TeeTeleport:FireClient(player, "Teleported to the tee. Step into the batter's box to bat!", true)
 end)
 
 local elapsed = 0

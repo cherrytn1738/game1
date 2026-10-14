@@ -55,9 +55,10 @@ return function(sources)
  tool.Parent=player.Character
  tool:SetAttribute("BattingSession",1)
  local grants,delayed={},{}
+ local juiceCash = 1
  local modules={EquipmentConfig=Equipment,ProgressionConfig=Progression,FieldConfig=Field,WorldConfig=Worlds,SwingConfig=Swing,
   WorldProgress={Complete=function() end},
-  PlayerData={IsReady=function() return true end,GrantPower=function(_,base,source,batId)
+  PlayerData={IsReady=function() return true end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,batId)
    table.insert(grants,{base=base,source=source,batId=batId})
    return true,{powerGranted=Progression.GetPowerGrant(base,1,Equipment.Get("Bat",batId).powerGainMultiplier)}
   end}}
@@ -107,6 +108,19 @@ return function(sources)
    check(ball:GetAttribute("BallState")=="Ready" and not Launcher.IsBusy(world.id),"hit resets cleanly")
   end
  end
+ -- An active Cash juice multiplies the hit's Cash reward (and only Cash).
+ juiceCash = 2
+ local juiced={worldId=world.id,session=1,swingId=700,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ check(Launcher.TryLaunch(player,juiced,tool),"juiced hit accepted")
+ local juicedLaunch=table.remove(delayed,1)
+ juicedLaunch.fn(table.unpack(juicedLaunch.args,1,juicedLaunch.args.n))
+ balls[world.id].CFrame=CFrame.new(0,.5,-100)
+ balls[world.id].AssemblyLinearVelocity,balls[world.id].AssemblyAngularVelocity=Vector3.zero,Vector3.zero
+ local cashBefore=player.leaderstats.Cash.Value
+ heartbeat:Fire(Field.StopHoldSeconds+.01)
+ check(player.leaderstats.Cash.Value-cashBefore==200 and juiced.distanceResult.distanceStuds==100,"Cash juice doubles Cash without changing distance")
+ Launcher.CancelPlayer(player)
+ juiceCash = 1
  -- Shipped config: 2x is disabled, so requests are rejected and no speed state is published.
  check(not Field.FlightSpeedUpEnabled,"2x ball flight ships disabled")
  local disabled={worldId=world.id,session=1,swingId=800,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}

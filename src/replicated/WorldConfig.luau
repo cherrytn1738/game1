@@ -5,16 +5,19 @@ local Worlds = {
   {id = "world_1", displayName = "World 1", order = 1, endDistance = 5000,
    stationName = "BattingArea", fieldName = "LongRangeField",
    -- Hub extends behind the existing tee at (-17.2, 0, -21.2); forward is -Z.
-   -- Spawn is 100 studs behind the tee, leaving 40 studs of open space at the back.
-   offset = Vector3.zero, arrival = CFrame.new(-17.2, 4, 78.8), nextWorldId = "world_2",
-   hub = {name = "World1Hub", width = 210, depth = 140,
+   -- Spawn is 60 studs behind the tee, in the walkway between the two rows of Training
+   -- Grounds (TrainingConfig: plates at x +/-44, depth 35-110; scenery reaches x ~+/-100,
+   -- depth ~130).
+   offset = Vector3.zero, arrival = CFrame.new(-17.2, 4, 38.8), nextWorldId = "world_2",
+   hub = {name = "World1Hub", width = 210, depth = 136,
     promptDistance = 10,
-    -- Positions relative to the batting edge: +Z is back into the hub.
-    interactions = {
-     {id = "Shop", actionText = "Open Equipment Shop", position = Vector3.new(-70, 0, 65), size = Vector3.new(28, 0.1, 24)},
-     {id = "Travel", actionText = "Open World Travel", position = Vector3.new(35, 0, 120), size = Vector3.new(14, 0.1, 12)},
-     {id = "Rebirth", actionText = "View Rebirth", objectText = "Rebirth", position = Vector3.new(-35, 0, 120), size = Vector3.new(8, 0.1, 8)},
-    }},
+    -- Positions relative to the batting edge: +Z is back into the hub. The physical
+    -- stations are removed for now (their menus stay reachable from the HUD where a button
+    -- exists); to restore one, uncomment it:
+    --   {id = "Shop", actionText = "Open Equipment Shop", position = Vector3.new(-70, 0, 65), size = Vector3.new(28, 0.1, 24)},
+    --   {id = "Travel", actionText = "Open World Travel", position = Vector3.new(35, 0, 120), size = Vector3.new(14, 0.1, 12)},
+    --   {id = "Rebirth", actionText = "View Rebirth", objectText = "Rebirth", position = Vector3.new(-35, 0, 120), size = Vector3.new(8, 0.1, 8)},
+    interactions = {}},
    runoutDistance = 2000,
    -- Cosmetic only (RunwayDecor); none of these change flight or progression distances.
    runway = {width = 160, wallHeight = 12, wallThickness = 6, wallTileLength = 12,

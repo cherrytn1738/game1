@@ -3,6 +3,8 @@ local Field = {
  MarkerInterval = 100, DistantMarkerInterval = 500, DenseMarkersUntil = 1000,
  StopLinearSpeed = 1, StopSurfaceSpeed = 2, StopHoldSeconds = 0.75,
  RollingDeceleration = 12, MaximumFlightSeconds = 120,
+ -- After landing, the roll plays at this time scale (same distance, 1/3 of the time).
+ RollTimeScale = 3,
  -- 2x ball flight is disabled: switching speed changed final distance in playtests.
  FlightSpeedUpEnabled = false,
 }

@@ -184,7 +184,8 @@ local function launch(station, hit)
     player:SetAttribute("SessionFarthestSectionId", farthestSection.id)
    end
    if finalSection and not result.rewardAwarded then
-    local cashEarned = math.floor(distance * CASH_PER_STUD * result.ballRewardMultiplier * final.sectionMultiplier)
+    local cashEarned = math.floor(distance * CASH_PER_STUD * result.ballRewardMultiplier * final.sectionMultiplier
+     * PlayerData.GetJuiceMultiplier(player, "Cash"))
     result.rewardAwarded = true
     result.cashEarned, final.cashEarned = cashEarned, cashEarned
     player.leaderstats.Cash.Value += cashEarned
@@ -232,6 +233,17 @@ local function launch(station, hit)
   local grounded = section ~= nil and contact ~= nil
   if ball:GetAttribute("CurrentSectionId") ~= (section and section.id) then ball:SetAttribute("CurrentSectionId", section and section.id) end
   local horizontal = Vector3.new(velocity.X, 0, velocity.Z)
+  -- Fast-forward the roll: once the ball has landed and is rolling, it runs at
+  -- RollTimeScale (velocity x s, accelerations x s^2), covering the same ground in 1/s of
+  -- the time. The airborne flight stays at normal speed, so its arc is unchanged.
+  if grounded and speed == 1 and firstGroundDistance and Field.RollTimeScale > 1
+   and math.abs(velocity.Y) < 2 and horizontal.Magnitude > Field.StopLinearSpeed then
+   speed = Field.RollTimeScale
+   hit.speed = speed
+   ball.AssemblyLinearVelocity *= speed
+   ball.AssemblyAngularVelocity *= speed
+   velocity, horizontal = ball.AssemblyLinearVelocity, horizontal * speed
+  end
   local force = -Vector3.yAxis * ball.AssemblyMass * Workspace.Gravity * (speed^2 - 1)
   if grounded and math.abs(velocity.Y) < 2 * speed and horizontal.Magnitude > 0.01 then
    local acceleration = math.min(Field.RollingDeceleration * speed^2, horizontal.Magnitude / math.max(dt, 1/240) * 0.5)

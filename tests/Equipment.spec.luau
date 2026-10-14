@@ -56,6 +56,19 @@ return function(sources)
  local Worlds = assert(loadstring(sources.WorldConfig))()
  local Progression = assert(loadstring(sources.ProgressionConfig))()
  local Training = assert(loadstring(sources.TrainingConfig))()
+ local Juice = assert(loadstring(sources.JuiceConfig))()
+ -- Test fixtures: the shipped paid grounds have no game pass created yet (id 0).
+ Training.Get("dragons_lair").gamePassId = 111
+ Training.Get("cosmic_rift").gamePassId = 222
+ local ownedPasses, passFailures = {}, {}
+ local marketplace = {PromptGamePassPurchaseFinished = signal(), prompts = {}}
+ function marketplace:UserOwnsGamePassAsync(userId, passId)
+  if passFailures[userId] then error("simulated pass lookup outage") end
+  return ownedPasses[userId .. ":" .. passId] == true
+ end
+ -- Test fixtures: the shipped config defines no juices yet.
+ Juice.Define({id = "test_power", displayName = "Test Power Juice", effect = "Power", multiplier = 2, durationSeconds = 60})
+ Juice.Define({id = "test_cash", displayName = "Test Cash Juice", effect = "Cash", multiplier = 3, durationSeconds = 30})
  local saved, calls, simulatedFailures = {}, {}, {}
  local loseResponse = {}
  local store = {}
@@ -78,13 +91,14 @@ return function(sources)
  local remote = object("RemoteEvent")
  remote.Name, remote.Parent = "EquipmentUpgrade", storage
  local workspace = object("Workspace")
- local modules = {EquipmentConfig = Equipment, WorldConfig = Worlds, ProgressionConfig = Progression, TrainingConfig = Training}
+ local modules = {EquipmentConfig = Equipment, WorldConfig = Worlds, ProgressionConfig = Progression, TrainingConfig = Training, JuiceConfig = Juice}
  local env = setmetatable({
   game = {
    ReplicatedStorage = storage,
    GetService = function(_, name)
     if name == "Players" then return players end
     if name == "ReplicatedStorage" then return storage end
+    if name == "MarketplaceService" then return marketplace end
     if name == "DataStoreService" then return {GetDataStore = function(_, name)
      check(name == "PlayerProgression", "must reuse the existing store") return store
     end} end
@@ -185,7 +199,7 @@ return function(sources)
  check(b:GetAttribute("EquippedBat") == "metal_bat" and b.leaderstats.Cash.Value == 1700, "forged request inputs rejected")
  check(Data.EquipEquipment(a, "Bat", "wood_bat"), "select old item before saving")
  leave(a)
- check(saved.Player_1.SchemaVersion == 6 and saved.Player_1.Session == nil, "version 6 save and lease release")
+ check(saved.Player_1.SchemaVersion == 8 and saved.Player_1.Session == nil, "version 8 save and lease release")
  check(saved.Player_1.OwnedBats.carbon_bat and saved.Player_1.EquippedBat == "wood_bat", "ownership and selection saved separately")
  check(saved.Player_1.OtherProgress == 42 and saved.Player_1.UnlockedWorlds.world_2, "other progression preserved")
  local returned = join(1)
@@ -272,31 +286,45 @@ return function(sources)
  local over = Progression.Normalize({Level=2, Power=1305, Rebirths=0},false)
  check(over.Level == 4 and over.Power == 5, "saved excess Power normalizes consistently")
  check(Worlds.Get("world_1").endDistance == 5000 and Worlds.Get("world_2").endDistance == 6000, "world endpoints unchanged")
- -- Training uses a private selection, and offline grants share the atomic login transaction.
+ -- Physical grounds: access derives from private Rebirths or a Roblox pass, and offline
+ -- grants use the best usable ground inside the atomic login transaction.
+ local multipliers = {}
+ for _, entry in Training.Grounds do table.insert(multipliers, entry.powerMultiplier) end
+ check(table.concat(multipliers, ",") == "1,5,10,20,10,30" and Training.Get("cosmic_rift").basePower == 600, "ground multipliers on the first ground's Power")
+ check(Training.Get("sky_temple").requiredRebirths == 6 and Training.IsPaid(Training.Get("dragons_lair"))
+  and not Training.IsUnlocked("dragons_lair", 1000), "Rebirth and paid ground requirements")
+ check(Training.GetBestGround(0, nil).id == "basic_training" and Training.GetBestGround(4, nil).id == "sunken_atlantis"
+  and Training.GetBestGround(6, {dragons_lair=true}).id == "sky_temple" and Training.GetBestGround(0, {dragons_lair=true}).id == "dragons_lair"
+  and Training.GetBestGround(6, {cosmic_rift=true}).id == "cosmic_rift", "best ground is the highest usable rate")
+ Training.Get("cosmic_rift").gamePassId = 0
+ check(not Training.CanUse("cosmic_rift", 0, {cosmic_rift=true}), "a paid ground without a created pass is unusable")
+ Training.Get("cosmic_rift").gamePassId = 222
  local trainee = join(30)
- check(trainee:GetAttribute("SelectedTrainingGround")==Training.DefaultGround and trainee:GetAttribute("OfflinePowerEarned")==0,"new player ground and no historical reward")
- check(not Data.SelectTrainingGround(trainee,"advanced_training"),"locked ground rejected")
- check(not Data.SelectTrainingGround(trainee,{}) and not Data.SelectTrainingGround(trainee,"fake"),"malformed selections rejected")
- trainee:SetAttribute("SelectedTrainingGround","expert_training")
- check(Data.GetTrainingGround(trainee).id==Training.DefaultGround,"display selection not authoritative")
- check(Data.GrantPower(trainee,1000000,"Test") and Data.TryRebirth(trainee),"Rebirth unlock setup")
- check(Data.SelectTrainingGround(trainee,"advanced_training"),"Rebirth unlocks ground")
+ check(trainee:GetAttribute("OfflinePowerEarned")==0 and trainee:GetAttribute("OfflineTrainingGround")==Training.DefaultGround,"new player has no historical reward")
+ check(Data.CanUseTrainingGround(trainee,"basic_training") and not Data.CanUseTrainingGround(trainee,"enchanted_grove"),"Rebirth grounds start locked")
+ check(not Data.CanUseTrainingGround(trainee,{}) and not Data.CanUseTrainingGround(trainee,"fake"),"malformed ground ids rejected")
+ check(not Data.CanUseTrainingGround(trainee,"dragons_lair") and trainee:GetAttribute("TrainingPass_dragons_lair")==false,"paid grounds need a pass")
+ trainee:SetAttribute("TrainingPass_cosmic_rift",true)
+ trainee:SetAttribute("Rebirths",6)
+ check(not Data.CanUseTrainingGround(trainee,"cosmic_rift") and not Data.CanUseTrainingGround(trainee,"sky_temple"),"display pass and Rebirth copies not authoritative")
+ for _ = 1, 2 do check(Data.GrantPower(trainee,1000000,"Test") and Data.TryRebirth(trainee),"Rebirth unlock setup") end
+ check(Data.CanUseTrainingGround(trainee,"enchanted_grove") and not Data.CanUseTrainingGround(trainee,"sunken_atlantis"),"two Rebirths unlock the second ground only")
+ check(Data.GetBestTrainingGround(trainee).id=="enchanted_grove","best ground follows Rebirths")
  trainee:SetAttribute("TrainingActive",true)
- check(not Data.SelectTrainingGround(trainee,"basic_training"),"cannot switch during training")
  check(not Data.EquipEquipment(trainee,"Bat","wood_bat"),"training blocks equipment changes")
- local ground=Data.GetTrainingGround(trainee)
+ local ground=Training.Get("enchanted_grove")
  local ok, gain=Data.GrantPower(trainee,ground.basePower,"ActiveTraining")
- check(ok and gain.powerGranted==100 and trainee:GetAttribute("Level")==2,"active training uses central multiplier/advancement")
+ check(ok and gain.powerGranted==300 and trainee:GetAttribute("Level")==2,"active training uses central multiplier/advancement")
  trainee:SetAttribute("TrainingActive",false)
  leave(trainee)
- check(saved.Player_30.SelectedTrainingGround=="advanced_training" and saved.Player_30.LastLogoutTime==math.floor(now),"selection and logout saved")
+ check(saved.Player_30.SelectedTrainingGround==nil and saved.Player_30.SchemaVersion==8 and saved.Player_30.LastLogoutTime==math.floor(now),"no ground selection saved; logout saved")
  trainee=join(30)
- check(trainee:GetAttribute("SelectedTrainingGround")=="advanced_training" and trainee:GetAttribute("OfflinePowerEarned")==0,"selection rejoin and zero offline duration")
+ check(trainee:GetAttribute("OfflineTrainingGround")=="enchanted_grove" and trainee:GetAttribute("OfflinePowerEarned")==0,"rejoin with zero offline duration")
  local nowStamp=100000
  local amount, seconds=Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training")
  check(amount==150 and seconds==60,"short offline duration")
- amount,seconds=Training.GetOfflineReward(nowStamp-3600,nowStamp,"advanced_training")
- check(amount==22500 and seconds==3600,"selected ground offline rate")
+ amount,seconds=Training.GetOfflineReward(nowStamp-3600,nowStamp,"enchanted_grove")
+ check(amount==45000 and seconds==3600,"ground offline rate")
  amount,seconds=Training.GetOfflineReward(1,nowStamp,"basic_training")
  check(seconds==Training.MaximumOfflineSeconds and amount==72000,"offline cap enforced")
  for _, timestamp in {0,-1,"bad",math.huge,0/0,1.5,nowStamp+10} do
@@ -306,15 +334,15 @@ return function(sources)
  saved.Player_31={SchemaVersion=5,Cash=321,Power=0,Level=1,Rebirths=2,LevelCap=30,SelectedTrainingGround="advanced_training",LastLogoutTime=math.floor(now)-10,OtherProgress=123}
  loseResponse.Player_31=true
  local offline=join(31)
- check(offline:GetAttribute("OfflinePowerEarned")==186 and offline:GetAttribute("Level")==2
-  and offline:GetAttribute("Power")==86,"offline grant once despite committed response loss")
- check(saved.Player_31.LastLogoutTime==nil and saved.Player_31.OtherProgress==123,"timestamp consumed atomically and unknown fields preserved")
- check(offline.leaderstats.Cash.Value==321 and Data.GetTrainingGround(offline).id=="advanced_training","selected ground used instead of highest eligible")
+ check(offline:GetAttribute("OfflinePowerEarned")==375 and offline:GetAttribute("Level")==2
+  and offline:GetAttribute("Power")==275,"offline grant once despite committed response loss")
+ check(saved.Player_31.LastLogoutTime==nil and saved.Player_31.OtherProgress==123 and saved.Player_31.SelectedTrainingGround==nil,"timestamp consumed atomically, unknown fields preserved, retired selection dropped")
+ check(offline.leaderstats.Cash.Value==321 and offline:GetAttribute("OfflineTrainingGround")=="enchanted_grove","best usable ground used, not the old saved selection")
  players.PlayerAdded:Fire(offline)
- check(offline:GetAttribute("Power")==86,"same session cannot reprocess offline reward")
+ check(offline:GetAttribute("Power")==275,"same session cannot reprocess offline reward")
  saved.Player_32={SchemaVersion=5,Cash=777,Power=3,Level=1,Rebirths=0,SelectedTrainingGround="expert_training",LastLogoutTime=math.floor(now)-60}
  local fallback=join(32)
- check(fallback:GetAttribute("SelectedTrainingGround")=="basic_training" and fallback:GetAttribute("OfflinePowerEarned")==150,"inaccessible selection falls back before offline grant")
+ check(fallback:GetAttribute("OfflineTrainingGround")=="basic_training" and fallback:GetAttribute("OfflinePowerEarned")==150,"removed selection ignored; offline uses the best usable ground")
  check(fallback:GetAttribute("Level")==2 and fallback:GetAttribute("Power")==53 and fallback.leaderstats.Cash.Value==777,"offline progression preserves Cash")
  saved.Player_33={SchemaVersion=4,Cash=999,Power=41,Level=2,Rebirths=1,LastLogoutTime=1}
  local legacy=join(33)
@@ -322,16 +350,39 @@ return function(sources)
  saved.Player_34={SchemaVersion=5,Cash=500,Power=0,Level=10,Rebirths=0,SelectedTrainingGround="fake",LastLogoutTime=1}
  local atCap=join(34)
  check(atCap:GetAttribute("Power")==0 and atCap:GetAttribute("Level")==10 and atCap:GetAttribute("OfflinePowerEarned")==0,"offline cap overflow discarded")
- check(not Data.GetTrainingGround(failed),"failed loads cannot train")
+ check(not Data.CanUseTrainingGround(failed,"basic_training"),"failed loads cannot train")
+ -- Paid grounds: Roblox pass ownership is read at login (before the offline grant) and on
+ -- the server's purchase event; lookups that fail grant nothing.
+ ownedPasses["35:111"] = true
+ saved.Player_35={SchemaVersion=7,Cash=1,Power=0,Level=1,Rebirths=0,LastLogoutTime=math.floor(now)-12}
+ local passHolder=join(35)
+ check(passHolder:GetAttribute("OfflineTrainingGround")=="dragons_lair" and passHolder:GetAttribute("OfflinePowerEarned")==300,"offline uses an owned paid ground with no Rebirths")
+ check(Data.CanUseTrainingGround(passHolder,"dragons_lair") and passHolder:GetAttribute("TrainingPass_dragons_lair")==true
+  and not Data.CanUseTrainingGround(passHolder,"cosmic_rift"),"owned pass opens only its ground")
+ marketplace.PromptGamePassPurchaseFinished:Fire(passHolder,222,false)
+ marketplace.PromptGamePassPurchaseFinished:Fire(passHolder,999,true)
+ check(not Data.CanUseTrainingGround(passHolder,"cosmic_rift"),"cancelled or unknown purchases grant nothing")
+ marketplace.PromptGamePassPurchaseFinished:Fire(passHolder,222,true)
+ check(Data.CanUseTrainingGround(passHolder,"cosmic_rift") and Data.GetBestTrainingGround(passHolder).id=="cosmic_rift"
+  and passHolder:GetAttribute("TrainingPass_cosmic_rift")==true,"completed purchase opens the ground immediately")
+ leave(passHolder)
+ check(saved.Player_35.TrainingPasses==nil and saved.Player_35.SelectedTrainingGround==nil,"pass ownership is never saved")
+ passFailures[36] = true
+ ownedPasses["36:111"] = true
+ saved.Player_36={SchemaVersion=7,Cash=1,Power=0,Level=1,Rebirths=0,LastLogoutTime=math.floor(now)-12}
+ local lookupOutage=join(36)
+ check(Data.IsReady(lookupOutage) and not Data.CanUseTrainingGround(lookupOutage,"dragons_lair")
+  and lookupOutage:GetAttribute("OfflinePowerEarned")==30,"pass lookup outage loads safely with Rebirth grounds only")
  local offlineBase=Training.GetOfflineReward(100,7300,"basic_training")
  local simulated=Progression.Normalize({},false)
  Progression.Advance(simulated,offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths))
  check(simulated.Level==8 and simulated.Power==4000,"several hours advance multiple levels")
- offlineBase=Training.GetOfflineReward(100,100000,"expert_training")
+ offlineBase=Training.GetOfflineReward(100,100000,"enchanted_grove")
  simulated=Progression.Normalize({Rebirths=2,Level=1,Power=0},false)
  Progression.Advance(simulated,offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths))
  check(simulated.Level==30 and simulated.Power==0,"capped offline duration can reach cap but never exceed it")
- check(Data.GetTrainingGround(trainee).id=="advanced_training" and Data.GetTrainingGround(fallback).id=="basic_training","players have independent selections")
+ check(Data.GetBestTrainingGround(trainee).id=="enchanted_grove" and Data.GetBestTrainingGround(fallback).id=="basic_training"
+  and not Data.CanUseTrainingGround(fallback,"cosmic_rift"),"players have independent access")
  -- Two complete Rebirth cycles use the same public server operations as gameplay.
  local cyclist = join(100)
  cyclist.leaderstats.Cash.Value = 8000
@@ -343,7 +394,6 @@ return function(sources)
  local preservedCash = cyclist.leaderstats.Cash.Value
  for rebirths = 0, 1 do
   state = Data.GetProgression(cyclist)
-  local selected = Data.GetTrainingGround(cyclist).id
   check(state.Rebirths == rebirths and state.LevelCap == Progression.GetLevelCap(rebirths), "cycle starts at derived cap")
   check(not Data.CanRebirth(cyclist), "each cycle requires reaching its own cap")
   check(Data.GrantPower(cyclist, 1000000, "Test") and Data.CanRebirth(cyclist), "large grant reaches cycle cap")
@@ -353,7 +403,7 @@ return function(sources)
   check(state.Rebirths == rebirths + 1 and state.Level == Progression.StartingLevel
    and state.Power == Progression.StartingPower and state.LevelCap == Progression.GetLevelCap(rebirths + 1), "complete atomic cycle result")
   check(not Data.TryRebirth(cyclist), "one capped state permits only one Rebirth")
-  check(Data.GetTrainingGround(cyclist).id == selected, "valid selected ground survives Rebirth")
+  check(Data.CanUseTrainingGround(cyclist, "basic_training"), "earlier grounds stay usable after Rebirth")
   check(cyclist.leaderstats.Cash.Value == preservedCash and cyclist:GetAttribute("WorldUnlocked_world_2")
    and cyclist:GetAttribute("WorldCompleted_world_1"), "cycle preserves Cash and world progression")
   for _, category in Equipment.CategoryOrder do
@@ -361,30 +411,28 @@ return function(sources)
    check(Data.OwnsEquipment(cyclist, category, entries[1].id) and Data.OwnsEquipment(cyclist, category, entries[2].id)
     and cyclist:GetAttribute("Equipped" .. category) == entries[2].id, "cycle preserves owned and equipped equipment")
   end
-  local nextGround = Training.Grounds[rebirths + 2]
-  check(Data.SelectTrainingGround(cyclist, nextGround.id), "newly eligible ground immediately selectable")
-  local granted, tick = Data.GrantPower(cyclist, nextGround.basePower, "ActiveTraining")
-  check(granted and tick.powerGranted == nextGround.basePower * 1.5 * Progression.GetPowerMultiplier(rebirths + 1), "new ground, Bat and Rebirth multipliers compose")
+  local best = Data.GetBestTrainingGround(cyclist)
+  check(best.id == (rebirths + 1 >= 2 and "enchanted_grove" or "basic_training"), "the second ground opens at two Rebirths")
+  local granted, tick = Data.GrantPower(cyclist, best.basePower, "ActiveTraining")
+  check(granted and tick.powerGranted == best.basePower * 1.5 * Progression.GetPowerMultiplier(rebirths + 1), "ground, Bat and Rebirth multipliers compose")
  end
  leave(cyclist)
  local cycleRecord = saved.Player_100
- check(cycleRecord.Rebirths == 2 and cycleRecord.LevelCap == 30 and cycleRecord.SelectedTrainingGround == "expert_training", "two Rebirths and selected ground saved")
+ check(cycleRecord.Rebirths == 2 and cycleRecord.LevelCap == 30 and cycleRecord.SelectedTrainingGround == nil, "two Rebirths saved without a ground selection")
  check(cycleRecord.LastLogoutTime == math.floor(now) and cycleRecord.Session == nil, "Rebirth save retains offline lifecycle and releases lease")
  cyclist = join(100)
- check(Data.GetProgression(cyclist).Rebirths == 2 and Data.GetTrainingGround(cyclist).id == "expert_training"
+ check(Data.GetProgression(cyclist).Rebirths == 2 and Data.GetBestTrainingGround(cyclist).id == "enchanted_grove"
   and cyclist.leaderstats.Cash.Value == preservedCash, "multiple cycles survive rejoin")
- check(Data.GetProgression(b).Rebirths == 0 and Data.GetTrainingGround(b).id == Training.DefaultGround, "cycles do not change another player's state")
+ check(Data.GetProgression(b).Rebirths == 0 and Data.GetBestTrainingGround(b).id == Training.DefaultGround, "cycles do not change another player's state")
 
- -- Configuration may evolve after a selection; the transaction must revalidate it.
- saved.Player_101 = {SchemaVersion=5, Cash=42, Rebirths=1, Level=20, Power=0, SelectedTrainingGround="advanced_training"}
+ -- Configuration may evolve; access is re-evaluated from private state on every check.
+ saved.Player_101 = {SchemaVersion=5, Cash=42, Rebirths=2, Level=20, Power=0, SelectedTrainingGround="advanced_training"}
  local changedGround = join(101)
- local advanced = Training.Get("advanced_training")
- local previousRequirement = advanced.requiredRebirths
- advanced.requiredRebirths = 3
- check(Data.TryRebirth(changedGround), "configuration change does not break valid Rebirth")
- check(Data.GetTrainingGround(changedGround).id == Training.DefaultGround
-  and changedGround:GetAttribute("SelectedTrainingGround") == Training.DefaultGround, "invalid selection safely falls back during Rebirth")
- advanced.requiredRebirths = previousRequirement
+ local grove = Training.Get("enchanted_grove")
+ grove.requiredRebirths = 3
+ check(not Data.CanUseTrainingGround(changedGround, "enchanted_grove") and Data.GetBestTrainingGround(changedGround).id == Training.DefaultGround, "raised requirement applies immediately")
+ grove.requiredRebirths = 2
+ check(Data.CanUseTrainingGround(changedGround, "enchanted_grove"), "restored requirement applies immediately")
 
  -- Load the actual request script. The client sends intent only, with no values.
  local rebirthFn = assert(loadstring(sources.RebirthServer)) setfenv(rebirthFn, env) rebirthFn()
@@ -486,14 +534,15 @@ return function(sources)
  check(Data.GetProgression(maximum).LevelCap == Progression.GetLevelCap(Progression.MaxRebirths), "saved cap is always derived even at maximum Rebirths")
 
  -- Pure boundary arithmetic covers every ground/rate, including locked combinations.
- -- Real login fixtures separately verify that locked selections fall back before payout.
- for rebirths = 0, 2 do
-  for index, trainingGround in Training.Grounds do
+ -- Real login fixtures separately verify that offline payouts use the best usable ground.
+ for _, rebirths in {0, 2, 4, 6} do
+  for _, trainingGround in Training.Grounds do
    local label = trainingGround.id .. "/Rebirth" .. rebirths
    local multiplier = Progression.GetPowerMultiplier(rebirths)
-   check(Training.IsUnlocked(trainingGround.id, rebirths) == (rebirths >= trainingGround.requiredRebirths), "central ground eligibility " .. label)
-   local priorRate = index > 1 and Training.Grounds[index-1].basePower / Training.Grounds[index-1].interval or 0
-   check(trainingGround.basePower / trainingGround.interval > priorRate, "ground base rates increase " .. label)
+   local paid = Training.IsPaid(trainingGround)
+   check(Training.IsUnlocked(trainingGround.id, rebirths) == (not paid and rebirths >= trainingGround.requiredRebirths), "central ground eligibility " .. label)
+   check(Training.CanUse(trainingGround.id, rebirths, nil) == Training.IsUnlocked(trainingGround.id, rebirths), "no pass means Rebirth grounds only " .. label)
+   check(trainingGround.basePower == Training.BasePowerPerTick * trainingGround.powerMultiplier, "ground base Power from multiplier " .. label)
    for _, duration in {12, 3*60*60, Training.MaximumOfflineSeconds, Training.MaximumOfflineSeconds+60*60} do
     local base, seconds = Training.GetOfflineReward(nowStamp-duration, nowStamp, trainingGround.id)
     local eligibleSeconds = math.min(duration, Training.MaximumOfflineSeconds)
@@ -511,28 +560,29 @@ return function(sources)
  -- a fresh lease. These are actual PlayerData loads/grants/saves, never live DataStores.
  now = nowStamp
  local fixtureId = 200
- for rebirths = 0, 2 do
+ for _, rebirths in {0, 2, 4, 6} do
   for _, trainingGround in Training.Grounds do
    fixtureId += 1
    local key = "Player_" .. fixtureId
-   saved[key] = {SchemaVersion=5, Cash=456, Rebirths=rebirths, Level=1, Power=0,
+   saved[key] = {SchemaVersion=7, Cash=456, Rebirths=rebirths, Level=1, Power=0,
     LevelCap=999999, SelectedTrainingGround=trainingGround.id, LastLogoutTime=now-12,
     UnlockedWorlds={world_1=true, world_2=true}, CompletedWorlds={world_1=true}, OtherProgress=73}
    local fixture = join(fixtureId)
-   local validId = Training.ValidSelection(trainingGround.id, rebirths)
-   local validGround = Training.Get(validId)
-   local baseOffline = math.floor(12 * validGround.basePower / validGround.interval * Training.OfflinePowerRateMultiplier)
+   local best = Training.GetBestGround(rebirths, nil)
+   local baseOffline = math.floor(12 * best.basePower / best.interval * Training.OfflinePowerRateMultiplier)
    local expected = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
    Progression.Advance(expected, baseOffline * Progression.GetPowerMultiplier(rebirths))
    local actual = Data.GetProgression(fixture)
    check(fixture:GetAttribute("OfflinePowerEarned") == baseOffline * Progression.GetPowerMultiplier(rebirths)
-    and actual.Level == expected.Level and actual.Power == expected.Power, "actual offline login ground/Rebirth cross-product")
-   check(Data.GetTrainingGround(fixture).id == validId and actual.LevelCap == Progression.GetLevelCap(rebirths), "actual login repairs locked grounds and saved caps")
-   local granted, tick = Data.GrantPower(fixture, validGround.basePower, "ActiveTraining")
-   check(granted and tick.powerGranted == validGround.basePower * Progression.GetPowerMultiplier(rebirths), "actual active grant ground/Rebirth cross-product")
+    and fixture:GetAttribute("OfflineTrainingGround") == best.id
+    and actual.Level == expected.Level and actual.Power == expected.Power, "actual offline login uses the best ground, whatever was saved")
+   check(not Data.CanUseTrainingGround(fixture, trainingGround.id) == not Training.IsUnlocked(trainingGround.id, rebirths)
+    and actual.LevelCap == Progression.GetLevelCap(rebirths), "actual login access and repaired saved caps")
+   local granted, tick = Data.GrantPower(fixture, best.basePower, "ActiveTraining")
+   check(granted and tick.powerGranted == best.basePower * Progression.GetPowerMultiplier(rebirths), "actual active grant ground/Rebirth cross-product")
    leave(fixture)
    check(saved[key].Cash == 456 and saved[key].OtherProgress == 73 and saved[key].UnlockedWorlds.world_2
-    and saved[key].CompletedWorlds.world_1 and saved[key].SelectedTrainingGround == validId, "offline and active grants preserve unrelated fields")
+    and saved[key].CompletedWorlds.world_1 and saved[key].SelectedTrainingGround == nil, "offline and active grants preserve unrelated fields")
   end
  end
 
@@ -572,7 +622,6 @@ return function(sources)
   check(Data.PurchaseNextEquipment(cyclePlayer, category, cyclePlayer:GetAttribute("EquipmentPurchaseToken_" .. category)), "session A purchases each equipment category")
  end
  check(Data.GrantPower(cyclePlayer, 1000000, "Test") and Data.TryRebirth(cyclePlayer), "session A gains Levels and Rebirth")
- check(Data.SelectTrainingGround(cyclePlayer, "advanced_training"), "session A selects eligible ground")
  check(Data.GrantPower(cyclePlayer, 123, "Test"), "session A gains post-Rebirth Power")
  cyclePlayer:SetAttribute("WorldUnlocked_world_2", true)
  cyclePlayer:SetAttribute("WorldCompleted_world_1", true)
@@ -582,8 +631,8 @@ return function(sources)
  local secondState = Data.GetProgression(cyclePlayer)
  check(secondState.Level == firstState.Level and secondState.Power == firstState.Power
   and secondState.Rebirths == firstState.Rebirths and secondState.LevelCap == firstState.LevelCap, "session B restores all progression fields")
- check(cyclePlayer.leaderstats.Cash.Value == firstCash and Data.GetTrainingGround(cyclePlayer).id == "advanced_training"
-  and cyclePlayer:GetAttribute("WorldUnlocked_world_2") and cyclePlayer:GetAttribute("WorldCompleted_world_1"), "session B restores economy, selected ground, and worlds")
+ check(cyclePlayer.leaderstats.Cash.Value == firstCash
+  and cyclePlayer:GetAttribute("WorldUnlocked_world_2") and cyclePlayer:GetAttribute("WorldCompleted_world_1"), "session B restores economy and worlds")
  for _, category in Equipment.CategoryOrder do
   local items = Equipment.GetItems(category)
   check(Data.OwnsEquipment(cyclePlayer, category, items[1].id) and Data.OwnsEquipment(cyclePlayer, category, items[2].id)
@@ -591,15 +640,15 @@ return function(sources)
   check(Data.PurchaseNextEquipment(cyclePlayer, category, cyclePlayer:GetAttribute("EquipmentPurchaseToken_" .. category)), "session B purchases next configured item")
   check(Data.EquipEquipment(cyclePlayer, category, items[1].id), "session B re-equips starting item without losing purchases")
  end
- check(Data.GrantPower(cyclePlayer, 456, "Test") and Data.SelectTrainingGround(cyclePlayer, "basic_training"), "session B changes Power and ground")
+ check(Data.GrantPower(cyclePlayer, 456, "Test"), "session B changes Power")
  local latestState, latestCash = Data.GetProgression(cyclePlayer), cyclePlayer.leaderstats.Cash.Value
  leave(cyclePlayer)
  cyclePlayer = join(250)
  local restoredState = Data.GetProgression(cyclePlayer)
  check(restoredState.Level == latestState.Level and restoredState.Power == latestState.Power
   and restoredState.Rebirths == latestState.Rebirths and restoredState.LevelCap == latestState.LevelCap, "session C restores latest progression rather than first snapshot")
- check(cyclePlayer.leaderstats.Cash.Value == latestCash and Data.GetTrainingGround(cyclePlayer).id == "basic_training"
-  and cyclePlayer:GetAttribute("WorldUnlocked_world_2") and cyclePlayer:GetAttribute("WorldCompleted_world_1"), "session C restores latest economy/ground and preserves worlds")
+ check(cyclePlayer.leaderstats.Cash.Value == latestCash
+  and cyclePlayer:GetAttribute("WorldUnlocked_world_2") and cyclePlayer:GetAttribute("WorldCompleted_world_1"), "session C restores latest economy and preserves worlds")
  for _, category in Equipment.CategoryOrder do
   local items = Equipment.GetItems(category)
   check(Data.OwnsEquipment(cyclePlayer, category, items[2].id) and Data.OwnsEquipment(cyclePlayer, category, items[3].id)
@@ -618,7 +667,7 @@ return function(sources)
     and not Data.EquipEquipment(unavailable, category, Equipment.Categories[category].startingId), "unavailable profile cannot purchase or equip")
   end
   check(not Data.GrantPower(unavailable, 100, "Test") and not Data.TryRebirth(unavailable)
-   and not Data.SelectTrainingGround(unavailable, "basic_training"), "unavailable profile cannot progress or choose ground")
+   and not Data.CanUseTrainingGround(unavailable, "basic_training"), "unavailable profile cannot progress or train")
  end
 
  -- Schema 6 removes only retired player equipment; its physical station is unrelated.
@@ -637,7 +686,7 @@ return function(sources)
  check(not migrated:FindFirstChild("OwnedTees") and migrated:GetAttribute("EquippedTee")==nil
   and migrated:GetAttribute("EquipmentPurchaseToken_Tee")==nil, "no retired runtime state")
  check(saved.Player_300.OwnedTees==nil and saved.Player_300.EquippedTee==nil
-  and saved.Player_300.SchemaVersion==6, "atomic migration discards even malformed Tee fields")
+  and saved.Player_300.SchemaVersion==8, "atomic migration discards even malformed Tee fields")
  check(not Data.PurchaseNextEquipment(migrated,"Tee","fake")
   and not Data.EquipEquipment(migrated,"Tee","basic_tee"), "removed category operations rejected")
  local migratedCash=migrated.leaderstats.Cash.Value
@@ -649,7 +698,7 @@ return function(sources)
  leave(migrated)
  check(saved.Player_300.OwnedTees==nil and saved.Player_300.EquippedTee==nil
   and saved.Player_300.OtherProgress==123 and saved.Player_300.UnlockedWorlds.world_2
-  and saved.Player_300.SelectedTrainingGround=="advanced_training", "save retains valid unrelated fields")
+  and saved.Player_300.SelectedTrainingGround==nil, "save retains valid unrelated fields and drops the retired selection")
  migrated=join(300)
  check(migrated:GetAttribute("EquippedBat")=="metal_bat" and migrated:GetAttribute("EquippedBall")=="practice_ball"
   and Data.OwnsEquipment(migrated,"Bat","wood_bat"), "schema 6 rejoin preserves Bat/Ball equipment")
@@ -663,7 +712,7 @@ return function(sources)
     OwnedBats={wood_bat=true,[entry.id]=true},EquippedBat=entry.id,
     SelectedTrainingGround="basic_training",LastLogoutTime=math.floor(now)-12}
    local fixture=join(fixtureId)
-   check(fixture:GetAttribute("OfflinePowerEarned")==30*entry.gain*(rebirths+1),
+   check(fixture:GetAttribute("OfflinePowerEarned")==30*Training.GetBestGround(rebirths).powerMultiplier*entry.gain*(rebirths+1),
     "offline bonus uses saved Bat and Rebirth exactly once")
    local trainingOk,tick=Data.GrantPower(fixture,20,"ActiveTraining")
    check(trainingOk and tick.powerGranted==20*entry.gain*(rebirths+1), "active Training composes Bat and Rebirth")
@@ -690,6 +739,40 @@ return function(sources)
  check(not Data.GrantPower(migrated,20,"CompletedHit","carbon_bat"),"unowned snapshot rejected")
  check(Progression.GetPowerGrant(3,1,1.5)==9 and Progression.GetPowerGrant(1,0,1.5)==1,
   "whole Power rounds only after composing bonuses")
+ -- Juice (Schema 7): server-granted consumables with online-only timers.
+ local juicer = join(400)
+ check(juicer.OwnedJuices and juicer.ActiveJuices and next(juicer.OwnedJuices:GetAttributes()) == nil, "new players start with no juice")
+ check(Data.GetJuiceMultiplier(juicer, "Power") == 1 and Data.GetJuiceMultiplier(juicer, "Cash") == 1, "no juice means no bonus")
+ check(not Data.UseJuice(juicer, "test_power"), "cannot drink juice you do not own")
+ check(not Data.GrantJuice(juicer, "fake_juice", 1, "Test") and not Data.GrantJuice(juicer, "test_power", 0, "Test")
+  and not Data.GrantJuice(juicer, "test_power", 1.5, "Test"), "invalid juice grants rejected")
+ check(Data.GrantJuice(juicer, "test_power", 2, "Test") and juicer.OwnedJuices:GetAttribute("test_power") == 2, "server grant adds juice")
+ local baseGrant = select(2, Data.GrantPower(juicer, 10, "Test")).powerGranted
+ check(Data.UseJuice(juicer, "test_power") and juicer.OwnedJuices:GetAttribute("test_power") == 1
+  and juicer.ActiveJuices:GetAttribute("test_power") == 60, "drinking consumes one and starts its timer")
+ check(Data.GetJuiceMultiplier(juicer, "Power") == 2 and Data.GetJuiceMultiplier(juicer, "Cash") == 1, "juice affects only its own effect")
+ check(select(2, Data.GrantPower(juicer, 10, "Test")).powerGranted == baseGrant * 2, "Power juice doubles online Power grants")
+ check(Data.UseJuice(juicer, "test_power") and juicer.ActiveJuices:GetAttribute("test_power") == 120
+  and juicer.OwnedJuices:GetAttribute("test_power") == nil, "drinking an active juice extends it")
+ Data.TickJuices(30)
+ check(juicer.ActiveJuices:GetAttribute("test_power") == 90, "timers count down")
+ leave(juicer)
+ check(saved.Player_400.SchemaVersion == 8 and saved.Player_400.ActiveJuices.test_power == 90
+  and saved.Player_400.OwnedJuices.test_power == nil, "juice state saves")
+ now += 600
+ local returning = join(400)
+ check(returning.ActiveJuices:GetAttribute("test_power") == 90, "timers pause while offline")
+ Data.TickJuices(95)
+ check(returning.ActiveJuices:GetAttribute("test_power") == nil and Data.GetJuiceMultiplier(returning, "Power") == 1, "expired juice ends its bonus")
+ leave(returning)
+ saved.Player_401 = {SchemaVersion = 7, Cash = 5, OwnedJuices = "corrupt"}
+ local corrupt = join(401)
+ check(not Data.IsReady(corrupt) and saved.Player_401.OwnedJuices == "corrupt", "malformed juice data fails closed")
+ saved.Player_402 = {SchemaVersion = 7, Cash = 5, OwnedJuices = {test_cash = 3, removed_juice = 4, test_power = -1}, ActiveJuices = {test_cash = 12.5}}
+ local cleaned = join(402)
+ check(Data.IsReady(cleaned) and cleaned.OwnedJuices:GetAttribute("test_cash") == 3 and cleaned.OwnedJuices:GetAttribute("removed_juice") == nil
+  and cleaned.OwnedJuices:GetAttribute("test_power") == nil and cleaned.ActiveJuices:GetAttribute("test_cash") == nil, "unknown or invalid juice entries are dropped")
+ leave(cleaned)
  local expiring = join(251)
  expiring.leaderstats.Cash.Value = 1000
  local expiredOffer = expiring:GetAttribute("EquipmentPurchaseToken_Bat")
@@ -697,7 +780,7 @@ return function(sources)
  check(not Data.IsReady(expiring), "expired session lease immediately blocks gameplay")
  check(not Data.PurchaseNextEquipment(expiring, "Bat", expiredOffer)
   and not Data.EquipEquipment(expiring, "Bat", "wood_bat") and not Data.GrantPower(expiring, 50, "Test")
-  and not Data.TryRebirth(expiring) and not Data.SelectTrainingGround(expiring, "basic_training"), "expired lease cannot mutate progression through public operations")
+  and not Data.TryRebirth(expiring) and not Data.CanUseTrainingGround(expiring, "basic_training"), "expired lease cannot mutate progression through public operations")
  local recordBeforeExpiredClose = copy(saved.Player_251)
  leave(expiring)
  check(saved.Player_251.Cash == recordBeforeExpiredClose.Cash and expiring.KickReason ~= nil

@@ -2,14 +2,16 @@
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
+local Marketplace = game:GetService("MarketplaceService")
 local Equipment = require(game:GetService("ReplicatedStorage"):WaitForChild("EquipmentConfig"))
 
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local Progression = require(game.ReplicatedStorage:WaitForChild("ProgressionConfig"))
 local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
+local Juice = require(game.ReplicatedStorage:WaitForChild("JuiceConfig"))
 
 local STORE_NAME = "PlayerProgression"
-local SCHEMA_VERSION = 6
+local SCHEMA_VERSION = 8
 local AUTOSAVE_SECONDS = 60
 local IMPORTANT_SAVE_SECONDS = 5 -- Rebirth joins the existing serialized save loop.
 local LEASE_SECONDS = 180
@@ -44,7 +46,8 @@ local function validate(record)
  -- Schema 6 retires player Tee equipment; malformed legacy fields are harmless.
  data.OwnedTees, data.EquippedTee = nil, nil
  for field, value in Progression.Normalize(record, (version or 1) < 4) do data[field] = value end
- data.SelectedTrainingGround = Training.ValidSelection(data.SelectedTrainingGround, data.Rebirths)
+ -- Schema 8: Training Grounds are physical cages, so no ground selection is saved.
+ data.SelectedTrainingGround = nil
  -- Old schemas cannot manufacture historical offline rewards.
  if (version or 1) < 5 then data.LastLogoutTime = nil end
  if data.Cash == nil then
@@ -72,6 +75,11 @@ local function validate(record)
    if Worlds.Get(id) and owned == true then data[field][id] = true end
   end
  end
+ -- Schema 7 adds Juice (owned counts and remaining seconds of active juices). Older saves
+ -- have none; a malformed field fails closed like other progression.
+ local ownedJuices, activeJuices = Juice.Sanitize(data.OwnedJuices, data.ActiveJuices)
+ if not ownedJuices then return nil, "invalid Juice data" end
+ data.OwnedJuices, data.ActiveJuices = ownedJuices, activeJuices
  data.UnlockedWorlds[Worlds.StartingWorldId] = true
  -- A recorded completion always implies ownership of that world and its next one.
  for _, world in Worlds.Worlds do
@@ -127,7 +135,8 @@ function PlayerData.GetProgression(player)
 end
 
 -- Single grant path, also used on the private save snapshot during atomic login.
-local function grantProgression(state, baseAmount, source, batId)
+-- boost is the active Juice Power multiplier (online grants only; offline passes none).
+local function grantProgression(state, baseAmount, source, batId, boost)
  if not Progression.IsInteger(baseAmount, 0, Progression.MaxBaseGrant)
   or type(source) ~= "string" or #source == 0 or #source > 64 then
   return false, "Invalid Power grant."
@@ -136,7 +145,7 @@ local function grantProgression(state, baseAmount, source, batId)
  if not bat then return false, "Invalid Bat for Power grant." end
  local oldLevel = state.Level
  local amount = state.Level < state.LevelCap
-  and Progression.GetPowerGrant(baseAmount, state.Rebirths, bat.powerGainMultiplier) or 0
+  and Progression.GetPowerGrant(baseAmount, state.Rebirths, bat.powerGainMultiplier, boost) or 0
  Progression.Advance(state, amount)
  return true, {powerGranted = amount, oldLevel = oldLevel, newLevel = state.Level, source = source}
 end
@@ -146,33 +155,146 @@ function PlayerData.GrantPower(player, baseAmount, source, hitBatId)
  -- The optional ID is a server-created hit snapshot, never a client multiplier.
  local batId = hitBatId or player:GetAttribute("EquippedBat")
  if not PlayerData.OwnsEquipment(player, "Bat", batId) then return false, "Invalid equipped Bat." end
- local state = sessions[player].progression
- local ok, result = grantProgression(state, baseAmount, source, batId)
+ local session = sessions[player]
+ local state = session.progression
+ local boost = Juice.GetMultiplier(session.juices.active, "Power")
+ local ok, result = grantProgression(state, baseAmount, source, batId, boost)
  if ok then publishProgression(player, state) end
  return ok, result
 end
 
-function PlayerData.GetTrainingGround(player)
- if not PlayerData.IsReady(player) then return nil end
- local session = sessions[player]
- local id = session.selectedTrainingGround
- if not Training.IsUnlocked(id, session.progression.Rebirths) then return nil end
- return Training.Get(id)
+-- Juice ---------------------------------------------------------------------------
+-- Display copies for the client: OwnedJuices (id -> count) and ActiveJuices (id ->
+-- whole seconds left). Gameplay reads the private session state.
+local function publishJuices(player, session)
+ for _, entry in {{"OwnedJuices", session.juices.owned}, {"ActiveJuices", session.juices.active}} do
+  local folder = player:FindFirstChild(entry[1])
+  if not folder then
+   folder = Instance.new("Folder")
+   folder.Name, folder.Parent = entry[1], player
+  end
+  for id in folder:GetAttributes() do
+   if entry[2][id] == nil then folder:SetAttribute(id, nil) end
+  end
+  for id, value in entry[2] do folder:SetAttribute(id, math.ceil(value)) end
+ end
 end
 
-function PlayerData.SelectTrainingGround(player, id)
+local function scheduleImportantSave(session)
+ session.importantSavePending = true
+ session.nextSave = math.min(session.nextSave, os.clock() + IMPORTANT_SAVE_SECONDS)
+end
+
+-- Combined multiplier of the player's active juices for one effect ("Power" or "Cash").
+function PlayerData.GetJuiceMultiplier(player, effect)
+ if not PlayerData.IsReady(player) then return 1 end
+ return Juice.GetMultiplier(sessions[player].juices.active, effect)
+end
+
+-- Server-only: gives juice (for future rewards, shop items, or codes). Never a client input.
+function PlayerData.GrantJuice(player, id, count, source)
  if not PlayerData.IsReady(player) then return false, "Player data is not ready." end
- if player:GetAttribute("TrainingActive") or player:GetAttribute("BattingActive") or player:GetAttribute("HitActive") then
-  return false, "Leave training or batting before selecting a ground."
+ local definition = Juice.Get(id)
+ if not definition then return false, "Unknown juice." end
+ if not Progression.IsInteger(count, 1, Juice.MaxOwned) or type(source) ~= "string" or #source == 0 then
+  return false, "Invalid juice grant."
  end
+ local session = sessions[player]
+ local total = (session.juices.owned[id] or 0) + count
+ if total > Juice.MaxOwned then return false, "You can't hold any more " .. definition.displayName .. "." end
+ session.juices.owned[id] = total
+ scheduleImportantSave(session)
+ publishJuices(player, session)
+ return true, "+" .. count .. " " .. definition.displayName
+end
+
+-- Drinks one juice. Using a juice that is already active adds its duration (capped).
+function PlayerData.UseJuice(player, id)
+ if not PlayerData.IsReady(player) then return false, "Your data is not ready. Please wait." end
+ local definition = Juice.Get(id)
+ if not definition then return false, "Unknown juice." end
+ local session = sessions[player]
+ local owned = session.juices.owned[id] or 0
+ if owned < 1 then return false, "You don't have any " .. definition.displayName .. "." end
+ local remaining = session.juices.active[id] or 0
+ if remaining + definition.durationSeconds > Juice.MaxActiveSeconds then
+  return false, definition.displayName .. " is already at its maximum time."
+ end
+ session.juices.owned[id] = owned > 1 and owned - 1 or nil
+ session.juices.active[id] = remaining + definition.durationSeconds
+ scheduleImportantSave(session)
+ publishJuices(player, session)
+ return true, string.format("%s active! %sx %s", definition.displayName,
+  string.format("%g", definition.multiplier), Juice.Effects[definition.effect].description)
+end
+
+-- Counts active juices down. Timers only run while the player is in the game.
+function PlayerData.TickJuices(seconds)
+ if type(seconds) ~= "number" or seconds ~= seconds or seconds <= 0 or seconds == math.huge then return end
+ for player, session in sessions do
+  if session.loaded and not session.closing and not session.failed and next(session.juices.active) then
+   for id, remaining in session.juices.active do
+    session.juices.active[id] = remaining - seconds > 0 and remaining - seconds or nil
+   end
+   publishJuices(player, session)
+  end
+ end
+end
+
+-- Training Grounds ------------------------------------------------------------------
+-- Paid grounds are Roblox game passes. Roblox is the source of truth, so ownership is
+-- checked at login and on purchase, never saved and never taken from the client.
+local function fetchTrainingPasses(player)
+ local passes = {}
+ for _, ground in Training.Grounds do
+  if Training.IsPaid(ground) and ground.gamePassId > 0 then
+   local ok, owned = pcall(Marketplace.UserOwnsGamePassAsync, Marketplace, player.UserId, ground.gamePassId)
+   if ok and owned == true then passes[ground.id] = true end
+  end
+ end
+ return passes
+end
+
+local function publishTrainingPasses(player, session)
+ for _, ground in Training.Grounds do
+  if Training.IsPaid(ground) then
+   player:SetAttribute("TrainingPass_" .. ground.id, session.trainingPasses[ground.id] == true)
+  end
+ end
+end
+
+-- Returns the ground when this player may train there, otherwise nil and a reason.
+function PlayerData.CanUseTrainingGround(player, id)
+ if not PlayerData.IsReady(player) then return nil, "Player data is not ready." end
  local ground = type(id) == "string" and Training.Get(id)
- if not ground then return false, "Unknown Training Ground." end
- if not Training.IsUnlocked(id, sessions[player].progression.Rebirths) then
-  return false, string.format("Requires %d Rebirths.", ground.requiredRebirths)
+ if not ground then return nil, "Unknown Training Ground." end
+ local session = sessions[player]
+ if Training.CanUse(id, session.progression.Rebirths, session.trainingPasses) then return ground end
+ if Training.IsPaid(ground) then
+  return nil, string.format("%s is unlocked with a %d Robux pass.", ground.displayName, ground.robuxPrice)
  end
- sessions[player].selectedTrainingGround = id
- player:SetAttribute("SelectedTrainingGround", id)
- return true, "Selected " .. ground.displayName .. "."
+ return nil, string.format("%s requires %d Rebirths.", ground.displayName, ground.requiredRebirths)
+end
+
+function PlayerData.GetBestTrainingGround(player)
+ if not PlayerData.IsReady(player) then return nil end
+ local session = sessions[player]
+ return Training.GetBestGround(session.progression.Rebirths, session.trainingPasses)
+end
+
+function PlayerData.OwnsTrainingPass(player, id)
+ return PlayerData.IsReady(player) and sessions[player].trainingPasses[id] == true
+end
+
+-- Re-checks Roblox, e.g. for a pass bought on the website mid-session. Yields; passes are
+-- only ever added here, so a failed lookup cannot take one away.
+function PlayerData.RefreshTrainingPasses(player)
+ if not PlayerData.IsReady(player) then return end
+ local passes = fetchTrainingPasses(player)
+ local session = sessions[player]
+ if not session or not session.loaded then return end
+ for id in passes do session.trainingPasses[id] = true end
+ publishTrainingPasses(player, session)
 end
 
 function PlayerData.CanRebirth(player)
@@ -197,12 +319,10 @@ function PlayerData.TryRebirth(player)
  state.Rebirths += 1
  state.Level, state.Power = Progression.StartingLevel, Progression.StartingPower
  state.LevelCap = Progression.GetLevelCap(state.Rebirths)
- local selected = Training.ValidSelection(session.selectedTrainingGround, state.Rebirths)
  -- No yields: validate first, then commit the complete private state and its display copies.
- session.progression, session.selectedTrainingGround = state, selected
+ session.progression = state
  session.importantSavePending = true
  session.nextSave = math.min(session.nextSave, os.clock() + IMPORTANT_SAVE_SECONDS)
- player:SetAttribute("SelectedTrainingGround", selected)
  publishProgression(player, state)
  return true, string.format("REBIRTH COMPLETE\nRebirths: %d | Rebirth Power: %dx | Level Cap: %d",
   state.Rebirths, Progression.GetPowerMultiplier(state.Rebirths), state.LevelCap)
@@ -277,7 +397,6 @@ local function snapshot(player)
  local cash = stats and stats:FindFirstChild("Cash")
  if not cash or not cash:IsA("IntValue") or not validCash(cash.Value) then return nil end
  local data = {SchemaVersion = SCHEMA_VERSION, Cash = cash.Value}
- data.SelectedTrainingGround = session.selectedTrainingGround
  for field, value in session.progression do data[field] = value end
  for _, category in CATEGORIES do
   local field = "Equipped" .. category
@@ -292,6 +411,9 @@ local function snapshot(player)
   data[definition.ownedField] = table.clone(owned)
   data[field] = id
  end
+ data.OwnedJuices = table.clone(session.juices.owned)
+ data.ActiveJuices = {}
+ for id, remaining in session.juices.active do data.ActiveJuices[id] = math.ceil(remaining) end
  data.UnlockedWorlds, data.CompletedWorlds = {}, {}
  for _, world in Worlds.Worlds do
   if player:GetAttribute("WorldUnlocked_" .. world.id) == true then data.UnlockedWorlds[world.id] = true end
@@ -321,7 +443,7 @@ local function save(player, session, release)
    return nil
   end
   local updated = table.clone(current)
-  updated.OwnedTees, updated.EquippedTee = nil, nil
+  updated.OwnedTees, updated.EquippedTee, updated.SelectedTrainingGround = nil, nil, nil
   for field, value in data do updated[field] = value end
   -- Autosave is also a crash checkpoint; normal exit uses the actual close time.
   updated.LastLogoutTime = release and session.logoutTime or os.time()
@@ -373,7 +495,10 @@ local function loadPlayer(player)
  player:SetAttribute("DataLoadState", "Loading")
  local rejection, repairs
  local newRecord = false
- local offlineResult, offlineSeconds
+ local offlineResult, offlineSeconds, offlineGround
+ -- Pass ownership is needed before the atomic login: offline Training uses the best
+ -- ground the player can use, including paid ones.
+ local passes = fetchTrainingPasses(player)
  local ok, record = update(session, function(current)
   rejection = nil
   if session.closing or shuttingDown then return nil end
@@ -395,7 +520,8 @@ local function loadPlayer(player)
   -- Remember NEW across retries of our own successful claim.
   newRecord = current == nil or (owns(current, session) and newRecord)
   if not owns(current, session) then
-   local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), data.SelectedTrainingGround)
+   offlineGround = Training.GetBestGround(data.Rebirths, passes).id
+   local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), offlineGround)
    local progression = Progression.Normalize(data, false)
    local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBat)
    if not granted then rejection = "invalid offline reward configuration" return nil end
@@ -418,11 +544,14 @@ local function loadPlayer(player)
  end
  session.expiresAt = record.Session.ExpiresAt
  session.progression = Progression.Normalize(record, false)
- session.selectedTrainingGround = record.SelectedTrainingGround
- player:SetAttribute("SelectedTrainingGround", session.selectedTrainingGround)
+ session.trainingPasses = passes
+ publishTrainingPasses(player, session)
+ session.juices = {owned = table.clone(record.OwnedJuices), active = table.clone(record.ActiveJuices)}
+ publishJuices(player, session)
  player:SetAttribute("OfflinePowerEarned", offlineResult and offlineResult.powerGranted or 0)
  player:SetAttribute("OfflineSeconds", offlineSeconds or 0)
- player:SetAttribute("OfflineTrainingGround", session.selectedTrainingGround)
+ player:SetAttribute("OfflineTrainingGround",
+  offlineGround or Training.GetBestGround(session.progression.Rebirths, passes).id)
  player:SetAttribute("OfflineOldLevel", offlineResult and offlineResult.oldLevel or session.progression.Level)
  player:SetAttribute("OfflineNewLevel", offlineResult and offlineResult.newLevel or session.progression.Level)
  publishProgression(player, session.progression)
@@ -477,6 +606,17 @@ function PlayerData.Start()
   if session then close(player, session) end
  end)
  for _, player in Players:GetPlayers() do task.spawn(loadPlayer, player) end
+ -- This event fires on the server with Roblox's purchase result, so it can be trusted.
+ Marketplace.PromptGamePassPurchaseFinished:Connect(function(player, gamePassId, purchased)
+  local session = sessions[player]
+  if not purchased or not session or not session.loaded then return end
+  for _, ground in Training.Grounds do
+   if Training.IsPaid(ground) and ground.gamePassId > 0 and ground.gamePassId == gamePassId then
+    session.trainingPasses[ground.id] = true
+    publishTrainingPasses(player, session)
+   end
+  end
+ end)
  task.spawn(function()
   while not shuttingDown do
    task.wait(5)
@@ -490,6 +630,16 @@ function PlayerData.Start()
      end
     end
    end
+  end
+ end)
+ -- Juice timers tick by real elapsed time, once per second.
+ task.spawn(function()
+  local last = os.clock()
+  while not shuttingDown do
+   task.wait(1)
+   local current = os.clock()
+   PlayerData.TickJuices(current - last)
+   last = current
   end
  end)
  game:BindToClose(function()
