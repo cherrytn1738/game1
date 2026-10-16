@@ -4,6 +4,7 @@ local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 local RunwayDecor = require(script.Parent:WaitForChild("RunwayDecor"))
 local TrainingStadium = require(script.Parent:WaitForChild("TrainingStadium"))
+local ItemDisplay = require(script.Parent:WaitForChild("ItemDisplay"))
 local Builder = {}
 
 local function buildHub(world, area)
@@ -95,6 +96,10 @@ local function buildHub(world, area)
     slot.Parent = pad
    end
   end
+ end
+ ItemDisplay.PublishBallModels()
+ for _, display in config.displays or {} do
+  ItemDisplay.Build(hub, frame, display, world.id)
  end
  if world.id == Worlds.StartingWorldId then
   -- The single stadium from before the row of physical grounds is retired.

@@ -246,7 +246,8 @@ local function refresh()
    touchGui.Enabled, savedTouchEnabled = savedTouchEnabled, nil
   end
  end
- wallet.Visible = not Interfaces.IsOpen()
+ -- Hidden while a hit is in flight to keep the cinematic view clear.
+ wallet.Visible = not Interfaces.IsOpen() and not playing
  progression.Visible = not Interfaces.IsOpen() and not Player:GetAttribute("TrainingActive") and not batting and not playing
  battingShortcut.Visible = progression.Visible and ready and alive == true and Interfaces.CanOpen()
  UI.SetButton(battingShortcut,"BATTING",Interfaces.CanOpen(),true)

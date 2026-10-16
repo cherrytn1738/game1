@@ -92,7 +92,7 @@ return function(sources)
    check((ball.AssemblyLinearVelocity-velocity).Magnitude<.00001,"all Bat/Ball combinations produce identical Level-based velocity")
    check(result.launchSpeed==115 and result.launchAngleDegrees==38,"launch strength and loft remain Level-based")
    -- Change the display selection after acceptance; the reward must use the snapshot.
-   player:SetAttribute("EquippedBat",bat.id=="wood_bat" and "carbon_bat" or "wood_bat")
+   player:SetAttribute("EquippedBat",bat.id=="wood_bat" and "amethyst_bat" or "wood_bat")
    ball.CFrame=CFrame.new(0,.5,-100)
    ball.AssemblyLinearVelocity,ball.AssemblyAngularVelocity=Vector3.zero,Vector3.zero
    local count,cash=#grants,player.leaderstats.Cash.Value
@@ -101,7 +101,7 @@ return function(sources)
    check(player.leaderstats.Cash.Value-cash==math.floor(100*ballItem.rewardMultiplier),"Cash uses only Ball and field multiplier")
    check(#grants==count+1 and grants[#grants].batId==bat.id and grants[#grants].source=="CompletedHit",
     "completed hit grants Power once with accepted Bat snapshot")
-   check(result.distanceResult.powerEarned==2*bat.powerGainMultiplier*2,"hit reward includes Bat and Rebirth exactly once")
+   check(result.distanceResult.powerEarned==math.floor(2*bat.powerGainMultiplier*2),"hit reward includes Bat and Rebirth exactly once (whole Power)")
    heartbeat:Fire(10)
    Launcher.CancelPlayer(player)
    check(#grants==count+1 and player.leaderstats.Cash.Value-cash==math.floor(100*ballItem.rewardMultiplier),"reset and extra samples never duplicate rewards")
@@ -149,7 +149,7 @@ return function(sources)
  check(Launcher.SpeedUp(player,1),"owner may speed up live hit")
  check((ball.AssemblyLinearVelocity-normalVelocity*2).Magnitude<.00001,"velocity doubles")
  local force=created[#created]
- check(force.ClassName=="VectorForce" and math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*3)<.0001,
+ check(force.ClassName=="VectorForce" and math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*((2*Field.HitTimeScale)^2-1))<.0001,
   "extra gravity scales total acceleration by four without changing workspace gravity")
  check(player:GetAttribute("BallFlightSpeed")==2,"speed replicated for UI")
  for _=1,3 do
@@ -158,7 +158,7 @@ return function(sources)
  end
  check((ball.AssemblyLinearVelocity-normalVelocity*2).Magnitude<.00001 and player:GetAttribute("BallFlightSpeed")==2,
   "rejected requests never compound or restore velocity")
- check(math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*3)<.0001,"rejected requests leave the 2x gravity unchanged")
+ check(math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*((2*Field.HitTimeScale)^2-1))<.0001,"rejected requests leave the 2x gravity unchanged")
  check(result.launchSpeed==115,"speedup does not change Level launch strength")
  ball.CFrame=CFrame.new(0,.5,-100)
  ball.AssemblyLinearVelocity,ball.AssemblyAngularVelocity=Vector3.zero,Vector3.zero

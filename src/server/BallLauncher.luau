@@ -66,7 +66,7 @@ function BallLauncher.SpeedUp(player, session)
  if player.Character ~= hit.character or not humanoid or humanoid.Health <= 0 then return false end
  -- One-way per hit: repeated on/off switching measurably changed final distance
  -- in playtests, so 2x stays on until this hit finishes.
- if hit.speed ~= 1 then return false end
+ if hit.speed ~= Field.HitTimeScale then return false end
  -- Time scaling: velocity scales by 2, acceleration by 4. Scaling only velocity
  -- would turn this convenience action into a large distance/power upgrade.
  -- The airborne arc is preserved approximately; Roblox collision/rolling
@@ -76,7 +76,7 @@ function BallLauncher.SpeedUp(player, session)
  ball.AssemblyAngularVelocity *= FLIGHT_SPEEDUP
  local gravity = Vector3.yAxis * ball.AssemblyMass * Workspace.Gravity
  hit.force.Force = hit.force.Force * FLIGHT_SPEEDUP^2 - gravity * (FLIGHT_SPEEDUP^2 - 1)
- hit.speed = FLIGHT_SPEEDUP
+ hit.speed = Field.HitTimeScale * FLIGHT_SPEEDUP
  player:SetAttribute("BallFlightSpeed", FLIGHT_SPEEDUP)
  return true
 end
@@ -103,7 +103,9 @@ local function launch(station, hit)
  ball.CFrame = originFrame
  ball.Anchored = false
  ball:SetNetworkOwner(nil)
- ball.AssemblyLinearVelocity = forward * (result.launchSpeed * math.cos(loft)) + Vector3.yAxis * (result.launchSpeed * math.sin(loft))
+ -- Played at HitTimeScale: velocity x s here; gravity and rolling friction x s^2 in tracking.
+ local timeScale = Field.HitTimeScale
+ ball.AssemblyLinearVelocity = (forward * (result.launchSpeed * math.cos(loft)) + Vector3.yAxis * (result.launchSpeed * math.sin(loft))) * timeScale
  ball.AssemblyAngularVelocity = Vector3.zero
  ball:SetAttribute("BallState", "InFlight")
  ball:SetAttribute("LaunchLevel", result.launchLevel)
@@ -123,9 +125,9 @@ local function launch(station, hit)
  hit.force.Attachment0 = hit.attachment
  hit.force.ApplyAtCenterOfMass = true
  hit.force.RelativeTo = Enum.ActuatorRelativeTo.World
- hit.force.Force = Vector3.zero
+ hit.force.Force = -Vector3.yAxis * ball.AssemblyMass * Workspace.Gravity * (timeScale^2 - 1)
  hit.force.Parent = ball
- hit.speed = 1
+ hit.speed = timeScale
  -- Only publish the speed when 2x is available; the HUD shows its button from this.
  if Field.FlightSpeedUpEnabled then player:SetAttribute("BallFlightSpeed", 1) end
 
@@ -233,17 +235,6 @@ local function launch(station, hit)
   local grounded = section ~= nil and contact ~= nil
   if ball:GetAttribute("CurrentSectionId") ~= (section and section.id) then ball:SetAttribute("CurrentSectionId", section and section.id) end
   local horizontal = Vector3.new(velocity.X, 0, velocity.Z)
-  -- Fast-forward the roll: once the ball has landed and is rolling, it runs at
-  -- RollTimeScale (velocity x s, accelerations x s^2), covering the same ground in 1/s of
-  -- the time. The airborne flight stays at normal speed, so its arc is unchanged.
-  if grounded and speed == 1 and firstGroundDistance and Field.RollTimeScale > 1
-   and math.abs(velocity.Y) < 2 and horizontal.Magnitude > Field.StopLinearSpeed then
-   speed = Field.RollTimeScale
-   hit.speed = speed
-   ball.AssemblyLinearVelocity *= speed
-   ball.AssemblyAngularVelocity *= speed
-   velocity, horizontal = ball.AssemblyLinearVelocity, horizontal * speed
-  end
   local force = -Vector3.yAxis * ball.AssemblyMass * Workspace.Gravity * (speed^2 - 1)
   if grounded and math.abs(velocity.Y) < 2 * speed and horizontal.Magnitude > 0.01 then
    local acceleration = math.min(Field.RollingDeceleration * speed^2, horizontal.Magnitude / math.max(dt, 1/240) * 0.5)
@@ -264,6 +255,14 @@ local function launch(station, hit)
   player.Name, world.id, result.launchLevel, result.launchAngleDegrees, result.launchSpeed))
 end
 
+-- Seconds after an accepted swing before the launch, so the ball visibly leaves the tee at
+-- the animation's contact on the batter's screen (see Swing.LaunchVisualLead).
+local function launchDelay(player)
+ local ok, ping = pcall(function() return player:GetNetworkPing() end)
+ ping = ok and type(ping) == "number" and math.clamp(ping, 0, 0.5) or 0
+ return math.max(Swing.MinimumLaunchDelay, Swing.ContactTime - Swing.LaunchVisualLead - ping)
+end
+
 function BallLauncher.TryLaunch(player, result, tool)
  local station = stations[result.worldId]
  if not station or station.hit or not PlayerData.IsReady(player)
@@ -274,7 +273,7 @@ function BallLauncher.TryLaunch(player, result, tool)
  player:SetAttribute("HitActive", true)
  player:SetAttribute("BallFlightSpeed", nil)
  station.ball:SetAttribute("BallState", "Reserved")
- task.delay(Swing.ContactTime, launch, station, hit)
+ task.delay(launchDelay(player), launch, station, hit)
  return true
 end
 

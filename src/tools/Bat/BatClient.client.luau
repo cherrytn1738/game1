@@ -23,6 +23,10 @@ local poses = {
 		hips = -6, chest = -10, weight = .02, crouch = -.14, lean = 4, sideBend = 0, lift = 0, pivot = 0, heel = 0},
 	Load = {hands = Vector3.new(.88, .96, -.40), yaw = -55, loft = 56,
 		hips = -15, chest = -18, weight = .13, crouch = -.19, lean = 5, sideBend = -2, lift = .10, pivot = 0, heel = 0},
+	-- Windup: hands and barrel cock a little further back and up, the torso coils, and the
+	-- lead knee lifts slightly before the stride plants.
+	Windup = {hands = Vector3.new(.95, 1.02, -.32), yaw = -64, loft = 60,
+		hips = -21, chest = -24, weight = .17, crouch = -.21, lean = 5, sideBend = -3, lift = .14, pivot = 0, heel = 0},
 	Plant = {hands = Vector3.new(.89, .95, -.42), yaw = -52, loft = 52,
 		hips = -12, chest = -24, weight = .06, crouch = -.20, lean = 6, sideBend = -2, lift = 0, pivot = 0, heel = 0},
 	Turn = {hands = Vector3.new(.71, .92, -.48), yaw = -32, loft = 40,
@@ -309,6 +313,8 @@ table.insert(lifetimeConnections, Tool.Activated:Connect(function()
 	nextInputTime = os.clock() + Swing.Duration
 	BattingRemote:FireServer(session)
 	playSwing()
+	-- Real swings only (not Training practice): starts the swing cinematic and camera zoom.
+	marker:Fire("SwingStart")
 end))
 
 -- Client-local presentation only; it never sends a real swing or grants Power.

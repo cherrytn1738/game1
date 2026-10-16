@@ -8,12 +8,32 @@ local Player = Players.LocalPlayer
 
 local Remote = ReplicatedStorage:WaitForChild("BattingTiming")
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
+local Swing = require(ReplicatedStorage:WaitForChild("SwingConfig"))
 
 
 -- Legacy filename retained for Rojo. This script now handles camera and leaving only.
 local CAMERA_DISTANCE_BEHIND = 12
 local CAMERA_HEIGHT = 3
 local BATTING_CAMERA_FOV = 55
+-- Cinematic launch: the view widens as the ball leaves the bat, with a short decaying shake.
+local FLIGHT_CAMERA_FOV = 70
+local FLIGHT_FOV_SECONDS = 0.8
+local SHAKE_SECONDS = 0.35
+local SHAKE_RADIANS = 0.03
+-- The flight camera waits until the rendered ball has moved this far off the tee: the
+-- InFlight attribute arrives before the ball's (smoothed) physics movement is drawn.
+local LEAVE_DISTANCE = 0.5
+-- Swing zoom: from the click, the view narrows through the backswing (Load and Windup) and
+-- holds until the ball leaves the tee, when the flight widening takes over from there. If no
+-- launch follows (the swing was refused), it eases back out.
+local SWING_ZOOM_FOV = 46
+local BACKSWING_SECONDS = 0
+for _, phase in Swing.Phases do
+ BACKSWING_SECONDS += phase.duration
+ if phase.name == "Windup" then break end
+end
+local SWING_ZOOM_HOLD_SECONDS = Swing.Duration + 0.6
+local SWING_ZOOM_RELEASE_SECONDS = 0.3
 
 local battingArea, batterPosition, tee, stem, ball, hitDirection
 local boundWorldId
@@ -31,6 +51,24 @@ local savedFieldOfView
 local flightCameraActive = false
 local flightCameraOffset
 local flightCameraRotation
+local flightStartedAt
+local flightStartFov = BATTING_CAMERA_FOV
+local swingStartedAt
+
+local function ease(t) return 1 - (1 - math.clamp(t, 0, 1))^3 end
+
+-- The batting-view FOV, zoomed while a swing is winding up.
+local function swingFieldOfView()
+ if not swingStartedAt then return BATTING_CAMERA_FOV end
+ local elapsed = os.clock() - swingStartedAt
+ local zoom = ease(elapsed / BACKSWING_SECONDS)
+ if elapsed > SWING_ZOOM_HOLD_SECONDS then
+  local release = (elapsed - SWING_ZOOM_HOLD_SECONDS) / SWING_ZOOM_RELEASE_SECONDS
+  if release >= 1 then swingStartedAt = nil return BATTING_CAMERA_FOV end
+  zoom = 1 - ease(release)
+ end
+ return BATTING_CAMERA_FOV + (SWING_ZOOM_FOV - BATTING_CAMERA_FOV) * zoom
+end
 
 local function enterBattingCamera()
  if cameraActive then return end
@@ -46,6 +84,7 @@ local function leaveBattingCamera()
  if not cameraActive then return end
  cameraActive = false
  flightCameraActive = false
+ swingStartedAt = nil
  local camera = workspace.CurrentCamera
  if not camera then return end
  local character = Player.Character
@@ -75,18 +114,28 @@ local function updateBattingCamera(ballState)
  local camera = workspace.CurrentCamera
  if not camera then return end
  camera.CameraType = Enum.CameraType.Scriptable
- camera.FieldOfView = BATTING_CAMERA_FOV
 
- if ballState == "InFlight" then
+ local readyBallPosition = (stem.BallPosition.WorldCFrame * CFrame.new(0, ball.Size.Y / 2, 0)).Position
+ local leftTee = flightCameraActive or (ball.Position - readyBallPosition).Magnitude >= LEAVE_DISTANCE
+ if ballState == "InFlight" and leftTee then
   if not flightCameraActive then
    local fixed = camera.CFrame -- Preserve the actual viewing rotation from just before launch.
    flightCameraActive = true
-   flightCameraOffset = fixed.Position - ball.Position
+   flightCameraOffset = fixed.Position - readyBallPosition -- Same framing as from the tee.
    flightCameraRotation = fixed.Rotation
+   flightStartedAt = os.clock()
+   flightStartFov = camera.FieldOfView -- Widen from the swing zoom, not from the resting view.
+   swingStartedAt = nil
   end
-  camera.CFrame = CFrame.new(ball.Position + flightCameraOffset) * flightCameraRotation
+  local elapsed = os.clock() - flightStartedAt
+  local widen = ease(elapsed / FLIGHT_FOV_SECONDS)
+  camera.FieldOfView = flightStartFov + (FLIGHT_CAMERA_FOV - flightStartFov) * widen
+  local shake = math.max(0, 1 - elapsed / SHAKE_SECONDS) * SHAKE_RADIANS
+  local jolt = CFrame.Angles(math.noise(elapsed * 30, 0.5) * shake, math.noise(0.5, elapsed * 30) * shake, 0)
+  camera.CFrame = CFrame.new(ball.Position + flightCameraOffset) * flightCameraRotation * jolt
  else
   flightCameraActive = false
+  camera.FieldOfView = swingFieldOfView()
   camera.CFrame = getFixedCameraCFrame()
  end
 end
@@ -143,6 +192,15 @@ end
 local worldConnection = Player:GetAttributeChangedSignal("CurrentWorldId"):Connect(bindWorld)
 bindWorld()
 
+-- BatClient fires "SwingStart" on the bat's local marker when a real swing begins.
+local markerConnection
+task.spawn(function()
+ local marker = Tool:WaitForChild("SwingMarkerReached")
+ markerConnection = marker.Event:Connect(function(name)
+  if name == "SwingStart" and cameraActive then swingStartedAt = os.clock() end
+ end)
+end)
+
 local equippedConnection = Tool.Equipped:Connect(function()
  Tool:SetAttribute("ExitPending", nil)
 end)
@@ -169,6 +227,7 @@ Tool.Destroying:Connect(function()
  if exitBound then ContextActionService:UnbindAction("ExitBatting") end
  leaveBattingCamera()
  equippedConnection:Disconnect()
+ if markerConnection then markerConnection:Disconnect() end
  renderConnection:Disconnect()
 
 end)

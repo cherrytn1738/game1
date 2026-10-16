@@ -7,6 +7,8 @@
 --     cage its role colors (accent, frame, net) and floodlights; decorations are
 --     {slot = "<Attachment in Cage.DecorSlots>", template = "<Model in RunwayAssets>"}
 local M = Enum.Material
+-- Every cage is narrowed to this share of its modelled width (also spaces the rows).
+local CAGE_WIDTH_SCALE = 0.75
 local Training = {
  DefaultGround = "basic_training",
  BasePowerPerTick = 20,
@@ -47,15 +49,15 @@ local Training = {
  -- the door are derived below.
  Cage = {modelLeft = -16, modelRight = 14, back = 14, front = -34, height = 14,
   modelDoorLeft = -13, modelDoorRight = -7, doorHeight = 8, templateScale = 4,
-  widthScale = 0.85, widthCenter = 3},
+  widthScale = CAGE_WIDTH_SCALE, widthCenter = 3},
  -- Two rows of three run parallel to the runway, relative to the hub's batting-edge frame
  -- (+Z is back into the hub; right means right when facing down the runway, +X). Cages turn
  -- a quarter turn so their doors face the walkway between the rows; the first ground of each
  -- row is nearest the runway. The models need 44 studs apiece (14-stud gaps for outside
  -- decorations), narrowed with the cages.
  Rows = {
-  {grounds = {1, 2, 3}, first = Vector3.new(42, 0, 35), step = Vector3.new(0, 0, 44 * 0.85), yaw = -math.pi / 2},
-  {grounds = {4, 5, 6}, first = Vector3.new(-42, 0, 35), step = Vector3.new(0, 0, 44 * 0.85), yaw = math.pi / 2},
+  {grounds = {1, 2, 3}, first = Vector3.new(42, 0, 35), step = Vector3.new(0, 0, 44 * CAGE_WIDTH_SCALE), yaw = -math.pi / 2},
+  {grounds = {4, 5, 6}, first = Vector3.new(-42, 0, 35), step = Vector3.new(0, 0, 44 * CAGE_WIDTH_SCALE), yaw = math.pi / 2},
  },
  OfflineTrainingEnabled = true,
  MaximumOfflineSeconds = 8 * 60 * 60,

@@ -73,6 +73,65 @@ The equipped Ball multiplies Cash rewards only. It does not affect launch streng
 
 The physical batting tee remains part of each station. It is not purchasable, owned, or equipped by players.
 
+### Bat lineup, models and swing effects
+
+Ten Bats, cooler as the price rises (Power multipliers stack with Rebirth; placeholder balance):
+
+| Bat (id) | Price | Power | Swing trail / contact burst |
+|---|---|---|---|
+| Wood Bat (wood_bat) | Free | ×1 | none |
+| Metal Bat (metal_bat) | 300 | ×1.5 | faint white swoosh |
+| Jungle Bat (jungle_bat) | 900 | ×2 | green swoosh / leaves |
+| Amethyst Bat (amethyst_bat) | 2,000 | ×2.5 | purple swoosh / gem sparkle |
+| Candy Cane Bat (candy_cane_bat) | 6,000 | ×3.2 | pink-and-white swirl / sprinkles |
+| Frostbite Bat (frostbite_bat) | 15,000 | ×4 | icy trail / frost ring |
+| Magma Bat (magma_bat) | 40,000 | ×5 | fire trail / fire burst |
+| Lightning Bat (lightning_bat) | 100,000 | ×6.5 | flickering trail / lightning zap |
+| Dragon Bone Bat (dragon_bone_bat) | 250,000 | ×8 | flame trail / fire burst |
+| Celestial Bat (celestial_bat) | 600,000 | ×10 | rainbow trail / starburst and shockwave |
+
+The Alloy and Carbon Bats were removed (cleared from the developer's save; other saves drop them on load).
+
+- **Models:** `tools/blender/bats.py` exports `assets/models/Bats.fbx`. Every bat matches the Bat tool: hand (Handle) at the origin, knob -0.52..-0.40, grip to 0.50, barrel to 3.40 along the Handle's +Y, so the grip and swing animation are unchanged. Each has a `Grip` and a `Barrel` part.
+- **In hand:** `EquipmentVisualServer` welds the styled model (`BatStyles`) to the Handle, massless and non-colliding, and hides the plain BatBody/BatGrip/BatKnob. Without a model the plain bat is painted as before.
+- **Swing trail:** the server adds `SwingTrailBase` (y 1.6) and `SwingTrailTip` (y 3.4) to the Handle; `BatEffects` on every client draws the bat's trail between them while the tip moves faster than 30 studs/s (real and practice swings).
+- **Contact burst:** when a ball leaves the tee, the batter's Bat burst plays at the tee (with the ball's launch burst).
+- **Display:** the Bat Display (upright 3.6-stud bats) stands beside the Ball Display at the back of the hub; both face the spawn.
+
+### Ball lineup, models and flight effects
+
+Ten Balls, cooler as the price rises (prices and multipliers are placeholder balance):
+
+| Ball (id) | Price | Cash | Flight |
+|---|---|---|---|
+| Baseball (baseball) | Free | ×1 | none |
+| Sandlot Ball (practice_ball) | 250 | ×1.3 | thin white streak, dust where it lands |
+| Bubblegum Ball (bubblegum_ball) | 800 | ×1.7 | pink trail, bubbles, sprinkle burst |
+| Crystal Ball (crystal_ball) | 1,800 | ×2.2 | purple trail, glitter, gem burst |
+| Frost Comet (frost_comet) | 5,000 | ×2.8 | long comet tail, snow, frost ring |
+| Inferno Ball (inferno_ball) | 12,000 | ×3.5 | fire trail and flames, fire burst |
+| Thunder Ball (thunder_ball) | 30,000 | ×4.5 | flickering trail, sparks, lightning zap at launch and landing |
+| Galaxy Ball (galaxy_ball) | 75,000 | ×6 | colour-shifting trail, stardust |
+| Dragonfire Ball (dragonfire_ball) | 180,000 | ×8 | twin flame trails, fire burst at launch and landing |
+| Supernova Ball (supernova_ball) | 400,000 | ×10 | rainbow trail, stars, shockwave at launch, starburst where it lands |
+
+The All-Star and Championship Balls were removed (their IDs were also cleared from the developer's save; other saves drop them on load).
+
+- **Models:** `tools/blender/balls.py` builds all ten (radius 1, meshes named `<id>__<Part>`) and exports `assets/models/Balls.fbx`; run it headless with `blender --background --python tools/blender/balls.py`. After import they are split into one model per id in `ServerStorage.RunwayAssets.DisplayItems`.
+- **Looks:** `BallStyles.luau` (ReplicatedStorage) colours each part by name and holds each ball's glow, flight effects, bursts and display idle particles. The physics ball keeps its locked `CustomPhysicalProperties`, so no look can change flight.
+- **Display:** pedestals show the styled model with its glow and a few of its particles as a preview.
+- **On the tee and in flight:** the server publishes the styled models to `ReplicatedStorage.BallModels`. Each client shows the batter's model (from the station ball's `EquipmentId`) on the physics ball, which is hidden locally, and `BallEffects` adds the trail, particles and glow once the ball visibly leaves the tee, with a burst at launch and at the first landing. Without a model the plain coloured ball is shown and the effects still play.
+- **Trail colour:** ball and bat trails are drawn unlit with normal blending (`LightEmission` 0, `Brightness` 1.6). Additive light washed every trail to white against the bright sky and bloom, so trail colours are also kept saturated.
+- **Layered effects (build up with price):** each flight has the coloured trail plus a thin white-hot additive core, a glow halo riding on the ball, cosmetic backspin on the model, theme particles (denser and larger for fancier balls), and a flash with a flat shockwave ring at launch and at the first landing (bigger for fancier balls). From the Bubblegum Ball up a sparkle ribbon is added. Bat swings layer the coloured sweep, a white-hot streak along the last half stud of the barrel, and from the Candy Cane Bat up a sparkle sweep. Tier is the item's place in its lineup (0 first to 1 last).
+
+### Item displays
+
+The World 1 hub has a physical **Ball Display** and **Bat Display** side by side at the back of the hub, behind the last Training Grounds (z 120, centred at x -36 and 36), facing the spawn down the walkway (`WorldConfig` `hub.displays`; built by `ItemDisplay.luau`). It is a white stepped stage with red trim and a backdrop wall, with the title ("BALLS" / "Earn more Cash per hit") above it. There is one pedestal per Ball in `EquipmentConfig` order, `perRow` (10) per row, sized so 10 Balls fit in one row about 67 studs wide (6.4-stud spacing, 2-stud items, compact labels); extra rows step back and up. Adding a Ball to the config adds a pedestal, and another category can get its own display with one more `displays` entry.
+
+- **Item models:** each pedestal shows `ServerStorage.RunwayAssets.DisplayItems.<item id>` when that model exists, scaled to 2 studs and spun about its centre. Without one, it shows a placeholder ball in the item's `appearance` colour with two red seams. To show a designed ball, put its model in `DisplayItems` named by its item ID (for example `practice_ball`).
+- **Labels (client):** a floating label per pedestal shows this player's status (EQUIPPED cyan, OWNED white, FOR SALE gold, LOCKED red), the name, the boost (×1.3 CASH) and the price (red when unaffordable). Items spin and bob locally (`ItemDisplayClient`).
+- **Buying:** the pedestal's ProximityPrompt reads Buy, Equip, Equipped (disabled) or Locked. Triggering it sends the same `EquipmentUpgrade` request as the Equipment menu (Purchase with the server-issued offer token, or Equip), so the server validates everything and the menu's listener shows the result as a notification. Locked items explain why instead of sending a request.
+
 ## Equipment Progression
 
 Equipment progression is based on distinct equipment rather than numeric equipment levels.
@@ -286,18 +345,31 @@ Every `RunwayDecor` part is anchored with collision, touch, and query disabled, 
 
 It reuses the place's existing Lighting effects rather than adding duplicates. All values are look-only and tunable at the top of the script. The sky does not change per section.
 
-## Roll fast-forward
+## Hit presentation
 
-Rolling made up most of each hit's time: at Level 20, about 2 s in the air and about 17 s rolling. Once a hit has landed and the ball is rolling on the field, the server time-scales the rest of the hit by `FieldConfig.RollTimeScale` (3). This is the same method as the 2× code below: velocity and spin ×3, and gravity, rolling resistance and the stop checks scaled to match.
+All cosmetic; none of it affects launch, distance or rewards.
 
-It is automatic and applied once per hit, at a well-defined moment: grounded, vertical speed under 2, and already landed. The airborne arc is never touched.
+- **Timing:** every effect starts when the client sees the ball leave the tee (the rendered ball 0.5 studs off its tee spot), not when `BallState` turns InFlight. The attribute arrives about 0.25 s before the ball's smoothed physics movement is drawn, so starting on it put the effects ahead of the ball.
+- **Bat crack:** each client plays a local `BatCrack` Sound on the tee's Stem when any station's ball leaves the tee, so nearby players hear each other's hits in sync (Pro Sound Effects "Wood Bat Hits Hard Ball", `rbxassetid://9125380872`; `HIT_SOUND_ID` and `HIT_SOUND_VOLUME` in `HitCinematicClient`). It is on the tee rather than the ball so it does not fly away with the hit. Practice swings in Training are silent.
+- **Cinematic swing and flight:** from the click that starts a real swing (BatClient fires "SwingStart" on the bat's local marker; Training practice swings do not), `HitCinematicClient` slides in black letterbox bars (11% of the screen each) and adds a light colour grade (contrast and saturation). They stay while the hit is active (`HitActive`) and ease out when it ends; a refused swing lets them slide back out after 1.2 s. The bars sit under the HUD, so the distance counter and 2x/Leave buttons stay on top. The Cash counter is hidden during flight.
+- **Camera:** from the click, the batting camera (`BatTimingClient`) zooms from 55° to 46° FOV through the backswing (Load and Windup, 0.24 s) and holds. When the ball leaves the tee it widens from there to 70° over 0.8 s with a 0.35 s decaying shake. With no launch it eases back out.
 
-| Level 20 playtest | Time | Distance |
+## Hit time scale
+
+Rolling made up most of each hit's time: at Level 20, about 2 s in the air and about 17 s rolling. Every hit now plays at one steady time scale from launch, `FieldConfig.HitTimeScale` (1.6): launch velocity ×s, gravity and rolling friction ×s², and the stop checks scaled to match. There is no change of speed during a hit.
+
+This replaced a roll-only fast-forward (3× once the ball was rolling after its first landing). That kept distances but looked like the ball suddenly speeding up for a second or two after landing.
+
+Roblox bounce and friction physics do not scale cleanly, so the time scale shortens distances: the ball loses more horizontal speed in its first bounces. Level 20 playtests (3 hits each):
+
+| Mode | Time | Distance |
 | --- | --- | --- |
-| Normal roll | 19.6 s | 1,913 studs |
-| Fast-forwarded roll | 9.6 s | 1,989 studs |
+| Normal speed (×1) | ≈ 19.6 s | ≈ 1,913 studs |
+| Old roll fast-forward | ≈ 9.6 s | ≈ 2,060 studs |
+| Steady ×1.3 | ≈ 14 s | ≈ 1,690 studs |
+| Steady ×1.6 (current) | ≈ 9.2 s | ≈ 1,300 studs |
 
-Normal hits already range ≈ 1,820–1,960 studs (see below), so the distance effect is small but not yet measured over many hits. Lower `RollTimeScale` (1 = off) if distances drift.
+Distances feed Cash, sections and World progress. The developer chose ×1.6 for short, smooth hits; distances (sections, World endpoints, Cash) will be rebalanced in a later balancing pass.
 
 ## 2× Ball Flight (disabled)
 
@@ -350,7 +422,7 @@ Malformed new fields are repaired; LevelCap is derived, never trusted from a sav
 The historical `BattingTiming` Remote and script filenames remain for Rojo
 compatibility, but no timing mechanics remain. The client sends only its batting
 session (and optional `Exit`); the server sends final distance/reward feedback.
-SwingConfig provides a single phase timeline: the named Contact marker is at 0.36 seconds in a 0.96-second swing. ContactTime and Duration drive the visual swing and existing server contact/cooldown; the client-local SwingMarkerReached event reports the marker without requesting a launch.
+SwingConfig provides a single phase timeline: the named Contact marker is at 0.50 seconds in a 1.10-second swing (a 0.14 s Windup phase after Load coils the hands, barrel and torso a little further back before the stride plants). ContactTime and Duration drive the visual swing and existing server contact/cooldown; the client-local SwingMarkerReached event reports the marker without requesting a launch. The server launches `ContactTime - LaunchVisualLead (0.25 s) - the batter's ping` after accepting the swing (at least `MinimumLaunchDelay`, 0.1 s), because clients draw server-moved parts about 0.25 s late; the ball then visibly leaves the tee at the animation's contact (measured gap 0.02-0.05 s, down from about 0.3 s). Launch strength and direction are unchanged.
 Natural stopping, sections, world endpoints, and Cash formulas are unchanged.
 
 Milestone 15A added no training mechanics or Rebirth UI. Training is added below in Milestone 15B.
@@ -361,7 +433,7 @@ Training is the primary Power source.
 ### Six physical Training Grounds (supersedes the single logical stadium)
 
 Each Training Ground is its own batting cage, with its own plate and one occupant at a time. The six cages stand in two rows of three, parallel to the runway, either side of a walkway in World1Hub (right = right when facing down the runway), under `World1Hub.TrainingGrounds.<ground id>`.
-- Right row: Basic Training, Enchanted Grove and Sunken Atlantis, with plates at hub-relative x 42. Left row: Sky Temple, Dragon's Lair and Cosmic Rift, at x -42. Both rows start at z 35 and step 37.4 studs back into the hub (the models' 44-stud spacing, narrowed with the cages); see `TrainingConfig.Rows`.
+- Right row: Basic Training, Enchanted Grove and Sunken Atlantis, with plates at hub-relative x 42. Left row: Sky Temple, Dragon's Lair and Cosmic Rift, at x -42. Both rows start at z 35 and step 33 studs back into the hub (the models' 44-stud spacing, narrowed with the cages); see `TrainingConfig.Rows`.
 - The first ground of each row is nearest the runway. Cages are turned a quarter turn so their doors face the walkway and their machine ends point outward.
 - The hub was shrunk to 210 × 136, and the spawn moved into the walkway, 60 studs behind the tee. The physical Shop, World Travel and Rebirth stations and the Training Grounds board are removed for now. Their settings are commented in `WorldConfig`; FieldBuilder deletes any unconfigured station left in the place.
 - Shop, Travel, Rebirth, normal batting and world endpoints are unchanged.
@@ -393,7 +465,7 @@ Each Training Ground is its own batting cage, with its own plate and one occupan
 
 ### Batting cage (visual)
 
-`TrainingStadium.luau` builds a batting cage around each plate (model `Cage`), dressed in that ground's `theme` on the server. Its footprint is `TrainingConfig.Cage`: modelled 30 × 48 × 14 studs in plate space, then narrowed in game to `widthScale` (0.85) across the cage, about the pitch line, so it is 25.5 studs wide. Parts are squeezed across the cage and moved toward the pitch line; spinning parts shrink evenly to stay round. Turf, walls, door, banners, decoration slots and particle zones use the same narrowed width. The batter faces +X, the machine is at −Z, and there is extra room behind the batter so the default camera stays inside. The door is in the batter-end net.
+`TrainingStadium.luau` builds a batting cage around each plate (model `Cage`), dressed in that ground's `theme` on the server. Its footprint is `TrainingConfig.Cage`: modelled 30 × 48 × 14 studs in plate space, then narrowed in game to `widthScale` (0.75, `CAGE_WIDTH_SCALE` in TrainingConfig) across the cage, about the pitch line, so it is 22.5 studs wide. Parts are squeezed across the cage and moved toward the pitch line; spinning parts shrink evenly to stay round. Turf, walls, door, banners, decoration slots and particle zones use the same narrowed width. The batter faces +X, the machine is at −Z, and there is extra room behind the batter so the default camera stays inside. The door is in the batter-end net.
 
 The mesh comes from `ServerStorage.RunwayAssets.TrainingCage` (Studio-managed, generated by `tools/blender/batting_cage.py` and exported at 1/4 scale, then scaled up 4×):
 - steel hoops with padded posts, and strand netting on all sides and the roof

@@ -3,8 +3,11 @@ local Field = {
  MarkerInterval = 100, DistantMarkerInterval = 500, DenseMarkersUntil = 1000,
  StopLinearSpeed = 1, StopSurfaceSpeed = 2, StopHoldSeconds = 0.75,
  RollingDeceleration = 12, MaximumFlightSeconds = 120,
- -- After landing, the roll plays at this time scale (same distance, 1/3 of the time).
- RollTimeScale = 3,
+ -- The whole hit plays at this steady time scale from launch (velocity x s, gravity and
+ -- rolling friction x s^2): it takes 1/s of the time with no visible change of speed. (A
+ -- roll-only fast-forward was replaced: switching speed after landing looked like the ball
+ -- suddenly accelerating.)
+ HitTimeScale = 1.6,
  -- 2x ball flight is disabled: switching speed changed final distance in playtests.
  FlightSpeedUpEnabled = false,
 }

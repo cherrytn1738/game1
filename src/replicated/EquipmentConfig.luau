@@ -1,5 +1,10 @@
 -- Stable IDs are persisted; prices, stats, and primitive appearances are configured here.
 -- Add an item and link the previous item through nextId to extend a progression.
+-- Fallback Bat colours for the three parts of the plain bat (body, grip, knob).
+local function batLook(body, grip, bodyMaterial)
+ return {BatBody = {color = body, material = bodyMaterial}, BatGrip = {color = grip, material = Enum.Material.SmoothPlastic},
+  BatKnob = {color = grip, material = Enum.Material.SmoothPlastic}}
+end
 local Equipment = {
  CategoryOrder = {"Bat", "Ball"},
  Categories = {
@@ -17,22 +22,59 @@ local Equipment = {
     metal_bat = {
      id = "metal_bat", displayName = "Metal Bat", price = 300,
      powerGainMultiplier = 1.5, -- Placeholder Power gain balance.
-     nextId = "alloy_bat",
+     nextId = "jungle_bat",
      modelPath = "StarterPack.Bat",
      appearance = {BatBody = {color = Color3.fromRGB(195, 205, 220), material = Enum.Material.Metal}, BatGrip = {color = Color3.fromRGB(35, 40, 50), material = Enum.Material.SmoothPlastic}, BatKnob = {color = Color3.fromRGB(35, 40, 50), material = Enum.Material.SmoothPlastic}},
     },
-    alloy_bat = {
-     id = "alloy_bat", displayName = "Alloy Bat", price = 900,
-     powerGainMultiplier = 2, -- Placeholder Power gain balance.
-     nextId = "carbon_bat",
+    -- The designed models (tools/blender/bats.py, styled by BatStyles) replace these
+    -- fallback colours on the bat in hand.
+    jungle_bat = {
+     id = "jungle_bat", displayName = "Jungle Bat", price = 900,
+     powerGainMultiplier = 2, nextId = "amethyst_bat",
      modelPath = "StarterPack.Bat",
-     appearance = {BatBody = {color = Color3.fromRGB(200, 45, 45), material = Enum.Material.Metal}, BatGrip = {color = Color3.fromRGB(30, 30, 35), material = Enum.Material.SmoothPlastic}, BatKnob = {color = Color3.fromRGB(30, 30, 35), material = Enum.Material.SmoothPlastic}},
+     appearance = batLook(Color3.fromRGB(190, 170, 90), Color3.fromRGB(120, 85, 45), Enum.Material.Wood),
     },
-    carbon_bat = {
-     id = "carbon_bat", displayName = "Carbon Bat", price = 2000,
-     powerGainMultiplier = 2.5, -- Placeholder Power gain balance.
+    amethyst_bat = {
+     id = "amethyst_bat", displayName = "Amethyst Bat", price = 2000,
+     powerGainMultiplier = 2.5, nextId = "candy_cane_bat",
      modelPath = "StarterPack.Bat",
-     appearance = {BatBody = {color = Color3.fromRGB(30, 35, 45), material = Enum.Material.Slate}, BatGrip = {color = Color3.fromRGB(240, 180, 50), material = Enum.Material.Metal}, BatKnob = {color = Color3.fromRGB(240, 180, 50), material = Enum.Material.Metal}},
+     appearance = batLook(Color3.fromRGB(160, 90, 235), Color3.fromRGB(200, 205, 215), Enum.Material.Glass),
+    },
+    candy_cane_bat = {
+     id = "candy_cane_bat", displayName = "Candy Cane Bat", price = 6000,
+     powerGainMultiplier = 3.2, nextId = "frostbite_bat",
+     modelPath = "StarterPack.Bat",
+     appearance = batLook(Color3.fromRGB(245, 245, 245), Color3.fromRGB(210, 35, 45), Enum.Material.SmoothPlastic),
+    },
+    frostbite_bat = {
+     id = "frostbite_bat", displayName = "Frostbite Bat", price = 15000,
+     powerGainMultiplier = 4, nextId = "magma_bat",
+     modelPath = "StarterPack.Bat",
+     appearance = batLook(Color3.fromRGB(150, 215, 255), Color3.fromRGB(230, 245, 255), Enum.Material.Ice),
+    },
+    magma_bat = {
+     id = "magma_bat", displayName = "Magma Bat", price = 40000,
+     powerGainMultiplier = 5, nextId = "lightning_bat",
+     modelPath = "StarterPack.Bat",
+     appearance = batLook(Color3.fromRGB(40, 30, 30), Color3.fromRGB(255, 110, 25), Enum.Material.Basalt),
+    },
+    lightning_bat = {
+     id = "lightning_bat", displayName = "Lightning Bat", price = 100000,
+     powerGainMultiplier = 6.5, nextId = "dragon_bone_bat",
+     modelPath = "StarterPack.Bat",
+     appearance = batLook(Color3.fromRGB(95, 45, 165), Color3.fromRGB(255, 235, 70), Enum.Material.SmoothPlastic),
+    },
+    dragon_bone_bat = {
+     id = "dragon_bone_bat", displayName = "Dragon Bone Bat", price = 250000,
+     powerGainMultiplier = 8, nextId = "celestial_bat",
+     modelPath = "StarterPack.Bat",
+     appearance = batLook(Color3.fromRGB(230, 220, 190), Color3.fromRGB(120, 20, 20), Enum.Material.SmoothPlastic),
+    },
+    celestial_bat = {
+     id = "celestial_bat", displayName = "Celestial Bat", price = 600000,
+     powerGainMultiplier = 10,
+     modelPath = "StarterPack.Bat",
+     appearance = batLook(Color3.fromRGB(25, 18, 70), Color3.fromRGB(255, 205, 80), Enum.Material.SmoothPlastic),
     },
    },
   },
@@ -48,24 +90,63 @@ local Equipment = {
      appearance = {color = Color3.fromRGB(255, 255, 255), material = Enum.Material.Plastic},
     },
     practice_ball = {
-     id = "practice_ball", displayName = "Practice Ball", price = 250,
+     id = "practice_ball", displayName = "Sandlot Ball", price = 250,
      rewardMultiplier = 1.3,
-     nextId = "all_star_ball",
+     nextId = "bubblegum_ball",
      modelPath = "Workspace.BattingArea.Baseball",
-     appearance = {color = Color3.fromRGB(245, 100, 35), material = Enum.Material.SmoothPlastic},
+     appearance = {color = Color3.fromRGB(210, 175, 125), material = Enum.Material.SmoothPlastic},
     },
-    all_star_ball = {
-     id = "all_star_ball", displayName = "All-Star Ball", price = 800,
+    -- Glossy pink candy shell with sprinkles (placeholder colour until its model is designed).
+    bubblegum_ball = {
+     id = "bubblegum_ball", displayName = "Bubblegum Ball", price = 800,
      rewardMultiplier = 1.7,
-     nextId = "championship_ball",
+     nextId = "crystal_ball",
      modelPath = "Workspace.BattingArea.Baseball",
-     appearance = {color = Color3.fromRGB(45, 130, 245), material = Enum.Material.SmoothPlastic},
+     appearance = {color = Color3.fromRGB(255, 120, 190), material = Enum.Material.SmoothPlastic},
     },
-    championship_ball = {
-     id = "championship_ball", displayName = "Championship Ball", price = 1800,
+    -- Faceted purple amethyst with silver stitches.
+    crystal_ball = {
+     id = "crystal_ball", displayName = "Crystal Ball", price = 1800,
      rewardMultiplier = 2.2,
+     nextId = "frost_comet",
      modelPath = "Workspace.BattingArea.Baseball",
-     appearance = {color = Color3.fromRGB(245, 195, 55), material = Enum.Material.Metal},
+     appearance = {color = Color3.fromRGB(160, 90, 235), material = Enum.Material.Glass},
+    },
+    frost_comet = {
+     id = "frost_comet", displayName = "Frost Comet", price = 5000,
+     rewardMultiplier = 2.8, nextId = "inferno_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(150, 215, 255), material = Enum.Material.SmoothPlastic},
+    },
+    inferno_ball = {
+     id = "inferno_ball", displayName = "Inferno Ball", price = 12000,
+     rewardMultiplier = 3.5, nextId = "thunder_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(40, 30, 30), material = Enum.Material.SmoothPlastic},
+    },
+    thunder_ball = {
+     id = "thunder_ball", displayName = "Thunder Ball", price = 30000,
+     rewardMultiplier = 4.5, nextId = "galaxy_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(95, 45, 165), material = Enum.Material.SmoothPlastic},
+    },
+    galaxy_ball = {
+     id = "galaxy_ball", displayName = "Galaxy Ball", price = 75000,
+     rewardMultiplier = 6, nextId = "dragonfire_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(25, 18, 70), material = Enum.Material.SmoothPlastic},
+    },
+    dragonfire_ball = {
+     id = "dragonfire_ball", displayName = "Dragonfire Ball", price = 180000,
+     rewardMultiplier = 8, nextId = "supernova_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(130, 20, 20), material = Enum.Material.SmoothPlastic},
+    },
+    supernova_ball = {
+     id = "supernova_ball", displayName = "Supernova Ball", price = 400000,
+     rewardMultiplier = 10,
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(255, 240, 190), material = Enum.Material.SmoothPlastic},
     },
    },
   },

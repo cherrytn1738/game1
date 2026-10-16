@@ -207,8 +207,14 @@ Current placeholder multipliers:
 
 - Wood: 1.0x
 - Metal: 1.5x
-- Alloy: 2.0x
-- Carbon: 2.5x
+- Jungle: 2.0x
+- Amethyst: 2.5x
+- Candy Cane: 3.2x
+- Frostbite: 4.0x
+- Magma: 5.0x
+- Lightning: 6.5x
+- Dragon Bone: 8.0x
+- Celestial: 10.0x
 
 These are temporary balance values.
 

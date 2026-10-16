@@ -148,19 +148,19 @@ return function(sources)
  local wrong = Equipment.NormalizeOwnership("Bat", {baseball = true, metal_bat = true}, "metal_bat", false)
  check(wrong.metal_bat and not wrong.baseball, "wrong-category ownership removed")
 
- saved.Player_1 = {SchemaVersion = 2, Cash = 5000, EquippedBat = "alloy_bat",
+ saved.Player_1 = {SchemaVersion = 2, Cash = 5000, EquippedBat = "jungle_bat",
   EquippedBall = "practice_ball", EquippedTee = "rubber_tee",
   UnlockedWorlds = {world_1 = true, world_2 = true}, CompletedWorlds = {world_1 = true}, OtherProgress = 42}
  local a, b = join(1), join(2)
  check(Data.IsReady(a) and Data.IsReady(b), "players loaded")
  check(a.leaderstats.Cash.Value == 5000 and a:GetAttribute("WorldUnlocked_world_2"), "migration preserves Cash/worlds")
- check(Data.OwnsEquipment(a, "Bat", "alloy_bat") and Data.OwnsEquipment(a, "Bat", "wood_bat"), "migration grants current/starter")
- check(not Data.OwnsEquipment(b, "Bat", "alloy_bat"), "ownership is isolated")
- check(not Data.EquipEquipment(b, "Bat", "alloy_bat"), "unowned equip rejected")
+ check(Data.OwnsEquipment(a, "Bat", "jungle_bat") and Data.OwnsEquipment(a, "Bat", "wood_bat"), "migration grants current/starter")
+ check(not Data.OwnsEquipment(b, "Bat", "jungle_bat"), "ownership is isolated")
+ check(not Data.EquipEquipment(b, "Bat", "jungle_bat"), "unowned equip rejected")
  check(not Data.EquipEquipment(a, "Bat", "practice_ball"), "wrong category rejected")
- a.OwnedBats:SetAttribute("carbon_bat", true)
- check(not Data.EquipEquipment(a, "Bat", "carbon_bat"), "replicated display cannot grant ownership")
- a.OwnedBats:SetAttribute("carbon_bat", nil)
+ a.OwnedBats:SetAttribute("amethyst_bat", true)
+ check(not Data.EquipEquipment(a, "Bat", "amethyst_bat"), "replicated display cannot grant ownership")
+ a.OwnedBats:SetAttribute("amethyst_bat", nil)
  local offer = a:GetAttribute("EquipmentPurchaseToken_Bat")
  a:SetAttribute("BattingActive", true)
  check(not Data.PurchaseNextEquipment(a, "Bat", offer), "purchase blocked while batting")
@@ -171,11 +171,11 @@ return function(sources)
  check(not Data.EquipEquipment(a, "Bat", "wood_bat"), "equip blocked after exiting during flight")
  a:SetAttribute("HitActive", false)
  check(Data.PurchaseNextEquipment(a, "Bat", offer), "valid purchase")
- check(a.leaderstats.Cash.Value == 3000 and a:GetAttribute("EquippedBat") == "carbon_bat", "price and auto-equip")
- check(Data.OwnsEquipment(a, "Bat", "alloy_bat"), "previous equipment retained")
+ check(a.leaderstats.Cash.Value == 3000 and a:GetAttribute("EquippedBat") == "amethyst_bat", "price and auto-equip")
+ check(Data.OwnsEquipment(a, "Bat", "jungle_bat"), "previous equipment retained")
  check(not Data.PurchaseNextEquipment(a, "Bat", offer) and a.leaderstats.Cash.Value == 3000, "duplicate charged once")
  check(Data.EquipEquipment(a, "Bat", "wood_bat"), "older owned item equips")
- check(Data.GetNextEquipment(a, "Bat") == nil, "older equip cannot regress progression")
+ check(Data.GetNextEquipment(a, "Bat") == Equipment.GetNext("Bat", "amethyst_bat"), "older equip cannot regress progression")
  check(Data.EquipEquipment(a, "Bat", "wood_bat") and a.leaderstats.Cash.Value == 3000, "repeat equip is free")
  check(not Data.PurchaseNextEquipment(b, "Bat", b:GetAttribute("EquipmentPurchaseToken_Bat")), "insufficient Cash")
 
@@ -188,28 +188,28 @@ return function(sources)
  now += 1
  remote.OnServerEvent:Fire(b, "Purchase", "Bat", bOffer)
  check(b.leaderstats.Cash.Value == 1700 and b:GetAttribute("EquippedBat") == "metal_bat", "spam/replay cannot skip next item")
- check(not Data.OwnsEquipment(b, "Bat", "alloy_bat"), "replay never grants next equipment")
- remote.OnServerEvent:Fire(a, "Equip", "Bat", "alloy_bat")
- check(a:GetAttribute("EquippedBat") == "alloy_bat", "other player has independent cooldown/state")
+ check(not Data.OwnsEquipment(b, "Bat", "jungle_bat"), "replay never grants next equipment")
+ remote.OnServerEvent:Fire(a, "Equip", "Bat", "jungle_bat")
+ check(a:GetAttribute("EquippedBat") == "jungle_bat", "other player has independent cooldown/state")
  now += 1
  remote.OnServerEvent:Fire(b, "Equip", "Bat", "baseball")
  remote.OnServerEvent:Fire(b, {}, {}, {})
  remote.OnServerEvent:Fire(b, "Purchase", "Bat", {price = 0})
- remote.OnServerEvent:Fire(b, "Purchase", "Bat", "carbon_bat")
+ remote.OnServerEvent:Fire(b, "Purchase", "Bat", "amethyst_bat")
  check(b:GetAttribute("EquippedBat") == "metal_bat" and b.leaderstats.Cash.Value == 1700, "forged request inputs rejected")
  check(Data.EquipEquipment(a, "Bat", "wood_bat"), "select old item before saving")
  leave(a)
  check(saved.Player_1.SchemaVersion == 8 and saved.Player_1.Session == nil, "version 8 save and lease release")
- check(saved.Player_1.OwnedBats.carbon_bat and saved.Player_1.EquippedBat == "wood_bat", "ownership and selection saved separately")
+ check(saved.Player_1.OwnedBats.amethyst_bat and saved.Player_1.EquippedBat == "wood_bat", "ownership and selection saved separately")
  check(saved.Player_1.OtherProgress == 42 and saved.Player_1.UnlockedWorlds.world_2, "other progression preserved")
  local returned = join(1)
- check(returned.leaderstats.Cash.Value == 3000 and Data.OwnsEquipment(returned, "Bat", "carbon_bat")
+ check(returned.leaderstats.Cash.Value == 3000 and Data.OwnsEquipment(returned, "Bat", "amethyst_bat")
   and returned:GetAttribute("EquippedBat") == "wood_bat", "rejoin restores purchased ownership and older selection")
 
- saved.Player_3 = {SchemaVersion = 3, Cash = 100, EquippedBat = "carbon_bat", OwnedBats = {wood_bat = true},
+ saved.Player_3 = {SchemaVersion = 3, Cash = 100, EquippedBat = "amethyst_bat", OwnedBats = {wood_bat = true},
   EquippedBall = "invalid", OwnedBalls = "malformed", OwnedTees = {basic_tee = true, baseball = true}}
  local repaired = join(3)
- check(repaired:GetAttribute("EquippedBat") == "wood_bat" and not Data.OwnsEquipment(repaired, "Bat", "carbon_bat"), "modern unowned equipped ID falls back")
+ check(repaired:GetAttribute("EquippedBat") == "wood_bat" and not Data.OwnsEquipment(repaired, "Bat", "amethyst_bat"), "modern unowned equipped ID falls back")
  check(repaired:GetAttribute("EquippedBall") == "baseball" and Data.OwnsEquipment(repaired, "Ball", "baseball"), "invalid item/collection repaired")
  saved.Player_4 = {SchemaVersion = 999, Cash = 999}
  local future = join(4)
@@ -704,7 +704,7 @@ return function(sources)
   and Data.OwnsEquipment(migrated,"Bat","wood_bat"), "schema 6 rejoin preserves Bat/Ball equipment")
 
  local fixtureId=400
- for _,entry in {{id="wood_bat",gain=1},{id="metal_bat",gain=1.5},{id="alloy_bat",gain=2},{id="carbon_bat",gain=2.5}} do
+ for _,entry in {{id="wood_bat",gain=1},{id="metal_bat",gain=1.5},{id="jungle_bat",gain=2},{id="amethyst_bat",gain=2.5}} do
   for rebirths=0,2 do
    fixtureId+=1
    local key="Player_"..fixtureId
@@ -736,7 +736,7 @@ return function(sources)
    check(not Data.GrantPower(fixture,20,"ActiveTraining",1000),"a number cannot supply a Bat bonus")
   end
  end
- check(not Data.GrantPower(migrated,20,"CompletedHit","carbon_bat"),"unowned snapshot rejected")
+ check(not Data.GrantPower(migrated,20,"CompletedHit","amethyst_bat"),"unowned snapshot rejected")
  check(Progression.GetPowerGrant(3,1,1.5)==9 and Progression.GetPowerGrant(1,0,1.5)==1,
   "whole Power rounds only after composing bonuses")
  -- Juice (Schema 7): server-granted consumables with online-only timers.

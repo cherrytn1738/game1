@@ -17,7 +17,19 @@ local Worlds = {
     --   {id = "Shop", actionText = "Open Equipment Shop", position = Vector3.new(-70, 0, 65), size = Vector3.new(28, 0.1, 24)},
     --   {id = "Travel", actionText = "Open World Travel", position = Vector3.new(35, 0, 120), size = Vector3.new(14, 0.1, 12)},
     --   {id = "Rebirth", actionText = "View Rebirth", objectText = "Rebirth", position = Vector3.new(-35, 0, 120), size = Vector3.new(8, 0.1, 8)},
-    interactions = {}},
+    interactions = {},
+    -- Physical item displays (ItemDisplay): one pedestal per item of an EquipmentConfig
+    -- category, in stepped rows of perRow; position is the centre of the front row's edge.
+    -- Items show RunwayAssets.DisplayItems.<item id> when that model exists, otherwise a
+    -- placeholder in the item's appearance colours. The displays stand side by side behind the
+    -- last Training Grounds (they end at z 117), where the hub's full width is open; each row
+    -- of 10 is about 67 studs. Bats stand upright, so their display uses taller items.
+    displays = {
+     {id = "BallDisplay", category = "Ball", title = "BALLS", subtitle = "Earn more Cash per hit",
+      position = Vector3.new(-36, 0, 120), perRow = 10},
+     {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
+      position = Vector3.new(36, 0, 120), perRow = 10, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
+    }},
    runoutDistance = 2000,
    -- Cosmetic only (RunwayDecor); none of these change flight or progression distances.
    runway = {width = 160, wallHeight = 12, wallThickness = 6, wallTileLength = 12,
