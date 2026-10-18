@@ -6,6 +6,7 @@
 --   flight: trail (colors, width, lifetime, plus rainbow / hueShift / flicker / twin),
 --     particles (an Emitters preset and optional rate), launch and land (Bursts presets)
 --   idle: an Emitters preset shown around the ball on its display pedestal
+-- FlightSounds (below) gives the fancier balls their own sound in flight.
 local M = Enum.Material
 local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
 local function look(color, material, transparency)
@@ -134,6 +135,19 @@ Styles.Emitters = {
 }
 
 -- One-shot bursts at launch or landing: Emitters presets to emit, plus optional extras.
+-- Each fancier Ball's own sound while it flies, layered over the shared whoosh (BallSounds):
+-- {id, volume, playbackSpeed}. Roblox-licensed Pro Sound Effects audio.
+Styles.FlightSounds = {
+ bubblegum_ball = {"rbxassetid://9112752570", 0.5, 1.15}, -- bubbles, small bloops
+ crystal_ball = {"rbxassetid://9125718987", 0.45, 1.1}, -- crystal shimmer, ringing glass
+ frost_comet = {"rbxassetid://9125718987", 0.4, 1.6}, -- the same shimmer, pitched up icy
+ inferno_ball = {"rbxassetid://9112822944", 0.6, 1.1}, -- crackling lava fire
+ thunder_ball = {"rbxassetid://9114237976", 0.45, 1}, -- electric arcing
+ galaxy_ball = {"rbxassetid://9119409838", 0.6, 0.9}, -- deep spaceship hum
+ dragonfire_ball = {"rbxassetid://9112825609", 0.55, 1}, -- huge fire roar
+ supernova_ball = {"rbxassetid://9125636853", 0.6, 1.05}, -- sizzling magic energy
+}
+
 Styles.Bursts = {
  Dust = {emit = {{"Dust", 14}}},
  Leaves = {emit = {{"Leaves", 30}}},

@@ -27,7 +27,13 @@ return function(sources)
  local Swing=assert(loadstring(sources.SwingConfig))()
  local world=Worlds.Get(Worlds.StartingWorldId)
  local heartbeat=signal()
- local workspaceFake={Gravity=196.2,GetServerTimeNow=os.clock,Raycast=function() return {} end}
+ local forceLegendary,forceMythic=false,false
+ local workspaceFake={Gravity=196.2,GetServerTimeNow=os.clock,Raycast=function() return {} end,
+  GetAttribute=function(_,name)
+   if name=="ForceLegendaryHit" then return forceLegendary or nil end
+   if name=="ForceMythicHit" then return forceMythic or nil end
+   return nil
+  end}
  local balls={}
  for _,definition in Worlds.Worlds do
   local ball=object()
@@ -63,7 +69,7 @@ return function(sources)
    return true,{powerGranted=Progression.GetPowerGrant(base,1,Equipment.Get("Bat",batId).powerGainMultiplier)}
   end}}
  local storage={WaitForChild=function(_,name) return name end,BattingTiming={FireClient=function() end}}
- local services={Workspace=workspaceFake,RunService={Heartbeat=heartbeat},Players=players,ReplicatedStorage=storage}
+ local services={Workspace=workspaceFake,RunService={Heartbeat=heartbeat,IsStudio=function() return true end},Players=players,ReplicatedStorage=storage}
  local ready={GetAttribute=function() return true end}
  local created={}
  local testTime = 100
@@ -72,7 +78,7 @@ return function(sources)
   script={Parent={WaitForChild=function(_,name) return name=="FieldServer" and ready or name end}},
   require=function(name) return assert(modules[name],name) end,
   Instance={new=function(class) local instance=object() instance.ClassName=class table.insert(created,instance) return instance end},
-  task={delay=function(_,fn,...) table.insert(delayed,{fn=fn,args=table.pack(...)}) end},
+  task={delay=function(seconds,fn,...) table.insert(delayed,{seconds=seconds,fn=fn,args=table.pack(...)}) end},
   print=function() end,
   os={clock=function() return testTime end},
  },{__index=getfenv()})
@@ -121,6 +127,59 @@ return function(sources)
  check(player.leaderstats.Cash.Value-cashBefore==200 and juiced.distanceResult.distanceStuds==100,"Cash juice doubles Cash without changing distance")
  Launcher.CancelPlayer(player)
  juiceCash = 1
+ -- A Legendary Hit only waits longer: the same launch, distance and Cash follow.
+ local normalHit={worldId=world.id,session=1,swingId=750,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ check(Launcher.TryLaunch(player,normalHit,tool),"normal hit accepted")
+ local normalLaunch=table.remove(delayed,1)
+ normalLaunch.fn(table.unpack(normalLaunch.args,1,normalLaunch.args.n))
+ local normalVelocity=balls[world.id].AssemblyLinearVelocity
+ Launcher.CancelPlayer(player)
+ forceLegendary=true
+ local legendary={worldId=world.id,session=1,swingId=751,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ check(Launcher.TryLaunch(player,legendary,tool),"legendary hit accepted")
+ forceLegendary=false
+ local legendaryBall=balls[world.id]
+ local legendaryLaunch=table.remove(delayed,1)
+ check(math.abs(legendaryLaunch.seconds-normalLaunch.seconds-Swing.LegendaryHit.HoldSeconds)<.0001,"legendary hit holds the launch")
+ check(legendaryBall:GetAttribute("LegendaryHitUserId")==player.UserId and legendaryBall:GetAttribute("LegendaryLaunchAt")~=nil,
+  "legendary hit is published on the ball")
+ check(legendaryBall:GetAttribute("BallState")=="Reserved","ball waits on the tee during the hold")
+ legendaryLaunch.fn(table.unpack(legendaryLaunch.args,1,legendaryLaunch.args.n))
+ check((legendaryBall.AssemblyLinearVelocity-normalVelocity).Magnitude<.00001 and legendary.launchSpeed==115,
+  "legendary hit launches exactly like a normal one")
+ legendaryBall.CFrame=CFrame.new(0,.5,-100)
+ legendaryBall.AssemblyLinearVelocity,legendaryBall.AssemblyAngularVelocity=Vector3.zero,Vector3.zero
+ local legendaryCash=player.leaderstats.Cash.Value
+ heartbeat:Fire(Field.StopHoldSeconds+.01)
+ check(player.leaderstats.Cash.Value-legendaryCash==100 and legendary.distanceResult.distanceStuds==100,"legendary hit rewards are unchanged")
+ check(legendaryBall:GetAttribute("LegendaryHitUserId")==nil and legendaryBall:GetAttribute("LegendaryLaunchAt")==nil,
+  "ball reset clears the legendary attributes")
+ Launcher.CancelPlayer(player)
+ -- A Mythic Hit holds longer, launches the same, and its attributes clear on cancel.
+ forceMythic=true
+ local mythic={worldId=world.id,session=1,swingId=752,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ check(Launcher.TryLaunch(player,mythic,tool),"mythic hit accepted")
+ forceMythic=false
+ local mythicLaunch=table.remove(delayed,1)
+ check(math.abs(mythicLaunch.seconds-normalLaunch.seconds-Swing.MythicHit.HoldSeconds)<.0001,"mythic hit holds the launch longer")
+ check(legendaryBall:GetAttribute("MythicHitUserId")==player.UserId and legendaryBall:GetAttribute("LegendaryHitUserId")==nil,
+  "mythic hit is published on the ball, without a legendary roll")
+ mythicLaunch.fn(table.unpack(mythicLaunch.args,1,mythicLaunch.args.n))
+ check((legendaryBall.AssemblyLinearVelocity-normalVelocity).Magnitude<.00001,"mythic hit launches exactly like a normal one")
+ Launcher.CancelPlayer(player)
+ check(legendaryBall:GetAttribute("MythicHitUserId")==nil and legendaryBall:GetAttribute("MythicLaunchAt")==nil,
+  "cancel clears the mythic attributes")
+ -- Both forced in Studio: they take turns.
+ forceLegendary,forceMythic=true,true
+ local kinds={}
+ for i=1,2 do
+  check(Launcher.TryLaunch(player,{worldId=world.id,session=1,swingId=760+i,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1},tool),"forced hit accepted")
+  kinds[i]=legendaryBall:GetAttribute("MythicHitUserId") and "Mythic" or legendaryBall:GetAttribute("LegendaryHitUserId") and "Legendary"
+  table.remove(delayed,1)
+  Launcher.CancelPlayer(player)
+ end
+ check(kinds[1]~=kinds[2] and kinds[1]~=nil and kinds[2]~=nil,"both forced: Mythic and Legendary take turns")
+ forceLegendary,forceMythic=false,false
  -- Shipped config: 2x is disabled, so requests are rejected and no speed state is published.
  check(not Field.FlightSpeedUpEnabled,"2x ball flight ships disabled")
  local disabled={worldId=world.id,session=1,swingId=800,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}

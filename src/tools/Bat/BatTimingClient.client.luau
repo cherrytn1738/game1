@@ -34,6 +34,9 @@ for _, phase in Swing.Phases do
 end
 local SWING_ZOOM_HOLD_SECONDS = Swing.Duration + 0.6
 local SWING_ZOOM_RELEASE_SECONDS = 0.3
+-- While the Player's client-local CinematicCamera attribute is set (Legendary Hit), that
+-- script drives the camera. Handing back mid-flight blends from its shot to the flight view.
+local HANDOFF_BLEND_SECONDS = 1.2
 
 local battingArea, batterPosition, tee, stem, ball, hitDirection
 local boundWorldId
@@ -54,6 +57,8 @@ local flightCameraRotation
 local flightStartedAt
 local flightStartFov = BATTING_CAMERA_FOV
 local swingStartedAt
+local cameraOverridden = false
+local handoff -- {offset, rotation, fov, startedAt}: the cinematic's last shot, relative to the ball
 
 local function ease(t) return 1 - (1 - math.clamp(t, 0, 1))^3 end
 
@@ -85,6 +90,7 @@ local function leaveBattingCamera()
  cameraActive = false
  flightCameraActive = false
  swingStartedAt = nil
+ handoff, cameraOverridden = nil, false
  local camera = workspace.CurrentCamera
  if not camera then return end
  local character = Player.Character
@@ -117,7 +123,28 @@ local function updateBattingCamera(ballState)
 
  local readyBallPosition = (stem.BallPosition.WorldCFrame * CFrame.new(0, ball.Size.Y / 2, 0)).Position
  local leftTee = flightCameraActive or (ball.Position - readyBallPosition).Magnitude >= LEAVE_DISTANCE
- if ballState == "InFlight" and leftTee then
+ if ballState == "InFlight" and leftTee and handoff then
+  -- Resume the normal flight framing (as if seen from the batting view), blended in from the
+  -- cinematic's shot.
+  if not flightCameraActive then
+   local fixed = getFixedCameraCFrame()
+   flightCameraActive = true
+   flightCameraOffset = fixed.Position - readyBallPosition
+   flightCameraRotation = fixed.Rotation
+   swingStartedAt = nil
+  end
+  local blend = ease((os.clock() - handoff.startedAt) / HANDOFF_BLEND_SECONDS)
+  local offset = handoff.offset:Lerp(flightCameraOffset, blend)
+  local rotation = handoff.rotation:Lerp(flightCameraRotation, blend)
+  camera.FieldOfView = handoff.fov + (FLIGHT_CAMERA_FOV - handoff.fov) * blend
+  camera.CFrame = CFrame.new(ball.Position + offset) * rotation
+  if blend >= 1 then
+   -- Carry on as a normal flight camera (no launch kick).
+   flightStartedAt = os.clock() - math.max(FLIGHT_FOV_SECONDS, SHAKE_SECONDS)
+   flightStartFov = FLIGHT_CAMERA_FOV
+   handoff = nil
+  end
+ elseif ballState == "InFlight" and leftTee then
   if not flightCameraActive then
    local fixed = camera.CFrame -- Preserve the actual viewing rotation from just before launch.
    flightCameraActive = true
@@ -135,6 +162,7 @@ local function updateBattingCamera(ballState)
   camera.CFrame = CFrame.new(ball.Position + flightCameraOffset) * flightCameraRotation * jolt
  else
   flightCameraActive = false
+  handoff = nil
   camera.FieldOfView = swingFieldOfView()
   camera.CFrame = getFixedCameraCFrame()
  end
@@ -216,6 +244,19 @@ local renderConnection = RunService.RenderStepped:Connect(function()
  if not active then return end
 
  local ballState = ball:GetAttribute("BallState")
+ if Player:GetAttribute("CinematicCamera") then
+  cameraOverridden = true
+  return
+ end
+ if cameraOverridden then
+  cameraOverridden = false
+  local camera = workspace.CurrentCamera
+  if camera then
+   handoff = {offset = camera.CFrame.Position - ball.Position, rotation = camera.CFrame.Rotation,
+    fov = camera.FieldOfView, startedAt = os.clock()}
+  end
+  flightCameraActive, swingStartedAt = false, nil
+ end
  updateBattingCamera(ballState)
 
 end)

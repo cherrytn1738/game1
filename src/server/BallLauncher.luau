@@ -25,7 +25,8 @@ local function resetBall(station)
  ball.AssemblyLinearVelocity, ball.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
  ball.CFrame = teeFrame(station)
  ball:SetAttribute("BallState", "Ready")
- for _, name in {"LaunchLevel", "LaunchAngleDegrees", "LaunchSpeed", "CurrentSectionId"} do
+ for _, name in {"LaunchLevel", "LaunchAngleDegrees", "LaunchSpeed", "CurrentSectionId",
+  "LegendaryHitUserId", "LegendaryLaunchAt", "MythicHitUserId", "MythicLaunchAt"} do
   ball:SetAttribute(name, nil)
  end
 end
@@ -263,6 +264,27 @@ local function launchDelay(player)
  return math.max(Swing.MinimumLaunchDelay, Swing.ContactTime - Swing.LaunchVisualLead - ping)
 end
 
+-- Rare cinematic hit roll: "Mythic", "Legendary" or nil (see Swing.MythicHit / LegendaryHit).
+-- In Studio only, the Workspace attributes ForceMythicHit / ForceLegendaryHit force them for
+-- testing (both set: they take turns).
+local specialRandom = Random.new()
+local forcedTurn = false
+local function rollSpecialHit()
+ if RunService:IsStudio() then
+  local mythic, legendary = Workspace:GetAttribute("ForceMythicHit"), Workspace:GetAttribute("ForceLegendaryHit")
+  if mythic and legendary then
+   forcedTurn = not forcedTurn
+   return forcedTurn and "Mythic" or "Legendary"
+  elseif mythic then return "Mythic"
+  elseif legendary then return "Legendary" end
+ end
+ local roll = specialRandom:NextNumber()
+ if roll < Swing.MythicHit.Chance then return "Mythic" end
+ if roll < Swing.MythicHit.Chance + Swing.LegendaryHit.Chance then return "Legendary" end
+ return nil
+end
+local SPECIAL_HITS = {Mythic = Swing.MythicHit, Legendary = Swing.LegendaryHit}
+
 function BallLauncher.TryLaunch(player, result, tool)
  local station = stations[result.worldId]
  if not station or station.hit or not PlayerData.IsReady(player)
@@ -273,7 +295,16 @@ function BallLauncher.TryLaunch(player, result, tool)
  player:SetAttribute("HitActive", true)
  player:SetAttribute("BallFlightSpeed", nil)
  station.ball:SetAttribute("BallState", "Reserved")
- task.delay(launchDelay(player), launch, station, hit)
+ local delay = launchDelay(player)
+ local special = rollSpecialHit()
+ if special then
+  -- Only the launch waits: the same launch, distance and rewards follow.
+  delay += SPECIAL_HITS[special].HoldSeconds
+  station.ball:SetAttribute(special .. "HitUserId", player.UserId)
+  station.ball:SetAttribute(special .. "LaunchAt", Workspace:GetServerTimeNow() + delay)
+  print(string.format("[%sHit] %s / %s", special, player.Name, station.world.id))
+ end
+ task.delay(delay, launch, station, hit)
  return true
 end
 

@@ -31,4 +31,14 @@ Swing.ContactTime = Swing.Markers.Contact
 Swing.LaunchVisualLead = 0.25
 Swing.MinimumLaunchDelay = 0.1
 
+-- Swing time when the bat's barrel meets the ball on the tee (measured in a playtest: closest
+-- at 0.50 s, touching from about 0.49 s). The cinematics freeze the swing here.
+Swing.BallContactTime = 0.492
+
+-- Rare cinematic hits (LegendaryHitClient, MythicHitClient). The server rolls them when it
+-- accepts a swing (Mythic first) and holds the launch HoldSeconds longer while the cinematic
+-- plays. Presentation only: launch strength, distance and rewards are the same as any hit.
+Swing.LegendaryHit = {Chance = 1 / 1000, HoldSeconds = 3.6}
+Swing.MythicHit = {Chance = 1 / 10000, HoldSeconds = 5.5}
+
 return Swing

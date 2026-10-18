@@ -78,6 +78,12 @@ local leftFootTarget, rightFootTarget, leftFootFrame, rightFootFrame, rearToe
 local rightPole, leftPole
 local gripJoint, savedGrip, swingStarted
 local contactFired = false
+-- Swing clock. The rare-hit cinematics (CinematicFX) steer it through client-local Tool
+-- attributes: SwingHoldAt stops the swing at that time (firing the "Hold" marker), and
+-- SwingClockOverride sets the time directly (freezes, slow motion, replays). Releasing the
+-- override carries on from where it left the swing.
+local swingElapsed, swingClock = 0, 0
+local holdFired = false
 -- Local procedural-animation marker; never sends a launch/reward request.
 local marker = Instance.new("BindableEvent")
 marker.Name, marker.Parent = "SwingMarkerReached", Tool
@@ -165,9 +171,32 @@ local function makeLeg(side)
 	return target, frame, foot
 end
 
+local function advanceSwingClock()
+	local now = os.clock()
+	local override = Tool:GetAttribute("SwingClockOverride")
+	if override then
+		swingElapsed = override
+	else
+		swingElapsed += now - swingClock
+		local holdAt = Tool:GetAttribute("SwingHoldAt")
+		if holdAt and swingElapsed >= holdAt then
+			swingElapsed = holdAt
+			if not holdFired then
+				holdFired = true
+				marker:Fire("Hold")
+			end
+		end
+	end
+	swingClock = now
+	return swingElapsed
+end
+
 local function sampleSwing()
-	if not swingStarted then return poses.Ready end
-	local elapsed = os.clock() - swingStarted
+	if not swingStarted then
+		if not Tool:GetAttribute("SwingClockOverride") then return poses.Ready end
+		swingStarted, swingClock = os.clock(), os.clock() -- a cinematic took over after the swing ended
+	end
+	local elapsed = advanceSwingClock()
 	if not contactFired and elapsed >= Swing.Markers.Contact then
 		contactFired = true
 		marker:Fire("Contact")
@@ -300,6 +329,10 @@ local function playSwing()
 	if presentationReady and not swingStarted then
 		contactFired = false
 		swingStarted = os.clock()
+		swingElapsed, swingClock, holdFired = 0, swingStarted, false
+		-- Every swing starts free of any earlier cinematic's control.
+		Tool:SetAttribute("SwingHoldAt", nil)
+		Tool:SetAttribute("SwingClockOverride", nil)
 	end
 end
 
