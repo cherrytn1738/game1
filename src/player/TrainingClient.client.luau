@@ -9,6 +9,7 @@ local Equipment = require(Storage:WaitForChild("EquipmentConfig"))
 local Swing = require(Storage:WaitForChild("SwingConfig"))
 local Worlds = require(Storage:WaitForChild("WorldConfig"))
 local Remote = Storage:WaitForChild("TrainingRequest")
+local GameAudio = require(Storage:WaitForChild("GameAudio"))
 local Teleport = Storage:WaitForChild("TrainingTeleport")
 local UI = require(script.Parent.UICommon)
 local Interfaces = require(script.Parent.HubInterfaces)
@@ -21,9 +22,19 @@ local offlineDetail = UI.Label(panel,"Feedback","Walk onto any unlocked ground's
 offlineDetail.Position, offlineDetail.Size, offlineDetail.TextWrapped = UDim2.new(0,16,1,-48),UDim2.new(1,-32,0,44),true
 
 -- The server decides access; these only describe it and send intent (teleport / buy prompt).
+local function reachable(ground)
+ return Config.IsReachable(ground, Config.ReadUnlockedWorlds(Player))
+end
 local function usable(ground)
- if Config.IsPaid(ground) then return Player:GetAttribute("TrainingPass_" .. ground.id) == true end
+ if not reachable(ground) then return false end
+ if Config.IsPaid(ground) then return Player:GetAttribute("TrainingPass_" .. Config.GetPassGround(ground).id) == true end
  return (Player:GetAttribute("Rebirths") or 0) >= ground.requiredRebirths
+end
+-- Where a ground stands, for its card: "World 2", or "Every World" for one in every hub.
+local function whereText(ground)
+ if #ground.worlds == #Config.Hubs then return "Every World" end
+ local world = Worlds.Get(ground.worlds[1])
+ return world and world.displayName or ""
 end
 
 local rows = {}
@@ -45,7 +56,7 @@ for index, ground in Config.Grounds do
   if usable(ground) then
    Interfaces.CloseAll()
    Teleport:FireServer(ground.id)
-  elseif Config.IsPaid(ground) then
+  elseif Config.IsPaid(ground) and reachable(ground) then
    Remote:FireServer("Buy",ground.id)
   end
  end)
@@ -96,6 +107,10 @@ local function leave(_,state)
  if state == Enum.UserInputState.Begin then Remote:FireServer("Exit",Player:GetAttribute("TrainingSession")) end
  return Enum.ContextActionResult.Sink
 end
+-- Practice audio (GameAudio): a soft machine thump as each ball is pitched, and a lighter,
+-- smaller bat crack than a real hit, heard from the cage. The swing's swish comes from the Bat.
+GameAudio.Preload({"PracticeCrack", "PracticePitch", "OfflineReward"})
+
 local function startPresentation()
  if rendering then return end
  if not leaveBound then
@@ -103,7 +118,9 @@ local function startPresentation()
   Actions:BindActionAtPriority("ExitTraining",leave,false,3000,Enum.KeyCode.Space)
   leaveBound = true
  end
- local hub = workspace:FindFirstChild(Worlds.Get(Worlds.StartingWorldId).hub.name)
+ -- Training always happens in the player's current World (travel stops it).
+ local world = Worlds.Get(Player:GetAttribute("CurrentWorldId"))
+ local hub = world and world.hub and workspace:FindFirstChild(world.hub.name)
  local grounds = hub and hub:FindFirstChild("TrainingGrounds")
  local stadium = grounds and grounds:FindFirstChild(Player:GetAttribute("TrainingGround") or "")
  local plate = stadium and stadium:FindFirstChild("TrainingPlate")
@@ -115,18 +132,27 @@ local function startPresentation()
  visual.Name, visual.Shape, visual.Size = "TrainingPracticeBall", Enum.PartType.Ball, Vector3.new(.65,.65,.65)
  visual.Anchored, visual.CanCollide, visual.CanTouch, visual.CanQuery = true,false,false,false
  visual.Color, visual.Parent = Color3.new(1,1,1), workspace
- local lastCycle = -1
+ local lastCycle, lastCrackCycle, lastPitchCycle = -1, -1, -1
  rendering = RunService.RenderStepped:Connect(function()
   if not plate.Parent or not pitchOrigin.Parent or not contact.Parent then stopVisual() return end
   local elapsed = math.max(0,workspace:GetServerTimeNow()-(Player:GetAttribute("TrainingStartedAt") or workspace:GetServerTimeNow()))
   local cycle, phase = math.floor(elapsed/Config.PracticeCycleSeconds), elapsed%Config.PracticeCycleSeconds
   visual.Transparency = phase > Config.PracticePitchSeconds+.15 and 1 or 0
   visual.Position = pitchOrigin.WorldPosition:Lerp(contact.WorldPosition,math.clamp(phase/Config.PracticePitchSeconds,0,1))
+  if cycle ~= lastPitchCycle and phase < Config.PracticePitchSeconds then
+   lastPitchCycle = cycle
+   GameAudio.Play("PracticePitch", pitchOrigin)
+  end
   if cycle ~= lastCycle and phase >= Config.PracticePitchSeconds-Swing.ContactTime then
    lastCycle = cycle
    local tool = Player.Character and Player.Character:FindFirstChild("Bat")
    local swing = tool and tool:FindFirstChild("PracticeSwing")
    if swing then swing:Fire() end
+  end
+  -- The bat meets the practice ball as it reaches the contact point.
+  if cycle ~= lastCrackCycle and phase >= Config.PracticePitchSeconds then
+   lastCrackCycle = cycle
+   GameAudio.Play("PracticeCrack", contact)
   end
  end)
 end
@@ -142,14 +168,19 @@ function refresh()
   local row = rows[ground.id]
   local open = usable(ground)
   local paid = Config.IsPaid(ground)
+  local pass = paid and Config.GetPassGround(ground)
+  local home = Worlds.Get(ground.worlds[1])
+  local inReach = reachable(ground)
   row.rate.Text = "x" .. UI.Number(ground.powerMultiplier) .. " POWER  |  "
    .. UI.Number(Progression.GetPowerGrant(ground.basePower, rebirths, batMultiplier)/ground.interval,1) .. " Power / second"
-  row.status.Text = trainingAt == ground.id and "Training here now"
+  row.status.Text = whereText(ground) .. " | " .. (trainingAt == ground.id and "Training here now"
    or open and (paid and "Pass owned" or "Unlocked")
-   or paid and "Robux pass - no Rebirths needed"
-   or "Locked | Requires " .. UI.Number(ground.requiredRebirths) .. " Rebirths"
-  local onSale = paid and ground.gamePassId > 0
-  local label = open and "GO" or paid and (onSale and "BUY  R$ " .. UI.Number(ground.robuxPrice) or "COMING SOON")
+   or not inReach and "Locked | Unlock " .. home.displayName .. " first"
+   or paid and (pass ~= ground and "Opened by the " .. pass.displayName .. " pass" or "Robux pass - no Rebirths needed")
+   or "Locked | Requires " .. UI.Number(ground.requiredRebirths) .. " Rebirths")
+  local onSale = paid and inReach and pass.gamePassId > 0
+  local label = open and "GO" or not inReach and "UNLOCK " .. string.upper(home.displayName)
+   or paid and (onSale and "BUY  R$ " .. UI.Number(pass.robuxPrice) or "COMING SOON")
    or "REQUIRES " .. UI.Number(ground.requiredRebirths) .. " REBIRTHS"
   UI.CardState(row.button.Parent,trainingAt == ground.id and "selected" or open and "available" or "locked")
   UI.SetButton(row.button,label,(open or onSale) and Interfaces.CanOpen() and trainingAt ~= ground.id,open or onSale)
@@ -171,8 +202,11 @@ end
 for _, name in {"DataLoaded","TrainingActive","TrainingGround","BattingActive","HitActive","EquippedBat","Rebirths","Level","LevelCap","Power","WorldTraveling"} do
  Player:GetAttributeChangedSignal(name):Connect(refresh)
 end
-for _, ground in Config.Grounds do
- if Config.IsPaid(ground) then Player:GetAttributeChangedSignal("TrainingPass_" .. ground.id):Connect(refresh) end
+for _, ground in Config.PassGrounds do
+ Player:GetAttributeChangedSignal("TrainingPass_" .. ground.id):Connect(refresh)
+end
+for _, hub in Config.Hubs do
+ Player:GetAttributeChangedSignal("WorldUnlocked_" .. hub.world):Connect(refresh)
 end
 panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
 Player.CharacterRemoving:Connect(stopPresentation)
@@ -228,6 +262,7 @@ local function offlineNotice()
   offlineBody.Text = offlineMessage
   offlineShown = true
   Interfaces.Open("Offline")
+  GameAudio.Play("OfflineReward")
   if offlineHealthConnection then offlineHealthConnection:Disconnect() offlineHealthConnection = nil end
  end)
 end

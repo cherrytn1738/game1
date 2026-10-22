@@ -2,14 +2,19 @@
 local Worlds = {
  StartingWorldId = "world_1",
  Worlds = {
-  {id = "world_1", displayName = "World 1", order = 1, endDistance = 5000,
+  {id = "world_1", displayName = "World 1", title = "Home Field", order = 1, endDistance = 5000,
    stationName = "BattingArea", fieldName = "LongRangeField",
    -- Hub extends behind the existing tee at (-17.2, 0, -21.2); forward is -Z.
-   -- Spawn is 60 studs behind the tee, in the walkway between the two rows of Training
-   -- Grounds (TrainingConfig: plates at x +/-44, depth 35-110; scenery reaches x ~+/-100,
-   -- depth ~130).
+   -- Layout (hub-relative, +Z back into the hub): the Training Grounds stand in one row down
+   -- the left side (TrainingConfig: plates at x -78, depth 34-199; their scenery reaches
+   -- x ~-134 to -57), and the World portal and the item displays stand in one line on the right
+   -- (front edge x 60, z 45 / 95 / 145), facing them across the middle, which is kept open for
+   -- events. The hub reaches 136 studs left of the tee line but only 86 right, just past the
+   -- displays, and 222 back, just past the last cage. Spawn is 60 studs behind the tee.
    offset = Vector3.zero, arrival = CFrame.new(-17.2, 4, 38.8), nextWorldId = "world_2",
-   hub = {name = "World1Hub", width = 210, depth = 136,
+   hub = {name = "World1Hub", left = 136, right = 86, depth = 222,
+    -- Scenery style (HubDecor): a sunken ballpark with stands, a berm and a scoreboard.
+    theme = "HomeField",
     promptDistance = 10,
     -- Positions relative to the batting edge: +Z is back into the hub. The physical
     -- stations are removed for now (their menus stay reachable from the HUD where a button
@@ -18,18 +23,24 @@ local Worlds = {
     --   {id = "Travel", actionText = "Open World Travel", position = Vector3.new(35, 0, 120), size = Vector3.new(14, 0.1, 12)},
     --   {id = "Rebirth", actionText = "View Rebirth", objectText = "Rebirth", position = Vector3.new(-35, 0, 120), size = Vector3.new(8, 0.1, 8)},
     interactions = {},
-    -- Physical item displays (ItemDisplay): one pedestal per item of an EquipmentConfig
-    -- category, in stepped rows of perRow; position is the centre of the front row's edge.
+    -- Physical item displays (ItemDisplay): one pedestal per item of one EquipmentConfig
+    -- purchase series (series; nil is the category's main series), in stepped rows of perRow;
+    -- position is the centre of the front row's edge.
     -- Items show RunwayAssets.DisplayItems.<item id> when that model exists, otherwise a
-    -- placeholder in the item's appearance colours. The displays stand side by side behind the
-    -- last Training Grounds (they end at z 117), where the hub's full width is open; each row
-    -- of 10 is about 67 studs. Bats stand upright, so their display uses taller items.
+    -- placeholder in the item's appearance colours. Both stand on the right side in two rows of
+    -- 5 (about 35 studs wide), turned (yaw) to face the Training Grounds across the middle.
+    -- Bats stand upright, so their display uses taller items.
     displays = {
      {id = "BallDisplay", category = "Ball", title = "BALLS", subtitle = "Earn more Cash per hit",
-      position = Vector3.new(-36, 0, 120), perRow = 10},
+      position = Vector3.new(60, 0, 95), yaw = -math.pi / 2, perRow = 5},
      {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
-      position = Vector3.new(36, 0, 120), perRow = 10, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
-    }},
+      position = Vector3.new(60, 0, 145), yaw = -math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
+    },
+    -- HubDecor marks these: an infield diamond for events in the middle, and the pad of the World
+    -- portal (WorldPortal), in line with the displays and turned (yaw) to face the middle. Stepping
+    -- into it opens the Worlds menu.
+    eventArea = {center = Vector3.new(0, 0, 125), size = 56},
+    portalPad = {center = Vector3.new(62.5, 0, 45), radius = 12, yaw = math.pi / 2}},
    runoutDistance = 2000,
    -- Cosmetic only (RunwayDecor); none of these change flight or progression distances.
    runway = {width = 160, wallHeight = 12, wallThickness = 6, wallTileLength = 12,
@@ -72,9 +83,28 @@ local Worlds = {
      order = 10, rewardMultiplier = 1.35, color = Color3.fromRGB(79, 63, 130), accent = Color3.fromRGB(241, 189, 255),
      material = Enum.Material.Marble, floorPattern = true, deckMaterial = Enum.Material.SmoothPlastic, props = {"planet", "star", "moon"}, backdrop = "planets", fillers = {"rock"}},
    }},
-  {id = "world_2", displayName = "World 2", order = 2, endDistance = 6000,
+  {id = "world_2", displayName = "World 2", title = "Time Travel", order = 2, endDistance = 6000,
    stationName = "BattingArea2", fieldName = "LongRangeField2",
-   offset = Vector3.new(8000, 0, 0), arrival = CFrame.new(8000, 4, 0),
+   -- Same hub layout as World 1 (TrainingConfig places World 2's cages in the same row), with
+   -- spawn 60 studs behind this World's tee.
+   offset = Vector3.new(8000, 0, 0), arrival = CFrame.new(7982.8, 4, 38.8),
+   hub = {name = "World2Hub", left = 136, right = 86, depth = 222,
+    -- Scenery style (HubDecor): a sunken clockwork plaza with a giant clock face, a clock tower
+    -- and monuments from the eras ahead.
+    theme = "TimeTravel",
+    promptDistance = 10,
+    interactions = {},
+    -- World 2 sells its own ball series (EquipmentConfig Ball series "world_2"); bats are the
+    -- same in every World.
+    displays = {
+     {id = "BallDisplay", category = "Ball", series = "world_2", title = "TIME TRAVEL BALLS", subtitle = "Earn more Cash per hit",
+      position = Vector3.new(60, 0, 95), yaw = -math.pi / 2, perRow = 5},
+     {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
+      position = Vector3.new(60, 0, 145), yaw = -math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
+    },
+    eventArea = {center = Vector3.new(0, 0, 125), size = 56},
+    -- The World portal, placed as in World 1.
+    portalPad = {center = Vector3.new(62.5, 0, 45), radius = 12, yaw = math.pi / 2}},
    runoutDistance = 2000,
    sections = {
     {id = "section_1", displayName = "Section 1", startDistance = 0, endDistance = 500, order = 1, rewardMultiplier = 1},

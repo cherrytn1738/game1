@@ -13,16 +13,21 @@ local CollectionService = game:GetService("CollectionService")
 local ItemDisplay = {}
 ItemDisplay.PedestalTag = "ItemPedestal"
 
--- Sized so a row of 10 items fits across the hub walkway (about 66 studs).
+-- A row of 5 items is about 35 studs wide (World 1 shows two rows of 5).
 local SPACING = 6.4 -- studs between pedestals in a row
 local ROW_DEPTH = 7 -- each further row steps back this far...
-local TIER_HEIGHT = 1.2 -- ...and up this high
+local TIER_HEIGHT = 1.2 -- the front tier's height
+-- ...and up far enough that its items clear the labels of the row in front (ItemDisplayClient
+-- labels are 3.2 studs tall), so names and prices never sit on top of each other.
+local LABEL_HALF_HEIGHT = 1.6
+local ROW_GAP = 0.4
+local PROMPT_REACH_PER_ROW = 10 -- higher rows stand further away from a player at the front
 local PEDESTAL = Vector3.new(3.6, 0.8, 3.6)
 -- Defaults; a display can override itemSize, itemHeight and labelHeight (bats stand taller).
 local ITEM_SIZE = 2 -- the item's largest dimension, in studs
 local ITEM_HEIGHT = 2.2 -- item centre above the pedestal top
 local LABEL_HEIGHT = 3.1 -- label centre above the item centre
-local PROMPT_DISTANCE = 8
+local PROMPT_DISTANCE = 14 -- reaches the front row from anywhere in the dirt lane before the display
 local BACKDROP_HEIGHT = 9 -- wall behind the top row, above its tier
 
 local STAGE_COLOR = Color3.fromRGB(236, 236, 242)
@@ -122,24 +127,32 @@ local function makeItem(item, spot, itemSize)
 end
 
 -- definition: a WorldConfig hub display; frame: the hub's batting-edge frame (+Z into the hub).
+-- definition.yaw turns the display about its position (default math.pi: facing the runway;
+-- -math.pi / 2 faces -X, e.g. from the right side of the hub toward its middle).
 function ItemDisplay.Build(hub, frame, definition, worldId)
  local old = hub:FindFirstChild(definition.id)
  if old then old:Destroy() end
- local items = Equipment.GetItems(definition.category)
+ -- One purchase series per display (definition.series; nil is the main series).
+ local items = Equipment.GetSeriesItems(definition.category, definition.series)
  local display = Instance.new("Model")
  display.Name = definition.id
  display:SetAttribute("Category", definition.category)
  display:SetAttribute("Title", definition.title)
  display:SetAttribute("Subtitle", definition.subtitle)
  display.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
- -- The display faces back toward the runway (-Z); rows climb away from it.
- local base = frame * CFrame.new(definition.position) * CFrame.Angles(0, math.pi, 0)
+ -- The display faces its local +Z; rows climb away from it.
+ local base = frame * CFrame.new(definition.position) * CFrame.Angles(0, definition.yaw or math.pi, 0)
  local perRow = math.max(1, definition.perRow or 5)
  local rows = math.ceil(#items / perRow)
  local width = math.min(#items, perRow) * SPACING + 3
+ local itemSize = definition.itemSize or ITEM_SIZE
+ local itemHeight = definition.itemHeight or ITEM_HEIGHT
+ local labelHeight = definition.labelHeight or LABEL_HEIGHT
+ local rowRise = labelHeight + LABEL_HALF_HEIGHT + itemSize / 2 + ROW_GAP
+ local function tierTop(row) return TIER_HEIGHT + row * rowRise end
  for row = 0, rows - 1 do
   -- Each tier reaches the ground so the stage reads as solid steps.
-  local height = TIER_HEIGHT * (row + 1)
+  local height = tierTop(row)
   local centre = base * CFrame.new(0, height / 2, -(row + 0.5) * ROW_DEPTH)
   part(display, "Tier" .. row + 1, Vector3.new(width, height, ROW_DEPTH), centre, STAGE_COLOR)
   part(display, "Trim" .. row + 1, Vector3.new(width + 0.1, 0.3, 0.3),
@@ -150,7 +163,7 @@ function ItemDisplay.Build(hub, frame, definition, worldId)
   local inRow = math.min(perRow, #items - row * perRow)
   local column = (index - 1) % perRow
   local x = (column - (inRow - 1) / 2) * SPACING
-  local top = TIER_HEIGHT * (row + 1)
+  local top = tierTop(row)
   local pedestal = Instance.new("Model")
   pedestal.Name = item.id
   local slab = part(pedestal, "Pedestal", PEDESTAL,
@@ -158,14 +171,14 @@ function ItemDisplay.Build(hub, frame, definition, worldId)
   -- A red plinth band under the white top.
   part(pedestal, "Band", Vector3.new(PEDESTAL.X + 0.5, 0.35, PEDESTAL.Z + 0.5),
    slab.CFrame * CFrame.new(0, -PEDESTAL.Y / 2 + 0.175, 0), TRIM_COLOR)
-  local itemHeight = definition.itemHeight or ITEM_HEIGHT
   local spot = slab.CFrame * CFrame.new(0, PEDESTAL.Y / 2 + itemHeight, 0)
-  makeItem(item, spot, definition.itemSize or ITEM_SIZE).Parent = pedestal
+  makeItem(item, spot, itemSize).Parent = pedestal
   local label = Instance.new("Attachment")
-  label.Name, label.Position, label.Parent = "Label", Vector3.new(0, PEDESTAL.Y / 2 + itemHeight + (definition.labelHeight or LABEL_HEIGHT), 0), slab
+  label.Name, label.Position, label.Parent = "Label", Vector3.new(0, PEDESTAL.Y / 2 + itemHeight + labelHeight, 0), slab
   local prompt = Instance.new("ProximityPrompt")
   prompt.Name, prompt.ObjectText, prompt.ActionText = "Prompt", item.displayName, "Buy"
-  prompt.MaxActivationDistance, prompt.HoldDuration, prompt.RequiresLineOfSight = PROMPT_DISTANCE, 0, false
+  prompt.MaxActivationDistance = PROMPT_DISTANCE + row * PROMPT_REACH_PER_ROW
+  prompt.HoldDuration, prompt.RequiresLineOfSight = 0, false
   prompt.Parent = slab
   pedestal:SetAttribute("Category", definition.category)
   pedestal:SetAttribute("ItemId", item.id)
@@ -174,7 +187,7 @@ function ItemDisplay.Build(hub, frame, definition, worldId)
   pedestal.Parent = display
  end
  -- A backdrop wall behind the top row, with a red cap, and the title above it.
- local wallTop = TIER_HEIGHT * rows + BACKDROP_HEIGHT
+ local wallTop = tierTop(rows - 1) + BACKDROP_HEIGHT
  local wallZ = -rows * ROW_DEPTH - 0.5
  part(display, "Backdrop", Vector3.new(width, wallTop, 1), base * CFrame.new(0, wallTop / 2, wallZ), STAGE_COLOR)
  part(display, "BackdropCap", Vector3.new(width + 0.4, 0.6, 1.4), base * CFrame.new(0, wallTop + 0.3, wallZ), TRIM_COLOR)

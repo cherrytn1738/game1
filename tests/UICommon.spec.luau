@@ -50,10 +50,13 @@ return function(sources)
    tween.Completed:Fire(Enum.PlaybackState.Completed)
   end
  end
- local sounds = {PlayLocalSound=function() end}
+ local played = {}
+ local audio = {Play=function(name) table.insert(played,name) end,Preload=function() end,CinematicActive=function() return false end}
+ local storage = {WaitForChild=function() return "GameAudio" end}
  local environment = setmetatable({
-  game={Players={LocalPlayer={}},GetService=function(_,name) return name=="TweenService" and tweens or sounds end},
+  game={Players={LocalPlayer={}},GetService=function(_,name) return name=="TweenService" and tweens or storage end},
   Instance={new=object},
+  require=function(module) assert(module=="GameAudio","UICommon only requires GameAudio") return audio end,
  },{__index=getfenv()})
  local module = assert(loadstring(sources.UICommon))
  setfenv(module,environment)
@@ -92,9 +95,13 @@ return function(sources)
  action.MouseButton1Up:Fire()
  completeTweens()
  check(action:GetAttribute("State")=="Claimed" and not action.Active,"press release cannot override a server-confirmed equipped state")
+ check(table.find(played,"UIClick"),"pressing an available button plays the shared click")
  local locked=makeButton("Next","LOCKED")
  UI.SetButton(locked,"LOCKED",false,false)
  check(locked:GetAttribute("State")=="Locked","locked items use the crimson Locked style")
+ table.clear(played)
+ locked.MouseButton1Down:Fire()
+ check(played[1]=="Locked" and #played==1,"pressing a locked button plays only the muted Locked thunk")
  local leave=makeButton("Leave","LEAVE")
  leave:SetAttribute("Danger",true)
  UI.SetButton(leave,"LEAVE",true,false)

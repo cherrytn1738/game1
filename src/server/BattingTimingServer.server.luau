@@ -172,9 +172,22 @@ Travel.OnServerEvent:Connect(function(player, destinationId)
  Travel:FireClient(player, "Arrived in " .. world.displayName)
 end)
 
+-- Where a ground's Training teleport goes: the player's current World when the ground stands
+-- there, otherwise the first unlocked World it stands in (CanUseTrainingGround has already
+-- checked that one exists).
+local function trainingWorld(player, ground)
+ local current = player:GetAttribute("CurrentWorldId")
+ if table.find(ground.worlds, current) then return Worlds.Get(current) end
+ for _, worldId in ground.worlds do
+  if player:GetAttribute("WorldUnlocked_" .. worldId) == true then return Worlds.Get(worldId) end
+ end
+ return nil
+end
+
 -- Training teleport: the client may name a ground; otherwise (or if that ground is not
--- usable) the server picks the player's best ground. It lands beside that plate, not on it,
--- so Training never starts by itself, and travels to World 1 if needed.
+-- usable) the server picks the player's best ground in any unlocked World. It lands beside
+-- that plate, not on it, so Training never starts by itself, and travels to that ground's
+-- World if needed.
 TrainingTeleport.OnServerEvent:Connect(function(player, ...)
  local state = states[player]
  local requested = ...
@@ -192,8 +205,8 @@ TrainingTeleport.OnServerEvent:Connect(function(player, ...)
  local character, root = livingCharacter(player)
  if not character then return end
  local ground = requested and PlayerData.CanUseTrainingGround(player, requested) or PlayerData.GetBestTrainingGround(player)
- local world = Worlds.Get(Worlds.StartingWorldId)
- local hub = workspace:FindFirstChild(world.hub.name)
+ local world = ground and trainingWorld(player, ground)
+ local hub = world and world.hub and workspace:FindFirstChild(world.hub.name)
  local stadium = ground and hub and hub:FindFirstChild("TrainingGrounds") and hub.TrainingGrounds:FindFirstChild(ground.id)
  local plate = stadium and stadium:FindFirstChild("TrainingPlate")
  if not plate then return end

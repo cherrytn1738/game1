@@ -13,6 +13,7 @@ local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Swing = require(ReplicatedStorage:WaitForChild("SwingConfig"))
+local GameAudio = require(ReplicatedStorage:WaitForChild("GameAudio"))
 local Player = Players.LocalPlayer
 
 local FX = {}
@@ -75,10 +76,12 @@ end
 
 -- spec = {id, volume, playbackSpeed?, startAt?}. startAt skips a recording's quiet lead-in so
 -- its hit lands on cue. Parented to a part it is heard from there; anywhere else
--- (SoundService) it plays flat for the local player only.
+-- (SoundService) it plays flat for the local player only. All of it is in the Cinematic
+-- SoundGroup (GameAudio).
 function FX.Sound(spec, parent, properties)
  local sound = Instance.new("Sound")
  sound.SoundId, sound.Volume, sound.PlaybackSpeed = spec[1], spec[2], spec[3] or 1
+ sound.SoundGroup = GameAudio.Group("Cinematic")
  sound.TimePosition = spec[4] or 0
  if parent:IsA("BasePart") then
   sound.RollOffMode, sound.RollOffMinDistance, sound.RollOffMaxDistance = Enum.RollOffMode.InverseTapered, 30, 600
@@ -118,7 +121,9 @@ end
 
 -- Fades all of c's sounds out over `seconds` and removes them: a cinematic's audio ends with
 -- its pictures (or sooner, when a short hit ends first) rather than playing on past them.
+-- The rest of the mix comes back up with it.
 function FX.FadeSounds(c, seconds)
+ if c.duckKey then GameAudio.Unduck(c.duckKey) end
  for _, sound in c.sounds or {} do
   if sound.Parent then
    FX.Tween(sound, seconds, {Volume = 0}, Enum.EasingStyle.Linear)
@@ -473,6 +478,7 @@ function FX.WatchStations(kind, handlers)
   c.stopped = true
   local ok, message = pcall(handlers.stop, c)
   if not ok then warn(kind .. " Hit cleanup failed: " .. tostring(message)) end
+  if c.duckKey then GameAudio.Unduck(c.duckKey) end
  end
  RunService.RenderStepped:Connect(function(dt)
   for _, world in Worlds.Worlds do
@@ -506,6 +512,12 @@ function FX.WatchStations(kind, handlers)
      if ok then
       result.ball, result.mine = ball, mine
       running[world.id] = result
+      -- The batter's own cinematic owns their mix (music, ambience, UI and the ball's own
+      -- sounds dip) until its audio fades out (FX.FadeSounds) or it stops.
+      if mine then
+       result.duckKey = kind .. "Hit_" .. world.id
+       GameAudio.Duck(result.duckKey, "Cinematic")
+      end
      else
       warn(kind .. " Hit cinematic unavailable: " .. tostring(result))
       local dead = {ball = ball, mine = mine, stopped = true}

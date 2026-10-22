@@ -17,7 +17,7 @@ return function(sources)
  local function object(name)
   return {Name=name,AbsoluteSize=Vector2.new(720,550),Activated=signal(),GetPropertyChangedSignal=function() return signal() end}
  end
- local attributes = {DataLoaded=true,Rebirths=1,Level=4,LevelCap=20,Power=0,OfflineSeconds=0}
+ local attributes = {DataLoaded=true,Rebirths=1,Level=4,LevelCap=20,Power=0,OfflineSeconds=0,WorldUnlocked_world_1=true}
  local changed = {}
  local player = {CharacterAdded=signal(),CharacterRemoving=signal()}
  function player:GetAttribute(name) return attributes[name] end
@@ -62,10 +62,11 @@ return function(sources)
  local remote={OnClientEvent=signal(),FireServer=function(_,...) table.insert(requests,table.pack(...)) end}
  local teleport={FireServer=function(_,...) table.insert(teleports,table.pack(...)) end}
  local trainingConfig=compile(sources.TrainingConfig)()
- trainingConfig.Get("dragons_lair").gamePassId=111 -- Fixture: only this pass "exists".
+ trainingConfig.Get("cosmic_rift").gamePassId=111 -- Fixture: only this pass "exists".
  local modules={UICommon=UI,HubInterfaces=Interfaces,
   EquipmentConfig=compile(sources.EquipmentConfig)(),TrainingConfig=trainingConfig,
-  ProgressionConfig=compile(sources.ProgressionConfig)(),SwingConfig={},WorldConfig={}}
+  ProgressionConfig=compile(sources.ProgressionConfig)(),SwingConfig={},WorldConfig=compile(sources.WorldConfig)(),
+  GameAudio={Play=function() end,Preload=function() end}}
  local storage={}
  -- The real client fetches its RemoteEvents directly rather than requiring them.
  function storage:WaitForChild(name)
@@ -90,8 +91,8 @@ return function(sources)
  check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  150 Power / second", "ground, Bat and Rebirth compose once in preview")
  check(buttons.basic_training.Active and buttons.basic_training.Text == "GO","unlocked ground offers a teleport")
  check(not buttons.enchanted_grove.Active and buttons.enchanted_grove.Text == "REQUIRES 2 REBIRTHS","locked Rebirth ground stays disabled")
- check(not buttons.cosmic_rift.Active and buttons.cosmic_rift.Text == "COMING SOON","paid ground without a pass id cannot be bought")
- check(buttons.dragons_lair.Active and buttons.dragons_lair.Text == "BUY  R$ 500","paid ground offers its pass")
+ check(not buttons.dragons_lair.Active and buttons.dragons_lair.Text == "COMING SOON","paid ground without a pass id cannot be bought")
+ check(buttons.cosmic_rift.Active and buttons.cosmic_rift.Text == "BUY  R$ 500","paid ground offers its pass")
  player:SetAttribute("BattingActive",true)
  player:SetAttribute("HitActive",true)
  player:SetAttribute("Power",4)
@@ -110,16 +111,28 @@ return function(sources)
  buttons.basic_training.Activated:Fire()
  check(#teleports==1 and teleports[1].n==1 and teleports[1][1]=="basic_training" and #requests==0,
   "GO submits only the ground id as teleport intent")
- buttons.dragons_lair.Activated:Fire()
- check(#requests==1 and requests[1].n==2 and requests[1][1]=="Buy" and requests[1][2]=="dragons_lair","BUY asks the server for the pass prompt")
+ buttons.cosmic_rift.Activated:Fire()
+ check(#requests==1 and requests[1].n==2 and requests[1][1]=="Buy" and requests[1][2]=="cosmic_rift","BUY asks the server for the pass prompt")
  buttons.enchanted_grove.Activated:Fire()
  check(#requests==1 and #teleports==1,"locked button sends nothing")
  player:SetAttribute("WorldTraveling",true)
  check(not buttons.basic_training.Active,"travel disables the menu")
  player:SetAttribute("WorldTraveling",false)
  check(buttons.basic_training.Active,"travel completion restores the menu")
- player:SetAttribute("TrainingPass_dragons_lair",true)
- check(buttons.dragons_lair.Active and buttons.dragons_lair.Text == "GO","owned pass turns BUY into GO")
+ check(not buttons.caveman_camp.Active and buttons.caveman_camp.Text == "UNLOCK WORLD 2","World 2 grounds wait for World 2")
+ check(not buttons.time_machine_lab.Active and buttons.time_machine_lab.Text == "UNLOCK WORLD 2","a shared-pass ground in a locked World is not sold")
+ buttons.caveman_camp.Activated:Fire()
+ buttons.time_machine_lab.Activated:Fire()
+ check(#requests==1 and #teleports==1,"grounds in a locked World send nothing")
+ player:SetAttribute("WorldUnlocked_world_2",true)
+ check(buttons.caveman_camp.Active and buttons.caveman_camp.Text == "GO","unlocking World 2 opens its free ground")
+ check(not buttons.pharaohs_tomb.Active and buttons.pharaohs_tomb.Text == "REQUIRES 8 REBIRTHS","World 2 Rebirth tiers continue on")
+ check(buttons.time_machine_lab.Active and buttons.time_machine_lab.Text == "BUY  R$ 500","Time Machine Lab sells Cosmic Rift's pass")
+ buttons.time_machine_lab.Activated:Fire()
+ check(#requests==2 and requests[2][1]=="Buy" and requests[2][2]=="time_machine_lab","BUY names the ground; the server resolves its pass")
+ player:SetAttribute("TrainingPass_cosmic_rift",true)
+ check(buttons.cosmic_rift.Active and buttons.cosmic_rift.Text == "GO","owned pass turns BUY into GO")
+ check(buttons.time_machine_lab.Active and buttons.time_machine_lab.Text == "GO","the shared pass opens both of its grounds")
  player:SetAttribute("Rebirths",2)
  check(buttons.enchanted_grove.Active and buttons.enchanted_grove.Text == "GO","Rebirth unlock refreshes the menu")
  return {passed=passed}

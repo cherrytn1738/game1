@@ -234,7 +234,7 @@ Server validates purchases and equipping.
 
 Training is the primary source of Power.
 
-There are six physical Training Grounds (batting cages) in a row at the back of the World 1 hub, each with its own plate.
+Each World's hub has a row of six physical Training Grounds (batting cages) down its left side, each with its own plate. Dragon's Lair stands in every World.
 
 Player walks onto an unlocked ground's training plate:
 
@@ -257,18 +257,15 @@ Training practice balls:
 
 Each Training Ground is a separate physical cage (developer decision, superseding the old single logical stadium). There is no saved selection: the plate you stand on is the ground you train at.
 
-Current Grounds (Power multiplier on 20 Power every ~2 seconds):
+Current Grounds (Power multiplier on 20 Power every ~2 seconds; `TrainingConfig.Hubs` lists each World's row):
 
-- Basic Training: start, 1x
-- Enchanted Grove: 2 Rebirths, 5x
-- Sunken Atlantis: 4 Rebirths, 10x
-- Sky Temple: 6 Rebirths, 20x
-- Dragon's Lair: 500 Robux game pass, 10x
-- Cosmic Rift: 1000 Robux game pass, 30x
+- World 1: Basic Training (start, 1x), Enchanted Grove (2 Rebirths, 5x), Sunken Atlantis (4 Rebirths, 10x), Sky Temple (6 Rebirths, 20x), Cosmic Rift (500 Robux game pass, 10x)
+- World 2 (placeholder values): Caveman Camp (free once World 2 is unlocked, 25x), Pharaoh's Tomb (8 Rebirths, 35x), Gladiator Colosseum (10 Rebirths, 50x), Samurai Dojo (12 Rebirths, 70x), Time Machine Lab (Cosmic Rift's pass, 35x)
+- Every World: Dragon's Lair (1000 Robux game pass, 30x, most expensive)
 
-Paid grounds need no Rebirths. Pass ownership is server-checked through MarketplaceService and is never saved. `gamePassId` is 0 until the passes are created. Offline Training uses the best ground the player can use.
+A ground needs a World it stands in to be unlocked. Paid grounds need no Rebirths. Pass ownership is server-checked through MarketplaceService and is never saved; a shared pass (`sharesPass`) is keyed by its owning ground. `gamePassId` is 0 until the passes are created. Offline Training and the Training teleport use the best ground the player can use in any unlocked World.
 
-Themes are fantasy after the first ground and get more intricate down the row. Each has its own Blender model (tools/blender/*_cage.py, sharing cage_helpers.py) styled by TrainingCageStyles; a ground whose model is not imported falls back to the standard cage.
+World 1's themes are fantasy after the first ground and get more intricate down the row. Each has its own Blender model (tools/blender/*_cage.py, sharing cage_helpers.py) styled by TrainingCageStyles; a ground whose model is not imported falls back to the standard cage. World 2's grounds use the standard cage in era colors until their own models are made.
 
 ---
 
@@ -278,7 +275,7 @@ Players gain limited Power while offline.
 
 Current design:
 
-- uses selected Training Ground
+- uses the best Training Ground the player can use in any unlocked World
 - applies offline rate multiplier
 - applies equipped Bat multiplier
 - applies Rebirth multiplier
@@ -357,15 +354,15 @@ See `GAME_DESIGN.md` → 2× Ball Flight.
 
 ## Hub
 
-World 1 has a rectangular player hub behind the batting station.
+Each World with a `hub` config has a rectangular player hub (136 studs left of the tee line, 86 right, 222 back) behind its batting station, styled by `HubDecor` (`hub.theme`): Home Field (World 1, a sunken ballpark) and Time Travel (World 2, a sunken clockwork plaza).
 
-Conceptual zoning:
+Layout (the same in both hubs):
 
 - front edge: batting station / field
-- center: open circulation area
-- left: equipment/shop
-- rear-center: world/progression interactions
-- both sides: two rows of three Training Grounds (parallel to the runway) with a walkway between; the Shop, Travel and Rebirth stations are removed for now
+- left: the World's row of six Training Grounds
+- right: the World portal and the item displays in one line facing the cages (World 1: Balls and Bats; World 2: its own Time Travel balls and Bats); the portal opens the Worlds menu when stepped into
+- middle: an event area (World 1 infield diamond, World 2 giant clock)
+- the Shop, Travel and Rebirth stations are removed for now
 
 The hub intentionally leaves space for future content.
 
@@ -581,6 +578,6 @@ After Milestone 18, the following were implemented:
 - World 1 themed runway (10 sections), with a detailed scenery pass
 - 2× ball flight (implemented, currently disabled)
 
-Final hub/environment art and World 2 runway themes are still NOT implemented.
+World 2 (Time Travel) is being built in stages. Stage 2 (done): per-World Training Grounds with World 2's row, the Time Travel hub, World portals that open the Worlds menu, and cross-World Training teleport and offline Training. World 2's ten balls (Stage 4) are in as their own purchase series (models pending import). Still NOT implemented: World 2's runway zones (Stage 3) and World 2 cage models (Stage 5).
 
 Always inspect the current code before acting on those planned features.

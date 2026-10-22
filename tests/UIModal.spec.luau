@@ -6,17 +6,24 @@ return function(sources)
  local originalBlur=Instance.new("BlurEffect",lighting)
  originalBlur.Name, originalBlur.Size = "ExistingWorldBlur",4
  local tweenService=game:GetService("TweenService")
+ local played={}
+ local audio={Play=function(name) table.insert(played,name) end,Preload=function() end,CinematicActive=function() return false end}
+ local storage={WaitForChild=function() return "GameAudio" end}
  local environment=setmetatable({
   game={Players={LocalPlayer={WaitForChild=function() return root end}},
-   GetService=function(_,name) return name=="Lighting" and lighting or tweenService end},
+   GetService=function(_,name) return name=="Lighting" and lighting or name=="ReplicatedStorage" and storage or tweenService end},
   task={defer=function(fn) fn() end,delay=function() end},
+  require=function(module) assert(module=="GameAudio","UICommon only requires GameAudio") return audio end,
  },{__index=getfenv()})
  local run=assert(loadstring(sources.UICommon))
  setfenv(run,environment)
  local UI=run()
  local a,_,showA=UI.Menu("Equipment","Equipment","",function() end)
  local b,_,showB=UI.Menu("Worlds","Worlds","",function() end)
+ check(#played==0,"building menus is silent")
  showA(true)
+ showA(true)
+ check(#played==1 and played[1]=="MenuOpen","opening a menu plays MenuOpen once, not again while open")
  local blur=lighting:FindFirstChild("MenuBlur")
  check(blur and blur.Enabled,"opening a modal enables owned blur")
  for _=1,10 do showB(true) showA(false) showA(true) showB(false) end
@@ -24,7 +31,9 @@ return function(sources)
  showB(true)
  showA(false)
  check(blur.Enabled,"closing one menu does not remove blur from another visible menu")
+ table.clear(played)
  showB(false)
+ check(played[1]=="MenuClose","closing a menu plays MenuClose")
  check(not blur.Enabled,"closing the final modal restores the world")
  check(originalBlur.Enabled and originalBlur.Size==4,"unrelated world effects are untouched")
  task.wait(.25)

@@ -837,4 +837,16 @@ function RunwayDecor.Build(field, world, frame)
  buildTitle(kit, world.endDistance, string.upper(world.displayName) .. " FINISH", last)
 end
 
+-- Places one mesh prop or backdrop by kind (MESH_PROPS / BACKDROP_MESHES) away from a runway,
+-- e.g. around a hub (HubDecor). colors = {color, accent} like a section's palette; variant varies
+-- heading and size. Returns false when the template is missing from RunwayAssets.
+function RunwayDecor.PlaceMesh(parent, frame, kind, position, scale, variant, colors)
+ local definition = MESH_PROPS[kind] or BACKDROP_MESHES[kind]
+ local template = getTemplate(definition)
+ if not template then return false end
+ local c = palette({color = colors.color, accent = colors.accent})
+ placeMesh(parent, frame, template, definition, c, position, scale * (definition.scale or 1), variant)
+ return true
+end
+
 return RunwayDecor

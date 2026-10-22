@@ -5,8 +5,9 @@ local Data = require(script.Parent.PlayerData)
 local Worlds = require(game.ReplicatedStorage.WorldConfig)
 local Training = require(game.ReplicatedStorage.TrainingConfig)
 local Service = {}
--- Each physical ground has its own plate and at most one occupant.
-local plates, occupants, active, remote = {}, {}, {}, nil
+-- Every World hub has its own row of grounds (Dragon's Lair stands in each), so a station is
+-- one plate in one hub: {ground, plate, worldId}. Each plate has at most one occupant.
+local stations, occupants, active, remote = {}, {}, {}, nil
 local mustLeave, requests, lockedNotices = {}, {}, {}
 local sessionId = 0
 local started = false
@@ -16,7 +17,7 @@ function Service.Stop(player)
  local state = active[player]
  if not state then return end
  active[player] = nil
- if occupants[state.ground.id] == player then occupants[state.ground.id] = nil end
+ if occupants[state.plate] == player then occupants[state.plate] = nil end
  mustLeave[player] = true
  player:SetAttribute("TrainingActive", false)
  player:SetAttribute("TrainingGround", nil)
@@ -38,10 +39,10 @@ local function inside(plate, root)
   and position.Y >= 0 and position.Y <= 6
 end
 
-local function plateUnder(root)
- for _, ground in Training.Grounds do
-  local plate = plates[ground.id]
-  if plate and inside(plate, root) then return ground, plate end
+-- Only plates in the player's current World count.
+local function plateUnder(root, worldId)
+ for _, station in stations do
+  if station.worldId == worldId and inside(station.plate, root) then return station.ground, station.plate end
  end
  return nil
 end
@@ -50,7 +51,7 @@ local function characterState(player)
  local character = player.Character
  local humanoid = character and character:FindFirstChildOfClass("Humanoid")
  local root = character and character:FindFirstChild("HumanoidRootPart")
- if not Data.IsReady(player) or player:GetAttribute("CurrentWorldId") ~= Worlds.StartingWorldId
+ if not Data.IsReady(player) or not Worlds.Get(player:GetAttribute("CurrentWorldId"))
   or player:GetAttribute("BattingActive") or player:GetAttribute("HitActive")
   or not humanoid or humanoid.Health <= 0 or not root or not character.Parent then return nil end
  return character, humanoid, root
@@ -64,11 +65,12 @@ local function refuse(player, ground, message)
  if lockedNotices[player] and now - lockedNotices[player] < LOCKED_NOTICE_SECONDS then return end
  lockedNotices[player] = now
  remote:FireClient(player, false, message)
- if Training.IsPaid(ground) and ground.gamePassId > 0 then
+ local pass = Training.IsPaid(ground) and Training.GetPassGround(ground)
+ if pass and pass.gamePassId > 0 then
   task.spawn(function()
    Data.RefreshTrainingPasses(player)
-   if not Data.OwnsTrainingPass(player, ground.id) and player.Parent == Players then
-    Marketplace:PromptGamePassPurchase(player, ground.gamePassId)
+   if not Data.OwnsTrainingPass(player, pass.id) and player.Parent == Players then
+    Marketplace:PromptGamePassPurchase(player, pass.gamePassId)
    end
   end)
  end
@@ -85,7 +87,7 @@ local function enter(player, ground, plate, character, humanoid, root)
   ground=ground, plate=plate, frame=frame, nextTick=os.clock()+ground.interval,
   saved={anchored=root.Anchored,walkSpeed=humanoid.WalkSpeed,jumpPower=humanoid.JumpPower,
    jumpHeight=humanoid.JumpHeight,autoRotate=humanoid.AutoRotate}}
- occupants[ground.id] = player
+ occupants[plate] = player
  root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
  root.CFrame, root.Anchored = frame, true
  humanoid.WalkSpeed, humanoid.JumpPower, humanoid.JumpHeight, humanoid.AutoRotate = 0,0,0,false
@@ -101,12 +103,13 @@ end
 local function requestPurchase(player, id)
  local ground = type(id) == "string" and Training.Get(id)
  if not ground or not Training.IsPaid(ground) or not Data.IsReady(player) then return end
- if ground.gamePassId <= 0 then
+ local pass = Training.GetPassGround(ground)
+ if pass.gamePassId <= 0 then
   remote:FireClient(player, false, ground.displayName .. " is not on sale yet.")
- elseif Data.OwnsTrainingPass(player, id) then
-  remote:FireClient(player, false, "You already own " .. ground.displayName .. ".")
+ elseif Data.OwnsTrainingPass(player, pass.id) then
+  remote:FireClient(player, false, "You already own the " .. pass.displayName .. " pass.")
  else
-  Marketplace:PromptGamePassPurchase(player, ground.gamePassId)
+  Marketplace:PromptGamePassPurchase(player, pass.gamePassId)
  end
 end
 
@@ -115,8 +118,12 @@ function Service.Start()
  started = true
  local fieldServer = script.Parent:WaitForChild("FieldServer")
  while not fieldServer:GetAttribute("FieldsReady") do fieldServer:GetAttributeChangedSignal("FieldsReady"):Wait() end
- local grounds = workspace[Worlds.Get(Worlds.StartingWorldId).hub.name].TrainingGrounds
- for _, ground in Training.Grounds do plates[ground.id] = grounds[ground.id].TrainingPlate end
+ for _, hub in Training.Hubs do
+  local grounds = workspace[Worlds.Get(hub.world).hub.name].TrainingGrounds
+  for _, id in hub.grounds do
+   table.insert(stations, {ground = Training.Get(id), plate = grounds[id].TrainingPlate, worldId = hub.world})
+  end
+ end
  remote = game.ReplicatedStorage:FindFirstChild("TrainingRequest") or Instance.new("RemoteEvent")
  remote.Name, remote.Parent = "TrainingRequest", game.ReplicatedStorage
  remote.OnServerEvent:Connect(function(player, action, value)
@@ -157,16 +164,23 @@ function Service.Start()
    elseif os.clock() >= state.nextTick then
     state.nextTick = os.clock() + state.ground.interval -- No burst/catch-up rewards after stalls.
     local progression = Data.GetProgression(player)
-    if progression.Level < progression.LevelCap then Data.GrantPower(player,state.ground.basePower,"ActiveTraining") end
+    if progression.Level < progression.LevelCap then
+     local granted, result = Data.GrantPower(player,state.ground.basePower,"ActiveTraining")
+     -- Display copies for the client's "+Power" popup; the tick count makes repeats visible.
+     if granted and result.powerGranted > 0 then
+      player:SetAttribute("TrainingPowerGained", result.powerGranted)
+      player:SetAttribute("TrainingPowerTick", (player:GetAttribute("TrainingPowerTick") or 0) + 1)
+     end
+    end
    end
   end
   for _, player in Players:GetPlayers() do
    local character, humanoid, root = characterState(player)
    if root and not active[player] then
-    local ground, plate = plateUnder(root)
+    local ground, plate = plateUnder(root, player:GetAttribute("CurrentWorldId"))
     if not ground then
      mustLeave[player] = nil
-    elseif not mustLeave[player] and not player:GetAttribute("TrainingActive") and not occupants[ground.id] then
+    elseif not mustLeave[player] and not player:GetAttribute("TrainingActive") and not occupants[plate] then
      local usable, reason = Data.CanUseTrainingGround(player, ground.id)
      if usable then enter(player, ground, plate, character, humanoid, root) else refuse(player, ground, reason) end
     end

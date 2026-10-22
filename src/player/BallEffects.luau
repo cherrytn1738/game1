@@ -1,8 +1,9 @@
 -- Client-side Ball cosmetics (BallStyles). Nothing here touches physics, distance or rewards:
 --   * a visual copy of the batter's Ball model follows each station's physics ball (which is
 --     hidden locally while the copy is shown), on the tee and in flight
---   * while a hit is in the air: trails, particles and glow on an invisible anchor that
---     follows the ball, plus one-shot bursts at launch and on the first landing
+--   * while a hit is in the air: each ball's own stack of flight layers (ribbons, particles,
+--     orbiters, debris, arcs, pulses, echoes) around the ball, plus one-shot bursts at launch
+--     and on the first landing
 -- Models are the styled copies the server publishes to ReplicatedStorage.BallModels.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -14,6 +15,13 @@ local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local BallEffects = {}
 
 local LAND_HEIGHT = 0.6 -- the ball's bottom this close to the ground counts as landing
+-- The visible ball, and every flight effect around it, is drawn this many times the size of
+-- the physics ball, so it is easy to follow. The physics ball itself never changes size, and the
+-- visible one is raised so its bottom still rests where the physics ball's does.
+local VISUAL_SCALE = 2
+local function visualLift(ball)
+ return Vector3.new(0, ball.Size.Y / 2 * (VISUAL_SCALE - 1), 0)
+end
 local FULL_EFFECT_SPEED = 60 -- particles thin out below this speed (studs per second)
 local MODEL_RETRY_SECONDS = 1
 
@@ -66,7 +74,7 @@ function BallEffects.UpdateVisual(ball)
   if template then
    model = template:Clone()
    local diameter = template:GetAttribute("BallDiameter") or 1
-   model:ScaleTo(model:GetScale() * ball.Size.X / diameter)
+   model:ScaleTo(model:GetScale() * ball.Size.X * VISUAL_SCALE / diameter)
    local style = Styles.Get(itemId)
    glow(model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart"), style and style.light, 0.6)
    model.Parent = container
@@ -75,7 +83,7 @@ function BallEffects.UpdateVisual(ball)
   visuals[ball] = entry
  end
  if entry.model then
-  entry.model:PivotTo(ball.CFrame)
+  entry.model:PivotTo(ball.CFrame + visualLift(ball))
   ball.LocalTransparencyModifier = 1
  else
   ball.LocalTransparencyModifier = 0
@@ -140,68 +148,271 @@ function BallEffects.Burst(name, position)
  Debris:AddItem(holder, 3)
 end
 
+
 -- ---------- flight effects ----------
--- Layered so they read as flashy without clutter, and build up with the ball's price (tier):
---   outer colour trail (true colour) + a thin white-hot core (additive glow)
---   a sparkle ribbon (from the Bubblegum Ball up), a glow halo around the ball, theme
---   particles, backspin on the model, and a flash + ring at launch and landing.
+-- Each Ball's flight is a stack of layers from its style (BallStyles flight.layers), so every
+-- ball has its own signature look:
+--   ribbon   a Trail: colour gradient, a shaped silhouette (taper), glowing bands, optional
+--            texture; can spiral round the ball (orbit), sway (wobble) or crackle (jitter /
+--            flicker / hueShift)
+--   streak   a soft, round glowing trail of overlapping particles (volumetric, not flat)
+--   emitter  a particle preset riding on the ball (optionally offset, or emitted backwards)
+--   orbiters small parts circling the ball (crystals, gears, rune stones, stars...)
+--   debris   bits shed behind the ball that tumble down and fade (leaves, petals, rocks...)
+--   arcs     crackling lightning bolts around and behind the ball
+--   pulse    rings that ripple out from the ball along its path
+--   echoes   fading ghost copies of the ball model
+-- Plus a soft glow halo, backspin on the model, and a flash + ring at launch and landing.
+-- Positions are in the ball's flight frame: -Z ahead, +Z behind, X/Y across the path. Sizes
+-- in styles are for the physics ball; everything is drawn VISUAL_SCALE times bigger.
 
-local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
-local SPARKLE_TIER = 0.2 -- tiers at or above this get the sparkle ribbon
+local TEXTURES = {
+ sparkle = "rbxasset://textures/particles/sparkles_main.dds",
+ fire = "rbxasset://textures/particles/fire_main.dds",
+ smoke = "rbxasset://textures/particles/smoke_main.dds",
+ sparks = "rbxasset://textures/particles/fire_sparks_main.dds",
+ glow = "rbxasset://textures/particles/forcefield_glow_main.dds",
+ vortex = "rbxasset://textures/particles/forcefield_vortex_main.dds",
+ core = "rbxasset://textures/particles/explosion01_core_main.dds",
+ shockwave = SHOCKWAVE_TEXTURE,
+}
+local SPAWN_MIN_AMOUNT = 0.25 -- spawned layers (debris, arcs, pulses, echoes) pause when this slow
+local GLOW_EMISSION = 0.35 -- how much light a glow ribbon or streak adds
 
--- How far up the Ball lineup an item is: 0 for the first, 1 for the last.
+-- How far up the main Ball lineup an item is: 0 for the first, 1 for the last. Later series
+-- (World 2's balls) come after it, so they all get the top tier.
 local function tierOf(itemId)
  local item = Equipment.GetById(itemId)
- local count = #Equipment.GetItems("Ball")
- return item and count > 1 and (item.order - 1) / (count - 1) or 0
+ local count = #Equipment.GetSeriesItems("Ball")
+ return item and count > 1 and math.min(1, (item.order - 1) / (count - 1)) or 0
 end
 
-local function trailColors(spec)
- return spec.rainbow and rainbow() or ColorSequence.new(spec.colors[1], spec.colors[2])
+-- A colour list (head to tail) as a ColorSequence.
+local function gradient(colors)
+ if #colors == 1 then return ColorSequence.new(colors[1]) end
+ local points = {}
+ for index, color in colors do table.insert(points, ColorSequenceKeypoint.new((index - 1) / (#colors - 1), color)) end
+ return ColorSequence.new(points)
 end
 
-local function headColor(spec)
- return spec.rainbow and Color3.fromRGB(255, 235, 170) or spec.colors[1]
+-- Ribbon silhouettes (WidthScale from the ball to the tail), so trails aren't plain strips.
+local function curve(points)
+ local keypoints = {}
+ for _, point in points do table.insert(keypoints, NumberSequenceKeypoint.new(point[1], point[2])) end
+ return NumberSequence.new(keypoints)
+end
+local SHAPES = {
+ comet = curve({{0, 1}, {1, 0.05}}), -- widest at the ball, thinning away
+ teardrop = curve({{0, 0.2}, {0.12, 1}, {1, 0}}), -- swells just behind the ball, then a long point
+ needle = curve({{0, 1}, {0.06, 0.55}, {1, 0}}), -- a bright head on a long thin tail
+ swell = curve({{0, 0.35}, {0.45, 1}, {1, 0.15}}), -- billows out as it trails (smoke, sand)
+ scallop = curve({{0, 0.9}, {0.15, 0.35}, {0.3, 1}, {0.45, 0.3}, {0.6, 0.85}, {0.75, 0.25}, {1, 0}}), -- wavy edges
+ flame = curve({{0, 0.5}, {0.1, 1}, {0.3, 0.6}, {0.5, 0.95}, {0.75, 0.35}, {1, 0}}), -- licking tongues
+}
+
+-- Transparency from the ball to the tail; bands > 0 splits it into that many glowing segments.
+local function fadeCurve(fade, bands)
+ if not bands then return NumberSequence.new(fade[1], fade[2]) end
+ local points = {{0, fade[1]}}
+ for band = 1, bands do
+  local t = band / (bands + 1)
+  local base = fade[1] + (fade[2] - fade[1]) * t
+  table.insert(points, {t - 0.5 / (bands + 1), math.min(1, base + 0.55)})
+  table.insert(points, {t, base})
+ end
+ table.insert(points, {1, fade[2]})
+ return curve(points)
 end
 
-local function trailLayer(anchor, side, width, properties)
+local function makeRibbon(anchor, spec)
  local top, bottom = Instance.new("Attachment"), Instance.new("Attachment")
- top.Position, bottom.Position = Vector3.new(side, width / 2, 0), Vector3.new(side, -width / 2, 0)
  top.Parent, bottom.Parent = anchor, anchor
  local trail = Instance.new("Trail")
  trail.Attachment0, trail.Attachment1 = top, bottom
  trail.MinLength, trail.FaceCamera, trail.LightInfluence = 0.05, true, 0
- for property, value in properties do trail[property] = value end
+ trail.Lifetime = spec.lifetime or 0.4
+ -- Glowing ribbons add only some light: fully additive light washes colours out to white
+ -- against the bright sky, so the rest of the colour comes from normal blending.
+ trail.LightEmission, trail.Brightness = spec.glow and GLOW_EMISSION or 0, spec.glow and 2.2 or 1.6
+ trail.Color = spec.rainbow and rainbow() or gradient(spec.colors or {Color3.new(1, 1, 1)})
+ local fade, taper = spec.fade or {0.2, 1}, spec.taper or "comet"
+ trail.Transparency = fadeCurve(fade, spec.bands)
+ trail.WidthScale = type(taper) == "string" and SHAPES[taper] or NumberSequence.new(taper[1], taper[2])
+ if spec.texture then
+  trail.Texture = TEXTURES[spec.texture] or spec.texture
+  trail.TextureMode = spec.stretch and Enum.TextureMode.Stretch or Enum.TextureMode.Wrap
+  trail.TextureLength = spec.textureLength or 2
+ end
  trail.Parent = anchor
- return trail
+ return {spec = spec, trail = trail, top = top, bottom = bottom}
 end
 
--- The trail layers for one side (twin trails call this twice). Returns {trail, kind} pairs.
-local function makeTrails(anchor, spec, side, tier)
- local layers = {}
- -- Outer colour: unlit, normal blending (additive light washed colours to white).
- table.insert(layers, {kind = "outer", trail = trailLayer(anchor, side, spec.width, {
-  Lifetime = spec.lifetime, LightEmission = 0, Brightness = 1.6, Color = trailColors(spec),
-  Transparency = NumberSequence.new(0.3, 1), WidthScale = NumberSequence.new(1, 0.1)})})
- -- White-hot core: thin, short and additive, so the centre of the streak glows.
- table.insert(layers, {kind = "core", trail = trailLayer(anchor, side, spec.width * 0.3, {
-  Lifetime = spec.lifetime * 0.5, LightEmission = 1, Brightness = 2,
-  Color = ColorSequence.new(Color3.new(1, 1, 1), headColor(spec)),
-  Transparency = NumberSequence.new(0, 1), WidthScale = NumberSequence.new(1, 0.2)})})
- -- Sparkle ribbon: glitter that widens as it fades, for the fancier balls.
- if tier >= SPARKLE_TIER then
-  table.insert(layers, {kind = "sparkle", trail = trailLayer(anchor, side, spec.width * 1.7, {
-   Lifetime = spec.lifetime * 0.8, LightEmission = 1, Brightness = 1.5, Color = trailColors(spec),
-   Texture = SPARKLE_TEXTURE, TextureMode = Enum.TextureMode.Wrap, TextureLength = 1.6,
-   Transparency = NumberSequence.new(0.25 - tier * 0.15, 1), WidthScale = NumberSequence.new(0.5, 1.4)})})
+-- Moves a ribbon's attachments for orbit / wobble / jitter (and sets its width).
+local function placeRibbon(ribbon, elapsed)
+ local spec = ribbon.spec
+ local offset = spec.offset or Vector3.zero
+ if spec.orbit then
+  local angle = 2 * math.pi * (elapsed * spec.orbit.speed + (spec.orbit.phase or 0))
+  offset += Vector3.new(math.cos(angle), math.sin(angle), 0) * spec.orbit.radius
  end
- return layers
+ if spec.wobble then
+  offset += Vector3.new(math.sin(2 * math.pi * (elapsed * spec.wobble.freq + (spec.wobble.phase or 0))) * spec.wobble.amp, 0, 0)
+ end
+ if spec.jitter then
+  offset += Vector3.new((math.random() - 0.5) * 2, (math.random() - 0.5) * 2, 0) * spec.jitter
+ end
+ offset *= VISUAL_SCALE
+ local half = Vector3.new(0, (spec.width or 0.5) * VISUAL_SCALE / 2, 0)
+ ribbon.top.Position, ribbon.bottom.Position = offset + half, offset - half
+ if spec.hueShift then
+  local hue = (elapsed * spec.hueShift) % 1
+  ribbon.trail.Color = ColorSequence.new(Color3.fromHSV(hue, 0.8, 1), Color3.fromHSV((hue + 0.3) % 1, 0.9, 1))
+ end
+ if spec.flicker then
+  local fade = spec.fade or {0.2, 1}
+  ribbon.trail.Transparency = fadeCurve({math.min(0.95, fade[1] + math.random() * 0.5), fade[2]}, spec.bands)
+ end
 end
+
+-- A soft, round glowing streak made of overlapping particles left in the ball's wake: a
+-- volumetric trail instead of a flat ribbon.
+local function makeStreak(anchor, spec)
+ local streak = Instance.new("ParticleEmitter")
+ streak.Name, streak.Texture = "Streak", TEXTURES[spec.texture or "glow"] or spec.texture
+ streak.Rate, streak.Speed = spec.rate or 120, NumberRange.new(0)
+ streak.Lifetime = NumberRange.new(spec.lifetime or 0.4)
+ streak.LightEmission, streak.LightInfluence = spec.glow and GLOW_EMISSION or 0, 0
+ streak.Brightness = spec.glow and 1.8 or 1.2
+ streak.Color = gradient(spec.colors or {Color3.new(1, 1, 1)})
+ local size = (spec.size or 1) * VISUAL_SCALE
+ streak.Size = NumberSequence.new(size, size * (spec.endSize or 0))
+ streak.Transparency = NumberSequence.new(spec.transparency or 0.2, 1)
+ streak.Rotation, streak.RotSpeed = NumberRange.new(0, 360), NumberRange.new(-(spec.rotSpeed or 60), spec.rotSpeed or 60)
+ streak.Parent = anchor
+ return streak
+end
+
+local function makeEmitter(anchor, spec, tier)
+ local parent = anchor
+ if spec.offset then
+  parent = Instance.new("Attachment")
+  parent.Position, parent.Parent = spec.offset * VISUAL_SCALE, anchor
+ end
+ local emitter = Styles.MakeEmitter(spec.preset, parent, (spec.size or 1) * (1 + tier * 0.3) * VISUAL_SCALE * 0.8, spec.rate)
+ if emitter and spec.back then emitter.EmissionDirection = Enum.NormalId.Back end
+ return emitter
+end
+
+local function makeOrbiters(spec)
+ local parts = {}
+ for index = 1, spec.count or 3 do
+  local part = invisiblePart("Orbiter", CFrame.identity)
+  part.Transparency, part.CastShadow = spec.transparency or 0, false
+  part.Size = (spec.size or Vector3.one * 0.2) * VISUAL_SCALE
+  part.Shape = spec.shape and Enum.PartType[spec.shape] or Enum.PartType.Block
+  local colors = spec.colors or {spec.color or Color3.new(1, 1, 1)}
+  part.Color = colors[(index - 1) % #colors + 1]
+  part.Material = spec.material or Enum.Material.Neon
+  if spec.trail then
+   local a, b = Instance.new("Attachment"), Instance.new("Attachment")
+   local half = spec.trail.width * VISUAL_SCALE / 2
+   a.Position, b.Position = Vector3.new(0, half, 0), Vector3.new(0, -half, 0)
+   a.Parent, b.Parent = part, part
+   local trail = Instance.new("Trail")
+   trail.Attachment0, trail.Attachment1, trail.FaceCamera = a, b, true
+   trail.Lifetime, trail.LightEmission, trail.LightInfluence = spec.trail.lifetime, 1, 0
+   trail.Color, trail.Transparency = ColorSequence.new(part.Color), NumberSequence.new(0.2, 1)
+   trail.WidthScale = NumberSequence.new(1, 0)
+   trail.Parent = part
+  end
+  table.insert(parts, {part = part, phase = (index - 1) / (spec.count or 3)})
+ end
+ return parts
+end
+
+local function placeOrbiters(layer, frame, elapsed)
+ local spec = layer.spec
+ for _, entry in layer.parts do
+  local angle = 2 * math.pi * (elapsed * spec.speed + entry.phase)
+  local spin = CFrame.Angles(elapsed * (spec.spin or 0), elapsed * (spec.spin or 0) * 0.7, 0)
+  entry.part.CFrame = frame * CFrame.Angles(0, 0, angle) * CFrame.new(spec.radius * VISUAL_SCALE, 0, (spec.lag or 0) * VISUAL_SCALE) * spin
+ end
+end
+
+local function spawnDebris(spec, frame)
+ local rng = Random.new()
+ local size = (spec.size or Vector3.new(0.2, 0.2, 0.2)) * VISUAL_SCALE
+ local scale = rng:NextNumber(0.6, 1.2)
+ local start = frame * CFrame.new(Vector3.new(rng:NextNumber(-0.5, 0.5), rng:NextNumber(-0.5, 0.5), rng:NextNumber(0.2, 0.8)) * VISUAL_SCALE)
+  * CFrame.Angles(rng:NextNumber(0, 6.3), rng:NextNumber(0, 6.3), 0)
+ local bit = invisiblePart("Debris", start)
+ bit.Size, bit.Transparency, bit.CastShadow = size * scale, spec.transparency or 0, false
+ bit.Shape = spec.shape and Enum.PartType[spec.shape] or Enum.PartType.Block
+ local colors = spec.colors or {spec.color or Color3.new(1, 1, 1)}
+ bit.Color, bit.Material = colors[rng:NextInteger(1, #colors)], spec.material or Enum.Material.SmoothPlastic
+ local life = spec.life or 0.8
+ local drift = rng:NextUnitVector() * (spec.spread or 1.5) * life
+ local goal = (start + drift - Vector3.new(0, (spec.fall or 4) * life, 0)) * CFrame.Angles(rng:NextNumber(-4, 4), rng:NextNumber(-4, 4), 0)
+ TweenService:Create(bit, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+  {CFrame = goal, Size = bit.Size * 0.3, Transparency = 1}):Play()
+ Debris:AddItem(bit, life)
+end
+
+local function spawnArc(spec, frame)
+ local rng = Random.new()
+ local point = frame.Position
+ local heading = (frame.LookVector * -1 + rng:NextUnitVector() * 1.2).Unit
+ local length = (spec.length or 1.8) * VISUAL_SCALE
+ for _ = 1, spec.segments or 4 do
+  local nextPoint = point + (heading + rng:NextUnitVector() * 0.7).Unit * length / (spec.segments or 4) * rng:NextNumber(0.7, 1.3)
+  local segment = invisiblePart("Arc", CFrame.lookAt((point + nextPoint) / 2, nextPoint))
+  local thickness = (spec.thickness or 0.06) * VISUAL_SCALE
+  segment.Size = Vector3.new(thickness, thickness, (nextPoint - point).Magnitude)
+  segment.Material, segment.Color, segment.Transparency, segment.CastShadow = Enum.Material.Neon, spec.color, 0, false
+  Debris:AddItem(segment, spec.life or 0.09)
+  point = nextPoint
+ end
+end
+
+-- A ring that faces along the flight path and ripples outward from the ball.
+local function spawnPulse(spec, frame)
+ local holder = invisiblePart("Pulse", frame)
+ local wave = Instance.new("ParticleEmitter")
+ wave.Texture = TEXTURES[spec.texture or "shockwave"]
+ wave.Orientation, wave.EmissionDirection = Enum.ParticleOrientation.VelocityPerpendicular, Enum.NormalId.Front
+ wave.Speed, wave.Enabled, wave.LockedToPart = NumberRange.new(0.01), false, false
+ wave.Color, wave.LightEmission, wave.LightInfluence = ColorSequence.new(spec.color), 1, 0
+ wave.Size = NumberSequence.new((spec.from or 0.6) * VISUAL_SCALE, (spec.size or 5) * VISUAL_SCALE)
+ wave.Transparency = NumberSequence.new(spec.transparency or 0.2, 1)
+ wave.Lifetime = NumberRange.new(spec.life or 0.4)
+ wave.Rotation, wave.RotSpeed = NumberRange.new(0, 360), NumberRange.new(spec.rotSpeed or 0)
+ wave.Parent = holder
+ wave:Emit(1)
+ Debris:AddItem(holder, (spec.life or 0.4) + 0.2)
+end
+
+-- A see-through copy of the ball model left behind that fades out.
+local function spawnEcho(spec, model)
+ if not model then return end
+ local echo = model:Clone()
+ for _, item in echo:GetDescendants() do
+  if item:IsA("BasePart") then
+   item.Material, item.Color, item.Transparency, item.CastShadow = Enum.Material.ForceField, spec.color, 0.1, false
+   TweenService:Create(item, TweenInfo.new(spec.life or 0.35), {Transparency = 1, Size = item.Size * (spec.grow or 1.4)}):Play()
+  elseif item:IsA("Light") or item:IsA("ParticleEmitter") or item:IsA("Trail") then
+   item:Destroy()
+  end
+ end
+ echo.Parent = container
+ Debris:AddItem(echo, spec.life or 0.35)
+end
+
+local SPAWNERS = {debris = true, arcs = true, pulse = true, echoes = true}
 
 -- A soft glow halo that rides on the ball.
 local function makeAura(anchor, color, ballSize, tier)
  local aura = Instance.new("ParticleEmitter")
- aura.Name, aura.Texture, aura.LockedToPart = "Aura", SPARKLE_TEXTURE, true
+ aura.Name, aura.Texture, aura.LockedToPart = "Aura", TEXTURES.sparkle, true
  aura.Color, aura.LightEmission, aura.LightInfluence = ColorSequence.new(color), 1, 0
  aura.Size = NumberSequence.new(ballSize * (2 + tier), ballSize * (2.6 + tier))
  aura.Transparency = NumberSequence.new(0.55 - tier * 0.3, 1)
@@ -227,27 +438,28 @@ function BallEffects.Launch(ball, itemId, restPosition)
  if not flight then return nil end
  local tier = tierOf(itemId)
  local anchor = invisiblePart("FlightEffects", CFrame.new(ball.Position))
- local handle = {anchor = anchor, flight = flight, trails = {}, emitters = {}, last = ball.Position,
-  started = os.clock(), landed = false, radius = ball.Size.Y / 2, tier = tier, spin = 0}
- local color = flight.trail and headColor(flight.trail) or Color3.new(1, 1, 1)
- handle.color = color
- if flight.trail then
-  local sides = flight.trail.twin and {-flight.trail.twin, flight.trail.twin} or {0}
-  for _, side in sides do
-   for _, layer in makeTrails(anchor, flight.trail, side, tier) do table.insert(handle.trails, layer) end
+ local handle = {anchor = anchor, flight = flight, ribbons = {}, emitters = {}, orbiters = {}, spawners = {},
+  last = ball.Position, started = os.clock(), landed = false, radius = ball.Size.Y / 2, tier = tier, spin = 0}
+ handle.color = flight.color or (style.light and style.light[1]) or Color3.new(1, 1, 1)
+ for _, layer in flight.layers or {} do
+  if layer.type == "ribbon" then
+   table.insert(handle.ribbons, makeRibbon(anchor, layer))
+  elseif layer.type == "emitter" then
+   local emitter = makeEmitter(anchor, layer, tier)
+   if emitter then handle.emitters[emitter] = emitter.Rate end
+  elseif layer.type == "streak" then
+   local streak = makeStreak(anchor, layer)
+   handle.emitters[streak] = streak.Rate
+  elseif layer.type == "orbiters" then
+   table.insert(handle.orbiters, {spec = layer, parts = makeOrbiters(layer)})
+  elseif SPAWNERS[layer.type] then
+   table.insert(handle.spawners, {spec = layer, next = 0})
   end
  end
- handle.emitters[makeAura(anchor, color, ball.Size.X, tier)] = 30
- if flight.particles then
-  local emitter = Styles.MakeEmitter(flight.particles.preset, anchor, 1 + tier * 0.4, flight.particles.rate)
-  if emitter then
-   emitter.Rate *= 0.8 + tier * 0.8
-   handle.emitters[emitter] = emitter.Rate
-  end
- end
+ if flight.aura ~= false then handle.emitters[makeAura(anchor, handle.color, ball.Size.X * VISUAL_SCALE, tier)] = 30 end
  local light = style.light and {style.light[1], style.light[2] * (1 + tier), style.light[3]} or nil
  glow(anchor, light)
- impact(restPosition, color, tier, 16)
+ impact(restPosition, handle.color, tier, 16)
  BallEffects.Burst(flight.launch, restPosition)
  return handle
 end
@@ -260,25 +472,34 @@ function BallEffects.Update(handle, ball, dt)
  if speed > 1 then handle.direction = velocity.Unit end
  local direction = handle.direction or Vector3.zAxis
  local up = math.abs(direction.Y) > 0.98 and Vector3.xAxis or Vector3.yAxis
- local frame = CFrame.lookAt(position, position + direction, up)
+ -- Effects centre on the visible ball, which sits a little above the physics ball.
+ local center = position + visualLift(ball)
+ local frame = CFrame.lookAt(center, center + direction, up)
  handle.anchor.CFrame = frame
  local amount = math.clamp(speed / FULL_EFFECT_SPEED, 0, 1)
+ local elapsed = os.clock() - handle.started
  -- Backspin on the visual model (cosmetic; the physics ball does not spin).
  handle.spin += dt * (14 + 18 * handle.tier) * amount
  local entry = visuals[ball]
- if entry and entry.model then entry.model:PivotTo(frame * CFrame.Angles(-handle.spin, 0, 0)) end
- local trail = handle.flight.trail
- local elapsed = os.clock() - handle.started
- for _, layer in handle.trails do
-  if trail.hueShift and layer.kind ~= "core" then
-   local hue = (elapsed * 0.35) % 1
-   layer.trail.Color = ColorSequence.new(Color3.fromHSV(hue, 0.85, 1), Color3.fromHSV((hue + 0.3) % 1, 0.9, 1))
-  end
-  if trail.flicker and layer.kind ~= "core" then
-   layer.trail.Transparency = NumberSequence.new(0.25 + math.random() * 0.5, 1)
+ local model = entry and entry.model
+ if model then model:PivotTo(frame * CFrame.Angles(-handle.spin, 0, 0)) end
+ for _, ribbon in handle.ribbons do placeRibbon(ribbon, elapsed) end
+ for _, layer in handle.orbiters do placeOrbiters(layer, frame, elapsed) end
+ for emitter, rate in handle.emitters do emitter.Rate = rate * amount end
+ -- Spawned layers run on their own clocks (rate per second, or interval seconds apart).
+ local now = os.clock()
+ if amount >= SPAWN_MIN_AMOUNT then
+  for _, spawner in handle.spawners do
+   local spec = spawner.spec
+   if now >= spawner.next then
+    spawner.next = now + (spec.interval or 1 / (spec.rate or 10))
+    if spec.type == "debris" then spawnDebris(spec, frame)
+    elseif spec.type == "arcs" then spawnArc(spec, frame)
+    elseif spec.type == "pulse" then spawnPulse(spec, frame)
+    elseif spec.type == "echoes" then spawnEcho(spec, model) end
+   end
   end
  end
- for emitter, rate in handle.emitters do emitter.Rate = rate * amount end
  if not handle.landed and velocity.Y < 0 and position.Y - handle.radius <= Field.GroundTop + LAND_HEIGHT then
   handle.landed = true
   impact(Vector3.new(position.X, Field.GroundTop + 0.1, position.Z), handle.color, handle.tier, 20)
@@ -287,8 +508,15 @@ function BallEffects.Update(handle, ball, dt)
 end
 
 function BallEffects.Stop(handle)
- for _, layer in handle.trails do layer.trail.Enabled = false end
+ for _, ribbon in handle.ribbons do ribbon.trail.Enabled = false end
  for emitter in handle.emitters do emitter.Enabled = false end
+ table.clear(handle.spawners)
+ for _, layer in handle.orbiters do
+  for _, entry in layer.parts do
+   TweenService:Create(entry.part, TweenInfo.new(0.3), {Transparency = 1, Size = entry.part.Size * 0.2}):Play()
+   Debris:AddItem(entry.part, 0.35)
+  end
+ end
  local light = handle.anchor:FindFirstChildOfClass("PointLight")
  if light then light.Enabled = false end
  Debris:AddItem(handle.anchor, 2)

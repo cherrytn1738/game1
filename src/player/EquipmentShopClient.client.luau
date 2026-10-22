@@ -2,7 +2,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
+local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Remote = ReplicatedStorage:WaitForChild("EquipmentUpgrade")
+local GameAudio = require(ReplicatedStorage:WaitForChild("GameAudio"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
 local UI = require(script.Parent:WaitForChild("UICommon"))
 
@@ -49,11 +51,24 @@ local function layoutRows()
  end
 end
 
+-- The World an item's series needs that this player hasn't unlocked yet, if any.
+local function lockedWorld(item)
+ local series = Equipment.GetSeriesInfo(item.category, item.series)
+ local world = series and series.requiredWorld and Worlds.Get(series.requiredWorld)
+ if world and Player:GetAttribute("WorldUnlocked_" .. world.id) ~= true then return world end
+ return nil
+end
+
+-- The item for sale next in this item's own series (nil while its World is locked).
+local function nextInSeries(item, owned)
+ if lockedWorld(item) then return nil end
+ return Equipment.GetNextPurchase(item.category, owned, item.series)
+end
+
 local function refresh()
  local ready = Player:GetAttribute("DataLoaded") == true and cash ~= nil
  balance.Text = ready and UI.Number(cash.Value) .. " Cash" or "Loading Cash..."
  local owned = ownership[selectedCategory] and ownership[selectedCategory]:GetAttributes() or {}
- local nextItem = Equipment.GetNextPurchase(selectedCategory, owned)
  local equipped = Player:GetAttribute("Equipped" .. selectedCategory)
  for category, tab in tabs do
   UI.SetButton(tab, Equipment.Categories[category].displayName, not pending, category == selectedCategory)
@@ -61,12 +76,15 @@ local function refresh()
  for id, row in rows do
   local item = Equipment.Get(selectedCategory,id)
   local isOwned, isEquipped = owned[id] == true, equipped == id
+  local nextItem = nextInSeries(item, owned)
   local isNext = nextItem ~= nil and nextItem.id == id
   local affordable = ready and cash.Value >= item.price
+  local world = lockedWorld(item)
   row.price.Text = isOwned and "OWNED" or UI.Number(item.price) .. " CASH"
   row.price.TextColor3 = isOwned and UI.Colors.Accent or UI.Colors.Gold
   row.state.Text = isEquipped and "Equipped" or isOwned and "Owned" or isNext and
-   (affordable and "Next equipment" or "Need " .. UI.Number(item.price-cash.Value) .. " more Cash") or "Locked · Progress through this category"
+   (affordable and "Next equipment" or "Need " .. UI.Number(item.price-cash.Value) .. " more Cash")
+   or world and "Locked · Unlock " .. world.displayName or "Locked · Progress through this category"
   row.state.TextColor3 = isEquipped and UI.Colors.Accent or UI.Colors.Muted
   local text = isEquipped and "EQUIPPED" or isOwned and "EQUIP"
    or isNext and "PURCHASE" or "LOCKED"
@@ -100,7 +118,7 @@ local function showCategory(category)
   button.Activated:Connect(function()
    if pending or not button.Active or not Interfaces.CanOpen() then return end
    local owned = ownership[category]:GetAttributes()
-   local nextItem = Equipment.GetNextPurchase(category,owned)
+   local nextItem = nextInSeries(item, owned)
    local action, value
    if owned[item.id] then action, value = "Equip", item.id
    elseif nextItem and nextItem.id == item.id then
@@ -109,7 +127,7 @@ local function showCategory(category)
      feedback.TextColor3 = UI.Colors.Error
      return
     end
-    action, value = "Purchase", Player:GetAttribute("EquipmentPurchaseToken_" .. category)
+    action, value = "Purchase", Player:GetAttribute("EquipmentPurchaseToken_" .. Equipment.OfferKey(category, item.series))
    else return end
    if not value then return end
    pending = true
@@ -154,14 +172,37 @@ Remote.OnClientEvent:Connect(function(success,message)
 end)
 showCategory(selectedCategory)
 Player:GetAttributeChangedSignal("DataLoaded"):Connect(refresh)
+-- Purchase and Equip sounds come from the server-replicated results, so they play wherever the
+-- action started (this shop, a display stand, the Inventory). A purchase also equips the item;
+-- that plays only the purchase sound.
+local lastPurchaseAt = 0
+local EQUIP_AFTER_PURCHASE_SECONDS = 0.5
+GameAudio.Preload({"Purchase", "Equip"})
 task.spawn(function()
  while Player:GetAttribute("DataLoaded") ~= true do Player:GetAttributeChangedSignal("DataLoaded"):Wait() end
  cash = Player:WaitForChild("leaderstats"):WaitForChild("Cash")
  for _, category in Equipment.CategoryOrder do
   ownership[category] = Player:WaitForChild(Equipment.Categories[category].ownedField)
   ownership[category].AttributeChanged:Connect(refresh)
+  ownership[category].AttributeChanged:Connect(function(id)
+   if ownership[category]:GetAttribute(id) == true then
+    lastPurchaseAt = os.clock()
+    GameAudio.Play("Purchase")
+   end
+  end)
   Player:GetAttributeChangedSignal("Equipped"..category):Connect(refresh)
-  Player:GetAttributeChangedSignal("EquipmentPurchaseToken_"..category):Connect(refresh)
+  Player:GetAttributeChangedSignal("Equipped"..category):Connect(function()
+   -- Deferred so a purchase's ownership change (sent with it) is seen first.
+   task.defer(function()
+    if os.clock() - lastPurchaseAt > EQUIP_AFTER_PURCHASE_SECONDS then GameAudio.Play("Equip") end
+   end)
+  end)
+  for _, series in Equipment.GetSeries(category) do
+   Player:GetAttributeChangedSignal("EquipmentPurchaseToken_"..Equipment.OfferKey(category, series.id)):Connect(refresh)
+  end
+ end
+ for _, world in Worlds.Worlds do
+  Player:GetAttributeChangedSignal("WorldUnlocked_"..world.id):Connect(refresh)
  end
  cash:GetPropertyChangedSignal("Value"):Connect(refresh)
  refresh()

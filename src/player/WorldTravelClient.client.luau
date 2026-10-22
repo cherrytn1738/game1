@@ -2,6 +2,7 @@ local Player = game.Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Travel = ReplicatedStorage:WaitForChild("WorldTravel")
+local GameAudio = require(ReplicatedStorage:WaitForChild("GameAudio"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
 local UI = require(script.Parent:WaitForChild("UICommon"))
 local gui, panel, show = UI.Menu("WorldTravelGui","Worlds","Hit farther to unlock your next destination.",Interfaces.CloseAll)
@@ -22,7 +23,8 @@ local function refresh()
   local current = Player:GetAttribute("CurrentWorldId") == world.id
   local predecessor
   for _, previous in Worlds.Worlds do if previous.nextWorldId == world.id then predecessor = previous end end
-  row.state.Text = not ready and "Loading destinations..." or current and "Current world" or unlocked and "Unlocked" or "Locked"
+  row.state.Text = (world.title and world.title .. " | " or "")
+   .. (not ready and "Loading destinations..." or current and "Current world" or unlocked and "Unlocked" or "Locked")
   row.state.TextColor3 = current and UI.Colors.Accent or UI.Colors.Muted
   row.detail.Text = unlocked and ("Field end · " .. UI.Number(world.endDistance) .. " studs")
    or predecessor and ("Reach " .. UI.Number(predecessor.endDistance) .. " studs in " .. predecessor.displayName .. " to unlock.") or "Not available yet."
@@ -77,11 +79,37 @@ end)
 panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
 Player:GetAttributeChangedSignal("DataLoaded"):Connect(refresh)
 Player:GetAttributeChangedSignal("CurrentWorldId"):Connect(refresh)
+
+-- Stepping into a hub's World portal (WorldPortal's Trigger) opens this menu, once per entry;
+-- choosing a World sends the same server-checked travel request as the buttons above.
+local PORTAL_CHECK_SECONDS = 0.15
+local inPortal, sinceCheck = false, 0
+game:GetService("RunService").Heartbeat:Connect(function(dt)
+ sinceCheck += dt
+ if sinceCheck < PORTAL_CHECK_SECONDS then return end
+ sinceCheck = 0
+ local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+ local world = Worlds.Get(Player:GetAttribute("CurrentWorldId"))
+ local hub = world and world.hub and workspace:FindFirstChild(world.hub.name)
+ local portal = hub and hub:FindFirstChild("WorldPortal")
+ local trigger = portal and portal:FindFirstChild("Trigger")
+ local inside = false
+ if root and trigger then
+  local point = trigger.CFrame:PointToObjectSpace(root.Position)
+  inside = math.abs(point.X) <= trigger.Size.X / 2 and math.abs(point.Y) <= trigger.Size.Y / 2 + 1
+   and math.abs(point.Z) <= trigger.Size.Z / 2
+ end
+ if inside and not inPortal and not Interfaces.IsOpen() then Interfaces.Open("Travel") end
+ inPortal = inside
+end)
 Travel.OnClientEvent:Connect(function(message)
  pending = false
  requestVersion += 1
  local success = type(message) == "string" and message:sub(1,7) == "Arrived"
- if success then Interfaces.CloseAll() end
+ if success then
+  Interfaces.CloseAll()
+  GameAudio.Play("Travel")
+ end
  feedback.Text = success and message or "That destination is unavailable. Check its unlock requirement."
  feedback.TextColor3 = success and UI.Colors.Accent or UI.Colors.Error
  if not gui.Scrim.Visible then UI.Notify(feedback.Text,success and "success" or "error") end

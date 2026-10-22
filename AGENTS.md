@@ -67,7 +67,7 @@ Established design decisions:
 - Training is the primary Power source; real hits give a small Power reward.
 - Offline Training is supported and capped.
 - Rebirth resets Level/Power and increases Power gain multiplier and Level Cap while preserving unrelated progression.
-- Training Grounds are six separate physical batting cages in a row in the World 1 hub; the plate a player stands on is the ground they train at. There is no saved ground selection.
+- Training Grounds are separate physical batting cages, one row of six in each World's hub (Dragon's Lair stands in every World); the plate a player stands on is the ground they train at. There is no saved ground selection.
 - Worlds are unlocked through legitimate batting distance progression, not by buying them with Cash.
 
 Do not reconsider these decisions unless explicitly asked.
@@ -219,20 +219,35 @@ Ball equipment increases Cash rewards from batting.
 
 Ball does not affect Power gain or launch distance.
 
+Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball, up to 10x) and World 2's ten (Dino Egg to Chrono Orb, 12x-95x placeholders), which need World 2 unlocked but none of World 1's balls. Each series has its own server-issued purchase token. Owned balls of either series stay equippable everywhere.
+
 ### Training Grounds
 
-Six physical Grounds, each its own batting cage, stand in two rows of three on either side of the World 1 hub (parallel to the runway, grounds 1-3 on the right, 4-6 on the left):
+Each World's hub has one row of six physical Grounds, each its own batting cage, down the left side (parallel to the runway, the first ground nearest it; `TrainingConfig.Hubs`).
+
+World 1 (Home Field):
 
 - Basic Training: available from the start, 1x
 - Enchanted Grove: 2 Rebirths, 5x
 - Sunken Atlantis: 4 Rebirths, 10x
 - Sky Temple: 6 Rebirths, 20x
-- Dragon's Lair: 500 Robux game pass, 10x (intentionally below Sky Temple)
-- Cosmic Rift: 1000 Robux game pass, 30x
+- Cosmic Rift: 500 Robux game pass, 10x (intentionally below Sky Temple)
 
-Multipliers apply to the first ground's base Power. Paid grounds need no Rebirths. Game-pass ownership is checked by the server through MarketplaceService, never saved and never trusted from the client.
+World 2 (Time Travel; placeholder values continuing on from World 1's):
 
-Grounds 2-6 are fantasy themed and get more intricate down the row. The themes are visual only and never affect Power.
+- Caveman Camp: free once World 2 is unlocked, 25x
+- Pharaoh's Tomb: 8 Rebirths, 35x
+- Gladiator Colosseum: 10 Rebirths, 50x
+- Samurai Dojo: 12 Rebirths, 70x
+- Time Machine Lab: opened by Cosmic Rift's 500 Robux pass, 35x
+
+Every World:
+
+- Dragon's Lair: 1000 Robux game pass, 30x (the most expensive ground)
+
+Multipliers apply to the first ground's base Power. A ground can only be used once a World it stands in is unlocked; World 1 grounds stay usable after reaching World 2. Paid grounds need no Rebirths. Game-pass ownership is checked by the server through MarketplaceService, never saved and never trusted from the client.
+
+World 1's grounds 2-6 are fantasy themed and get more intricate down the row; World 2's use the standard cage in era colors for now. The themes are visual only and never affect Power.
 
 Unlock requirements and multipliers are configurable and should not be treated as final balance.
 
@@ -287,7 +302,7 @@ Preserve the existing natural-stop and ground-contact logic unless a task explic
 
 Training is the primary Power source.
 
-There are six physical Training Grounds, each with its own plate and at most one occupant.
+Each World's hub has its own row of physical Training Grounds, each with its own plate and at most one occupant.
 
 The player steps onto a ground's plate that they can use:
 
@@ -310,7 +325,7 @@ Training stops cleanly on Leave, death, travel, disconnect, or other valid clean
 Offline Power:
 
 - uses authoritative server timestamps
-- uses the best Training Ground the player can use (from Rebirths and owned game passes)
+- uses the best Training Ground the player can use in any unlocked World (from Rebirths, owned game passes and World unlocks)
 - applies configured offline-rate limits
 - applies Bat Power multiplier
 - applies Rebirth multiplier
@@ -334,7 +349,7 @@ Completing a World permanently unlocks the next World.
 
 World unlocks persist.
 
-Players may travel between unlocked Worlds.
+Players may travel between unlocked Worlds through the Worlds menu (from the HUD, or by stepping into the World portal in each hub); the server checks the unlock.
 
 Do not assume future runway/environment redesigns are implemented unless the current code confirms them.
 
@@ -478,6 +493,6 @@ Unless asked, do not add:
 
 Normal batting is deterministic and Level-based.
 
-Training Grounds are six physical batting cages in a row; access comes from Rebirths or a game pass.
+Training Grounds are physical batting cages in a row in each World's hub; access comes from Rebirths or a game pass, once a World the ground stands in is unlocked.
 
 Environmental art, equipment cosmetics, final balance, and future content should remain separate from gameplay architecture unless explicitly requested.

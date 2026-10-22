@@ -1,6 +1,7 @@
--- Training Ground presentation on this client only:
+-- Training Ground and hub presentation on this client only, in every World's hub:
 --  * each cage's lock sign shows the Rebirths still needed or the Robux pass price
---  * fantasy cage parts tagged by the server (Spin, Bob, Sway, Pulse attributes) are animated
+--  * parts tagged by the server (Spin, SpinPivot, Bob, Sway, Pulse attributes) in fantasy
+--    cages, hub scenery and World portals are animated
 --  * a cage's Tint* attributes grade the view while the camera is inside it
 -- Display only; the server decides who can train on each plate.
 local Players = game:GetService("Players")
@@ -10,7 +11,14 @@ local Player = Players.LocalPlayer
 local Config = require(Storage:WaitForChild("TrainingConfig"))
 local Worlds = require(Storage:WaitForChild("WorldConfig"))
 
-local grounds = workspace:WaitForChild(Worlds.Get(Worlds.StartingWorldId).hub.name):WaitForChild("TrainingGrounds")
+local hubs, groundFolders = {}, {}
+for _, world in Worlds.Worlds do
+ if world.hub then
+  local hub = workspace:WaitForChild(world.hub.name)
+  table.insert(hubs, hub)
+  if Config.GetHub(world.id) then table.insert(groundFolders, hub:WaitForChild("TrainingGrounds")) end
+ end
+end
 local pending = false
 local animated = {}
 
@@ -21,22 +29,26 @@ local tint, blend = nil, 0
 
 local function tintAround(position)
  local c = Config.Cage
- for _, stadium in grounds:GetChildren() do
-  local cage, plate = stadium:FindFirstChild("Cage"), stadium:FindFirstChild("TrainingPlate")
-  if cage and plate and cage:GetAttribute("TintColor") then
-   local p = plate.CFrame:PointToObjectSpace(position)
-   if p.X > c.left and p.X < c.right and p.Z > c.front and p.Z < c.back and p.Y > -1 and p.Y < c.height + 4 then
-    return cage
+ for _, grounds in groundFolders do
+  for _, stadium in grounds:GetChildren() do
+   local cage, plate = stadium:FindFirstChild("Cage"), stadium:FindFirstChild("TrainingPlate")
+   if cage and plate and cage:GetAttribute("TintColor") then
+    local p = plate.CFrame:PointToObjectSpace(position)
+    if p.X > c.left and p.X < c.right and p.Z > c.front and p.Z < c.back and p.Y > -1 and p.Y < c.height + 4 then
+     return cage
+    end
    end
   end
  end
  return nil
 end
 
+-- A cage is only reachable from inside an unlocked World, so its sign needs no World check.
 local function lockText(ground)
  if Config.IsPaid(ground) then
-  if Player:GetAttribute("TrainingPass_" .. ground.id) then return nil end
-  return "🔒 R$ " .. ground.robuxPrice
+  local pass = Config.GetPassGround(ground)
+  if Player:GetAttribute("TrainingPass_" .. pass.id) then return nil end
+  return "🔒 R$ " .. pass.robuxPrice
  end
  local rebirths = Player:GetAttribute("Rebirths") or 0
  if rebirths >= ground.requiredRebirths then return nil end
@@ -45,16 +57,18 @@ end
 
 local function apply()
  pending = false
- for _, ground in Config.Grounds do
-  local stadium = grounds:FindFirstChild(ground.id)
-  local sign = stadium and stadium:FindFirstChild("LockSign", true)
-  if sign then
-   local text = lockText(ground)
-   sign.Transparency = text and 0 or 1
-   for _, gui in sign:GetChildren() do
-    if gui:IsA("SurfaceGui") then
-     gui.Enabled = text ~= nil
-     gui.Label.Text = text or ""
+ for _, grounds in groundFolders do
+  for _, ground in Config.Grounds do
+   local stadium = grounds:FindFirstChild(ground.id)
+   local sign = stadium and stadium:FindFirstChild("LockSign", true)
+   if sign then
+    local text = lockText(ground)
+    sign.Transparency = text and 0 or 1
+    for _, gui in sign:GetChildren() do
+     if gui:IsA("SurfaceGui") then
+      gui.Enabled = text ~= nil
+      gui.Label.Text = text or ""
+     end
     end
    end
   end
@@ -76,6 +90,7 @@ local function track(part)
  animated[part] = {
   base = part.CFrame, transparency = part.Transparency, height = part.Size.Y,
   spin = spin and math.rad(spin), axis = part:GetAttribute("SpinAxis") or Vector3.yAxis,
+  pivot = part:GetAttribute("SpinPivot"), -- part-space point to turn about (clock hands)
   bob = bob, bobSpeed = part:GetAttribute("BobSpeed") or 1,
   sway = sway and math.rad(sway), swaySpeed = part:GetAttribute("SwaySpeed") or 1,
   phase = part:GetAttribute("Phase") or 0, pulse = pulse,
@@ -105,7 +120,8 @@ RunService.RenderStepped:Connect(function(dt)
    frame = frame + Vector3.yAxis * math.sin(now * state.bobSpeed + state.phase) * state.bob
   end
   if state.spin then
-   frame = frame * CFrame.fromAxisAngle(state.axis, (now * state.spin) % (2 * math.pi))
+   local turn = CFrame.fromAxisAngle(state.axis, (now * state.spin) % (2 * math.pi))
+   frame = state.pivot and frame * CFrame.new(state.pivot) * turn * CFrame.new(-state.pivot) or frame * turn
   end
   if state.sway then
    -- Rock about the base of the part (its local bottom), like weed or a hanging lantern.
@@ -120,13 +136,16 @@ RunService.RenderStepped:Connect(function(dt)
  end
 end)
 
-grounds.DescendantAdded:Connect(function(object)
- schedule()
- track(object)
-end)
-for _, object in grounds:GetDescendants() do track(object) end
+-- Hub parts stream in and out as players move between Worlds; watch each hub as a whole.
+for _, hub in hubs do
+ hub.DescendantAdded:Connect(function(object)
+  schedule()
+  track(object)
+ end)
+ for _, object in hub:GetDescendants() do track(object) end
+end
 Player:GetAttributeChangedSignal("Rebirths"):Connect(schedule)
-for _, ground in Config.Grounds do
- if Config.IsPaid(ground) then Player:GetAttributeChangedSignal("TrainingPass_" .. ground.id):Connect(schedule) end
+for _, ground in Config.PassGrounds do
+ Player:GetAttributeChangedSignal("TrainingPass_" .. ground.id):Connect(schedule)
 end
 schedule()

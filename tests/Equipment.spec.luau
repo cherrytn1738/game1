@@ -58,8 +58,8 @@ return function(sources)
  local Training = assert(loadstring(sources.TrainingConfig))()
  local Juice = assert(loadstring(sources.JuiceConfig))()
  -- Test fixtures: the shipped paid grounds have no game pass created yet (id 0).
- Training.Get("dragons_lair").gamePassId = 111
- Training.Get("cosmic_rift").gamePassId = 222
+ Training.Get("cosmic_rift").gamePassId = 111
+ Training.Get("dragons_lair").gamePassId = 222
  local ownedPasses, passFailures = {}, {}
  local marketplace = {PromptGamePassPurchaseFinished = signal(), prompts = {}}
  function marketplace:UserOwnsGamePassAsync(userId, passId)
@@ -91,6 +91,7 @@ return function(sources)
  local remote = object("RemoteEvent")
  remote.Name, remote.Parent = "EquipmentUpgrade", storage
  local workspace = object("Workspace")
+ local studioMode = false
  local modules = {EquipmentConfig = Equipment, WorldConfig = Worlds, ProgressionConfig = Progression, TrainingConfig = Training, JuiceConfig = Juice}
  local env = setmetatable({
   game = {
@@ -99,6 +100,7 @@ return function(sources)
     if name == "Players" then return players end
     if name == "ReplicatedStorage" then return storage end
     if name == "MarketplaceService" then return marketplace end
+    if name == "RunService" then return {IsStudio = function() return studioMode end} end
     if name == "DataStoreService" then return {GetDataStore = function(_, name)
      check(name == "PlayerProgression", "must reuse the existing store") return store
     end} end
@@ -110,6 +112,7 @@ return function(sources)
    BindToClose = function(_, callback) shutdown = callback end,
   },
   Instance = {new = object},
+  workspace = workspace,
   script = {Parent = {WaitForChild = function(_, name) return name end}},
   require = function(name) return assert(modules[name], name) end,
   os = {clock = function() return now end, time = function() return math.floor(now) end},
@@ -290,23 +293,41 @@ return function(sources)
  -- grants use the best usable ground inside the atomic login transaction.
  local multipliers = {}
  for _, entry in Training.Grounds do table.insert(multipliers, entry.powerMultiplier) end
- check(table.concat(multipliers, ",") == "1,5,10,20,10,30" and Training.Get("cosmic_rift").basePower == 600, "ground multipliers on the first ground's Power")
- check(Training.Get("sky_temple").requiredRebirths == 6 and Training.IsPaid(Training.Get("dragons_lair"))
-  and not Training.IsUnlocked("dragons_lair", 1000), "Rebirth and paid ground requirements")
+ check(table.concat(multipliers, ",") == "1,5,10,20,10,25,35,50,70,35,30" and Training.Get("dragons_lair").basePower == 600, "ground multipliers on the first ground's Power")
+ check(Training.Get("sky_temple").requiredRebirths == 6 and Training.IsPaid(Training.Get("cosmic_rift"))
+  and not Training.IsUnlocked("cosmic_rift", 1000), "Rebirth and paid ground requirements")
  check(Training.GetBestGround(0, nil).id == "basic_training" and Training.GetBestGround(4, nil).id == "sunken_atlantis"
-  and Training.GetBestGround(6, {dragons_lair=true}).id == "sky_temple" and Training.GetBestGround(0, {dragons_lair=true}).id == "dragons_lair"
-  and Training.GetBestGround(6, {cosmic_rift=true}).id == "cosmic_rift", "best ground is the highest usable rate")
- Training.Get("cosmic_rift").gamePassId = 0
- check(not Training.CanUse("cosmic_rift", 0, {cosmic_rift=true}), "a paid ground without a created pass is unusable")
- Training.Get("cosmic_rift").gamePassId = 222
+  and Training.GetBestGround(6, {cosmic_rift=true}).id == "sky_temple" and Training.GetBestGround(0, {cosmic_rift=true}).id == "cosmic_rift"
+  and Training.GetBestGround(6, {dragons_lair=true}).id == "dragons_lair", "best ground is the highest usable rate")
+ Training.Get("dragons_lair").gamePassId = 0
+ check(not Training.CanUse("dragons_lair", 0, {dragons_lair=true}), "a paid ground without a created pass is unusable")
+ Training.Get("dragons_lair").gamePassId = 222
+ -- Per-World hubs: a ground needs a World it stands in to be unlocked; Dragon's Lair stands in
+ -- every hub; Time Machine Lab is opened by Cosmic Rift's pass.
+ local bothWorlds = {world_1=true, world_2=true}
+ check(table.concat(Training.Get("dragons_lair").worlds, ",") == "world_1,world_2"
+  and table.concat(Training.Get("caveman_camp").worlds, ",") == "world_2", "grounds know the Worlds they stand in")
+ check(Training.GetPlatePosition(Training.Get("dragons_lair"), "world_1") == Training.GetPlatePosition(Training.Get("dragons_lair"), "world_2")
+  and Training.GetPlatePosition(Training.Get("caveman_camp"), "world_2") == Training.GetPlatePosition(Training.Get("basic_training"), "world_1"),
+  "every hub uses the same row")
+ check(not Training.CanUse("caveman_camp", 99, nil) and not Training.CanUse("caveman_camp", 99, nil, {world_1=true})
+  and Training.CanUse("caveman_camp", 0, nil, bothWorlds), "World 2 grounds wait for World 2")
+ check(not Training.IsUnlocked("pharaohs_tomb", 8) and Training.IsUnlocked("pharaohs_tomb", 8, bothWorlds)
+  and not Training.IsUnlocked("pharaohs_tomb", 7, bothWorlds), "World 2 Rebirth tiers continue on")
+ check(Training.CanUse("time_machine_lab", 0, {cosmic_rift=true}, bothWorlds) and not Training.CanUse("time_machine_lab", 0, {time_machine_lab=true}, bothWorlds)
+  and not Training.CanUse("time_machine_lab", 0, {cosmic_rift=true}, {world_1=true}), "Time Machine Lab uses Cosmic Rift's pass in World 2")
+ check(Training.GetPassGround(Training.Get("time_machine_lab")).id == "cosmic_rift" and #Training.PassGrounds == 2, "one pass per pass ground")
+ check(Training.CanUse("dragons_lair", 0, {dragons_lair=true}, {world_2=true}), "Dragon's Lair is usable from any World")
+ check(Training.GetBestGround(0, nil, bothWorlds).id == "caveman_camp" and Training.GetBestGround(12, {dragons_lair=true}, bothWorlds).id == "samurai_dojo"
+  and Training.GetBestGround(0, {cosmic_rift=true}, bothWorlds).id == "time_machine_lab", "best ground looks across unlocked Worlds")
  local trainee = join(30)
  check(trainee:GetAttribute("OfflinePowerEarned")==0 and trainee:GetAttribute("OfflineTrainingGround")==Training.DefaultGround,"new player has no historical reward")
  check(Data.CanUseTrainingGround(trainee,"basic_training") and not Data.CanUseTrainingGround(trainee,"enchanted_grove"),"Rebirth grounds start locked")
  check(not Data.CanUseTrainingGround(trainee,{}) and not Data.CanUseTrainingGround(trainee,"fake"),"malformed ground ids rejected")
- check(not Data.CanUseTrainingGround(trainee,"dragons_lair") and trainee:GetAttribute("TrainingPass_dragons_lair")==false,"paid grounds need a pass")
- trainee:SetAttribute("TrainingPass_cosmic_rift",true)
+ check(not Data.CanUseTrainingGround(trainee,"cosmic_rift") and trainee:GetAttribute("TrainingPass_cosmic_rift")==false,"paid grounds need a pass")
+ trainee:SetAttribute("TrainingPass_dragons_lair",true)
  trainee:SetAttribute("Rebirths",6)
- check(not Data.CanUseTrainingGround(trainee,"cosmic_rift") and not Data.CanUseTrainingGround(trainee,"sky_temple"),"display pass and Rebirth copies not authoritative")
+ check(not Data.CanUseTrainingGround(trainee,"dragons_lair") and not Data.CanUseTrainingGround(trainee,"sky_temple"),"display pass and Rebirth copies not authoritative")
  for _ = 1, 2 do check(Data.GrantPower(trainee,1000000,"Test") and Data.TryRebirth(trainee),"Rebirth unlock setup") end
  check(Data.CanUseTrainingGround(trainee,"enchanted_grove") and not Data.CanUseTrainingGround(trainee,"sunken_atlantis"),"two Rebirths unlock the second ground only")
  check(Data.GetBestTrainingGround(trainee).id=="enchanted_grove","best ground follows Rebirths")
@@ -356,22 +377,73 @@ return function(sources)
  ownedPasses["35:111"] = true
  saved.Player_35={SchemaVersion=7,Cash=1,Power=0,Level=1,Rebirths=0,LastLogoutTime=math.floor(now)-12}
  local passHolder=join(35)
- check(passHolder:GetAttribute("OfflineTrainingGround")=="dragons_lair" and passHolder:GetAttribute("OfflinePowerEarned")==300,"offline uses an owned paid ground with no Rebirths")
- check(Data.CanUseTrainingGround(passHolder,"dragons_lair") and passHolder:GetAttribute("TrainingPass_dragons_lair")==true
-  and not Data.CanUseTrainingGround(passHolder,"cosmic_rift"),"owned pass opens only its ground")
+ check(passHolder:GetAttribute("OfflineTrainingGround")=="cosmic_rift" and passHolder:GetAttribute("OfflinePowerEarned")==300,"offline uses an owned paid ground with no Rebirths")
+ check(Data.CanUseTrainingGround(passHolder,"cosmic_rift") and passHolder:GetAttribute("TrainingPass_cosmic_rift")==true
+  and not Data.CanUseTrainingGround(passHolder,"dragons_lair"),"owned pass opens only its ground")
+ check(passHolder:GetAttribute("TrainingPass_time_machine_lab")==nil and not Data.CanUseTrainingGround(passHolder,"time_machine_lab"),
+  "the shared pass has one attribute and its World 2 ground waits for World 2")
+ passHolder:SetAttribute("WorldUnlocked_world_2",true)
+ check(Data.CanUseTrainingGround(passHolder,"time_machine_lab") and Data.GetBestTrainingGround(passHolder).id=="time_machine_lab",
+  "unlocking World 2 opens the shared-pass ground")
+ passHolder:SetAttribute("WorldUnlocked_world_2",false)
  marketplace.PromptGamePassPurchaseFinished:Fire(passHolder,222,false)
  marketplace.PromptGamePassPurchaseFinished:Fire(passHolder,999,true)
- check(not Data.CanUseTrainingGround(passHolder,"cosmic_rift"),"cancelled or unknown purchases grant nothing")
+ check(not Data.CanUseTrainingGround(passHolder,"dragons_lair"),"cancelled or unknown purchases grant nothing")
  marketplace.PromptGamePassPurchaseFinished:Fire(passHolder,222,true)
- check(Data.CanUseTrainingGround(passHolder,"cosmic_rift") and Data.GetBestTrainingGround(passHolder).id=="cosmic_rift"
-  and passHolder:GetAttribute("TrainingPass_cosmic_rift")==true,"completed purchase opens the ground immediately")
+ check(Data.CanUseTrainingGround(passHolder,"dragons_lair") and Data.GetBestTrainingGround(passHolder).id=="dragons_lair"
+  and passHolder:GetAttribute("TrainingPass_dragons_lair")==true,"completed purchase opens the ground immediately")
  leave(passHolder)
  check(saved.Player_35.TrainingPasses==nil and saved.Player_35.SelectedTrainingGround==nil,"pass ownership is never saved")
+ -- Studio's UnlockAllWorlds playtest switch opens every World for the session only.
+ workspace:SetAttribute("UnlockAllWorlds", true)
+ saved.Player_37={SchemaVersion=8,Cash=1,Power=0,Level=1,Rebirths=0}
+ local outsideStudio=join(37)
+ check(outsideStudio:GetAttribute("WorldUnlocked_world_2")==false,"UnlockAllWorlds does nothing outside Studio")
+ leave(outsideStudio)
+ studioMode = true
+ saved.Player_38={SchemaVersion=8,Cash=1,Power=0,Level=1,Rebirths=0}
+ local tester=join(38)
+ check(tester:GetAttribute("WorldUnlocked_world_2")==true and Data.CanUseTrainingGround(tester,"caveman_camp"),"Studio switch opens World 2 and its grounds")
+ leave(tester)
+ check(saved.Player_38.UnlockedWorlds.world_2==nil and saved.Player_38.UnlockedWorlds.world_1==true,"Studio unlocks are never saved")
+ workspace:SetAttribute("OwnAllBalls", true)
+ saved.Player_40={SchemaVersion=8,Cash=1,Power=0,Level=1,Rebirths=0,OwnedBalls={baseball=true,practice_ball=true},EquippedBall="practice_ball"}
+ local collector=join(40)
+ check(Data.OwnsEquipment(collector,"Ball","chrono_orb") and Data.OwnsEquipment(collector,"Ball","supernova_ball")
+  and collector.OwnedBalls:GetAttribute("dino_egg_ball")==true and not Data.OwnsEquipment(collector,"Bat","celestial_bat"),"Studio switch owns every Ball only")
+ check(Data.EquipEquipment(collector,"Ball","chrono_orb") and collector:GetAttribute("EquippedBall")=="chrono_orb","a granted Ball can be equipped")
+ leave(collector)
+ check(saved.Player_40.OwnedBalls.chrono_orb==nil and saved.Player_40.OwnedBalls.practice_ball==true
+  and saved.Player_40.EquippedBall=="practice_ball","Studio Ball grants are never saved; the saved equipped Ball stays")
+ workspace:SetAttribute("OwnAllBalls", nil)
+ studioMode = false
+ workspace:SetAttribute("UnlockAllWorlds", nil)
+ -- World 2's balls are their own series: their own offer, World 2 must be unlocked, then in order.
+ local worldTwoBalls = Equipment.GetSeriesItems("Ball", "world_2")
+ local aboveTen = true
+ for _, ball in worldTwoBalls do aboveTen = aboveTen and ball.rewardMultiplier > 10 and ball.series == "world_2" end
+ check(#worldTwoBalls == 10 and worldTwoBalls[1].id == "dino_egg_ball" and worldTwoBalls[10].id == "chrono_orb" and aboveTen
+  and #Equipment.GetSeriesItems("Ball") == 10 and #Equipment.GetItems("Ball") == 20, "World 2 sells ten balls above x10")
+ saved.Player_39={SchemaVersion=8,Cash=5000000,Power=0,Level=1,Rebirths=0}
+ local shopper=join(39)
+ local worldTwoOffer=shopper:GetAttribute("EquipmentPurchaseToken_Ball_world_2")
+ check(type(worldTwoOffer)=="string" and worldTwoOffer~=shopper:GetAttribute("EquipmentPurchaseToken_Ball"),"World 2's ball series has its own offer")
+ check(not Data.PurchaseNextEquipment(shopper,"Ball",worldTwoOffer) and shopper.leaderstats.Cash.Value==5000000,"World 2's balls need World 2 unlocked")
+ shopper:SetAttribute("WorldUnlocked_world_2",true)
+ check(Data.PurchaseNextEquipment(shopper,"Ball",worldTwoOffer) and Data.OwnsEquipment(shopper,"Ball","dino_egg_ball")
+  and shopper:GetAttribute("EquippedBall")=="dino_egg_ball" and shopper.leaderstats.Cash.Value==4000000
+  and not Data.OwnsEquipment(shopper,"Ball","practice_ball"),"World 2's first ball needs none of World 1's")
+ check(not Data.PurchaseNextEquipment(shopper,"Ball",worldTwoOffer),"a used World 2 offer cannot buy again")
+ check(Data.GetNextEquipment(shopper,"Ball","world_2").id=="stone_ball" and Data.GetNextEquipment(shopper,"Ball").id=="practice_ball","each series moves on separately")
+ check(Data.PurchaseNextEquipment(shopper,"Ball",shopper:GetAttribute("EquipmentPurchaseToken_Ball")) and Data.OwnsEquipment(shopper,"Ball","practice_ball")
+  and Data.GetNextEquipment(shopper,"Ball","world_2").id=="stone_ball","World 1's offer still buys World 1's next ball")
+ leave(shopper)
+ check(saved.Player_39.OwnedBalls.dino_egg_ball==true and saved.Player_39.OwnedBalls.practice_ball==true,"World 2 balls save with the rest")
  passFailures[36] = true
  ownedPasses["36:111"] = true
  saved.Player_36={SchemaVersion=7,Cash=1,Power=0,Level=1,Rebirths=0,LastLogoutTime=math.floor(now)-12}
  local lookupOutage=join(36)
- check(Data.IsReady(lookupOutage) and not Data.CanUseTrainingGround(lookupOutage,"dragons_lair")
+ check(Data.IsReady(lookupOutage) and not Data.CanUseTrainingGround(lookupOutage,"cosmic_rift")
   and lookupOutage:GetAttribute("OfflinePowerEarned")==30,"pass lookup outage loads safely with Rebirth grounds only")
  local offlineBase=Training.GetOfflineReward(100,7300,"basic_training")
  local simulated=Progression.Normalize({},false)
@@ -382,7 +454,7 @@ return function(sources)
  Progression.Advance(simulated,offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths))
  check(simulated.Level==30 and simulated.Power==0,"capped offline duration can reach cap but never exceed it")
  check(Data.GetBestTrainingGround(trainee).id=="enchanted_grove" and Data.GetBestTrainingGround(fallback).id=="basic_training"
-  and not Data.CanUseTrainingGround(fallback,"cosmic_rift"),"players have independent access")
+  and not Data.CanUseTrainingGround(fallback,"dragons_lair"),"players have independent access")
  -- Two complete Rebirth cycles use the same public server operations as gameplay.
  local cyclist = join(100)
  cyclist.leaderstats.Cash.Value = 8000
@@ -411,8 +483,10 @@ return function(sources)
    check(Data.OwnsEquipment(cyclist, category, entries[1].id) and Data.OwnsEquipment(cyclist, category, entries[2].id)
     and cyclist:GetAttribute("Equipped" .. category) == entries[2].id, "cycle preserves owned and equipped equipment")
   end
+  -- World 2 is unlocked, so its free ground (x25) is the best ground at any Rebirth count.
   local best = Data.GetBestTrainingGround(cyclist)
-  check(best.id == (rebirths + 1 >= 2 and "enchanted_grove" or "basic_training"), "the second ground opens at two Rebirths")
+  check(best.id == "caveman_camp" and (Data.CanUseTrainingGround(cyclist, "enchanted_grove") ~= nil) == (rebirths + 1 >= 2),
+   "the second ground opens at two Rebirths; the best ground spans unlocked Worlds")
   local granted, tick = Data.GrantPower(cyclist, best.basePower, "ActiveTraining")
   check(granted and tick.powerGranted == best.basePower * 1.5 * Progression.GetPowerMultiplier(rebirths + 1), "ground, Bat and Rebirth multipliers compose")
  end
@@ -421,7 +495,7 @@ return function(sources)
  check(cycleRecord.Rebirths == 2 and cycleRecord.LevelCap == 30 and cycleRecord.SelectedTrainingGround == nil, "two Rebirths saved without a ground selection")
  check(cycleRecord.LastLogoutTime == math.floor(now) and cycleRecord.Session == nil, "Rebirth save retains offline lifecycle and releases lease")
  cyclist = join(100)
- check(Data.GetProgression(cyclist).Rebirths == 2 and Data.GetBestTrainingGround(cyclist).id == "enchanted_grove"
+ check(Data.GetProgression(cyclist).Rebirths == 2 and Data.GetBestTrainingGround(cyclist).id == "caveman_camp"
   and cyclist.leaderstats.Cash.Value == preservedCash, "multiple cycles survive rejoin")
  check(Data.GetProgression(b).Rebirths == 0 and Data.GetBestTrainingGround(b).id == Training.DefaultGround, "cycles do not change another player's state")
 
@@ -540,7 +614,8 @@ return function(sources)
    local label = trainingGround.id .. "/Rebirth" .. rebirths
    local multiplier = Progression.GetPowerMultiplier(rebirths)
    local paid = Training.IsPaid(trainingGround)
-   check(Training.IsUnlocked(trainingGround.id, rebirths) == (not paid and rebirths >= trainingGround.requiredRebirths), "central ground eligibility " .. label)
+   check(Training.IsUnlocked(trainingGround.id, rebirths) == (not paid and rebirths >= trainingGround.requiredRebirths
+    and Training.IsReachable(trainingGround, nil)), "central ground eligibility " .. label)
    check(Training.CanUse(trainingGround.id, rebirths, nil) == Training.IsUnlocked(trainingGround.id, rebirths), "no pass means Rebirth grounds only " .. label)
    check(trainingGround.basePower == Training.BasePowerPerTick * trainingGround.powerMultiplier, "ground base Power from multiplier " .. label)
    for _, duration in {12, 3*60*60, Training.MaximumOfflineSeconds, Training.MaximumOfflineSeconds+60*60} do
@@ -568,7 +643,8 @@ return function(sources)
     LevelCap=999999, SelectedTrainingGround=trainingGround.id, LastLogoutTime=now-12,
     UnlockedWorlds={world_1=true, world_2=true}, CompletedWorlds={world_1=true}, OtherProgress=73}
    local fixture = join(fixtureId)
-   local best = Training.GetBestGround(rebirths, nil)
+   -- These saves have World 2 unlocked, so World 2's grounds count too.
+   local best = Training.GetBestGround(rebirths, nil, bothWorlds)
    local baseOffline = math.floor(12 * best.basePower / best.interval * Training.OfflinePowerRateMultiplier)
    local expected = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
    Progression.Advance(expected, baseOffline * Progression.GetPowerMultiplier(rebirths))
@@ -576,7 +652,7 @@ return function(sources)
    check(fixture:GetAttribute("OfflinePowerEarned") == baseOffline * Progression.GetPowerMultiplier(rebirths)
     and fixture:GetAttribute("OfflineTrainingGround") == best.id
     and actual.Level == expected.Level and actual.Power == expected.Power, "actual offline login uses the best ground, whatever was saved")
-   check(not Data.CanUseTrainingGround(fixture, trainingGround.id) == not Training.IsUnlocked(trainingGround.id, rebirths)
+   check(not Data.CanUseTrainingGround(fixture, trainingGround.id) == not Training.IsUnlocked(trainingGround.id, rebirths, bothWorlds)
     and actual.LevelCap == Progression.GetLevelCap(rebirths), "actual login access and repaired saved caps")
    local granted, tick = Data.GrantPower(fixture, best.basePower, "ActiveTraining")
    check(granted and tick.powerGranted == best.basePower * Progression.GetPowerMultiplier(rebirths), "actual active grant ground/Rebirth cross-product")

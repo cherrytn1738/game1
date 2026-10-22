@@ -4,6 +4,12 @@ local Tool = script.Parent
 local Player = game:GetService("Players").LocalPlayer
 local BattingRemote = Storage:WaitForChild("BattingTiming")
 local Swing = require(Storage:WaitForChild("SwingConfig"))
+local GameAudio = require(Storage:WaitForChild("GameAudio"))
+
+-- The swing's swish (presentation only) peaks when the barrel moves fastest, between Release
+-- and contact. Practice swings use a softer cue.
+local SWISH_PEAK_TIME = 0.46
+GameAudio.Preload({"Swing", "PracticeSwing"})
 
 local HAND_SPACING = 0.38
 local function batFrame(position, barrel)
@@ -325,6 +331,21 @@ local function updateMode()
 	guardedUpdate(setupPresentation)
 end
 
+-- Schedules the swish so the loudest part of the recording (cue.peak seconds in) lands at
+-- SWISH_PEAK_TIME, heard from the bat. Skipped if a cinematic has taken over the swing by
+-- then (the Mythic Hit holds the bat at the top of the backswing).
+local function playSwish()
+	local name = Player:GetAttribute("TrainingActive") and "PracticeSwing" or "Swing"
+	local cue = GameAudio.Cues[name]
+	local lead = ((cue.peak or 0) - (cue.startAt or 0)) / (cue.speed or 1)
+	local started = swingStarted
+	task.delay(math.max(0, SWISH_PEAK_TIME - lead), function()
+		local handle = Tool:FindFirstChild("Handle")
+		local held = Tool:GetAttribute("SwingClockOverride") or (Tool:GetAttribute("SwingHoldAt") or math.huge) < SWISH_PEAK_TIME
+		if swingStarted == started and handle and not held then GameAudio.Play(name, handle) end
+	end)
+end
+
 local function playSwing()
 	if presentationReady and not swingStarted then
 		contactFired = false
@@ -333,6 +354,7 @@ local function playSwing()
 		-- Every swing starts free of any earlier cinematic's control.
 		Tool:SetAttribute("SwingHoldAt", nil)
 		Tool:SetAttribute("SwingClockOverride", nil)
+		playSwish()
 	end
 end
 

@@ -16,13 +16,8 @@ local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local BallEffects = require(script.Parent:WaitForChild("BallEffects"))
 local BatEffects = require(script.Parent:WaitForChild("BatEffects"))
 local BallSounds = require(script.Parent:WaitForChild("BallSounds"))
+local GameAudio = require(ReplicatedStorage:WaitForChild("GameAudio"))
 
--- Bat crack (Roblox-licensed Pro Sound Effects audio), heard from the tee.
-local HIT_SOUND_ID = "rbxassetid://9125380872"
-local HIT_SOUND_VOLUME = 1
--- The recording has a quiet lead-in; the crack itself is 0.61 s in (measured with
--- PlaybackLoudness). Starting just before it makes the crack land as the ball leaves the tee.
-local HIT_SOUND_START = 0.58
 local LEAVE_DISTANCE = 0.5 -- studs the rendered ball must move off its tee spot
 local BAR_HEIGHT = 0.11 -- share of the screen height covered by each bar
 local IN_SECONDS, OUT_SECONDS = 0.35, 0.5
@@ -63,25 +58,9 @@ local function playCinematic(on)
  for _, tween in tweens do tween:Play() end
 end
 
--- Load the crack up front so the session's first hit isn't late.
-task.spawn(function()
- local preload = Instance.new("Sound")
- preload.SoundId = HIT_SOUND_ID
- pcall(function() game:GetService("ContentProvider"):PreloadAsync({preload}) end)
-end)
-
--- A client-local Sound on the tee, created on first use.
-local function playCrack(stem)
- local sound = stem:FindFirstChild("BatCrack")
- if not sound then
-  sound = Instance.new("Sound")
-  sound.Name, sound.SoundId, sound.Volume = "BatCrack", HIT_SOUND_ID, HIT_SOUND_VOLUME
-  sound.RollOffMode, sound.RollOffMinDistance, sound.RollOffMaxDistance = Enum.RollOffMode.InverseTapered, 20, 300
-  sound.Parent = stem
- end
- sound.TimePosition = HIT_SOUND_START
- sound:Play()
-end
+-- Load the crack up front so the session's first hit isn't late. The cue (GameAudio.BatCrack)
+-- starts just before the crack in the recording, so it lands as the ball leaves the tee.
+GameAudio.Preload({"BatCrack"})
 
 -- Has this station's ball visibly left the tee for the current hit? Also keeps the ball's
 -- model on it and runs its flight effects.
@@ -105,9 +84,11 @@ local function updateStation(world, dt)
   local rest = (spot.WorldCFrame * CFrame.new(0, ball.Size.Y / 2, 0)).Position
   if (ball.Position - rest).Magnitude < LEAVE_DISTANCE then return false end
   launched[world.id] = true
-  -- A Mythic Hit's third swing already cracked at its contact (MythicHitClient); a second
-  -- crack as the ball moves off would land just after the bat.
-  if not ball:GetAttribute("MythicHitUserId") then playCrack(stem) end
+  -- A Mythic Hit's third swing already cracked at its contact (MythicHitClient), and so did the
+  -- batter's own Legendary Hit (LegendaryHitClient); a second crack as the ball moves off
+  -- would land just after the bat and blur the cinematic's launch boom.
+  local ownLegendary = ball:GetAttribute("LegendaryHitUserId") == Player.UserId
+  if not ball:GetAttribute("MythicHitUserId") and not ownLegendary then GameAudio.Play("BatCrack", stem) end
   effects[world.id] = BallEffects.Launch(ball, ball:GetAttribute("EquipmentId"), rest)
   sounds[world.id] = BallSounds.Start(ball, ball:GetAttribute("EquipmentId"))
   local pad = area:FindFirstChild("BatterPosition")

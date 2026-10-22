@@ -104,25 +104,46 @@ Ten Balls, cooler as the price rises (prices and multipliers are placeholder bal
 
 | Ball (id) | Price | Cash | Flight |
 |---|---|---|---|
-| Baseball (baseball) | Free | ×1 | none |
-| Sandlot Ball (practice_ball) | 250 | ×1.3 | thin white streak, dust where it lands |
-| Bubblegum Ball (bubblegum_ball) | 800 | ×1.7 | pink trail, bubbles, sprinkle burst |
-| Crystal Ball (crystal_ball) | 1,800 | ×2.2 | purple trail, glitter, gem burst |
-| Frost Comet (frost_comet) | 5,000 | ×2.8 | long comet tail, snow, frost ring |
-| Inferno Ball (inferno_ball) | 12,000 | ×3.5 | fire trail and flames, fire burst |
-| Thunder Ball (thunder_ball) | 30,000 | ×4.5 | flickering trail, sparks, lightning zap at launch and landing |
-| Galaxy Ball (galaxy_ball) | 75,000 | ×6 | colour-shifting trail, stardust |
-| Dragonfire Ball (dragonfire_ball) | 180,000 | ×8 | twin flame trails, fire burst at launch and landing |
-| Supernova Ball (supernova_ball) | 400,000 | ×10 | rainbow trail, stars, shockwave at launch, starburst where it lands |
+| Baseball (baseball) | Free | ×1 | a clean white streak of cut air |
+| Sandlot Ball (practice_ball) | 250 | ×1.3 | dusty streak in a smoky dirt trail, dirt puffs, falling clods |
+| Bubblegum Ball (bubblegum_ball) | 800 | ×1.7 | twisted pink-and-white candy ribbon, bubbles, falling sprinkles |
+| Crystal Ball (crystal_ball) | 1,800 | ×2.2 | prismatic sparkle ribbon, three crystal shards in orbit, glitter |
+| Frost Comet (frost_comet) | 5,000 | ×2.8 | long glowing comet tail in frost mist, snow, falling ice shards |
+| Inferno Ball (inferno_ball) | 12,000 | ×3.5 | roaring fire ribbon over black smoke, flames, embers |
+| Thunder Ball (thunder_ball) | 30,000 | ×4.5 | crackling electric streak, lightning bolts arcing off the ball, sparks |
+| Galaxy Ball (galaxy_ball) | 75,000 | ×6 | three spiralling star streams through a shifting nebula, orbiting stars |
+| Dragonfire Ball (dragonfire_ball) | 180,000 | ×8 | twin weaving dragon-flame trails, black smoke, fire-breath bursts along the way |
+| Supernova Ball (supernova_ball) | 400,000 | ×10 | rainbow comet with a white-hot core, rainbow sparks in orbit, pulsing shockwaves |
 
 The All-Star and Championship Balls were removed (their IDs were also cleared from the developer's save; other saves drop them on load).
+
+**World 2 (Time Travel) balls** are a second purchase series in the same Ball category (`EquipmentConfig` Ball `series`, id `world_2`), one ball per era of World 2. They are bought in their own order, starting from the Dino Egg, and need World 2 unlocked but none of World 1's balls. World 1 balls stay owned and equippable everywhere. Prices and multipliers are placeholders, all above ×10:
+
+| Ball (id) | Price | Cash | Flight |
+|---|---|---|---|
+| Dino Egg (dino_egg_ball) | 1,000,000 | ×12 | swaying jungle trail shedding leaves and eggshell, spores |
+| Stone Ball (stone_ball) | 2,500,000 | ×15 | thick dust trail, pebbles in orbit, rock chunks breaking off |
+| Scarab Ball (scarab_ball) | 6,000,000 | ×19 | gold and lapis spiral through a sand stream, golden scarabs in orbit |
+| Olympian Laurel (laurel_ball) | 14,000,000 | ×24 | white-gold streak shedding golden laurel leaves, victory rings rippling behind |
+| Viking Rune (viking_rune_ball) | 32,000,000 | ×30 | glowing rune stones in orbit, icy flickering trail, frost mist, rune lightning |
+| Samurai Ball (samurai_ball) | 75,000,000 | ×38 | two crossing katana-slash ribbons, red silk trail, a storm of cherry petals |
+| Knight's Ball (knight_ball) | 170,000,000 | ×48 | gleaming steel streak with a fluttering red plume banner, sparks, glints |
+| Sheriff Star (sheriff_star_ball) | 400,000,000 | ×60 | dusty frontier trail, gold stars circling like a spinning badge |
+| Clockwork Ball (clockwork_ball) | 900,000,000 | ×75 | brass and cyan strands winding round it, spinning gears in orbit, steam, a ticking ring |
+| Chrono Orb (chrono_orb) | 2,000,000,000 | ×95 | ghostly echoes left behind, a swirling time vortex, colour-shifting strands, time ripples |
+
+- **Offers:** each series has its own server-issued purchase token (`EquipmentPurchaseToken_Ball` for World 1's, `EquipmentPurchaseToken_Ball_world_2` for World 2's). The server finds the series from the token, checks the World unlock, then sells that series' next ball.
+- **Where they're sold:** World 2's ball display (`hub.displays` entry with `series = "world_2"`) and the Equipment menu, where locked cards say "Locked · Unlock World 2". World 1's ball display shows only World 1's series.
+- **Models:** `tools/blender/balls_world2.py` builds them like `balls.py` and exports `assets/models/BallsWorld2.fbx`, to be split into `DisplayItems` the same way. Until then, each shows as a plain sphere in its `appearance` colour.
+- **Effects:** each has its own flight layers like World 1's balls (see Flight layers above).
 
 - **Models:** `tools/blender/balls.py` builds all ten (radius 1, meshes named `<id>__<Part>`) and exports `assets/models/Balls.fbx`; run it headless with `blender --background --python tools/blender/balls.py`. After import they are split into one model per id in `ServerStorage.RunwayAssets.DisplayItems`.
 - **Looks:** `BallStyles.luau` (ReplicatedStorage) colours each part by name and holds each ball's glow, flight effects, bursts and display idle particles. The physics ball keeps its locked `CustomPhysicalProperties`, so no look can change flight.
 - **Display:** pedestals show the styled model with its glow and a few of its particles as a preview.
 - **On the tee and in flight:** the server publishes the styled models to `ReplicatedStorage.BallModels`. Each client shows the batter's model (from the station ball's `EquipmentId`) on the physics ball, which is hidden locally, and `BallEffects` adds the trail, particles and glow once the ball visibly leaves the tee, with a burst at launch and at the first landing. Without a model the plain coloured ball is shown and the effects still play.
 - **Trail colour:** ball and bat trails are drawn unlit with normal blending (`LightEmission` 0, `Brightness` 1.6). Additive light washed every trail to white against the bright sky and bloom, so trail colours are also kept saturated.
-- **Layered effects (build up with price):** each flight has the coloured trail plus a thin white-hot additive core, a glow halo riding on the ball, cosmetic backspin on the model, theme particles (denser and larger for fancier balls), and a flash with a flat shockwave ring at launch and at the first landing (bigger for fancier balls). From the Bubblegum Ball up a sparkle ribbon is added. Bat swings layer the coloured sweep, a white-hot streak along the last half stud of the barrel, and from the Candy Cane Bat up a sparkle sweep. Tier is the item's place in its lineup (0 first to 1 last).
+- **Flight layers (each ball its own):** every ball has its own stack of layers in `BallStyles` `flight.layers`, drawn by `BallEffects`: ribbons (trails with colour gradients and a shaped silhouette, such as teardrop, needle, swell, scalloped or flame-tongued, optionally split into glowing bands; they can spiral round the ball, sway or crackle), streaks (soft, round glowing trails made of overlapping particles, for fire, smoke, dust, sand, mist and glow, so trails aren't flat strips), particles (optionally emitted behind the ball), orbiters (crystals, gears, rune stones, stars circling the ball), debris (leaves, petals, rocks, ice shed behind it), lightning arcs, pulses (rings rippling out along the path) and echoes (fading ghost copies of the ball). Glow adds only some light (`GLOW_EMISSION`), because fully additive light washed colours to white against the sky. A soft glow halo, cosmetic backspin and a flash + ring at launch and landing are shared. All of it is client-side and cosmetic.
+- **Visible size:** the ball you see, and all of its flight effects, are drawn 2× the 0.8-stud physics ball (`BallEffects` `VISUAL_SCALE`) and raised so the bottom still rests where the physics ball's does (on the tee and the ground). The physics ball, its collisions and distances are unchanged.
 
 ### Item displays
 
@@ -204,6 +225,8 @@ World 1
 
 Unlocked worlds remain available permanently and players may return to previously unlocked worlds.
 
+**Studio testing:** with the Workspace attribute `UnlockAllWorlds` set to true, every World is unlocked at load in Studio playtests only (`RunService:IsStudio()`). These unlocks last for the session and are never saved; a real completion during the session still saves normally. Clear the attribute to test as a normal player.
+
 ## Progression Philosophy
 
 Progression should be physically visible through batting performance.
@@ -281,10 +304,10 @@ Juice is a consumable item that grants a temporary, server-timed bonus. The arch
 The quick menu's Training tile sends an intent-only `TrainingTeleport` request (a RemoteEvent the server creates at runtime). `BattingTimingServer`:
 - refuses it during an active hit or while already training, with a message
 - shares World Travel's 1-second cooldown
-- places the player 9 studs from the World 1 Training plate, facing it, so Training starts only when they step on
-- from another world, travels back to World 1 first, using the same `relocate` cleanup as World Travel (ends batting, Training, and active hits, and bumps the batting session)
+- places the player 9 studs from the Training plate, facing it, so Training starts only when they step on
+- goes to the ground in the player's current World when it stands there (Dragon's Lair stands in every World), otherwise to the first unlocked World it stands in, travelling there with the same `relocate` cleanup as World Travel (ends batting, Training, and active hits, and bumps the batting session)
 
-Because World 2 has no hub, this tile is also how players return from World 2. Travel to World 2 uses the World Travel prompt in the World 1 hub.
+With no ground named (the quick menu tile), it picks the best usable ground across all unlocked Worlds, so it can travel between Worlds.
 
 ### Earlier pass (Milestone 19B)
 
@@ -336,6 +359,36 @@ The runway has no floating distance labels or floor tick lines; the live HUD sho
 
 Every `RunwayDecor` part is anchored with collision, touch, and query disabled, so scenery cannot affect ball flight, measured distance, rewards, or camera occlusion. The full runway is about 3,000 decoration parts.
 
+## Hub themes
+
+Each World's hub can have its own look. `WorldConfig` `hub.theme` names a builder in `HubDecor`, which runs from `FieldBuilder.buildHub` into `<Hub>.Decor`. A themed hub supplies its own walkable floor, so the plain grey floor and boundary strips are skipped. Hub stations, item displays and Training Grounds are built the same way for every theme.
+
+**Home Field (World 1)** is a sunken ballpark in the hub frame (origin at the tee, +Z back into the hub). The hub reaches 136 studs left of the tee line, 86 right and 222 back (`hub.left`, `hub.right`, `hub.depth`): the left is filled by the cages, and the right and back end just past the displays and the last cage, so there is little empty floor.
+- **Layout:** the Training Grounds stand in one row down the left side. On the right, the World portal, the Ball display and the Bat display stand in one line (front edge hub x 60, at z 45, 95 and 145), all turned to face the cages across the middle; the displays have two rows of five each, turned with `yaw`. The middle is kept clear for events.
+- **Display rows:** each further row of a display rises above the one in front (`ItemDisplay`: label height + half a label + half an item + a small gap), so its items sit above the front row's labels and no names or prices overlap. Prompts reach 14 studs, plus 10 per row back, so the whole display can be used from its dirt lane.
+- **Ground:** 12 mowing stripes of grass form the floor. Dirt patches add a batter's circle behind the tee, a path across the front, a lane along the Training Ground doors, a lane in front of the displays, and a path up the middle. A white home plate marks the spawn.
+- **Open middle:** an infield diamond for events (`hub.eventArea`: dirt with an inner grass square, white bases and a pitcher's mound). A gold-ringed pad at the front of the display line (hub x 62.5, z 45) holds the World portal (`hub.portalPad`).
+- **Walls:** a padded green outfield wall with a gold cap runs along both sides and the back, with an invisible barrier above it to 14 studs and red, white and blue bunting along the top.
+- **Stands:** aluminium bleachers on both sides and across the back, five tiers with red and blue seats. They climb to a grass berm that is level with the runway's outer ground (9 studs), so the park sits in a bowl that meets the runway decks.
+- **Landmarks:** yellow foul poles where the runway walls begin, four light towers on the berm corners with spotlights on the field, and a "HOME FIELD / WORLD 1" scoreboard behind the back stand.
+- **Treeline:** trees, bushes and hills on the berm, reusing the runway's `MeadowTree`, `Bush` and `Hill` meshes through `RunwayDecor.PlaceMesh`.
+
+**Time Travel (World 2)** uses the same layout and size (World 2's cages in the same row on the left; the portal, World 2's ball display and the Bat display in one line on the right; the clock in the middle), styled as a sunken clockwork plaza:
+- **Floor:** a lavender checkerboard of large tiles with thin brass seams, brass walkways (the same paths as World 1), a cyan glowing ring round the batter's circle, and a small clock rosette at the spawn.
+- **Event area:** a giant clock face (`hub.eventArea`) with Roman numerals, hour marks and turning hands.
+- **Bowl:** a slate wall with a brass cap and a cyan glow strip, then slate terraces with alternating brass and glowing cyan edges up to a dark slate berm at 9 studs.
+- **Landmarks:** a clock tower behind the back terraces (a turning clock and a "TIME TRAVEL / WORLD 2" sign), four chrono lamps, floating gears (the Blender `HubGear` when imported, brass discs until then) and bobbing time crystals.
+- **Monuments** from the eras ahead stand on the berm: a stone circle, a stepped pyramid with obelisks and a torii gate on the left; a Greek temple, a castle tower and a torii gate on the right.
+- World 2's own "TIME TRAVEL BALLS" display stands in front of the Bats (hub x 60, z 95). The plain wide field in front stays until World 2's runway is built.
+
+Hub scenery and portal parts can carry motion attributes (`Spin`, with an optional `SpinPivot` to turn about a point such as a clock centre, `Bob`, `Sway`, `Pulse`); `TrainingStadiumClient` animates them in every hub on each client.
+
+### World portals
+
+Each hub with a `portalPad` gets a World portal on it (`WorldPortal.luau`), at the front of the line of item displays (hub x 62.5, z 45), turned with `portalPad.yaw` to face the middle like the displays. The model is `ServerStorage.RunwayAssets.WorldPortal`, built by `tools/blender/world_portal.py`: an octagonal brass clockwork frame with iron bands and rivets, a swirling cyan vortex, an alarm clock on top with turning hands, hourglass lamps on the sides and two turning gears. It is scaled to 26 studs tall. Until it is imported, a plain octagon of parts stands in. A floating sign reads "WORLDS / TRAVEL PORTAL / Step in to choose a World".
+
+The portal is not a teleporter. An invisible `Trigger` fills the opening, and stepping into it opens the Worlds menu on that client (`WorldTravelClient`), once per entry and only when another menu can open (not while batting, training, in a hit or travelling). The menu lists every World with its theme name and state (World 1 and World 2 for now). Choosing one sends the normal `WorldTravel` request, which the server checks against the unlock before relocating the player.
+
 ## Sky
 
 `SkyServer` applies one stylized golden-hour sky to the whole game at server start:
@@ -350,16 +403,35 @@ It reuses the place's existing Lighting effects rather than adding duplicates. A
 All cosmetic; none of it affects launch, distance or rewards.
 
 - **Timing:** every effect starts when the client sees the ball leave the tee (the rendered ball 0.5 studs off its tee spot), not when `BallState` turns InFlight. The attribute arrives about 0.25 s before the ball's smoothed physics movement is drawn, so starting on it put the effects ahead of the ball.
-- **Bat crack:** each client plays a local `BatCrack` Sound on the tee's Stem when any station's ball leaves the tee, so nearby players hear each other's hits in sync (Pro Sound Effects "Wood Bat Hits Hard Ball", `rbxassetid://9125380872`; `HIT_SOUND_ID` and `HIT_SOUND_VOLUME` in `HitCinematicClient`). It is on the tee rather than the ball so it does not fly away with the hit. Practice swings in Training are silent. The recording has a quiet lead-in, with the crack itself 0.61 s in (measured with `PlaybackLoudness`), so it starts at 0.58 s (`HIT_SOUND_START`). It is also preloaded so the session's first hit is on time. The cinematics start their impact sounds past any lead-in the same way (the fourth `startAt` value in their `SOUNDS` specs). A Mythic Hit skips this crack, because its third swing already cracked at contact.
+- **Bat crack:** each client plays the `BatCrack` cue (`GameAudio`) on the tee's Stem when any station's ball leaves the tee, so nearby players hear each other's hits in sync (Pro Sound Effects "Wood Bat Hits Hard Ball", with a little added low end). It is on the tee rather than the ball so it does not fly away with the hit. The recording has a quiet lead-in, with the crack itself 0.61 s in, so the cue starts at 0.58 s; it is preloaded so the session's first hit is on time. The cinematics start their impact sounds past any lead-in the same way (the fourth `startAt` value in their `SOUNDS` specs). A Mythic Hit, and the batter's own Legendary Hit, skip this crack, because the cinematic already cracked at contact.
 - **Cinematic swing and flight:** from the click that starts a real swing (BatClient fires "SwingStart" on the bat's local marker; Training practice swings do not), `HitCinematicClient` slides in black letterbox bars (11% of the screen each) and adds a light colour grade (contrast and saturation). They stay while the hit is active (`HitActive`) and ease out when it ends; a refused swing lets them slide back out after 1.2 s. The bars sit under the HUD, so the distance counter and 2x/Leave buttons stay on top. The Cash counter is hidden during flight.
 - **Camera:** from the click, the batting camera (`BatTimingClient`) zooms from 55° to 46° FOV through the backswing (Load and Windup, 0.24 s) and holds. When the ball leaves the tee it widens from there to 70° over 0.8 s with a 0.35 s decaying shake. With no launch it eases back out.
 - **Ball sounds** (`BallSounds`, run by `HitCinematicClient` for every station): from launch to reset, sounds come from the ball itself, so nearby players hear each other's hits:
-  - a wind whoosh while it is in the air, louder and higher-pitched with speed, on a gentle curve so slow hits still whoosh a little
-  - a thud on each bounce, louder for harder landings, with a random pitch
-  - a soft rolling rustle while it rolls, quieter and lower as it slows
-  - for the fancier Balls, their own loop on top (`BallStyles.FlightSounds`): Bubblegum bubbles, Crystal shimmer, Frost icy shimmer, Inferno lava crackle, Thunder electric arcing, Galaxy space hum, Dragonfire fire roar, Supernova sizzling energy
+  - a wind whoosh while it is in the air, louder and a little higher-pitched with speed, on a gentle curve so slow hits still whoosh a little
+  - a landing sound on each bounce, on a volume curve so a hard first landing is clearly heard and the last little hops barely at all. It is timed to the drawn ball: it fires when the ball, at its current downward speed, will reach the ground within the next frame (a hair early, covering a new Sound's start-up), or, when the client's smoothing turns a fast bounce around above the grass, on the frame it turns. One landing per fall; a reset jump back to the tee is ignored
+  - a smooth, understated roll once it is on the ground, quieter and lower as it slows (mostly a soft noise bed, with only a faint grass texture)
+  - grounded hysteresis: the ball counts as on the ground from its first bounce until 0.25 s without contact, so the whoosh and roll never flicker during bounces
+  - light surface variation from the runway section under the ball (raycast to the field's ground parts): soft ground (Meadow, Emerald Grove, Golden Dunes, World 2) keeps the muted thud and grass texture; hard floors (Candy, Ember Canyon, Skyway) knock and roll firmer; ice, crystal and glass (Frost Pass, Crystal Ridge, Neon Circuit, Starlight Finish) add a clean clink and roll glassy-smooth
+  - for the fancier Balls, their own loop on top (`BallStyles.FlightSounds`), measured against the whoosh so it colours the flight without burying it: about half the whoosh's loudness for gentle themes, up to ~0.9x for the top tiers, and softer once the ball is on the ground
 
   All loops start at a random point and fade out when the hit ends. All are Roblox-licensed Pro Sound Effects audio. Speeds and volumes are tunable at the top of `BallSounds`.
+
+### Audio
+
+All sound is client-side presentation; nothing in it affects gameplay. `GameAudio` (ReplicatedStorage) is the shared vocabulary and mix: every cue's asset, volume, pitch, lead-in skip and group in one table, plus ducking.
+
+- **SoundGroups:** Music, Ambience, Gameplay (bat, ball, Training), UI (menus, notifications, progression payoffs), Cinematic (Legendary / Mythic). Group volumes are in `GameAudio.GroupVolumes`.
+- **Hierarchy** (loudest first, measured): rare-hit climaxes, then Rebirth / World unlock (about the bat crack's loudness), the bat crack, Level Up (about 0.85x the crack), ball flight and hard landings, purchases / equips / Cash / travel, Training feedback, rolling, UI clicks, ambience.
+- **Positional vs flat:** physical sounds (crack, swish, ball, Training, cage ambience) come from parts in the world, so nearby players hear them; personal progression and UI play flat for the local player only.
+- **Swing:** a short dry swish from the bat, timed so its loudest moment lands as the barrel moves fastest (0.46 s into the swing), just before contact. Skipped if a cinematic already holds the swing.
+- **Training:** a soft pitch thump, a quieter swish, a lighter and smaller crack than a real hit, and a barely-there tick with each Power grant (it repeats every 2 s, so it must never tire).
+- **Progression:** Level Up (APM "Magical", trimmed to ~1.5 s); Max Level is the same figure crowned by a bright bell; Rebirth is a rising build into a big magic burst (~3 s); World unlock is an APM reveal sting (~3.4 s). Rebirth and World unlock briefly duck music, ambience and gameplay.
+- **Rewards and shop:** a "ka-ching" for a hit's Cash (a register snap, then a bright bell ding with a coin ring under it); a register snap plus a short ding for a purchase (a purchase also equips, which plays only the purchase sound); a mechanical lock-in for equipping; a rising whoosh for World travel; a soft sparkle for Welcome Back.
+- **UI vocabulary** (`UICommon`): the shared click; a soft swoosh up on menu open and down on close; a muted thunk when pressing a locked or unavailable button; a soft "no" tone on refusals (error notices); a quiet notice tone for routine updates. Level Up, Rebirth, unlock, offline and purchase notices stay silent because their payoff sounds play where they happen.
+- **Ambience** (`AmbienceClient`): a quiet themed loop at each fantasy Training Ground, heard only near its cage (Grove wind and chimes, Atlantis underwater air, Sky Temple high wind, Dragon's Lair slow breathing rumble, Cosmic Rift cosmic air). The hub air bed (`HubAir`) is a placeholder: no licensed outdoor-air loop has been chosen yet. There is no runway ambience; the flight sounds and visuals carry the runway.
+- **Music:** none yet. Setting `GameAudio.MusicTrack` to an APM track id turns on one looping track in the Music group, ducked under cinematics and big payoffs.
+- **Ducking:** the batter's own Legendary / Mythic Hit ducks music, ambience, UI and gameplay (the ball's own sounds) until the cinematic's audio fades out; Rebirth and World unlock duck the background while they play. Fades are short and smooth.
+- **Cleanup:** one-shots remove themselves; ball loops are stopped by `HitCinematicClient` when the ball resets or is gone; cage loops are created once. Repeated hits do not accumulate Sounds (playtested).
 
 ### Rare cinematic hits (Legendary and Mythic)
 
@@ -383,7 +455,7 @@ Two rare hits play a cinematic before the ball launches: the **Legendary Hit**, 
 
 **Mythic Hit** (about 9 s from the click; red and black, sinister):
 1. Power-up (about 3 s): the batter freezes at the top of the backswing (end of Windup). The world darkens to red. The batter gets a red Highlight and an aura of red flames, black smoke and sparks. Red energy streams in, red lightning crackles, rocks lift off the ground and tumble, and red pulses ripple out. Sounds: a slowed creature growl, the "Arise From The Dead" drone, the "Ice Wave" swell and a slowed heartbeat. The camera is low and off to the downfield side, looking up at the batter and circling in.
-2. Three swings, 1.05 s apart: each plays from the windup to contact at 0.4× speed and holds at contact. The angles are over the shoulder from the catcher's side, facing the batter from beyond the tee, then close on the ball from downfield. Each impact is bigger than the last: a black "impact frame" snapping to red, a shockwave, red lightning, smoke, a distorted kick, a deep boom and the crack. The bars close in a little more each time. "MYTHIC HIT! / 1 IN 10,000" slams in on the third.
+2. Three swings, 1.05 s apart: each plays from the windup to contact at 0.4× speed and holds at contact. The angles are over the shoulder from the catcher's side, facing the batter from beyond the tee, then close on the ball from downfield. Each impact is bigger and louder than the last: a black "impact frame" snapping to red, a shockwave, red lightning, smoke, a distorted kick and the crack, with the drone bed dipping for a moment under each hit; the third adds a deep boom. The bars close in a little more each time. "MYTHIC HIT! / 1 IN 10,000" slams in on the third.
 3. Launch: a red explosion, a column of red light, eight lightning strikes from the sky, a black smoke burst, the rocks blasting away, a boom, a roar and the "Wounded Symphony" braam. A cut to the chase camera, then a red and black comet tail with smoke and sparks for the whole flight.
 
 ## Hit time scale
@@ -460,39 +532,54 @@ Natural stopping, sections, world endpoints, and Cash formulas are unchanged.
 Milestone 15A added no training mechanics or Rebirth UI. Training is added below in Milestone 15B.
 ## Training and Offline Power (Milestone 15B)
 
+**Feedback (presentation only):**
+- Each Training Power tick shows a small rising "+Power" popup with the Power icon (`ProgressFeedbackClient`). The server publishes the exact grant as the display attributes `TrainingPowerGained` and `TrainingPowerTick`.
+- Every practice hit plays a quieter bat crack from the cage's contact point as the ball reaches the bat (`TrainingClient`).
+- Any level-up plays APM's "Magical (f)" chime and a slight 0.45 s camera shake. The offline catch-up at login is shown by the Welcome Back screen instead.
+
 Training is the primary Power source.
 
-### Six physical Training Grounds (supersedes the single logical stadium)
+### Physical Training Grounds, one row per World (supersedes the single logical stadium)
 
-Each Training Ground is its own batting cage, with its own plate and one occupant at a time. The six cages stand in two rows of three, parallel to the runway, either side of a walkway in World1Hub (right = right when facing down the runway), under `World1Hub.TrainingGrounds.<ground id>`.
-- Right row: Basic Training, Enchanted Grove and Sunken Atlantis, with plates at hub-relative x 42. Left row: Sky Temple, Dragon's Lair and Cosmic Rift, at x -42. Both rows start at z 35 and step 33 studs back into the hub (the models' 44-stud spacing, narrowed with the cages); see `TrainingConfig.Rows`.
-- The first ground of each row is nearest the runway. Cages are turned a quarter turn so their doors face the walkway and their machine ends point outward.
-- The hub was shrunk to 210 × 136, and the spawn moved into the walkway, 60 studs behind the tee. The physical Shop, World Travel and Rebirth stations and the Training Grounds board are removed for now. Their settings are commented in `WorldConfig`; FieldBuilder deletes any unconfigured station left in the place.
-- Shop, Travel, Rebirth, normal batting and world endpoints are unchanged.
+Each Training Ground is its own batting cage, with its own plate and one occupant at a time. Every World's hub has its own row of six cages, under `<Hub>.TrainingGrounds.<ground id>` (`TrainingConfig.Hubs`). Dragon's Lair stands in every hub, so the server treats each plate in each hub as its own station.
+- Every row runs down the left side of its hub, from the runway back (`TrainingConfig.Row`). Plates are at hub-relative x -78, from z 34 stepping 33 studs back (the models' 44-stud spacing, narrowed with the cages), with doors facing the open middle; the item displays face them from the right side.
+- World 1, from the runway: Basic Training, Enchanted Grove, Sunken Atlantis, Sky Temple, Cosmic Rift, Dragon's Lair.
+- World 2, from the runway: Caveman Camp, Pharaoh's Tomb, Gladiator Colosseum, Samurai Dojo, Time Machine Lab, Dragon's Lair. They use the standard cage in era colors until their own models are made.
+- Cages are turned a quarter turn so their doors face the middle and their machine ends point outward. The spawn is 60 studs behind each World's tee.
+- The physical Shop, World Travel and Rebirth stations and the Training Grounds board are removed for now. Their settings are commented in `WorldConfig`; FieldBuilder deletes any unconfigured station left in the place.
 
-| # | Ground ID | Unlock | Power multiplier (× 20 Power per 2 s) |
-| --- | --- | --- | --- |
-| 1 | basic_training | start | 1× |
-| 2 | enchanted_grove | 2 Rebirths | 5× |
-| 3 | sunken_atlantis | 4 Rebirths | 10× |
-| 4 | sky_temple | 6 Rebirths | 20× |
-| 5 | dragons_lair | 500 Robux game pass | 10× |
-| 6 | cosmic_rift | 1000 Robux game pass | 30× |
+| # | Ground ID | World | Unlock | Power multiplier (× 20 Power per 2 s) |
+| --- | --- | --- | --- | --- |
+| 1 | basic_training | 1 | start | 1× |
+| 2 | enchanted_grove | 1 | 2 Rebirths | 5× |
+| 3 | sunken_atlantis | 1 | 4 Rebirths | 10× |
+| 4 | sky_temple | 1 | 6 Rebirths | 20× |
+| 5 | cosmic_rift | 1 | 500 Robux game pass | 10× |
+| 6 | caveman_camp | 2 | free once World 2 is unlocked | 25× |
+| 7 | pharaohs_tomb | 2 | 8 Rebirths | 35× |
+| 8 | gladiator_colosseum | 2 | 10 Rebirths | 50× |
+| 9 | samurai_dojo | 2 | 12 Rebirths | 70× |
+| 10 | time_machine_lab | 2 | Cosmic Rift's 500 Robux pass | 35× |
+| 11 | dragons_lair | every World | 1000 Robux game pass | 30× (most expensive) |
+
+World 2's requirements and multipliers are placeholders that continue on from World 1's, for the later balance pass.
 
 **Access:**
-- Walking onto a plate starts training only if the server's private Rebirths or pass ownership allow that ground.
+- A ground can only be used once a World it stands in is unlocked (the server-set `WorldUnlocked_<id>` attributes). World 1 cages stay usable after reaching World 2.
+- Walking onto a plate in the player's current World starts training only if the server's private Rebirths or pass ownership allow that ground.
 - Otherwise the player gets the reason once per visit. On a paid ground, the server also re-checks ownership and shows Roblox's purchase prompt.
 - Paid grounds need no Rebirths and are not lost on Rebirth.
 
 **Game passes:**
+- There are two passes. A ground with `sharesPass` has no pass of its own: Time Machine Lab is opened by Cosmic Rift's pass. Ownership, prompts, prices and the `TrainingPass_<id>` attribute all use the pass's own ground (`TrainingConfig.GetPassGround`, `TrainingConfig.PassGrounds`).
 - `gamePassId` stays 0 until the passes are created on Roblox. While it is 0, the ground shows "COMING SOON" and cannot be used or bought.
 - Ownership is read with `UserOwnsGamePassAsync` at login (before the offline grant) and updated by the server's `PromptGamePassPurchaseFinished` event.
 - Ownership is never saved and never taken from the client. A failed lookup grants nothing.
 
 **Menu and teleport:**
-- The Training Grounds menu lists every ground with its multiplier and effective rate.
-- Each card shows GO (teleport beside that plate), BUY (asks the server for the pass prompt), or the Rebirths still needed.
-- The QuickMenu Training tile teleports to the player's best usable ground.
+- The Training Grounds menu lists every ground with where it stands ("World 2", "Every World"), its multiplier and effective rate.
+- Each card shows GO (teleport beside that plate, travelling Worlds if needed), BUY (asks the server for the pass prompt), the Rebirths still needed, or UNLOCK WORLD 2 for a ground in a locked World.
+- The QuickMenu Training tile teleports to the player's best usable ground in any unlocked World.
 - Each cage shows a per-player lock sign in its doorway.
 
 ### Batting cage (visual)
@@ -557,7 +644,7 @@ Rebirths, equipment, juices and worlds. Old schemas and missing, zero, malformed
 future timestamps grant no historical offline Power.
 
 Offline base Power = floor(min(elapsed seconds, 8 hours) * best usable ground's
-base Power / interval * 0.25). The best usable ground is the highest-rate ground the player can use from Rebirths and owned passes, checked at login. The same server grant path multiplies that base by the saved, ownership-validated Bat multiplier and Rebirth multiplier, floors the result to whole Power, and applies cap rules. These are placeholder balance values. Offline earning does not
+base Power / interval * 0.25). The best usable ground is the highest-rate ground the player can use in any unlocked World, from Rebirths, owned passes and the saved World unlocks, checked at login. The same server grant path multiplies that base by the saved, ownership-validated Bat multiplier and Rebirth multiplier, floors the result to whole Power, and applies cap rules. These are placeholder balance values. Offline earning does not
 require leaving while actively training.
 
 The login UpdateAsync commits the reward, consumes LastLogoutTime, and claims the

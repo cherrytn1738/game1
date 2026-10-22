@@ -8,6 +8,7 @@ local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
+local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Remote = ReplicatedStorage:WaitForChild("EquipmentUpgrade")
 local UI = require(script.Parent:WaitForChild("UICommon"))
 
@@ -54,13 +55,22 @@ local function ownership(category)
  return folder and folder:GetAttributes() or {}
 end
 
--- equipped / owned / next / locked, plus whether the player can afford it.
+-- The World an item's series needs that this player hasn't unlocked yet, if any.
+local function lockedWorld(item)
+ local series = Equipment.GetSeriesInfo(item.category, item.series)
+ local world = series and series.requiredWorld and Worlds.Get(series.requiredWorld)
+ if world and Player:GetAttribute("WorldUnlocked_" .. world.id) ~= true then return world end
+ return nil
+end
+
+-- equipped / owned / next / locked, plus whether the player can afford it. Each series is
+-- bought in its own order.
 local function itemState(item)
  local owned = ownership(item.category)
  if Player:GetAttribute("Equipped" .. item.category) == item.id then return "equipped" end
  if owned[item.id] then return "owned" end
- local nextItem = Equipment.GetNextPurchase(item.category, owned)
- if nextItem and nextItem.id == item.id then return "next" end
+ local nextItem = Equipment.GetNextPurchase(item.category, owned, item.series)
+ if nextItem and nextItem.id == item.id and not lockedWorld(item) then return "next" end
  return "locked"
 end
 
@@ -100,13 +110,18 @@ local function request(entry)
    UI.Notify("You need " .. UI.Number(item.price - cash.Value) .. " more Cash.", "error")
    return
   end
-  local token = Player:GetAttribute("EquipmentPurchaseToken_" .. item.category)
+  local token = Player:GetAttribute("EquipmentPurchaseToken_" .. Equipment.OfferKey(item.category, item.series))
   if token then Remote:FireServer("Purchase", item.category, token) end
  elseif state == "locked" then
+  local world = lockedWorld(item)
+  if world then
+   UI.Notify("Unlock " .. world.displayName .. " to buy these.", "error")
+   return
+  end
   -- Older saves may own a later item without this one; purchases only move forward.
   local owned = ownership(item.category)
   local skipped = false
-  for _, other in Equipment.GetItems(item.category) do
+  for _, other in Equipment.GetSeriesItems(item.category, item.series) do
    if owned[other.id] and other.order > item.order then skipped = true end
   end
   if skipped then
@@ -183,6 +198,9 @@ task.spawn(function()
  for _, category in Equipment.CategoryOrder do
   Player:WaitForChild(Equipment.Categories[category].ownedField).AttributeChanged:Connect(refresh)
   Player:GetAttributeChangedSignal("Equipped" .. category):Connect(refresh)
+ end
+ for _, world in Worlds.Worlds do
+  Player:GetAttributeChangedSignal("WorldUnlocked_" .. world.id):Connect(refresh)
  end
  refresh()
 end)

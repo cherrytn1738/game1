@@ -1,6 +1,7 @@
 -- Shared presentation helpers following the Check-UI design system
 -- (.agents/skills/check-ui-clean-roblox). No gameplay state or authoritative calculations.
 local TweenService = game:GetService("TweenService")
+local GameAudio = require(game:GetService("ReplicatedStorage"):WaitForChild("GameAudio"))
 local player = game.Players.LocalPlayer
 local UI = {}
 
@@ -33,7 +34,6 @@ UI.Icons = {
 
 local CHECKER = "rbxassetid://385956923"
 local SUNBURST = "rbxassetid://130563114903838"
-local CLICK_SOUND = "rbxassetid://6895079853"
 local OUTLINE = Color3.fromRGB(12, 20, 26) -- #0C141A button border.
 local TEXT_OUTLINE = Color3.fromRGB(17, 23, 26) -- #11171A label stroke.
 
@@ -123,15 +123,11 @@ function UI.Icon(parent, name, image)
  return icon
 end
 
-local clickSound
+-- The shared UI sound vocabulary (GameAudio): click, menu open/close, locked, invalid, notice.
 local function playClick()
- if not clickSound then
-  clickSound = Instance.new("Sound")
-  clickSound.Name, clickSound.SoundId, clickSound.Volume = "UIClick", CLICK_SOUND, .35
-  clickSound.Parent = game:GetService("SoundService")
- end
- game:GetService("SoundService"):PlayLocalSound(clickSound)
+ GameAudio.Play("UIClick")
 end
+GameAudio.Preload({"UIClick", "MenuOpen", "MenuClose", "Locked", "Invalid", "Notice"})
 
 local modalScreens = {}
 local blur
@@ -342,7 +338,8 @@ function UI.Button(parent, name, text)
  button.SelectionGained:Connect(function() selected = true rest() end)
  button.SelectionLost:Connect(function() selected = false rest() end)
  button.MouseButton1Down:Connect(function()
-  if not button.Active then return end
+  -- A muted thunk tells the player a locked/unavailable button heard them.
+  if not button.Active then GameAudio.Play("Locked") return end
   playClick()
   animate(.94, Enum.EasingStyle.Quad, .05)
  end)
@@ -504,6 +501,7 @@ function UI.Menu(name, title, subtitle, close)
  return gui, panel, function(visible)
   if shown == visible then return end
   shown = visible
+  GameAudio.Play(visible and "MenuOpen" or "MenuClose")
   transitionVersion += 1
   local version = transitionVersion
   if transition then transition:Cancel() end
@@ -568,6 +566,14 @@ function UI.Notify(message, kind)
  if type(message) ~= "string" or message == "" then return end
  if message == previousText and os.clock() - previousTime < 1 then return end
  previousText, previousTime = message, os.clock()
+ -- Refusals get a short negative tick and routine updates a soft notice. Level Up, Max Level,
+ -- Rebirth, World unlock, Offline Training and purchases have their own payoff sounds where
+ -- they happen, so their notices stay silent here. Nothing routine plays over a rare hit.
+ if kind == "error" then
+  GameAudio.Play("Invalid")
+ elseif kind == nil and not GameAudio.CinematicActive() then
+  GameAudio.Play("Notice")
+ end
  -- Routine menu responses use the menu's reserved feedback line, not a toast over its controls.
  if kind == "success" or kind == "error" then
   for screen in modalScreens do

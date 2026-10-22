@@ -9,6 +9,8 @@ local Progression = require(ReplicatedStorage:WaitForChild("ProgressionConfig"))
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local Juice = require(ReplicatedStorage:WaitForChild("JuiceConfig"))
 local Remote = ReplicatedStorage:WaitForChild("BattingTiming")
+local GameAudio = require(ReplicatedStorage:WaitForChild("GameAudio"))
+GameAudio.Preload({"CashReward", "WorldUnlock"})
 local UI = require(script.Parent:WaitForChild("UICommon"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
 local QuickMenu = require(script.Parent:WaitForChild("QuickMenu"))
@@ -391,7 +393,13 @@ Remote.OnClientEvent:Connect(function(_, message)
   task.delay(1.8,function() if version == popupVersion then hideCashPopup() refresh() end end)
  end
  refresh()
- if final.worldCompletionMessage then UI.Notify(final.worldCompletionMessage,"unlock") end
+ -- A World unlock is the bigger payoff, so it replaces the routine Cash confirmation.
+ if final.worldCompletionMessage then
+  GameAudio.Play("WorldUnlock")
+  UI.Notify(final.worldCompletionMessage,"unlock")
+ elseif earned > 0 then
+  GameAudio.Play("CashReward")
+ end
 end)
 
 -- Presentation only: read the replicated physics ball and reuse forward-distance

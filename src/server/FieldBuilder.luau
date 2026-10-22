@@ -5,12 +5,16 @@ local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 local RunwayDecor = require(script.Parent:WaitForChild("RunwayDecor"))
 local TrainingStadium = require(script.Parent:WaitForChild("TrainingStadium"))
 local ItemDisplay = require(script.Parent:WaitForChild("ItemDisplay"))
+local HubDecor = require(script.Parent:WaitForChild("HubDecor"))
+local WorldPortal = require(script.Parent:WaitForChild("WorldPortal"))
 local Builder = {}
 
 local function buildHub(world, area)
  local config = world.hub
  if not config then return end
- assert(config.width > 0 and config.depth > 0, "Hub dimensions must be positive")
+ assert(config.left > 0 and config.right > 0 and config.depth > 0, "Hub dimensions must be positive")
+ -- The hub spans x -left..right from the tee line, so it can be wider on one side.
+ local width, centerX = config.left + config.right, (config.right - config.left) / 2
  local origin = area.Tee.Stem.BallPosition.WorldPosition
  local difference = area.HitDirection.Position - origin
  local forward = Vector3.new(difference.X, 0, difference.Z).Unit
@@ -35,23 +39,35 @@ local function buildHub(world, area)
   p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
   p.Parent = hub
  end
- part("Floor", Vector3.new(config.width, Field.GroundThickness, config.depth),
-  Vector3.new(0, -Field.GroundThickness / 2, config.depth / 2), Color3.fromRGB(160, 166, 172), true)
- -- Keep the original baseplate underneath the hub, rather than surrounding the
- -- narrow runway with the old open field. Its physics material stays unchanged.
+ -- A themed hub (HubDecor) supplies its own floor and scenery; otherwise a plain floor and
+ -- boundary strips.
+ local themed = HubDecor.Build(hub, frame, config, world.id)
+ if themed then
+  for _, name in {"Floor", "LeftBoundary", "RightBoundary", "BackBoundary"} do
+   local old = hub:FindFirstChild(name)
+   if old then old:Destroy() end
+  end
+ else
+  part("Floor", Vector3.new(width, Field.GroundThickness, config.depth),
+   Vector3.new(centerX, -Field.GroundThickness / 2, config.depth / 2), Color3.fromRGB(160, 166, 172), true)
+ end
+ -- Keep the original baseplate underneath the starting World's hub, rather than surrounding
+ -- the narrow runway with the old open field. Its physics material stays unchanged.
  local baseplate = workspace:FindFirstChild("Baseplate")
- if world.runway and baseplate then
-  baseplate.Size = Vector3.new(config.width,baseplate.Size.Y,config.depth)
-  baseplate.CFrame = frame * CFrame.new(0,-baseplate.Size.Y/2-.1,config.depth/2)
+ if world.id == Worlds.StartingWorldId and world.runway and baseplate then
+  baseplate.Size = Vector3.new(width,baseplate.Size.Y,config.depth)
+  baseplate.CFrame = frame * CFrame.new(centerX,-baseplate.Size.Y/2-.1,config.depth/2)
  end
  -- Flush boundary strips define the rectangle without walls or movement barriers.
  local boundaryColor = Color3.fromRGB(100, 108, 116)
- for _, side in {-1, 1} do
-  part(side == -1 and "LeftBoundary" or "RightBoundary", Vector3.new(1, 0.025, config.depth),
-   Vector3.new(side * (config.width / 2 - 0.5), 0.0125, config.depth / 2), boundaryColor, false)
+ if not themed then
+  for _, side in {-1, 1} do
+   part(side == -1 and "LeftBoundary" or "RightBoundary", Vector3.new(1, 0.025, config.depth),
+    Vector3.new(side == -1 and 0.5 - config.left or config.right - 0.5, 0.0125, config.depth / 2), boundaryColor, false)
+  end
+  part("BackBoundary", Vector3.new(width, 0.025, 1),
+   Vector3.new(centerX, 0.0125, config.depth - 0.5), boundaryColor, false)
  end
- part("BackBoundary", Vector3.new(config.width, 0.025, 1),
-  Vector3.new(0, 0.0125, config.depth - 0.5), boundaryColor, false)
  local interactions = hub:FindFirstChild("Interactions") or Instance.new("Folder")
  interactions.Name, interactions.Parent = "Interactions", hub
  -- Stations saved in the place but no longer configured are removed.
@@ -97,25 +113,33 @@ local function buildHub(world, area)
    end
   end
  end
- ItemDisplay.PublishBallModels()
  for _, display in config.displays or {} do
   ItemDisplay.Build(hub, frame, display, world.id)
  end
- if world.id == Worlds.StartingWorldId then
+ if config.portalPad then
+  WorldPortal.Build(hub, frame, config.portalPad)
+ end
+ -- This World's row of Training Grounds (TrainingConfig.Hubs).
+ local layout = Training.GetHub(world.id)
+ if layout then
   -- The single stadium from before the row of physical grounds is retired.
   local retired = hub:FindFirstChild("TrainingStadium")
   if retired then retired:Destroy() end
   local grounds = hub:FindFirstChild("TrainingGrounds") or Instance.new("Folder")
   grounds.Name, grounds.Parent = "TrainingGrounds", hub
-  for _, ground in Training.Grounds do
+  for _, stadium in grounds:GetChildren() do
+   if stadium:IsA("Model") and not table.find(layout.grounds, stadium.Name) then stadium:Destroy() end
+  end
+  for _, id in layout.grounds do
+   local ground = Training.Get(id)
    local stadium = grounds:FindFirstChild(ground.id) or Instance.new("Model")
    stadium.Name, stadium.Parent = ground.id, grounds
    stadium:SetAttribute("GroundId", ground.id)
    stadium.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
    local plate = stadium:FindFirstChild("TrainingPlate") or Instance.new("Part")
    plate.Name, plate.Size = "TrainingPlate", Training.PlateSize
-   plate.CFrame = frame * CFrame.new(Training.GetPlatePosition(ground) + Vector3.yAxis * Training.PlateSize.Y / 2)
-    * CFrame.Angles(0, Training.GetPlateYaw(ground), 0)
+   plate.CFrame = frame * CFrame.new(Training.GetPlatePosition(ground, world.id) + Vector3.yAxis * Training.PlateSize.Y / 2)
+    * CFrame.Angles(0, Training.GetPlateYaw(), 0)
    plate.Anchored, plate.CanCollide = true, false
    plate.Color = Color3.fromRGB(110,110,110)
    plate.Parent = stadium
@@ -128,6 +152,8 @@ local function buildHub(world, area)
   -- The Training Grounds board is removed for now, like the other hub stations.
   local board = grounds:FindFirstChild("Board")
   if board then board:Destroy() end
+ end
+ if world.id == Worlds.StartingWorldId then
   local spawn = workspace:FindFirstChild("SpawnLocation") or hub:FindFirstChild("SpawnLocation")
   if not spawn then spawn = Instance.new("SpawnLocation") end
   spawn.Name, spawn.Size = "SpawnLocation", Vector3.new(12, 0.1, 12)
@@ -309,6 +335,7 @@ end
 
 function Builder.Build()
  local template = workspace:WaitForChild(Worlds.Get(Worlds.StartingWorldId).stationName)
+ ItemDisplay.PublishBallModels()
  for _, world in Worlds.Worlds do
   local area = workspace:FindFirstChild(world.stationName)
   if not area then
@@ -322,8 +349,11 @@ function Builder.Build()
   buildField(world)
   buildHub(world, area)
   dressTee(area)
-  if world.id ~= Worlds.StartingWorldId then
-   local arrivalName = world.stationName .. "ArrivalFloor"
+  -- A World without a hub gets a plain floor to arrive on; a hub replaces an old one.
+  local arrivalName = world.stationName .. "ArrivalFloor"
+  local oldArrival = workspace:FindFirstChild(arrivalName)
+  if world.hub and oldArrival then oldArrival:Destroy() end
+  if world.id ~= Worlds.StartingWorldId and not world.hub then
    if not workspace:FindFirstChild(arrivalName) then
     local floor = Instance.new("Part")
     floor.Name = arrivalName

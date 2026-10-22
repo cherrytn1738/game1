@@ -81,6 +81,11 @@ local Equipment = {
   Ball = {
    displayName = "Balls", ownedField = "OwnedBalls",
    startingId = "baseball",
+   -- Further series sold in order from their own first item, alongside the main series
+   -- (startingId). A series with requiredWorld can only be bought once that World is unlocked.
+   series = {
+    {id = "world_2", startingId = "dino_egg_ball", requiredWorld = "world_2"},
+   },
    items = {
     baseball = {
      id = "baseball", displayName = "Baseball", price = 0,
@@ -148,37 +153,130 @@ local Equipment = {
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(255, 240, 190), material = Enum.Material.SmoothPlastic},
     },
+    -- World 2 (Time Travel) series, one ball per era (see series below). Placeholder balance.
+    dino_egg_ball = {
+     id = "dino_egg_ball", displayName = "Dino Egg", price = 1000000,
+     rewardMultiplier = 12, nextId = "stone_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(240, 230, 200), material = Enum.Material.SmoothPlastic},
+    },
+    stone_ball = {
+     id = "stone_ball", displayName = "Stone Ball", price = 2500000,
+     rewardMultiplier = 15, nextId = "scarab_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(140, 136, 130), material = Enum.Material.Slate},
+    },
+    scarab_ball = {
+     id = "scarab_ball", displayName = "Scarab Ball", price = 6000000,
+     rewardMultiplier = 19, nextId = "laurel_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(40, 70, 170), material = Enum.Material.SmoothPlastic},
+    },
+    laurel_ball = {
+     id = "laurel_ball", displayName = "Olympian Laurel", price = 14000000,
+     rewardMultiplier = 24, nextId = "viking_rune_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(242, 240, 232), material = Enum.Material.Marble},
+    },
+    viking_rune_ball = {
+     id = "viking_rune_ball", displayName = "Viking Rune", price = 32000000,
+     rewardMultiplier = 30, nextId = "samurai_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(60, 62, 70), material = Enum.Material.Metal},
+    },
+    samurai_ball = {
+     id = "samurai_ball", displayName = "Samurai Ball", price = 75000000,
+     rewardMultiplier = 38, nextId = "knight_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(196, 32, 36), material = Enum.Material.SmoothPlastic},
+    },
+    knight_ball = {
+     id = "knight_ball", displayName = "Knight's Ball", price = 170000000,
+     rewardMultiplier = 48, nextId = "sheriff_star_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(200, 206, 216), material = Enum.Material.Metal},
+    },
+    sheriff_star_ball = {
+     id = "sheriff_star_ball", displayName = "Sheriff Star", price = 400000000,
+     rewardMultiplier = 60, nextId = "clockwork_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(196, 150, 96), material = Enum.Material.Leather},
+    },
+    clockwork_ball = {
+     id = "clockwork_ball", displayName = "Clockwork Ball", price = 900000000,
+     rewardMultiplier = 75, nextId = "chrono_orb",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(222, 170, 76), material = Enum.Material.Metal},
+    },
+    chrono_orb = {
+     id = "chrono_orb", displayName = "Chrono Orb", price = 2000000000,
+     rewardMultiplier = 95,
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(90, 230, 255), material = Enum.Material.Neon},
+    },
    },
   },
 
  },
 }
 
--- Derive catalog order from the existing nextId links in one place.
+-- Derive catalog order from the existing nextId links in one place: the main series from
+-- startingId, then each further series. item.series is the series id (nil for the main one).
 local byId = {}
 local ordered = {}
+local seriesLists, seriesItems = {}, {}
 for _, category in Equipment.CategoryOrder do
  local definition = Equipment.Categories[category]
  local items = {}
- local id = definition.startingId
- while id do
-  local item = definition.items[id]
-  assert(item and item.id == id and not byId[id], "Invalid or repeated equipment ID: " .. id)
-  assert(type(item.price) == "number" and item.price >= 0 and item.price < math.huge
-   and item.price % 1 == 0, "Invalid equipment price: " .. id)
-  if category == "Bat" then
-   assert(type(item.powerGainMultiplier) == "number" and item.powerGainMultiplier >= 1
-    and item.powerGainMultiplier < math.huge, "Invalid Bat Power multiplier: " .. id)
+ seriesLists[category] = {{startingId = definition.startingId}}
+ for _, series in definition.series or {} do table.insert(seriesLists[category], series) end
+ seriesItems[category] = {}
+ for _, series in seriesLists[category] do
+  local chain = {}
+  local id = series.startingId
+  while id do
+   local item = definition.items[id]
+   assert(item and item.id == id and not byId[id], "Invalid or repeated equipment ID: " .. id)
+   assert(type(item.price) == "number" and item.price >= 0 and item.price < math.huge
+    and item.price % 1 == 0, "Invalid equipment price: " .. id)
+   if category == "Bat" then
+    assert(type(item.powerGainMultiplier) == "number" and item.powerGainMultiplier >= 1
+     and item.powerGainMultiplier < math.huge, "Invalid Bat Power multiplier: " .. id)
+   end
+   item.category, item.order, item.series = category, #items + 1, series.id
+   byId[id] = item
+   table.insert(items, item)
+   table.insert(chain, item)
+   id = item.nextId
   end
-  item.category, item.order = category, #items + 1
-  byId[id] = item
-  table.insert(items, item)
-  id = item.nextId
+  seriesItems[category][series.id or ""] = chain
  end
  for itemId in definition.items do
   assert(byId[itemId] and byId[itemId].category == category, "Unlinked equipment: " .. itemId)
  end
  ordered[category] = items
+end
+
+-- A category's purchase series: the main one (id nil) first, then definition.series.
+function Equipment.GetSeries(category)
+ return seriesLists[category] or {}
+end
+
+function Equipment.GetSeriesInfo(category, seriesId)
+ for _, series in Equipment.GetSeries(category) do
+  if series.id == seriesId then return series end
+ end
+ return nil
+end
+
+function Equipment.GetSeriesItems(category, seriesId)
+ return seriesItems[category] and seriesItems[category][seriesId or ""] or {}
+end
+
+-- Each series has its own server-issued purchase offer, published as the player attribute
+-- "EquipmentPurchaseToken_" .. OfferKey (the main series keeps the plain category key).
+function Equipment.OfferKey(category, seriesId)
+ return seriesId and category .. "_" .. seriesId or category
 end
 
 function Equipment.Get(category, id)
@@ -212,14 +310,19 @@ function Equipment.IsFinal(category, id)
  return item ~= nil and item.nextId == nil
 end
 
-function Equipment.GetNextPurchase(category, owned)
+-- The next item for sale in one series (the main series when seriesId is nil).
+function Equipment.GetNextPurchase(category, owned, seriesId)
  -- Legacy saves can own the starting item and a later item without the items
  -- between them. Continue past their furthest owned item; equipping never moves it.
+ local items = Equipment.GetSeriesItems(category, seriesId)
  local furthest
- for _, item in Equipment.GetItems(category) do
+ for _, item in items do
   if owned[item.id] == true then furthest = item end
  end
- return furthest and Equipment.GetNext(category, furthest.id) or nil
+ if furthest then return Equipment.GetNext(category, furthest.id) end
+ -- A further series with nothing owned yet starts at its first item (the main series always
+ -- owns its first).
+ return seriesId and items[1] or nil
 end
 
 function Equipment.NormalizeOwnership(category, saved, equippedId, legacySave)

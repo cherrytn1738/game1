@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
 local Marketplace = game:GetService("MarketplaceService")
+local RunService = game:GetService("RunService")
 local Equipment = require(game:GetService("ReplicatedStorage"):WaitForChild("EquipmentConfig"))
 
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
@@ -243,11 +244,12 @@ end
 
 -- Training Grounds ------------------------------------------------------------------
 -- Paid grounds are Roblox game passes. Roblox is the source of truth, so ownership is
--- checked at login and on purchase, never saved and never taken from the client.
+-- checked at login and on purchase, never saved and never taken from the client. A shared
+-- pass is keyed by the ground that owns it (Training.GetPassGround).
 local function fetchTrainingPasses(player)
  local passes = {}
- for _, ground in Training.Grounds do
-  if Training.IsPaid(ground) and ground.gamePassId > 0 then
+ for _, ground in Training.PassGrounds do
+  if ground.gamePassId > 0 then
    local ok, owned = pcall(Marketplace.UserOwnsGamePassAsync, Marketplace, player.UserId, ground.gamePassId)
    if ok and owned == true then passes[ground.id] = true end
   end
@@ -256,22 +258,27 @@ local function fetchTrainingPasses(player)
 end
 
 local function publishTrainingPasses(player, session)
- for _, ground in Training.Grounds do
-  if Training.IsPaid(ground) then
-   player:SetAttribute("TrainingPass_" .. ground.id, session.trainingPasses[ground.id] == true)
-  end
+ for _, ground in Training.PassGrounds do
+  player:SetAttribute("TrainingPass_" .. ground.id, session.trainingPasses[ground.id] == true)
  end
 end
 
--- Returns the ground when this player may train there, otherwise nil and a reason.
+-- Returns the ground when this player may train there, otherwise nil and a reason. World
+-- unlocks come from the server-set WorldUnlocked_<id> attributes.
 function PlayerData.CanUseTrainingGround(player, id)
  if not PlayerData.IsReady(player) then return nil, "Player data is not ready." end
  local ground = type(id) == "string" and Training.Get(id)
  if not ground then return nil, "Unknown Training Ground." end
  local session = sessions[player]
- if Training.CanUse(id, session.progression.Rebirths, session.trainingPasses) then return ground end
+ local worlds = Training.ReadUnlockedWorlds(player)
+ if Training.CanUse(id, session.progression.Rebirths, session.trainingPasses, worlds) then return ground end
+ if not Training.IsReachable(ground, worlds) then
+  local world = Worlds.Get(ground.worlds[1])
+  return nil, string.format("%s is in %s. Unlock %s to train there.", ground.displayName, world.displayName, world.displayName)
+ end
  if Training.IsPaid(ground) then
-  return nil, string.format("%s is unlocked with a %d Robux pass.", ground.displayName, ground.robuxPrice)
+  local pass = Training.GetPassGround(ground)
+  return nil, string.format("%s is unlocked with the %d Robux %s pass.", ground.displayName, pass.robuxPrice, pass.displayName)
  end
  return nil, string.format("%s requires %d Rebirths.", ground.displayName, ground.requiredRebirths)
 end
@@ -279,9 +286,10 @@ end
 function PlayerData.GetBestTrainingGround(player)
  if not PlayerData.IsReady(player) then return nil end
  local session = sessions[player]
- return Training.GetBestGround(session.progression.Rebirths, session.trainingPasses)
+ return Training.GetBestGround(session.progression.Rebirths, session.trainingPasses, Training.ReadUnlockedWorlds(player))
 end
 
+-- id is a pass ground id (Training.GetPassGround(ground).id).
 function PlayerData.OwnsTrainingPass(player, id)
  return PlayerData.IsReady(player) and sessions[player].trainingPasses[id] == true
 end
@@ -333,9 +341,9 @@ function PlayerData.OwnsEquipment(player, category, id)
  return sessions[player].owned[category][id] == true
 end
 
-function PlayerData.GetNextEquipment(player, category)
+function PlayerData.GetNextEquipment(player, category, seriesId)
  if not PlayerData.IsReady(player) or not Equipment.Categories[category] then return nil end
- return Equipment.GetNextPurchase(category, sessions[player].owned[category])
+ return Equipment.GetNextPurchase(category, sessions[player].owned[category], seriesId)
 end
 
 function PlayerData.PurchaseNextEquipment(player, category, purchaseToken)
@@ -346,12 +354,22 @@ function PlayerData.PurchaseNextEquipment(player, category, purchaseToken)
   return false, "Leave training or batting before shopping."
  end
  local session = sessions[player]
- -- This opaque server-issued token identifies the current offer. Retrying an old
- -- request can never buy the following item, even after the request cooldown.
- if type(purchaseToken) ~= "string" or purchaseToken ~= session.purchaseTokens[category] then
+ -- This opaque server-issued token identifies the current offer of one series. Retrying an
+ -- old request can never buy the following item, even after the request cooldown.
+ local series
+ for _, candidate in Equipment.GetSeries(category) do
+  if type(purchaseToken) == "string" and purchaseToken == session.purchaseTokens[Equipment.OfferKey(category, candidate.id)] then
+   series = candidate
+  end
+ end
+ if not series then
   return false, "That purchase is out of date. Check the current equipment list."
  end
- local item = PlayerData.GetNextEquipment(player, category)
+ local world = series.requiredWorld and Worlds.Get(series.requiredWorld)
+ if world and player:GetAttribute("WorldUnlocked_" .. world.id) ~= true then
+  return false, "Unlock " .. world.displayName .. " to buy its " .. definition.displayName .. "."
+ end
+ local item = PlayerData.GetNextEquipment(player, category, series.id)
  if not item then return false, "No additional equipment is currently available." end
  if session.owned[category][item.id] then return false, "You already own this equipment." end
  local cash = player.leaderstats.Cash
@@ -359,12 +377,13 @@ function PlayerData.PurchaseNextEquipment(player, category, purchaseToken)
  if not validCash(price) or not validCash(cash.Value) then return false, "Invalid purchase data." end
  if cash.Value < price then return false, string.format("Not enough Cash. Need %d more.", price - cash.Value) end
  -- No yields between validation, deduction, ownership, and equipping.
+ local offerKey = Equipment.OfferKey(category, series.id)
  cash.Value -= price
  session.owned[category][item.id] = true
- session.purchaseTokens[category] = HttpService:GenerateGUID(false)
+ session.purchaseTokens[offerKey] = HttpService:GenerateGUID(false)
  player[definition.ownedField]:SetAttribute(item.id, true)
  player:SetAttribute("Equipped" .. category, item.id)
- player:SetAttribute("EquipmentPurchaseToken_" .. category, session.purchaseTokens[category])
+ player:SetAttribute("EquipmentPurchaseToken_" .. offerKey, session.purchaseTokens[offerKey])
  return true, "Purchased and equipped " .. item.displayName .. "!"
 end
 
@@ -408,7 +427,11 @@ local function snapshot(player)
   for ownedId, value in owned do
    if type(ownedId) ~= "string" or value ~= true or not Equipment.Get(category, ownedId) then return nil end
   end
-  data[definition.ownedField] = table.clone(owned)
+  -- Studio playtest grants are never saved; equipping one keeps the saved equipped item.
+  local saved = table.clone(owned)
+  for grantedId in session.studioOwned and session.studioOwned[category] or {} do saved[grantedId] = nil end
+  if saved[id] ~= true then id = session.loadedEquipped[category] end
+  data[definition.ownedField] = saved
   data[field] = id
  end
  data.OwnedJuices = table.clone(session.juices.owned)
@@ -416,7 +439,9 @@ local function snapshot(player)
  for id, remaining in session.juices.active do data.ActiveJuices[id] = math.ceil(remaining) end
  data.UnlockedWorlds, data.CompletedWorlds = {}, {}
  for _, world in Worlds.Worlds do
-  if player:GetAttribute("WorldUnlocked_" .. world.id) == true then data.UnlockedWorlds[world.id] = true end
+  -- Studio playtest unlocks are never saved; a real completion re-derives its unlock on load.
+  local studioOnly = session.studioWorlds and session.studioWorlds[world.id]
+  if player:GetAttribute("WorldUnlocked_" .. world.id) == true and not studioOnly then data.UnlockedWorlds[world.id] = true end
   if player:GetAttribute("WorldCompleted_" .. world.id) == true then data.CompletedWorlds[world.id] = true end
  end
  data.UnlockedWorlds[Worlds.StartingWorldId] = true
@@ -520,7 +545,7 @@ local function loadPlayer(player)
   -- Remember NEW across retries of our own successful claim.
   newRecord = current == nil or (owns(current, session) and newRecord)
   if not owns(current, session) then
-   offlineGround = Training.GetBestGround(data.Rebirths, passes).id
+   offlineGround = Training.GetBestGround(data.Rebirths, passes, data.UnlockedWorlds).id
    local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), offlineGround)
    local progression = Progression.Normalize(data, false)
    local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBat)
@@ -551,7 +576,7 @@ local function loadPlayer(player)
  player:SetAttribute("OfflinePowerEarned", offlineResult and offlineResult.powerGranted or 0)
  player:SetAttribute("OfflineSeconds", offlineSeconds or 0)
  player:SetAttribute("OfflineTrainingGround",
-  offlineGround or Training.GetBestGround(session.progression.Rebirths, passes).id)
+  offlineGround or Training.GetBestGround(session.progression.Rebirths, passes, record.UnlockedWorlds).id)
  player:SetAttribute("OfflineOldLevel", offlineResult and offlineResult.oldLevel or session.progression.Level)
  player:SetAttribute("OfflineNewLevel", offlineResult and offlineResult.newLevel or session.progression.Level)
  publishProgression(player, session.progression)
@@ -563,22 +588,50 @@ local function loadPlayer(player)
  cash.Value = record.Cash
  cash.Parent = stats
  session.owned, session.purchaseTokens = {}, {}
+ session.studioOwned, session.loadedEquipped = {}, {}
+ -- In Studio only, the Workspace attribute OwnAllBalls owns every Ball for playtests. These
+ -- grants last for the session and are never saved (snapshot skips them).
+ local grantAllBalls = RunService:IsStudio() and workspace:GetAttribute("OwnAllBalls") == true
  for _, category in CATEGORIES do
   local field = "Equipped" .. category
   local ownedField = Equipment.Categories[category].ownedField
   session.owned[category] = table.clone(record[ownedField])
-  session.purchaseTokens[category] = HttpService:GenerateGUID(false)
+  session.studioOwned[category] = {}
+  session.loadedEquipped[category] = record[field]
+  if grantAllBalls and category == "Ball" then
+   for _, item in Equipment.GetItems(category) do
+    if not session.owned[category][item.id] then
+     session.owned[category][item.id] = true
+     session.studioOwned[category][item.id] = true
+    end
+   end
+  end
+  for _, series in Equipment.GetSeries(category) do
+   local offerKey = Equipment.OfferKey(category, series.id)
+   session.purchaseTokens[offerKey] = HttpService:GenerateGUID(false)
+   player:SetAttribute("EquipmentPurchaseToken_" .. offerKey, session.purchaseTokens[offerKey])
+  end
   -- Replicated display state is a copy; purchase/equip/save checks use the private set.
   local ownedFolder = Instance.new("Folder")
   ownedFolder.Name = ownedField
   for id in session.owned[category] do ownedFolder:SetAttribute(id, true) end
   ownedFolder.Parent = player
-  player:SetAttribute("EquipmentPurchaseToken_" .. category, session.purchaseTokens[category])
   player:SetAttribute(field, record[field])
  end
  for _, world in Worlds.Worlds do
   player:SetAttribute("WorldUnlocked_" .. world.id, record.UnlockedWorlds[world.id] == true)
   player:SetAttribute("WorldCompleted_" .. world.id, record.CompletedWorlds[world.id] == true)
+ end
+ -- In Studio only, the Workspace attribute UnlockAllWorlds opens every World for playtests.
+ -- These unlocks last for the session and are never saved (snapshot skips them).
+ session.studioWorlds = {}
+ if RunService:IsStudio() and workspace:GetAttribute("UnlockAllWorlds") == true then
+  for _, world in Worlds.Worlds do
+   if not record.UnlockedWorlds[world.id] then
+    session.studioWorlds[world.id] = true
+    player:SetAttribute("WorldUnlocked_" .. world.id, true)
+   end
+  end
  end
  stats.Parent = player
  session.loaded = true
@@ -610,8 +663,8 @@ function PlayerData.Start()
  Marketplace.PromptGamePassPurchaseFinished:Connect(function(player, gamePassId, purchased)
   local session = sessions[player]
   if not purchased or not session or not session.loaded then return end
-  for _, ground in Training.Grounds do
-   if Training.IsPaid(ground) and ground.gamePassId > 0 and ground.gamePassId == gamePassId then
+  for _, ground in Training.PassGrounds do
+   if ground.gamePassId > 0 and ground.gamePassId == gamePassId then
     session.trainingPasses[ground.id] = true
     publishTrainingPasses(player, session)
    end

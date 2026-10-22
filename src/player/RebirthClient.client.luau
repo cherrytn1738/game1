@@ -4,6 +4,7 @@ local Storage = game:GetService("ReplicatedStorage")
 local Progression = require(Storage:WaitForChild("ProgressionConfig"))
 local Equipment = require(Storage:WaitForChild("EquipmentConfig"))
 local Training = require(Storage:WaitForChild("TrainingConfig"))
+local GameAudio = require(Storage:WaitForChild("GameAudio"))
 local Remote = Storage:WaitForChild("RebirthRequest")
 local UI = require(script.Parent:WaitForChild("UICommon"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
@@ -142,8 +143,9 @@ local function refresh()
  requirementText.TextColor3 = level >= cap and UI.Colors.Success or UI.Colors.Muted
  panel.Title.Text = confirming and "ARE YOU SURE?" or "REBIRTH"
  local grounds = {}
+ local worlds = Training.ReadUnlockedWorlds(Player)
  for _, ground in Training.Grounds do
-  if Training.IsUnlocked(ground.id,nextCount) and not Training.IsUnlocked(ground.id,count) then
+  if Training.IsUnlocked(ground.id,nextCount,worlds) and not Training.IsUnlocked(ground.id,count,worlds) then
    table.insert(grounds,ground.displayName)
   end
  end
@@ -206,7 +208,10 @@ end
 Remote.OnClientEvent:Connect(function(success,message)
  pending, confirming = false, false
  requestVersion += 1
- if success then Interfaces.CloseAll() end
+ if success then
+  Interfaces.CloseAll()
+  GameAudio.Play("Rebirth")
+ end
  refresh()
  if not success and visible then feedback.Text, feedback.TextColor3 = message, UI.Colors.Error end
  UI.Notify(success and message:gsub("^REBIRTH COMPLETE\n","") or message,success and "rebirth" or "error")

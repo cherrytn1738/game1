@@ -23,18 +23,26 @@ local lerp, clamp01, easeOut, smooth, rng = FX.lerp, FX.clamp01, FX.easeOut, FX.
 -- Roblox-licensed audio (Pro Sound Effects and APM Music libraries), pitched down for a
 -- sinister feel: {id, volume, playbackSpeed, startAt}. startAt skips a quiet lead-in (measured
 -- with PlaybackLoudness) so the impact sounds land exactly on each contact.
+-- Volumes are balanced so the stacked moments stay under clipping (measured: the third impact
+-- over the bed and the launch trio), with the big low end saved for the impacts and launch.
 local SOUNDS = {
- Growl = {"rbxassetid://9113980512", 0.8, 0.7}, -- creature roar and growl, slowed down
- Drone = {"rbxassetid://9039933377", 0.9, 1}, -- "Arise From The Dead" airy drone
- Swell = {"rbxassetid://9039691266", 0.6, 1}, -- "Ice Wave": shivering strings, ominous brass
- Heartbeat = {"rbxassetid://9043365842", 1, 0.8},
- Impact = {"rbxassetid://9043367738", 1, 0.85, 0.09}, -- distorted kick (hits 0.10 s in)
- ImpactBoom = {"rbxassetid://9125484526", 0.9, 0.7},
+ Growl = {"rbxassetid://9113980512", 0.7, 0.7}, -- creature roar and growl, slowed down
+ Drone = {"rbxassetid://9039933377", 0.75, 1}, -- "Arise From The Dead" airy drone
+ Swell = {"rbxassetid://9039691266", 0.5, 1}, -- "Ice Wave": shivering strings, ominous brass
+ Heartbeat = {"rbxassetid://9043365842", 0.8, 0.8},
+ Impact = {"rbxassetid://9043367738", 0.85, 0.85, 0.09}, -- distorted kick (hits 0.10 s in)
+ ImpactBoom = {"rbxassetid://9125484526", 0.65, 0.7},
  Crack = {"rbxassetid://9125380872", 0.8, 0.8, 0.58}, -- bat crack (the crack is 0.61 s in)
- LaunchBoom = {"rbxassetid://9125484511", 1, 0.7},
- Roar = {"rbxassetid://9113980319", 0.9, 0.65},
- Braam = {"rbxassetid://9039689949", 0.8, 1}, -- "Wounded Symphony": deep haunting brass
+ LaunchBoom = {"rbxassetid://9125484511", 0.85, 0.7},
+ Roar = {"rbxassetid://9113980319", 0.7, 0.65},
+ Braam = {"rbxassetid://9039689949", 0.7, 1}, -- "Wounded Symphony": deep haunting brass
 }
+-- The three impacts build: each plays at this share of full volume, and only the third adds
+-- the deep boom (two booming low ends on every hit turned to mud).
+local IMPACT_LEVELS = {0.6, 0.78, 0.85}
+-- At each impact the bed (growl, drone, swell, heartbeat) ducks to this share for a moment, so
+-- the hit punches through instead of piling on top of it.
+local BED_DIP, BED_DIP_HOLD, BED_DIP_RETURN = 0.35, 0.15, 0.5
 
 local RED = Color3.fromRGB(255, 30, 30)
 local BLOOD = Color3.fromRGB(150, 0, 0)
@@ -193,9 +201,19 @@ local function impact(c, k)
  smoke:Emit(8 * k)
  Debris:AddItem(puff, 1.5)
  local soundParent = c.mine and SoundService or c.aura
- FX.PlayFor(c, SOUNDS.Impact, soundParent)
- FX.PlayFor(c, SOUNDS.ImpactBoom, soundParent, {PlaybackSpeed = SOUNDS.ImpactBoom[3] + 0.05 * k})
- FX.PlayFor(c, SOUNDS.Crack, soundParent)
+ local level = IMPACT_LEVELS[k] or 1
+ FX.PlayFor(c, SOUNDS.Impact, soundParent, {Volume = SOUNDS.Impact[2] * level})
+ if k == 3 then FX.PlayFor(c, SOUNDS.ImpactBoom, soundParent, {PlaybackSpeed = SOUNDS.ImpactBoom[3] + 0.15}) end
+ FX.PlayFor(c, SOUNDS.Crack, soundParent, {Volume = SOUNDS.Crack[2] * level})
+ for _, entry in {{c.growl, SOUNDS.Growl}, {c.drone, SOUNDS.Drone}, {c.swell, SOUNDS.Swell}, {k < 3 and c.heartbeat, SOUNDS.Heartbeat}} do
+  local bed, spec = entry[1], entry[2]
+  if bed and bed.Parent then
+   FX.Tween(bed, 0.04, {Volume = spec[2] * BED_DIP})
+   task.delay(BED_DIP_HOLD, function()
+    if bed.Parent and not c.left and not c.stopped then FX.Tween(bed, BED_DIP_RETURN, {Volume = spec[2]}) end
+   end)
+  end
+ end
  if not c.mine then return end
  -- An "impact frame": a black flash snapping to red, the bars closing in a little more each hit.
  FX.Flash(Color3.new(0, 0, 0), 0, 0.08)
@@ -206,7 +224,7 @@ local function impact(c, k)
  c.shakeUntil, c.shakeAmount = os.clock() + 0.35, 0.02 + 0.01 * k
  if k == 3 then
   FX.ShowTitle()
-  if c.heartbeat then FX.Tween(c.heartbeat, 0.4, {Volume = 0}) end
+  if c.heartbeat then FX.Tween(c.heartbeat, 0.1, {Volume = 0}) end
  end
 end
 

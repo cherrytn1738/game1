@@ -23,14 +23,15 @@ local lerp, clamp01, easeOut, smooth, rng = FX.lerp, FX.clamp01, FX.easeOut, FX.
 
 -- Roblox-licensed audio (Pro Sound Effects and APM Music libraries): {id, volume,
 -- playbackSpeed, startAt} (startAt skips a quiet lead-in).
+-- Volumes are balanced so the stacked contact and launch moments stay under clipping.
 local SOUNDS = {
  Crack = {"rbxassetid://9125380872", 1, 1, 0.58}, -- bat crack, started at the crack (0.61 s in)
- ContactBoom = {"rbxassetid://9125484526", 0.9}, -- deep boom, rumbling tail
- Heartbeat = {"rbxassetid://9043365842", 1},
+ ContactBoom = {"rbxassetid://9125484526", 0.75}, -- deep boom, rumbling tail
+ Heartbeat = {"rbxassetid://9043365842", 0.8},
  Riser = {"rbxassetid://9043343295", 0.7}, -- reverse swell with a hard end, timed to the launch
  Sting = {"rbxassetid://1837950801", 0.5}, -- "For The Glory" brass sting, with the title
- LaunchBoom = {"rbxassetid://9125484511", 1},
- Crowd = {"rbxassetid://9120975204", 0.55}, -- crowd cheer with pyro
+ LaunchBoom = {"rbxassetid://9125484511", 0.8},
+ Crowd = {"rbxassetid://9120975204", 0.4}, -- crowd cheer with pyro
 }
 
 local GOLD = Color3.fromRGB(255, 200, 50)
