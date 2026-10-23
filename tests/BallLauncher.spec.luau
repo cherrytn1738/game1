@@ -46,7 +46,9 @@ return function(sources)
   workspaceFake[definition.stationName]={Baseball=ball,BatterPosition=pad,
    Tee={Stem={BallPosition={WorldCFrame=CFrame.new(0,3,0)}}},HitDirection={Position=Vector3.new(0,3,-10)},
    WaitForChild=function(_,name) assert(name=="Baseball") return ball end}
-  workspaceFake[definition.fieldName]={Ground=Instance.new("Folder")}
+  local field=object()
+  field.Ground=Instance.new("Folder")
+  workspaceFake[definition.fieldName]=field
  end
  function workspaceFake:WaitForChild(name) return assert(self[name],name) end
  local players={}
@@ -62,8 +64,9 @@ return function(sources)
  tool:SetAttribute("BattingSession",1)
  local grants,delayed={},{}
  local juiceCash = 1
+ local completionMessage = nil
  local modules={EquipmentConfig=Equipment,ProgressionConfig=Progression,FieldConfig=Field,WorldConfig=Worlds,SwingConfig=Swing,
-  WorldProgress={Complete=function() end},
+  WorldProgress={Complete=function() return completionMessage end},
   PlayerData={IsReady=function() return true end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,batId)
    table.insert(grants,{base=base,source=source,batId=batId})
    return true,{powerGranted=Progression.GetPowerGrant(base,1,Equipment.Get("Bat",batId).powerGainMultiplier)}
@@ -234,6 +237,44 @@ return function(sources)
  check(player:GetAttribute("BallFlightSpeed")==1,"next hit starts at normal speed")
  Launcher.CancelPlayer(player)
  check(player:GetAttribute("BallFlightSpeed")==nil,"cancellation clears speed")
+ Field.FlightSpeedUpEnabled=false
+ -- The end portal: a ball reaching the endpoint at any height is pulled in, the hit counts at
+ -- the endpoint, and only a first completion (with an unlocked next World) starts the trip.
+ local gate=Vector3.new(0,150,-world.endDistance)
+ workspaceFake[world.fieldName]:SetAttribute("GateCenter",gate)
+ local journeys={}
+ Launcher.OnPortalJourney=function(who,from,to) table.insert(journeys,{who=who,from=from,to=to}) end
+ player:SetAttribute("WorldUnlocked_"..world.nextWorldId,true)
+ local function portalHit(swingId)
+  local hit={worldId=world.id,session=1,swingId=swingId,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+  check(Launcher.TryLaunch(player,hit,tool),"portal hit accepted")
+  local launchNow=table.remove(delayed,1)
+  launchNow.fn(table.unpack(launchNow.args,1,launchNow.args.n))
+  local portalBall=balls[world.id]
+  portalBall.CFrame=CFrame.new(0,420,-(world.endDistance+3))
+  heartbeat:Fire(1/60)
+  check(portalBall.Anchored==true and portalBall:GetAttribute("PortalCaptured")==true and hit.distanceResult==nil,
+   "reaching the endpoint high in the air, the portal captures the ball before the hit ends")
+  testTime += 0.7
+  heartbeat:Fire(1/60)
+  check(hit.distanceResult==nil and (portalBall.CFrame.Position-gate).Magnitude<(Vector3.new(0,420,-(world.endDistance+3))-gate).Magnitude,
+   "the captured ball is drawn toward the opening")
+  testTime += 1
+  heartbeat:Fire(1/60)
+  return hit,portalBall
+ end
+ completionMessage=nil
+ local repeatHit,portalBall=portalHit(950)
+ check(repeatHit.distanceResult and repeatHit.distanceResult.distanceStuds==world.endDistance and repeatHit.distanceResult.finishReason=="portal",
+  "a portal hit is measured at the World's endpoint")
+ check(portalBall:GetAttribute("BallState")=="Ready" and portalBall:GetAttribute("PortalCaptured")==nil and not Launcher.IsBusy(world.id),
+  "the ball resets after entering the portal")
+ check(#journeys==0,"an already-completed World does not start the trip again")
+ completionMessage="World 1 Complete!"
+ local firstHit=portalHit(951)
+ check(firstHit.distanceResult.worldCompletionMessage==completionMessage,"the portal hit completes the World")
+ check(#journeys==1 and journeys[1].who==player and journeys[1].to.id==world.nextWorldId,"a first completion starts the trip to the next World")
+ completionMessage=nil
  for _,definition in Worlds.Worlds do workspaceFake[definition.fieldName].Ground:Destroy() end
  return {passed=passed,message="Launch/rewards and 2x flight: authorization, one-way speed, acceleration, reset and once-only rewards"}
 end

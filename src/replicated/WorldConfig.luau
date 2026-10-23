@@ -42,6 +42,9 @@ local Worlds = {
     eventArea = {center = Vector3.new(0, 0, 125), size = 56},
     portalPad = {center = Vector3.new(62.5, 0, 45), radius = 12, yaw = math.pi / 2}},
    runoutDistance = 2000,
+   -- A giant time portal stands at the endpoint (RunwayDecor); a ball that reaches it is pulled
+   -- in, completing the World, and the batter is pulled through to the next World (PortalJourney).
+   endPortal = {height = 360},
    -- Cosmetic only (RunwayDecor); none of these change flight or progression distances.
    runway = {width = 160, wallHeight = 12, wallThickness = 6, wallTileLength = 12,
     deckWidth = 72, outerGroundWidth = 260, propSpacing = 60, backdropSpacing = 90,
@@ -106,10 +109,58 @@ local Worlds = {
     -- The World portal, placed as in World 1.
     portalPad = {center = Vector3.new(62.5, 0, 45), radius = 12, yaw = math.pi / 2}},
    runoutDistance = 2000,
+   -- The same portal ends World 2 (it completes the World; the trip plays once a next World exists).
+   endPortal = {height = 360},
+   -- Cosmetic only (RunwayDecor), as World 1.
+   runway = {width = 160, wallHeight = 12, wallThickness = 6, wallTileLength = 12,
+    deckWidth = 72, outerGroundWidth = 260, propSpacing = 60, backdropSpacing = 90,
+    propScale = 1.8, fillerScale = 1.5},
+   -- A trip through time, in the order of the World 2 balls (Dino Egg to Chrono Orb). The Cash
+   -- multipliers keep the earlier thresholds (x1 to 500, x1.15 to 1500, x1.35 beyond).
+   -- floorTiles / floorPlanks: thin floor lines for tiled and planked floors (RunwayDecor).
+   -- deckColor: the side decks' color when it should not follow the theme (e.g. snow).
    sections = {
-    {id = "section_1", displayName = "Section 1", startDistance = 0, endDistance = 500, order = 1, rewardMultiplier = 1},
-    {id = "section_2", displayName = "Section 2", startDistance = 500, endDistance = 1500, order = 2, rewardMultiplier = 1.15},
-    {id = "section_3", displayName = "Section 3", startDistance = 1500, endDistance = 6000, order = 3, rewardMultiplier = 1.35},
+    {id = "prehistoric", displayName = "Prehistoric Valley", startDistance = 0, endDistance = 500,
+     order = 1, rewardMultiplier = 1, color = Color3.fromRGB(86, 150, 78), accent = Color3.fromRGB(236, 200, 96),
+     material = Enum.Material.Grass, deckMaterial = Enum.Material.LeafyGrass, props = {"cycad", "dinoNest", "fossil"},
+     backdrop = "brontosaurus", fillers = {"fern", "rock"}},
+    {id = "stoneage", displayName = "Stone Age Camp", startDistance = 500, endDistance = 1000,
+     order = 2, rewardMultiplier = 1.15, color = Color3.fromRGB(150, 112, 80), accent = Color3.fromRGB(255, 152, 72),
+     material = Enum.Material.Ground, deckMaterial = Enum.Material.Ground, props = {"stoneHut", "tuskArch", "campfire"},
+     backdrop = "megaliths", fillers = {"rock", "bush"}},
+    {id = "egypt", displayName = "Pharaoh's Sands", startDistance = 1000, endDistance = 1500,
+     order = 3, rewardMultiplier = 1.15, color = Color3.fromRGB(214, 172, 100), accent = Color3.fromRGB(255, 208, 80),
+     material = Enum.Material.Sandstone, deckMaterial = Enum.Material.Sand, props = {"obelisk", "sphinx", "scarabPillar"},
+     backdrop = "pyramids", fillers = {"rock"}, floorTiles = true},
+    {id = "greek", displayName = "Olympian Heights", startDistance = 1500, endDistance = 2100,
+     order = 4, rewardMultiplier = 1.35, color = Color3.fromRGB(214, 218, 232), accent = Color3.fromRGB(84, 146, 232),
+     material = Enum.Material.Marble, deckMaterial = Enum.Material.Limestone, props = {"greekColumn", "amphora", "heroStatue"},
+     backdrop = "temple", fillers = {"bush", "rock"}, floorTiles = true},
+    {id = "viking", displayName = "Viking Fjord", startDistance = 2100, endDistance = 2700,
+     order = 5, rewardMultiplier = 1.35, color = Color3.fromRGB(128, 96, 72), accent = Color3.fromRGB(214, 74, 58),
+     material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.Snow, deckColor = Color3.fromRGB(236, 242, 250),
+     props = {"longship", "runeStone", "shieldRack"},
+     backdrop = "fjordPeaks", fillers = {"pine", "rock"}, floorPlanks = true},
+    {id = "samurai", displayName = "Samurai Gardens", startDistance = 2700, endDistance = 3300,
+     order = 6, rewardMultiplier = 1.35, color = Color3.fromRGB(112, 142, 100), accent = Color3.fromRGB(255, 172, 206),
+     material = Enum.Material.Pebble, deckMaterial = Enum.Material.Grass, props = {"torii", "stoneLantern", "cherryTree"},
+     backdrop = "pagodas", fillers = {"bush", "rock"}},
+    {id = "knight", displayName = "Knight's Kingdom", startDistance = 3300, endDistance = 3900,
+     order = 7, rewardMultiplier = 1.35, color = Color3.fromRGB(120, 120, 132), accent = Color3.fromRGB(64, 112, 224),
+     material = Enum.Material.Cobblestone, deckMaterial = Enum.Material.Grass, props = {"banner", "catapult", "armorStand"},
+     backdrop = "castle", fillers = {"bush", "rock"}},
+    {id = "frontier", displayName = "Frontier Town", startDistance = 3900, endDistance = 4500,
+     order = 8, rewardMultiplier = 1.35, color = Color3.fromRGB(192, 104, 64), accent = Color3.fromRGB(255, 208, 122),
+     material = Enum.Material.Ground, deckMaterial = Enum.Material.Sand, props = {"waterTower", "wagon", "cactus"},
+     backdrop = "buttes", fillers = {"barrels", "rock"}},
+    {id = "foundry", displayName = "Clockwork Foundry", startDistance = 4500, endDistance = 5200,
+     order = 9, rewardMultiplier = 1.35, color = Color3.fromRGB(100, 86, 76), accent = Color3.fromRGB(236, 172, 72),
+     material = Enum.Material.Metal, deckMaterial = Enum.Material.DiamondPlate, props = {"gearTower", "pipeWorks"},
+     backdrop = "smokestacks", fillers = {"barrels", "rock"}, floorTiles = true, wallTileColor = Color3.fromRGB(196, 140, 70)},
+    {id = "chrono", displayName = "Chrono Nexus", startDistance = 5200, endDistance = 6000,
+     order = 10, rewardMultiplier = 1.35, color = Color3.fromRGB(54, 48, 112), accent = Color3.fromRGB(92, 240, 255),
+     material = Enum.Material.Glass, deckMaterial = Enum.Material.SmoothPlastic, props = {"timeRing", "hourglass", "holoClock"},
+     backdrop = "futureSpires", fillers = {"rock"}, floorGrid = true},
    }},
  },
 }

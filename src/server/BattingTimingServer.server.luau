@@ -24,6 +24,10 @@ TeeTeleport.Name, TeeTeleport.Parent = "TeeTeleport", ReplicatedStorage
 -- Where the tee teleport places a player: this many studs back from the batter's box
 -- (away from the field), facing it, so batting never starts by itself.
 local TEE_TELEPORT_BACK = 7
+-- The trip through a World's end portal (BallLauncher.OnPortalJourney): the batter is held
+-- while their client plays the cinematic (PortalJourneyClient; its screen is white from 6.85 s),
+-- then travels.
+local PORTAL_JOURNEY_SECONDS = 8.6
 local states = {}
 local occupants = {}
 
@@ -118,6 +122,10 @@ local function addPlayer(player)
    leave(player)
    BallLauncher.CancelPlayer(player)
   end)
+  -- A new character ends any portal trip in progress (it respawns where it is).
+  state.journey = nil
+  player:SetAttribute("PortalJourney", nil)
+  player:SetAttribute("WorldTraveling", false)
   local world = Worlds.Get(player:GetAttribute("CurrentWorldId")) or Worlds.Get(Worlds.StartingWorldId)
   character:PivotTo(world.arrival)
  end
@@ -144,6 +152,12 @@ end
 -- Training, and any active hit (shared by World Travel and the Training and tee teleports).
 local function relocate(player, state, character, root, world, destination)
  state.lastTravel = os.clock()
+ -- Any travel ends a portal trip in progress, which holds the character in place.
+ if state.journey then
+  state.journey = nil
+  root.Anchored = false
+  player:SetAttribute("PortalJourney", nil)
+ end
  player:SetAttribute("WorldTraveling", true)
  Training.Stop(player)
  leave(player)
@@ -155,6 +169,45 @@ local function relocate(player, state, character, root, world, destination)
  root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
  character:PivotTo(destination)
  player:SetAttribute("WorldTraveling", false)
+end
+
+-- The batter's ball went through a World's end portal and opened the next World: end batting,
+-- hold the character (its client shows it being pulled into the portal; PortalJourney names the
+-- destination, and WorldTraveling keeps menus and the HUD out of the way), then travel there.
+BallLauncher.OnPortalJourney = function(player, world, nextWorld)
+ local state = states[player]
+ local character, root = livingCharacter(player)
+ if not state or not character or state.journey or player:GetAttribute("CurrentWorldId") ~= world.id then return end
+ Training.Stop(player)
+ leave(player)
+ local journey = {}
+ state.journey = journey
+ root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
+ root.Anchored = true
+ -- Keep the giant portal streamed in on that client while its camera is there.
+ local field = workspace:FindFirstChild(world.fieldName)
+ local vortex = field and field:FindFirstChild("PortalVortex", true)
+ if vortex then
+  player:AddReplicationFocus(vortex)
+  journey.focus = vortex
+ end
+ player:SetAttribute("WorldTraveling", true)
+ player:SetAttribute("PortalJourney", nextWorld.id)
+ task.delay(PORTAL_JOURNEY_SECONDS, function()
+  if journey.focus and player.Parent == Players then player:RemoveReplicationFocus(journey.focus) end
+  if state.journey ~= journey or states[player] ~= state then return end
+  local currentCharacter, currentRoot = livingCharacter(player)
+  if currentCharacter ~= character or not PlayerData.IsReady(player)
+   or player:GetAttribute("WorldUnlocked_" .. nextWorld.id) ~= true then
+   state.journey = nil
+   root.Anchored = false
+   player:SetAttribute("PortalJourney", nil)
+   player:SetAttribute("WorldTraveling", false)
+   return
+  end
+  -- (No "Arrived" notice: the cinematic's arrival title says it.)
+  relocate(player, state, currentCharacter, currentRoot, nextWorld, nextWorld.arrival)
+ end)
 end
 
 Travel.OnServerEvent:Connect(function(player, destinationId)
@@ -290,6 +343,10 @@ Remote.OnServerEvent:Connect(function(player, session, action)
 
 	local progression = PlayerData.GetProgression(player)
  if not progression then return end
+ -- In Studio only, the Workspace attribute StudioLaunchLevel launches hits as that Level
+ -- (e.g. to reach a World's end portal); the saved Level is untouched. Live servers ignore it.
+ local studioLevel = RunService:IsStudio() and workspace:GetAttribute("StudioLaunchLevel")
+ local launchLevel = type(studioLevel) == "number" and math.floor(studioLevel) >= 1 and math.floor(studioLevel) or progression.Level
 	state.nextSwingTime = now + Swing.Duration
 	player:SetAttribute("BatNextSwingTime", state.nextSwingTime)
 	state.swingId += 1
@@ -298,7 +355,7 @@ Remote.OnServerEvent:Connect(function(player, session, action)
 		swingId = state.swingId,
   worldId = state.worldId,
 		session = state.session,
-  launchLevel = progression.Level,
+  launchLevel = launchLevel,
   batId = player:GetAttribute("EquippedBat"),
   ballRewardMultiplier = Equipment.Get("Ball", player:GetAttribute("EquippedBall")).rewardMultiplier,
 		evaluatedAt = now,

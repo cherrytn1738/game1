@@ -212,6 +212,24 @@ The player progresses through a world by becoming powerful enough to hit farther
 
 Reaching or passing the world's configured end distance with a legitimate hit completes that world and permanently unlocks the next world.
 
+### End portal
+
+A giant time portal (the hub portal's model, 360 studs tall, `WorldConfig` `endPortal`) stands across each runway at its endpoint, facing the tee; it replaces the floating "FINISH" title, and nothing in it is solid.
+
+- **Capture (server, `BallLauncher`):** the moment a hit's ball reaches the endpoint, at any height, the portal takes it: the ball is anchored and drawn into the opening's centre over 1.4 s, spiralling in (`PORTAL_SUCTION_SECONDS`). The hit then ends as `"portal"` and is measured at the endpoint exactly (the full distance, in the last section), so Cash and World completion follow the normal rules.
+- **Capture sound:** as any ball is drawn in, the portal's swirl spins up and a vortex blast swells to peak as the ball reaches the centre.
+- **The trip:** when that hit completes the World for the first time and the next World is unlocked, the server ends batting, holds the batter, keeps the portal streamed in for them (a replication focus), and sets the player's `PortalJourney` attribute (and `WorldTraveling`, which keeps menus away). Their client (`PortalJourneyClient`, built on `CinematicFX` like the rare hits) hides the HUD and plays about 9 s:
+  1. Impact (0 s): a white flash, glowing rings blasting out of the opening, lightning across it, a boom and thunder; the music starts.
+  2. Reveal (0–2.2 s): a slow, low push-in on the giant portal as "WORLD 2 UNLOCKED! / TIME TRAVEL" slams in.
+  3. Summons (2.2–3.6 s): a cut to the batter at the tee; a shockwave, crackling lightning and a sparkling aura, and they are lifted off the ground as a riser builds to a hard stop at takeoff.
+  4. Flight (3.6–6.0 s): they rocket down the runway in a high arc toward the portal on a trail of light, with a chase camera, a widening field of view, speed lines and a rumbling rush.
+  5. Plunge (6.0–6.85 s): a wide shot as they spiral into the swirl (an energy whoosh peaks as they vanish), then white with a last boom.
+  6. Arrival: at 8.6 s the server moves them to the next World through the normal travel step; the white fades there with a shockwave, a sparkle burst, a magic chime and the World's title, and the HUD returns.
+  Audio (Roblox-licensed): APM "New World Anthem Link 4" (music); Pro Sound Effects vortex blast, thunder, rushing pass-by and energy whoosh, the rare hits' launch boom and riser, and "Magic Transformation 17" (arrival). The rest of the mix ducks under it (the Cinematic duck), and the HUD skips its own World-unlock sting for portal hits. Dying, leaving or travelling cancels the trip.
+- Already-completed Worlds still capture the ball (normal rewards), without the trip. World 2's portal completes World 2; the trip plays there once a World 3 exists.
+- **Testing in Studio:** the Workspace attribute `ForcePortalJourney` plays the trip on every portal hit, not only the first completion; `StudioLaunchLevel` launches hits as that Level (80 reaches either portal; the saved Level is untouched); `StudioWalkSpeed` sets the playtest walk speed (e.g. to run down a runway). Live servers ignore all three.
+- The giant portals' gears, hands and swirl turn on each client (`PortalJourneyClient`).
+
 Worlds are not unlocked by simply purchasing them with Cash.
 
 Example progression:
@@ -319,7 +337,7 @@ Offline gains are already granted by the server. CONTINUE only dismisses the onc
 
 ## World 1 Runway Themes
 
-World 1's open field is replaced by a 160-stud-wide runway (`WorldConfig` `runway.width`). World 2 keeps the original wide field; width is per-world through `Field.GetWidth(world)`, and the out-of-runway check uses it.
+World 1's open field is replaced by a 160-stud-wide runway (`WorldConfig` `runway.width`); World 2 has its own (see World 2 Runway Themes). Width is per-world through `Field.GetWidth(world)` (a world without a `runway` would use the original wide field), and the out-of-runway check uses it.
 
 The runway is divided into ten themed sections. `FieldBuilder` builds the collidable ground; `RunwayDecor` builds all scenery from `WorldConfig`:
 
@@ -340,11 +358,11 @@ The first three IDs and all reward thresholds are unchanged from the earlier Gra
 
 Scenery (all cosmetic):
 
-- **Floor:** each section's `material` sets the ground's look only. Ground physics stay fixed through an explicit `CustomPhysicalProperties`, so materials never change bounces or rolling. Optional per-section extras: `floorPattern` (a faint caustic texture), `floorGrid` (neon grid lines), and `floorCracks` (glowing lava cracks). Flush edge stripes line both sides, and a checkered band marks each section start.
+- **Floor:** each section's `material` sets the ground's look only. Ground physics stay fixed through an explicit `CustomPhysicalProperties`, so materials never change bounces or rolling. Optional per-section extras: `floorPattern` (a faint caustic texture), `floorGrid` (neon grid lines), `floorCracks` (glowing lava cracks), `floorTiles` (thin grout lines in a square grid) and `floorPlanks` (lengthwise plank lines). Flush edge stripes line both sides, and a checkered band marks each section start.
 - **Walls:** two-tone checkered walls (`wallHeight`, `wallThickness`, `wallTileLength`) with a rounded cream cap. `wallTileColor` can override the light tile color for dark themes.
-- **Decks and props:** a raised deck behind each wall (`deckWidth`, `deckMaterial`) holds the section's `props`, cycling every `propSpacing` and staggered between sides. Props are scaled up by `propScale`, and small filler clusters by `fillerScale`. Disc-shaped props (lollipops, the rainbow) face back toward the tee.
+- **Decks and props:** a raised deck behind each wall (`deckWidth`, `deckMaterial`, optional `deckColor`, e.g. snow) holds the section's `props`, cycling every `propSpacing` and staggered between sides. Props are scaled up by `propScale`, and small filler clusters by `fillerScale`. Disc-shaped props (lollipops, the rainbow) face back toward the tee.
 - **Backdrop:** outer ground (`outerGroundWidth`) with large themed shapes (`backdrop`) every `backdropSpacing` for a horizon.
-- **Section titles:** each section's name floats as text on a fully transparent, non-colliding anchor 40 studs up, facing the tee (Meadow Run's floats at 60 studs so it is not over the batter). There are no physical gates or signs. A checkered finish line and a floating "WORLD 1 FINISH" title mark the 5000-stud endpoint, and plain walls continue through the runout.
+- **Section titles:** each section's name floats as text on a fully transparent, non-colliding anchor 40 studs up, facing the tee (Meadow Run's floats at 60 studs so it is not over the batter). There are no physical gates or signs. A checkered finish line and the giant end portal (see End portal) mark the 5000-stud endpoint, and plain walls continue through the runout.
 - **Mesh props:** props listed in `RunwayDecor`'s `MESH_PROPS` use imported Blender models from `ServerStorage.RunwayAssets`, tinted per section. These templates live in the place file, not Rojo/Git, so the place must be saved after importing. Generator scripts and FBX exports are in `tools/blender/` and `assets/models/`. If a template is missing, the prop falls back to its primitive-part version. Every runway prop, filler, and backdrop now has a mesh template (31 in total):
 - `MeadowTree` (`tools/blender/meadow_tree.py`): Meadow and jungle trees, and the jungle canopy backdrop.
 - Batch 1 (`batch1_props.py`, `RunwayBatch1.fbx`): `Mushroom`, `FlowerPatch`, `Fern`.
@@ -355,7 +373,26 @@ Shared Blender helpers live in `tools/blender/prop_helpers.py`. Every model is a
 
 Roblox imports these FBX files at 100× scale; templates are scaled back to their Blender size (1 unit = 1 stud) and pivoted at their base.
 
-The runway has no floating distance labels or floor tick lines; the live HUD shows distance during a hit. World 2's open field keeps its original distance markers.
+The runway has no floating distance labels or floor tick lines; the live HUD shows distance during a hit.
+
+## World 2 Runway Themes
+
+World 2 (Time Travel) has the same 160-stud runway and scenery system as World 1, ten sections in time order, each matching a World 2 ball. The Cash multipliers keep World 2's earlier thresholds (×1 to 500, ×1.15 to 1500, ×1.35 beyond); the endpoint (6000) and 2000-stud runout are unchanged.
+
+| # | ID | Name | Distance (studs) | Cash multiplier | Props | Backdrop |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | prehistoric | Prehistoric Valley | 0–500 | 1.00 | cycads, egg nests, fossils | brontosaurus |
+| 2 | stoneage | Stone Age Camp | 500–1000 | 1.15 | stone huts, tusk arches, campfires | standing-stone circles |
+| 3 | egypt | Pharaoh's Sands | 1000–1500 | 1.15 | obelisks, sphinxes, scarab pillars | pyramids |
+| 4 | greek | Olympian Heights | 1500–2100 | 1.35 | column ruins, amphorae, hero statues | temple |
+| 5 | viking | Viking Fjord | 2100–2700 | 1.35 | longships, rune stones, shield racks | snowy peaks (World 1's Mountain) |
+| 6 | samurai | Samurai Gardens | 2700–3300 | 1.35 | torii gates, stone lanterns, cherry trees | pagodas |
+| 7 | knight | Knight's Kingdom | 3300–3900 | 1.35 | banners, catapults, armor stands | castle |
+| 8 | frontier | Frontier Town | 3900–4500 | 1.35 | water towers, covered wagons, cacti | red buttes (World 1's Mesa) |
+| 9 | foundry | Clockwork Foundry | 4500–5200 | 1.35 | gear towers, boiler pipe works | factory smokestacks |
+| 10 | chrono | Chrono Nexus | 5200–6000 | 1.35 | time rings, floating hourglasses and holo clocks | futuristic spires |
+
+The 37 new meshes come from one generator, `tools/blender/runway_world2.py` (export `assets/models/RunwayWorld2.fbx`, plus a `RunwayWorld2.json` manifest of template → mesh names used to group the import into `ServerStorage.RunwayAssets`). Fillers reuse World 1's `Fern`, `Pine`, `Bush` and `Rock`, plus a new `Barrels` cluster. The hourglass glass is see-through (`transparency` in its mesh definition). A section whose mesh template is missing simply skips that prop.
 
 Every `RunwayDecor` part is anchored with collision, touch, and query disabled, so scenery cannot affect ball flight, measured distance, rewards, or camera occlusion. The full runway is about 3,000 decoration parts.
 
@@ -379,7 +416,7 @@ Each World's hub can have its own look. `WorldConfig` `hub.theme` names a builde
 - **Bowl:** a slate wall with a brass cap and a cyan glow strip, then slate terraces with alternating brass and glowing cyan edges up to a dark slate berm at 9 studs.
 - **Landmarks:** a clock tower behind the back terraces (a turning clock and a "TIME TRAVEL / WORLD 2" sign), four chrono lamps, floating gears (the Blender `HubGear` when imported, brass discs until then) and bobbing time crystals.
 - **Monuments** from the eras ahead stand on the berm: a stone circle, a stepped pyramid with obelisks and a torii gate on the left; a Greek temple, a castle tower and a torii gate on the right.
-- World 2's own "TIME TRAVEL BALLS" display stands in front of the Bats (hub x 60, z 95). The plain wide field in front stays until World 2's runway is built.
+- World 2's own "TIME TRAVEL BALLS" display stands in front of the Bats (hub x 60, z 95). World 2's themed runway runs downfield from the tee (see World 2 Runway Themes).
 
 Hub scenery and portal parts can carry motion attributes (`Spin`, with an optional `SpinPivot` to turn about a point such as a clock centre, `Bob`, `Sway`, `Pulse`); `TrainingStadiumClient` animates them in every hub on each client.
 
@@ -411,7 +448,7 @@ All cosmetic; none of it affects launch, distance or rewards.
   - a landing sound on each bounce, on a volume curve so a hard first landing is clearly heard and the last little hops barely at all. It is timed to the drawn ball: it fires when the ball, at its current downward speed, will reach the ground within the next frame (a hair early, covering a new Sound's start-up), or, when the client's smoothing turns a fast bounce around above the grass, on the frame it turns. One landing per fall; a reset jump back to the tee is ignored
   - a smooth, understated roll once it is on the ground, quieter and lower as it slows (mostly a soft noise bed, with only a faint grass texture)
   - grounded hysteresis: the ball counts as on the ground from its first bounce until 0.25 s without contact, so the whoosh and roll never flicker during bounces
-  - light surface variation from the runway section under the ball (raycast to the field's ground parts): soft ground (Meadow, Emerald Grove, Golden Dunes, World 2) keeps the muted thud and grass texture; hard floors (Candy, Ember Canyon, Skyway) knock and roll firmer; ice, crystal and glass (Frost Pass, Crystal Ridge, Neon Circuit, Starlight Finish) add a clean clink and roll glassy-smooth
+  - light surface variation from the runway section under the ball (raycast to the field's ground parts): soft ground (Meadow, Emerald Grove, Golden Dunes; World 2's Prehistoric, Stone Age, Samurai and Frontier) keeps the muted thud and grass texture; hard floors (Candy, Ember Canyon, Skyway; World 2's Egypt, Greek, Viking, Knight and Foundry) knock and roll firmer; ice, crystal and glass (Frost Pass, Crystal Ridge, Neon Circuit, Starlight Finish; World 2's Chrono Nexus) add a clean clink and roll glassy-smooth
   - for the fancier Balls, their own loop on top (`BallStyles.FlightSounds`), measured against the whoosh so it colours the flight without burying it: about half the whoosh's loudness for gentle themes, up to ~0.9x for the top tiers, and softer once the ball is on the ground
 
   All loops start at a random point and fade out when the hit ends. All are Roblox-licensed Pro Sound Effects audio. Speeds and volumes are tunable at the top of `BallSounds`.

@@ -3,12 +3,24 @@
 -- here can affect ball flight, measured distance, rewards, or camera occlusion.
 local ServerStorage = game:GetService("ServerStorage")
 local Field = require(game:GetService("ReplicatedStorage"):WaitForChild("FieldConfig"))
+local Portal = require(script.Parent:WaitForChild("WorldPortal"))
 local RunwayDecor = {}
 
 local WHITE, BLACK = Color3.new(1, 1, 1), Color3.new(0, 0, 0)
 local CREAM = Color3.fromRGB(255, 246, 228)
 local BARK = Color3.fromRGB(122, 82, 52)
 local STONE = Color3.fromRGB(150, 145, 140)
+-- World 2 materials of the ages.
+local IVORY = Color3.fromRGB(238, 228, 200)
+local SANDSTONE = Color3.fromRGB(222, 182, 118)
+local GOLD = Color3.fromRGB(255, 198, 64)
+local LAPIS = Color3.fromRGB(42, 82, 186)
+local TURQUOISE = Color3.fromRGB(56, 170, 170)
+local MARBLE = Color3.fromRGB(236, 236, 242)
+local TERRACOTTA = Color3.fromRGB(204, 106, 60)
+local STEEL = Color3.fromRGB(165, 172, 184)
+local BRASS = Color3.fromRGB(222, 164, 72)
+local COPPER = Color3.fromRGB(198, 108, 64)
 local CANDY = {Color3.fromRGB(247, 83, 155), Color3.fromRGB(255, 160, 60), Color3.fromRGB(150, 110, 245)}
 local FROSTING = {Color3.fromRGB(255, 150, 190), Color3.fromRGB(150, 105, 70), Color3.fromRGB(170, 230, 255)}
 -- Filler kinds used when a section does not list its own `fillers`.
@@ -442,7 +454,7 @@ function Backdrops.planets(kit, p, c, v)
 end
 
 -- Walls, raised decks, and outer ground along one stretch of runway.
-local function buildSides(kit, config, runwayWidth, startDistance, length, c, deckMaterial, withTiles, tileOverride)
+local function buildSides(kit, config, runwayWidth, startDistance, length, c, deckMaterial, withTiles, tileOverride, deckColor)
  local centerZ = -(startDistance + length / 2)
  local height, thickness = config.wallHeight, config.wallThickness
  local tileColor = tileOverride or c.base:Lerp(WHITE, 0.45)
@@ -468,7 +480,7 @@ local function buildSides(kit, config, runwayWidth, startDistance, length, c, de
   kit.box("Skirting", Vector3.new(0.5, 0.8, length), Vector3.new(innerX - side * 0.25, 0.4, centerZ), c.dark)
   local deckX = side * (runwayWidth / 2 + thickness + config.deckWidth / 2)
   kit.box("Deck", Vector3.new(config.deckWidth, height + 8, length), Vector3.new(deckX, (height - 8) / 2, centerZ),
-   c.base:Lerp(c.accent, 0.25), deckMaterial)
+   deckColor or c.base:Lerp(c.accent, 0.25), deckMaterial)
   local outerX = side * (runwayWidth / 2 + thickness + config.deckWidth + config.outerGroundWidth / 2)
   kit.box("OuterGround", Vector3.new(config.outerGroundWidth, 8, length), Vector3.new(outerX, height - 7, centerZ),
    c.base:Lerp(BLACK, 0.15), deckMaterial)
@@ -498,6 +510,20 @@ local function buildFloor(kit, section, runwayWidth, length, c)
   end
   for _, x in {-40, 0, 40} do
    kit.inlay("GridLine", Vector3.new(0.4, 0.03, length), Vector3.new(x, 0.015, centerZ), c.accent, Enum.Material.Neon)
+  end
+ end
+ if section.floorTiles then
+  -- Thin grout lines in a square grid: tiles, flagstones, riveted plates.
+  for d = 16, length - 1, 16 do
+   kit.inlay("TileLine", Vector3.new(runwayWidth - 12, 0.03, 0.35), Vector3.new(0, 0.015, -(startDistance + d)), c.dark)
+  end
+  for x = -64, 64, 16 do
+   kit.inlay("TileLine", Vector3.new(0.35, 0.03, length), Vector3.new(x, 0.015, centerZ), c.dark)
+  end
+ end
+ if section.floorPlanks then
+  for x = -72, 72, 6 do
+   kit.inlay("PlankLine", Vector3.new(0.25, 0.03, length), Vector3.new(x, 0.015, centerZ), c.deep)
   end
  end
  if section.floorCracks then
@@ -533,6 +559,9 @@ end
 --   faceTee: true lets the prop face the tee or turn a half turn (symmetric fronts);
 --     "exact" keeps its authored front toward the tee (yawOffset corrects it if needed).
 --   lift raises a floating prop above the deck, in authored studs before scaling.
+--   transparency maps MeshPart names to a Transparency (e.g. glass you can see into).
+-- World 2's props come from tools/blender/runway_world2.py; Blender -Y faces downfield, so
+-- props with a front use faceTee = "exact" with a half turn to face the tee.
 local NEON = Enum.Material.Neon
 local MESH_PROPS = {
  tree = {template = "MeadowTree", colors = function(c)
@@ -643,6 +672,115 @@ local MESH_PROPS = {
  moon = {template = "Moon", lift = 7, colors = function()
   return {MoonSurface = Color3.fromRGB(226, 222, 240)}
  end},
+
+ -- World 2: Prehistoric Valley.
+ cycad = {template = "Cycad", colors = function(c)
+  return {CycadTrunk = BARK, CycadFronds = c.base:Lerp(BLACK, 0.12), CycadFrondsLight = c.base:Lerp(c.accent, 0.35)}
+ end},
+ dinoNest = {template = "DinoNest", colors = function(c, v)
+  local spots = ({Color3.fromRGB(80, 165, 135), Color3.fromRGB(105, 135, 220), Color3.fromRGB(220, 120, 90)})[v % 3 + 1]
+  return {NestTwigs = BARK:Lerp(c.accent, 0.15), NestEggs = IVORY, NestSpots = spots}
+ end},
+ fossil = {template = "Fossil", colors = function()
+  return {FossilRock = Color3.fromRGB(196, 160, 110), FossilBone = IVORY, FossilSockets = Color3.fromRGB(60, 44, 34)}
+ end},
+ -- Stone Age Camp.
+ stoneHut = {template = "StoneHut", faceTee = "exact", yawOffset = math.pi, colors = function(c)
+  return {HutStones = STONE:Lerp(c.base, 0.2), HutThatch = Color3.fromRGB(204, 162, 84), HutDoor = Color3.fromRGB(40, 28, 22),
+   HutPoles = BARK}
+ end},
+ tuskArch = {template = "TuskArch", faceTee = true, colors = function(c)
+  return {TuskIvory = IVORY, TuskBase = STONE:Lerp(c.dark, 0.3), TuskStrap = Color3.fromRGB(150, 80, 40)}
+ end},
+ campfire = {template = "Campfire", materials = {CampfireFlame = NEON}, colors = function(c)
+  return {CampfireStones = STONE:Lerp(c.dark, 0.25), CampfireLogs = BARK, CampfireFlame = c.accent,
+   CampfireMeat = Color3.fromRGB(150, 70, 40)}
+ end},
+ -- Pharaoh's Sands.
+ obelisk = {template = "Obelisk", colors = function()
+  return {ObeliskStone = SANDSTONE, ObeliskGold = GOLD, ObeliskGlyphs = LAPIS}
+ end},
+ sphinx = {template = "Sphinx", faceTee = "exact", yawOffset = math.pi, colors = function()
+  return {SphinxStone = SANDSTONE, SphinxPlinth = SANDSTONE:Lerp(BLACK, 0.2), SphinxGold = GOLD, SphinxStripes = LAPIS}
+ end},
+ scarabPillar = {template = "ScarabPillar", faceTee = true, colors = function()
+  return {PillarStone = SANDSTONE, PillarBands = TURQUOISE, PillarScarab = GOLD}
+ end},
+ -- Olympian Heights.
+ greekColumn = {template = "GreekColumn", faceTee = true, colors = function()
+  return {ColumnMarble = MARBLE, ColumnGold = GOLD, ColumnVine = Color3.fromRGB(90, 150, 80)}
+ end},
+ amphora = {template = "Amphora", colors = function()
+  return {AmphoraClay = TERRACOTTA, AmphoraBands = Color3.fromRGB(35, 28, 26), AmphoraPlinth = MARBLE}
+ end},
+ heroStatue = {template = "HeroStatue", faceTee = "exact", yawOffset = math.pi, colors = function(c)
+  return {StatueMarble = MARBLE, StatuePlinth = MARBLE:Lerp(c.accent, 0.2), StatueGold = GOLD}
+ end},
+ -- Viking Fjord.
+ longship = {template = "Longship", colors = function(c)
+  return {LongshipHull = BARK, LongshipSail = CREAM, LongshipStripes = c.accent, LongshipShieldsA = c.accent,
+   LongshipShieldsB = GOLD, LongshipMetal = STEEL, LongshipTrim = GOLD}
+ end},
+ runeStone = {template = "RuneStone", faceTee = true, materials = {RuneStoneGlow = NEON}, colors = function(c)
+  return {RuneStoneRock = STONE:Lerp(c.base, 0.25), RuneStoneGlow = Color3.fromRGB(110, 230, 255), RuneStoneMoss = Color3.fromRGB(110, 150, 90)}
+ end},
+ shieldRack = {template = "ShieldRack", faceTee = true, colors = function(c)
+  return {RackWood = BARK, RackShieldsA = c.accent, RackShieldsB = CREAM, RackMetal = STEEL}
+ end},
+ -- Samurai Gardens.
+ torii = {template = "Torii", faceTee = true, colors = function()
+  return {ToriiRed = Color3.fromRGB(214, 52, 40), ToriiBlack = Color3.fromRGB(30, 28, 30), ToriiGold = GOLD}
+ end},
+ stoneLantern = {template = "StoneLantern", materials = {LanternGlow = NEON}, colors = function(c)
+  return {LanternStone = STONE, LanternGlow = Color3.fromRGB(255, 214, 140), LanternMoss = c.base}
+ end},
+ cherryTree = {template = "CherryTree", colors = function(c)
+  return {CherryTrunk = Color3.fromRGB(80, 52, 44), CherryBlossom = c.accent, CherryBlossomLight = c.accent:Lerp(WHITE, 0.5),
+   CherryPetals = c.accent:Lerp(WHITE, 0.35)}
+ end},
+ -- Knight's Kingdom.
+ banner = {template = "Banner", faceTee = true, colors = function(c, v)
+  local cloth = ({c.accent, Color3.fromRGB(205, 45, 55), Color3.fromRGB(60, 150, 90)})[v % 3 + 1]
+  return {BannerPole = BARK:Lerp(BLACK, 0.3), BannerCloth = cloth, BannerEmblem = GOLD, BannerTrim = GOLD}
+ end},
+ catapult = {template = "Catapult", colors = function()
+  return {CatapultWood = BARK, CatapultMetal = STEEL:Lerp(BLACK, 0.3), CatapultRock = STONE}
+ end},
+ armorStand = {template = "ArmorStand", faceTee = "exact", yawOffset = math.pi, colors = function()
+  return {ArmorWood = BARK, ArmorSteel = STEEL, ArmorPlume = Color3.fromRGB(210, 40, 50), ArmorGold = GOLD,
+   ArmorVisor = Color3.fromRGB(25, 25, 30)}
+ end},
+ -- Frontier Town (with World 1's cactus).
+ waterTower = {template = "WaterTower", colors = function()
+  return {TowerWood = BARK:Lerp(BLACK, 0.15), TowerTank = Color3.fromRGB(170, 120, 75), TowerBands = Color3.fromRGB(70, 70, 75),
+   TowerRoof = Color3.fromRGB(170, 70, 50)}
+ end},
+ wagon = {template = "Wagon", colors = function()
+  return {WagonWood = BARK, WagonCanvas = CREAM, WagonWheels = BARK:Lerp(BLACK, 0.25), WagonIron = Color3.fromRGB(60, 60, 65)}
+ end},
+ barrels = {template = "Barrels", colors = function()
+  return {BarrelWood = Color3.fromRGB(150, 98, 58), BarrelBands = Color3.fromRGB(70, 70, 75), BarrelCrate = Color3.fromRGB(200, 160, 100)}
+ end},
+ -- Clockwork Foundry.
+ gearTower = {template = "GearTower", faceTee = true, colors = function()
+  return {GearBrass = BRASS, GearCopper = COPPER, GearSteel = STEEL:Lerp(BLACK, 0.2)}
+ end},
+ pipeWorks = {template = "PipeWorks", colors = function()
+  return {PipeCopper = COPPER, PipeBrass = BRASS, PipeSteel = STEEL:Lerp(BLACK, 0.25), PipeGauge = CREAM,
+   PipeSteam = Color3.fromRGB(235, 235, 240)}
+ end},
+ -- Chrono Nexus.
+ timeRing = {template = "TimeRing", faceTee = true, materials = {TimeRingGlow = NEON}, colors = function(c)
+  return {TimeRingMetal = Color3.fromRGB(215, 222, 235), TimeRingGlow = c.accent, TimeRingBase = c.deep}
+ end},
+ hourglass = {template = "Hourglass", lift = 4, materials = {HourglassGlass = Enum.Material.Glass},
+  transparency = {HourglassGlass = 0.55}, colors = function()
+  return {HourglassFrame = GOLD, HourglassGlass = Color3.fromRGB(190, 240, 255), HourglassSand = Color3.fromRGB(255, 200, 110)}
+ end},
+ holoClock = {template = "HoloClock", faceTee = true, lift = 5,
+  materials = {HoloClockRing = NEON, HoloClockHands = NEON, HoloClockCore = NEON}, colors = function(c)
+  return {HoloClockRing = c.accent, HoloClockHands = Color3.fromRGB(255, 120, 230), HoloClockCore = WHITE}
+ end},
 }
 
 -- Backdrops: large shapes on the outer ground, mostly prop meshes at a much bigger scale.
@@ -667,6 +805,40 @@ local BACKDROP_MESHES = {
  towers = {template = "Beacon", scale = 3.5, materials = MESH_PROPS.beacon.materials, colors = MESH_PROPS.beacon.colors},
  bigClouds = {template = "Cloud", scale = 3.5, lift = 6, colors = MESH_PROPS.cloud.colors},
  planets = {template = "Planet", scale = 3, lift = 14, colors = MESH_PROPS.planet.colors},
+ -- World 2.
+ brontosaurus = {template = "Brontosaurus", scale = 4, colors = function(c, v)
+  local skin = ({Color3.fromRGB(90, 140, 120), Color3.fromRGB(122, 132, 88), Color3.fromRGB(100, 120, 150)})[v % 3 + 1]
+  return {BrontoBody = skin, BrontoBelly = skin:Lerp(CREAM, 0.45), BrontoEyes = Color3.fromRGB(25, 25, 30)}
+ end},
+ megaliths = {template = "Megalith", scale = 4, colors = function(c)
+  return {MegalithStone = STONE:Lerp(c.dark, 0.2), MegalithMoss = Color3.fromRGB(110, 150, 80)}
+ end},
+ pyramids = {template = "Pyramid", scale = 4, colors = function()
+  return {PyramidStone = SANDSTONE, PyramidCap = GOLD, PyramidSteps = SANDSTONE:Lerp(BLACK, 0.18)}
+ end},
+ temple = {template = "Temple", scale = 3.5, colors = function(c)
+  return {TempleMarble = MARBLE, TempleRoof = TERRACOTTA, TempleGold = GOLD, TempleCella = MARBLE:Lerp(c.accent, 0.12)}
+ end},
+ fjordPeaks = {template = "Mountain", scale = 5, colors = function(c)
+  return {MountainRock = c.base:Lerp(BLACK, 0.2), MountainSnow = WHITE}
+ end},
+ pagodas = {template = "Pagoda", scale = 3.5, colors = function()
+  return {PagodaWalls = Color3.fromRGB(200, 60, 50), PagodaRoofs = Color3.fromRGB(40, 70, 72), PagodaGold = GOLD, PagodaStone = STONE}
+ end},
+ castle = {template = "Castle", scale = 3.5, colors = function(c)
+  return {CastleStone = STONE:Lerp(c.base, 0.3), CastleRoofs = c.accent, CastleFlags = Color3.fromRGB(210, 45, 55),
+   CastleDoor = Color3.fromRGB(40, 32, 30)}
+ end},
+ buttes = {template = "Mesa", scale = 3.5, colors = function(c)
+  return {MesaRockA = Color3.fromRGB(176, 82, 52), MesaRockB = c.base}
+ end},
+ smokestacks = {template = "Smokestack", scale = 3.5, materials = {StackWindows = NEON}, colors = function()
+  return {StackBrick = Color3.fromRGB(150, 70, 52), StackBands = BRASS, StackSmoke = Color3.fromRGB(150, 150, 155),
+   StackRoof = Color3.fromRGB(60, 64, 70), StackWindows = Color3.fromRGB(255, 190, 90)}
+ end},
+ futureSpires = {template = "FutureSpire", scale = 4, materials = {FutureSpireGlow = NEON}, colors = function(c)
+  return {FutureSpireBody = Color3.fromRGB(225, 230, 240), FutureSpireGlow = c.accent}
+ end},
 }
 
 local function getTemplate(definition)
@@ -680,12 +852,14 @@ local function placeMesh(theme, frame, template, definition, c, position, scale,
  local model = template:Clone()
  local colors = definition.colors(c, variant)
  local materials = definition.materials or {}
+ local transparency = definition.transparency or {}
  for _, part in model:GetDescendants() do
   if part:IsA("BasePart") then
    part.Anchored = true
    part.CanCollide, part.CanTouch, part.CanQuery = false, false, false
    part.Color = colors[part.Name] or part.Color
    part.Material = materials[part.Name] or part.Material
+   part.Transparency = transparency[part.Name] or part.Transparency
   end
  end
  -- Vary heading and size so repeated meshes do not look stamped. Props that must face
@@ -721,11 +895,11 @@ local function buildScenery(theme, frame, kit, config, section, runwayWidth, len
    local template = getTemplate(definition)
    if template then
     placeMesh(theme, frame, template, definition, c, position, config.propScale, variant)
-   else
+   elseif Props[kind] then
     placeProp(theme, frame, kind, position, config.propScale, function(propKit)
      Props[kind](propKit, position, c, variant, side)
     end)
-   end
+   end -- (A mesh-only prop whose model is not imported yet is skipped.)
    local fillerPosition = Vector3.new(side * (deckInner + 30), deckTop, -(d + length / count / 2))
    local fillers = section.fillers or DEFAULT_FILLERS
    local fillerDefinition = MESH_PROPS[fillers[variant % #fillers + 1]]
@@ -746,7 +920,7 @@ local function buildScenery(theme, frame, kit, config, section, runwayWidth, len
    local variant = index + section.order
    if backdropTemplate then
     placeMesh(theme, frame, backdropTemplate, backdropDefinition, c, position, backdropDefinition.scale, variant)
-   else
+   elseif Backdrops[section.backdrop] then
     Backdrops[section.backdrop](kit, position, c, variant, side)
    end
   end
@@ -811,7 +985,8 @@ function RunwayDecor.Build(field, world, frame)
   local kit = newKit(theme, frame)
   local c = palette(section)
   local length = section.endDistance - section.startDistance
-  buildSides(kit, config, runwayWidth, section.startDistance, length, c, section.deckMaterial, true, section.wallTileColor)
+  buildSides(kit, config, runwayWidth, section.startDistance, length, c, section.deckMaterial, true, section.wallTileColor,
+   section.deckColor)
   buildFloor(kit, section, runwayWidth, length, c)
   buildScenery(theme, frame, kit, config, section, runwayWidth, length, c)
   -- The first title floats a little downfield so it is not directly over the batter.
@@ -834,7 +1009,16 @@ function RunwayDecor.Build(field, world, frame)
     (row + column) % 2 == 0 and WHITE or Color3.fromRGB(30, 30, 40))
   end
  end
- buildTitle(kit, world.endDistance, string.upper(world.displayName) .. " FINISH", last)
+ if world.endPortal then
+  -- The World's end: a giant time portal across the runway, facing the tee. BallLauncher pulls
+  -- a ball that reaches it into the opening (GateCenter, saved on the field).
+  local base = frame * CFrame.new(0, 0, -world.endDistance) * CFrame.Angles(0, math.pi, 0)
+  local _, center, radius = Portal.BuildGate(finish, base, world.endPortal.height)
+  field:SetAttribute("GateCenter", center)
+  field:SetAttribute("GateRadius", radius)
+ else
+  buildTitle(kit, world.endDistance, string.upper(world.displayName) .. " FINISH", last)
+ end
 end
 
 -- Places one mesh prop or backdrop by kind (MESH_PROPS / BACKDROP_MESHES) away from a runway,

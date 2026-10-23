@@ -191,6 +191,9 @@ local function buildField(world)
  if existing then existing:Destroy() end
  local field = Instance.new("Model")
  field.Name = world.fieldName
+ -- The whole runway (ground, scenery, end portal) is sent to every client at join and never
+ -- streamed out, so a long hit's camera never outruns it.
+ field.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
  local ground = Instance.new("Folder")
  ground.Name = "Ground"
  ground.Parent = field

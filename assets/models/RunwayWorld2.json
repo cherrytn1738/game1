@@ -1,0 +1,206 @@
+{
+ "Cycad": [
+  "CycadTrunk",
+  "CycadFronds",
+  "CycadFrondsLight"
+ ],
+ "DinoNest": [
+  "NestTwigs",
+  "NestEggs",
+  "NestSpots"
+ ],
+ "Fossil": [
+  "FossilRock",
+  "FossilBone",
+  "FossilSockets"
+ ],
+ "Brontosaurus": [
+  "BrontoBody",
+  "BrontoBelly",
+  "BrontoEyes"
+ ],
+ "StoneHut": [
+  "HutStones",
+  "HutThatch",
+  "HutDoor",
+  "HutPoles"
+ ],
+ "TuskArch": [
+  "TuskIvory",
+  "TuskBase",
+  "TuskStrap"
+ ],
+ "Campfire": [
+  "CampfireStones",
+  "CampfireLogs",
+  "CampfireFlame",
+  "CampfireMeat"
+ ],
+ "Megalith": [
+  "MegalithStone",
+  "MegalithMoss"
+ ],
+ "Obelisk": [
+  "ObeliskStone",
+  "ObeliskGold",
+  "ObeliskGlyphs"
+ ],
+ "Sphinx": [
+  "SphinxStone",
+  "SphinxPlinth",
+  "SphinxGold",
+  "SphinxStripes"
+ ],
+ "ScarabPillar": [
+  "PillarStone",
+  "PillarBands",
+  "PillarScarab"
+ ],
+ "Pyramid": [
+  "PyramidStone",
+  "PyramidCap",
+  "PyramidSteps"
+ ],
+ "GreekColumn": [
+  "ColumnMarble",
+  "ColumnGold",
+  "ColumnVine"
+ ],
+ "Amphora": [
+  "AmphoraClay",
+  "AmphoraBands",
+  "AmphoraPlinth"
+ ],
+ "HeroStatue": [
+  "StatueMarble",
+  "StatuePlinth",
+  "StatueGold"
+ ],
+ "Temple": [
+  "TempleMarble",
+  "TempleRoof",
+  "TempleGold",
+  "TempleCella"
+ ],
+ "Longship": [
+  "LongshipHull",
+  "LongshipSail",
+  "LongshipStripes",
+  "LongshipShieldsA",
+  "LongshipShieldsB",
+  "LongshipMetal",
+  "LongshipTrim"
+ ],
+ "RuneStone": [
+  "RuneStoneRock",
+  "RuneStoneGlow",
+  "RuneStoneMoss"
+ ],
+ "ShieldRack": [
+  "RackWood",
+  "RackShieldsA",
+  "RackShieldsB",
+  "RackMetal"
+ ],
+ "Torii": [
+  "ToriiRed",
+  "ToriiBlack",
+  "ToriiGold"
+ ],
+ "StoneLantern": [
+  "LanternStone",
+  "LanternGlow",
+  "LanternMoss"
+ ],
+ "CherryTree": [
+  "CherryTrunk",
+  "CherryBlossom",
+  "CherryBlossomLight",
+  "CherryPetals"
+ ],
+ "Pagoda": [
+  "PagodaWalls",
+  "PagodaRoofs",
+  "PagodaGold",
+  "PagodaStone"
+ ],
+ "Banner": [
+  "BannerPole",
+  "BannerCloth",
+  "BannerEmblem",
+  "BannerTrim"
+ ],
+ "Catapult": [
+  "CatapultWood",
+  "CatapultMetal",
+  "CatapultRock"
+ ],
+ "ArmorStand": [
+  "ArmorWood",
+  "ArmorSteel",
+  "ArmorPlume",
+  "ArmorGold",
+  "ArmorVisor"
+ ],
+ "Castle": [
+  "CastleStone",
+  "CastleRoofs",
+  "CastleFlags",
+  "CastleDoor"
+ ],
+ "WaterTower": [
+  "TowerWood",
+  "TowerTank",
+  "TowerBands",
+  "TowerRoof"
+ ],
+ "Wagon": [
+  "WagonWood",
+  "WagonCanvas",
+  "WagonWheels",
+  "WagonIron"
+ ],
+ "Barrels": [
+  "BarrelWood",
+  "BarrelBands",
+  "BarrelCrate"
+ ],
+ "GearTower": [
+  "GearBrass",
+  "GearCopper",
+  "GearSteel"
+ ],
+ "PipeWorks": [
+  "PipeCopper",
+  "PipeBrass",
+  "PipeSteel",
+  "PipeGauge",
+  "PipeSteam"
+ ],
+ "Smokestack": [
+  "StackBrick",
+  "StackBands",
+  "StackSmoke",
+  "StackRoof",
+  "StackWindows"
+ ],
+ "TimeRing": [
+  "TimeRingMetal",
+  "TimeRingGlow",
+  "TimeRingBase"
+ ],
+ "Hourglass": [
+  "HourglassFrame",
+  "HourglassGlass",
+  "HourglassSand"
+ ],
+ "HoloClock": [
+  "HoloClockRing",
+  "HoloClockHands",
+  "HoloClockCore"
+ ],
+ "FutureSpire": [
+  "FutureSpireBody",
+  "FutureSpireGlow"
+ ]
+}

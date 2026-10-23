@@ -11,7 +11,15 @@ local Progress = require(script.Parent:WaitForChild("WorldProgress"))
 
 local CASH_PER_STUD = 1
 local FLIGHT_SPEEDUP = 2
+-- The giant portal at a runway's end (WorldConfig endPortal, built by RunwayDecor): a ball that
+-- reaches the endpoint is pulled into its opening over this long, spiralling in, and the hit
+-- counts as reaching the endpoint.
+local PORTAL_SUCTION_SECONDS = 1.4
+local PORTAL_SWIRL_RADIUS = 14
 local BallLauncher = {}
+-- Set by BattingTimingServer: called with (player, world, nextWorld) when a hit through a
+-- World's end portal completes it for the first time, to play the trip to the next World.
+BallLauncher.OnPortalJourney = nil
 local stations = {}
 
 local function teeFrame(station)
@@ -26,7 +34,7 @@ local function resetBall(station)
  ball.CFrame = teeFrame(station)
  ball:SetAttribute("BallState", "Ready")
  for _, name in {"LaunchLevel", "LaunchAngleDegrees", "LaunchSpeed", "CurrentSectionId",
-  "LegendaryHitUserId", "LegendaryLaunchAt", "MythicHitUserId", "MythicLaunchAt"} do
+  "LegendaryHitUserId", "LegendaryLaunchAt", "MythicHitUserId", "MythicLaunchAt", "PortalCaptured"} do
   ball:SetAttribute(name, nil)
  end
 end
@@ -142,6 +150,7 @@ local function launch(station, hit)
  local rayParams = RaycastParams.new()
  rayParams.FilterType = Enum.RaycastFilterType.Include
  rayParams.FilterDescendantsInstances = {station.field.Ground}
+ local gateCenter = world.endPortal and station.field:GetAttribute("GateCenter")
 
  local function sample(position, grounded)
   local section = Field.GetSectionAtPosition(position, origin, forward, world)
@@ -214,6 +223,24 @@ local function launch(station, hit)
    ReplicatedStorage.BattingTiming:FireClient(player, tool, {kind = "Distance", distanceResult = final, cashEarned = result.cashEarned or 0})
   end
   cleanup(station, hit)
+  -- Through the portal for the first time (or, in Studio, with the Workspace attribute
+  -- ForcePortalJourney for repeat testing): the trip to the next World.
+  local nextWorld = world.nextWorldId and Worlds.Get(world.nextWorldId)
+  local forced = RunService:IsStudio() and Workspace:GetAttribute("ForcePortalJourney") == true
+  if reason == "portal" and nextWorld and (final.worldCompletionMessage or forced) and BallLauncher.OnPortalJourney
+   and player.Parent == Players and player:GetAttribute("WorldUnlocked_" .. nextWorld.id) == true then
+   BallLauncher.OnPortalJourney(player, world, nextWorld)
+  end
+ end
+
+ -- The ball's way into the portal: from where it crossed the endpoint to the opening's centre,
+ -- speeding up and spiralling tighter about the runway's axis.
+ local function suctionPoint(capture, t)
+  local ease = t * t
+  local right = forward:Cross(Vector3.yAxis)
+  local angle = ease * 4 * math.pi
+  local swirl = (right * math.cos(angle) + Vector3.yAxis * math.sin(angle)) * PORTAL_SWIRL_RADIUS * math.sin(math.pi * t)
+  return capture.from:Lerp(gateCenter, ease) + swirl
  end
 
  -- Preserve the Milestone 9 fast-bounce contact fix. Contact records a landing,
@@ -226,11 +253,30 @@ local function launch(station, hit)
   local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
   if not PlayerData.IsReady(player) or player.Character ~= hit.character or not h or h.Health <= 0
    or player:GetAttribute("CurrentWorldId") ~= world.id then cleanup(station, hit) return end
+  if hit.capture then
+   local t = math.min(1, (os.clock() - hit.capture.startedAt) / PORTAL_SUCTION_SECONDS)
+   ball.CFrame = CFrame.new(suctionPoint(hit.capture, t))
+   if t >= 1 then finish("portal", false) end
+   return
+  end
   local position, velocity = ball.Position, ball.AssemblyLinearVelocity
   local speed = hit.speed
   simulationSeconds += dt * speed
   if position.Magnitude ~= position.Magnitude or velocity.Magnitude ~= velocity.Magnitude
    or position.Magnitude == math.huge or velocity.Magnitude == math.huge then finish("invalid physics", true) return end
+  -- Reaching the endpoint, at any height, the portal takes the ball: the hit is measured at
+  -- the endpoint (the World's full distance, in its last section).
+  if gateCenter and Field.GetSectionAtPosition(position, origin, forward, world)
+   and Field.GetForwardDistance(position, origin, forward) >= world.endDistance then
+   hit.capture = {from = position, startedAt = os.clock()}
+   ball.Anchored = true
+   ball:SetAttribute("PortalCaptured", true)
+   lastGroundPosition, lastGroundDistance = gateCenter, world.endDistance
+   firstGroundDistance = firstGroundDistance or world.endDistance
+   farthestDistance = math.max(farthestDistance, world.endDistance)
+   farthestSection = Field.GetSection(world.endDistance, world)
+   return
+  end
   local contact = Workspace:Raycast(position, -Vector3.yAxis * (ball.Size.Y / 2 + 0.1), rayParams)
   local section = sample(position, contact ~= nil)
   local grounded = section ~= nil and contact ~= nil

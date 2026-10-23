@@ -96,12 +96,16 @@ local SURFACES = {
  hard = {bounce = "BallBounceHardSound", grass = 0, bedPitch = 1.15, bedHigh = -15},
  glassy = {bounce = "BallBounceHardSound", accent = "BallBounceGlassySound", grass = 0, bedPitch = 1.3, bedHigh = -11},
 }
--- World 1's themed runway sections (WorldConfig); anything else goes by the floor's material,
+-- The themed runway sections of both Worlds (WorldConfig); anything else goes by the floor's material,
 -- then falls back to soft.
 local SECTION_SURFACES = {
  grass = "soft", jungle = "soft", desert = "soft",
  snow = "glassy", stone = "glassy", neon = "glassy", cosmic = "glassy",
  candy = "hard", lava = "hard", sky = "hard",
+ -- World 2.
+ prehistoric = "soft", stoneage = "soft", samurai = "soft", frontier = "soft",
+ egypt = "hard", greek = "hard", viking = "hard", knight = "hard", foundry = "hard",
+ chrono = "glassy",
 }
 local MATERIAL_SURFACES = {
  [Enum.Material.Glass] = "glassy", [Enum.Material.Ice] = "glassy", [Enum.Material.Glacier] = "glassy",

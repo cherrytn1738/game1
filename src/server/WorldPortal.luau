@@ -42,13 +42,13 @@ local function prepare(part, collide)
  part.CanCollide, part.CanQuery, part.CanTouch = collide == true, collide == true, false
 end
 
-local function placeModel(template, base)
+local function placeModel(template, base, height, solid)
  local model = template:Clone()
  model.Name = "PortalModel"
  for _, part in model:GetDescendants() do
   if part:IsA("BasePart") then
    local look = LOOKS[part.Name]
-   prepare(part, look and look.collide)
+   prepare(part, solid ~= false and look and look.collide)
    if look then
     part.Color, part.Material = look.color, look.material
     if look.spin then
@@ -58,17 +58,17 @@ local function placeModel(template, base)
     if look.pulse then part:SetAttribute("Pulse", look.pulse) end
     if look.light then
      local light = Instance.new("PointLight")
-     light.Color, light.Range, light.Brightness, light.Shadows = look.color, 12, 1.5, false
+     light.Color, light.Range, light.Brightness, light.Shadows = look.color, math.min(60, height * 0.5), 1.5, false
      light.Parent = part
     end
    end
   end
  end
- -- Stand the model's bounding-box bottom centre on the pad, scaled to HEIGHT. The imported
- -- model faces its -Z, which is the hub frame's -Z (toward the spawn and tee).
+ -- Stand the model's bounding-box bottom centre on the base, scaled to height. The imported
+ -- model faces its -Z, which is the base's -Z.
  local box, size = model:GetBoundingBox()
  model.WorldPivot = CFrame.new(box.Position - Vector3.new(0, size.Y / 2, 0))
- model:ScaleTo(model:GetScale() * HEIGHT / size.Y)
+ model:ScaleTo(model:GetScale() * height / size.Y)
  model:PivotTo(base)
  return model
 end
@@ -107,7 +107,7 @@ function Portal.Build(hub, frame, pad)
  local base = frame * CFrame.new(pad.center) * CFrame.Angles(0, pad.yaw or 0, 0)
  local assets = ServerStorage:FindFirstChild("RunwayAssets")
  local template = assets and assets:FindFirstChild("WorldPortal")
- local model = template and placeModel(template, base) or placeholder(base)
+ local model = template and placeModel(template, base, HEIGHT) or placeholder(base)
  model.Parent = portal
 
  -- The trigger fills the opening, a little deeper than the frame, down to the pad.
@@ -148,6 +148,31 @@ function Portal.Build(hub, frame, pad)
 
  portal.Parent = hub
  return portal
+end
+
+-- A giant copy of the portal standing on base (its front facing base's -Z), height studs
+-- tall, with nothing solid so a ball can fly or roll in. Its moving parts keep their Spin
+-- attributes (PortalJourneyClient animates them). Returns the model, the opening's centre
+-- (world space) and its radius.
+function Portal.BuildGate(parent, base, height)
+ local assets = ServerStorage:FindFirstChild("RunwayAssets")
+ local template = assets and assets:FindFirstChild("WorldPortal")
+ local model
+ if template then
+  model = placeModel(template, base, height, false)
+ else
+  model = placeholder(base)
+  model.WorldPivot = base
+  model:ScaleTo(height / HEIGHT)
+ end
+ model.Name = "EndPortal"
+ local vortex = model:FindFirstChild("PortalVortex", true)
+ local center = vortex and vortex.Position or (base * CFrame.new(0, height * 0.46, 0)).Position
+ local radius = vortex and math.max(vortex.Size.X, vortex.Size.Y, vortex.Size.Z) / 2 or height * 0.38
+ model:SetAttribute("OpeningCenter", center)
+ model:SetAttribute("OpeningRadius", radius)
+ model.Parent = parent
+ return model, center, radius
 end
 
 return Portal

@@ -393,9 +393,11 @@ Remote.OnClientEvent:Connect(function(_, message)
   task.delay(1.8,function() if version == popupVersion then hideCashPopup() refresh() end end)
  end
  refresh()
- -- A World unlock is the bigger payoff, so it replaces the routine Cash confirmation.
+ -- A World unlock is the bigger payoff, so it replaces the routine Cash confirmation. A ball
+ -- through the end portal gets the portal cinematic's own music instead (PortalJourneyClient).
+ local portal = final.finishReason == "portal"
  if final.worldCompletionMessage then
-  GameAudio.Play("WorldUnlock")
+  if not portal then GameAudio.Play("WorldUnlock") end
   UI.Notify(final.worldCompletionMessage,"unlock")
  elseif earned > 0 then
   GameAudio.Play("CashReward")
