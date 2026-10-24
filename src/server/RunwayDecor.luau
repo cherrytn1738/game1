@@ -1245,7 +1245,7 @@ function RunwayDecor.Build(field, world, frame)
   -- The World's end: a giant time portal across the runway, facing the tee. BallLauncher pulls
   -- a ball that reaches it into the opening (GateCenter, saved on the field).
   local base = frame * CFrame.new(0, 0, -world.endDistance) * CFrame.Angles(0, math.pi, 0)
-  local _, center, radius = Portal.BuildGate(finish, base, world.endPortal.height)
+  local _, center, radius = Portal.BuildGate(finish, base, world.endPortal.height, world.portalModel)
   field:SetAttribute("GateCenter", center)
   field:SetAttribute("GateRadius", radius)
  else

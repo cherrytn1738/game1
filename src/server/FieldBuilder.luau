@@ -117,7 +117,7 @@ local function buildHub(world, area)
   ItemDisplay.Build(hub, frame, display, world.id)
  end
  if config.portalPad then
-  WorldPortal.Build(hub, frame, config.portalPad)
+  WorldPortal.Build(hub, frame, config.portalPad, world.portalModel)
  end
  -- This World's row of Training Grounds (TrainingConfig.Hubs).
  local layout = Training.GetHub(world.id)

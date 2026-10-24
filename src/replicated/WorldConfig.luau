@@ -91,6 +91,10 @@ local Worlds = {
    -- Same hub layout as World 1 (TrainingConfig places World 2's cages in the same row), with
    -- spawn 60 studs behind this World's tee.
    offset = Vector3.new(8000, 0, 0), arrival = CFrame.new(7982.8, 4, 38.8), nextWorldId = "world_3",
+   -- World 2's portals (the hub's World portal and the giant one at the runway's end) lead on to
+   -- World 3, so they wear its look (WorldPortal: RunwayAssets.FuturePortal); the other Worlds
+   -- use the clockwork time portal.
+   portalModel = "FuturePortal",
    hub = {name = "World2Hub", left = 136, right = 86, depth = 222,
     -- Scenery style (HubDecor): a sunken clockwork plaza with a giant clock face, a clock tower
     -- and monuments from the eras ahead.

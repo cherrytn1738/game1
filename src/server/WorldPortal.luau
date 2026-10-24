@@ -1,6 +1,8 @@
 -- The World portal on a hub's portal pad (WorldConfig hub.portalPad), in FieldBuilder's hub
 -- frame. The model is ServerStorage.RunwayAssets.WorldPortal (Studio-managed, from
--- tools/blender/world_portal.py), or a plain octagon of parts until it is imported. An
+-- tools/blender/world_portal.py), the clockwork time portal, or the World's own portalModel
+-- (FuturePortal, from tools/blender/future_portal.py, in World 2, whose portals lead on to
+-- World 3), or a plain octagon of parts until it is imported. An
 -- invisible Trigger fills the opening; stepping into it opens the Worlds menu on that client
 -- (WorldTravelClient), and travel itself stays the server-checked World Travel request.
 -- Parts with Spin/Pulse attributes are animated on each client (TrainingStadiumClient).
@@ -16,9 +18,14 @@ local VORTEX = Color3.fromRGB(34, 168, 214)
 local SWIRL = Color3.fromRGB(160, 242, 255)
 local M = Enum.Material
 
--- Looks for the Blender model's meshes, by name: color, material, and optional motion
--- (Spin in degrees per second about SpinAxis in part space; the portal faces its part Z).
-local LOOKS = {
+-- Looks for each portal model's meshes, by name: color, material, and optional motion
+-- (Spin in degrees per second about axis in part space, Z by default: the portal faces its
+-- part Z, and part Y is up). PortalVortex is the opening in every model.
+local WHITE = Color3.fromRGB(240, 243, 248)
+local GUNMETAL = Color3.fromRGB(62, 70, 88)
+local CYAN = Color3.fromRGB(100, 232, 255)
+local LOOKS = {}
+LOOKS.WorldPortal = {
  PortalFrame = {color = BRASS, material = M.SmoothPlastic},
  PortalBands = {color = IRON, material = M.Metal},
  PortalRivets = {color = Color3.fromRGB(255, 222, 140), material = M.SmoothPlastic},
@@ -36,24 +43,46 @@ local LOOKS = {
  PortalVortex = {color = VORTEX, material = M.Neon},
  PortalSwirl = {color = SWIRL, material = M.Neon, spin = -70},
 }
+-- World 3's look: a white ring with glowing clamps, a turning halo of light, a crystal core and
+-- a violet vortex.
+LOOKS.FuturePortal = {
+ FuturePortalRing = {color = WHITE, material = M.SmoothPlastic},
+ FuturePortalTrim = {color = GUNMETAL, material = M.Metal},
+ FuturePortalGlow = {color = CYAN, material = M.Neon, pulse = 0.5, light = true},
+ FuturePortalHalo = {color = CYAN, material = M.Neon, spin = 25},
+ FuturePortalCore = {color = Color3.fromRGB(255, 110, 230), material = M.Neon, spin = 60, axis = Vector3.yAxis},
+ FuturePortalBase = {color = GUNMETAL, material = M.SmoothPlastic, collide = true},
+ FuturePortalSteps = {color = CYAN, material = M.Neon},
+ PortalVortex = {color = Color3.fromRGB(96, 52, 220), material = M.Neon},
+ PortalSwirl = {color = Color3.fromRGB(235, 160, 255), material = M.Neon, spin = -70},
+}
 
 local function prepare(part, collide)
  part.Anchored = true
  part.CanCollide, part.CanQuery, part.CanTouch = collide == true, collide == true, false
 end
 
+-- The portal template a World uses (its portalModel, else the clockwork WorldPortal), and its looks.
+local function templateFor(modelName)
+ local assets = ServerStorage:FindFirstChild("RunwayAssets")
+ local template = assets and assets:FindFirstChild(modelName or "WorldPortal")
+ if not template and modelName then template = assets and assets:FindFirstChild("WorldPortal") end
+ return template
+end
+
 local function placeModel(template, base, height, solid)
  local model = template:Clone()
  model.Name = "PortalModel"
+ local looks = LOOKS[template.Name] or LOOKS.WorldPortal
  for _, part in model:GetDescendants() do
   if part:IsA("BasePart") then
-   local look = LOOKS[part.Name]
+   local look = looks[part.Name]
    prepare(part, solid ~= false and look and look.collide)
    if look then
     part.Color, part.Material = look.color, look.material
     if look.spin then
      part:SetAttribute("Spin", look.spin)
-     part:SetAttribute("SpinAxis", Vector3.zAxis)
+     part:SetAttribute("SpinAxis", look.axis or Vector3.zAxis)
     end
     if look.pulse then part:SetAttribute("Pulse", look.pulse) end
     if look.light then
@@ -97,16 +126,16 @@ local function placeholder(base)
  return model
 end
 
--- Builds hub.WorldPortal (rebuilt each time) on the pad. Returns the portal model.
-function Portal.Build(hub, frame, pad)
+-- Builds hub.WorldPortal (rebuilt each time) on the pad, as modelName (nil: the clockwork
+-- portal). Returns the portal model.
+function Portal.Build(hub, frame, pad, modelName)
  local old = hub:FindFirstChild("WorldPortal")
  if old then old:Destroy() end
  local portal = Instance.new("Model")
  portal.Name = "WorldPortal"
  -- pad.yaw turns the portal from facing the hub frame's -Z (toward the tee).
  local base = frame * CFrame.new(pad.center) * CFrame.Angles(0, pad.yaw or 0, 0)
- local assets = ServerStorage:FindFirstChild("RunwayAssets")
- local template = assets and assets:FindFirstChild("WorldPortal")
+ local template = templateFor(modelName)
  local model = template and placeModel(template, base, HEIGHT) or placeholder(base)
  model.Parent = portal
 
@@ -150,13 +179,12 @@ function Portal.Build(hub, frame, pad)
  return portal
 end
 
--- A giant copy of the portal standing on base (its front facing base's -Z), height studs
--- tall, with nothing solid so a ball can fly or roll in. Its moving parts keep their Spin
--- attributes (PortalJourneyClient animates them). Returns the model, the opening's centre
--- (world space) and its radius.
-function Portal.BuildGate(parent, base, height)
- local assets = ServerStorage:FindFirstChild("RunwayAssets")
- local template = assets and assets:FindFirstChild("WorldPortal")
+-- A giant copy of the portal (modelName, nil: the clockwork portal) standing on base (its
+-- front facing base's -Z), height studs tall, with nothing solid so a ball can fly or roll
+-- in. Its moving parts keep their Spin attributes (PortalJourneyClient animates them).
+-- Returns the model, the opening's centre (world space) and its radius.
+function Portal.BuildGate(parent, base, height, modelName)
+ local template = templateFor(modelName)
  local model
  if template then
   model = placeModel(template, base, height, false)
