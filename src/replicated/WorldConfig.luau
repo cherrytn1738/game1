@@ -1,46 +1,74 @@
 -- World IDs are persistent ownership keys. Sections are scoped to their world.
+
+-- Every World's batting station is a copy of World 1's moved by the World's offset; World 1's
+-- tee (the hub frame's origin, FieldBuilder) stands here on the ground.
+local TEE = Vector3.new(-17.2, 0, -21.2)
+
+-- ---------- Shared hub layout ----------
+-- Every World's hub follows one compact layout, so a player knows where everything is in any
+-- World. It is given in FieldBuilder's hub frame: origin at the tee, +Z back into the hub, +X
+-- to the right when facing down the runway. The spawn stands just behind the batting area,
+-- looking INTO the hub (+Z) with the runway behind it, so from the spawn LEFT is +X and RIGHT
+-- is -X:
+--   front   the batting circle round the tee, the runway beyond it (behind the spawn)
+--   left    the World's row of six Training Grounds, the first nearest the batting area
+--           (TrainingConfig.Row: plates at x 56, z 18-183; cage scenery reaches x 36-113)
+--   right   the item displays, balls then bats, side by side facing the middle (x -36 to -51)
+--   middle  an open plaza (x -26 to 26) with a path from the spawn to the back, and the
+--           World's event piece (eventArea) halfway along it
+--   back    the World portal in the middle (portalPad); World 1's global leaderboards stand
+--           either side of it (leaderboards), and the other Worlds keep those spots open
+-- The hub floor spans x minX..maxX and z 0..depth. Only the Training Grounds' side reaches
+-- past the runway (x -86..86 with its walls).
+local SPAWN = Vector3.new(0, 4, 30)
+local function arrival(offset)
+ return CFrame.new(TEE + offset + SPAWN) * CFrame.Angles(0, math.pi, 0) -- facing +Z, into the hub
+end
+local function hubLayout(name, theme, ballSeries, ballTitle)
+ return {name = name, minX = -56, maxX = 118, depth = 220, theme = theme, spawn = SPAWN,
+  promptDistance = 10,
+  -- The physical stations are removed for now (their menus stay reachable from the HUD where a
+  -- button exists); to restore one, add it here:
+  --   {id = "Shop", actionText = "Open Equipment Shop", position = Vector3.new(-20, 0, 60), size = Vector3.new(28, 0.1, 24)},
+  interactions = {},
+  -- Physical item displays (ItemDisplay): one pedestal per item of one EquipmentConfig purchase
+  -- series (series; nil is the category's main series), in stepped rows of perRow; position is
+  -- the centre of the front row's edge, and yaw turns the display to face the middle (+X).
+  -- Each row of 5 is about 35 studs wide. Items show RunwayAssets.DisplayItems.<item id> when
+  -- that model exists, otherwise a placeholder. Bats stand upright, so theirs are taller.
+  displays = {
+   {id = "BallDisplay", category = "Ball", series = ballSeries, title = ballTitle, subtitle = "Earn more Cash per hit",
+    position = Vector3.new(-36, 0, 86), yaw = math.pi / 2, perRow = 5},
+   {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
+    position = Vector3.new(-36, 0, 126), yaw = math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
+  },
+  -- HubDecor marks these: the World's event piece in the middle of the plaza (kept flat so it
+  -- never hides the portal), and the pad of the World portal (WorldPortal), facing the spawn
+  -- (yaw 0). Stepping into the portal opens the Worlds menu.
+  eventArea = {center = Vector3.new(0, 0, 118), size = 40},
+  portalPad = {center = Vector3.new(0, 0, 205), radius = 12, yaw = 0}}
+end
+
+-- The starting World's hub also holds the global leaderboards (Leaderboards), two either side
+-- of the portal, each turned toward `facing` so the four read as one curved wall from the
+-- plaza. Left to right from the spawn: Level, Time Played | portal | Robux Spent, Cash.
+local world1Hub = hubLayout("World1Hub", "HomeField", nil, "BALLS")
+world1Hub.leaderboards = {facing = Vector3.new(0, 0, 90), boards = {
+ {stat = "Level", position = Vector3.new(37, 0, 207)},
+ {stat = "TimePlayed", position = Vector3.new(22, 0, 207)},
+ {stat = "RobuxSpent", position = Vector3.new(-22, 0, 207)},
+ {stat = "Cash", position = Vector3.new(-37, 0, 207)},
+}}
+
 local Worlds = {
  StartingWorldId = "world_1",
  Worlds = {
   {id = "world_1", displayName = "World 1", title = "Home Field", order = 1, endDistance = 5000,
    stationName = "BattingArea", fieldName = "LongRangeField",
-   -- Hub extends behind the existing tee at (-17.2, 0, -21.2); forward is -Z.
-   -- Layout (hub-relative, +Z back into the hub): the Training Grounds stand in one row down
-   -- the left side (TrainingConfig: plates at x -78, depth 34-199; their scenery reaches
-   -- x ~-134 to -57), and the World portal and the item displays stand in one line on the right
-   -- (front edge x 60, z 45 / 95 / 145), facing them across the middle, which is kept open for
-   -- events. The hub reaches 136 studs left of the tee line but only 86 right, just past the
-   -- displays, and 222 back, just past the last cage. Spawn is 60 studs behind the tee.
-   offset = Vector3.zero, arrival = CFrame.new(-17.2, 4, 38.8), nextWorldId = "world_2",
-   hub = {name = "World1Hub", left = 136, right = 86, depth = 222,
-    -- Scenery style (HubDecor): a sunken ballpark with stands, a berm and a scoreboard.
-    theme = "HomeField",
-    promptDistance = 10,
-    -- Positions relative to the batting edge: +Z is back into the hub. The physical
-    -- stations are removed for now (their menus stay reachable from the HUD where a button
-    -- exists); to restore one, uncomment it:
-    --   {id = "Shop", actionText = "Open Equipment Shop", position = Vector3.new(-70, 0, 65), size = Vector3.new(28, 0.1, 24)},
-    --   {id = "Travel", actionText = "Open World Travel", position = Vector3.new(35, 0, 120), size = Vector3.new(14, 0.1, 12)},
-    --   {id = "Rebirth", actionText = "View Rebirth", objectText = "Rebirth", position = Vector3.new(-35, 0, 120), size = Vector3.new(8, 0.1, 8)},
-    interactions = {},
-    -- Physical item displays (ItemDisplay): one pedestal per item of one EquipmentConfig
-    -- purchase series (series; nil is the category's main series), in stepped rows of perRow;
-    -- position is the centre of the front row's edge.
-    -- Items show RunwayAssets.DisplayItems.<item id> when that model exists, otherwise a
-    -- placeholder in the item's appearance colours. Both stand on the right side in two rows of
-    -- 5 (about 35 studs wide), turned (yaw) to face the Training Grounds across the middle.
-    -- Bats stand upright, so their display uses taller items.
-    displays = {
-     {id = "BallDisplay", category = "Ball", title = "BALLS", subtitle = "Earn more Cash per hit",
-      position = Vector3.new(60, 0, 95), yaw = -math.pi / 2, perRow = 5},
-     {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
-      position = Vector3.new(60, 0, 145), yaw = -math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
-    },
-    -- HubDecor marks these: an infield diamond for events in the middle, and the pad of the World
-    -- portal (WorldPortal), in line with the displays and turned (yaw) to face the middle. Stepping
-    -- into it opens the Worlds menu.
-    eventArea = {center = Vector3.new(0, 0, 125), size = 56},
-    portalPad = {center = Vector3.new(62.5, 0, 45), radius = 12, yaw = math.pi / 2}},
+   -- The shared hub layout (above), styled as a sunken ballpark with stands, a berm and a
+   -- scoreboard (HubDecor "HomeField").
+   offset = Vector3.zero, arrival = arrival(Vector3.zero), nextWorldId = "world_2",
+   hub = world1Hub,
    runoutDistance = 2000,
    -- A giant time portal stands at the endpoint (RunwayDecor); a ball that reaches it is pulled
    -- in, completing the World, and the batter is pulled through to the next World (PortalJourney).
@@ -88,30 +116,15 @@ local Worlds = {
    }},
   {id = "world_2", displayName = "World 2", title = "Time Travel", order = 2, endDistance = 6000,
    stationName = "BattingArea2", fieldName = "LongRangeField2",
-   -- Same hub layout as World 1 (TrainingConfig places World 2's cages in the same row), with
-   -- spawn 60 studs behind this World's tee.
-   offset = Vector3.new(8000, 0, 0), arrival = CFrame.new(7982.8, 4, 38.8), nextWorldId = "world_3",
+   offset = Vector3.new(8000, 0, 0), arrival = arrival(Vector3.new(8000, 0, 0)), nextWorldId = "world_3",
    -- World 2's portals (the hub's World portal and the giant one at the runway's end) lead on to
    -- World 3, so they wear its look (WorldPortal: RunwayAssets.FuturePortal); the other Worlds
    -- use the clockwork time portal.
    portalModel = "FuturePortal",
-   hub = {name = "World2Hub", left = 136, right = 86, depth = 222,
-    -- Scenery style (HubDecor): a sunken clockwork plaza with a giant clock face, a clock tower
-    -- and monuments from the eras ahead.
-    theme = "TimeTravel",
-    promptDistance = 10,
-    interactions = {},
-    -- World 2 sells its own ball series (EquipmentConfig Ball series "world_2"); bats are the
-    -- same in every World.
-    displays = {
-     {id = "BallDisplay", category = "Ball", series = "world_2", title = "TIME TRAVEL BALLS", subtitle = "Earn more Cash per hit",
-      position = Vector3.new(60, 0, 95), yaw = -math.pi / 2, perRow = 5},
-     {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
-      position = Vector3.new(60, 0, 145), yaw = -math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
-    },
-    eventArea = {center = Vector3.new(0, 0, 125), size = 56},
-    -- The World portal, placed as in World 1.
-    portalPad = {center = Vector3.new(62.5, 0, 45), radius = 12, yaw = math.pi / 2}},
+   -- The shared hub layout (above), styled as a sunken clockwork plaza with a giant clock face, a
+   -- clock tower and monuments from the eras ahead (HubDecor "TimeTravel"). World 2 sells its own ball series (EquipmentConfig Ball series "world_2"); bats are
+   -- the same in every World.
+   hub = hubLayout("World2Hub", "TimeTravel", "world_2", "TIME TRAVEL BALLS"),
    runoutDistance = 2000,
    -- The same portal ends World 2 and pulls the batter through to World 3.
    endPortal = {height = 360},
@@ -168,22 +181,10 @@ local Worlds = {
    }},
   {id = "world_3", displayName = "World 3", title = "Future World", order = 3, endDistance = 7000,
    stationName = "BattingArea3", fieldName = "LongRangeField3",
-   -- Same hub layout as the other Worlds, with spawn 60 studs behind this World's tee.
-   offset = Vector3.new(16000, 0, 0), arrival = CFrame.new(15982.8, 4, 38.8),
-   hub = {name = "World3Hub", left = 136, right = 86, depth = 222,
-    -- Scenery style (HubDecor): a sunken spaceport plaza with glowing seams, a hologram stage,
-    -- a beacon tower and the skyline of the future on the berm.
-    theme = "Future",
-    promptDistance = 10,
-    interactions = {},
-    displays = {
-     {id = "BallDisplay", category = "Ball", series = "world_3", title = "FUTURE BALLS", subtitle = "Earn more Cash per hit",
-      position = Vector3.new(60, 0, 95), yaw = -math.pi / 2, perRow = 5},
-     {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
-      position = Vector3.new(60, 0, 145), yaw = -math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
-    },
-    eventArea = {center = Vector3.new(0, 0, 125), size = 56},
-    portalPad = {center = Vector3.new(62.5, 0, 45), radius = 12, yaw = math.pi / 2}},
+   -- The shared hub layout (above): a sunken spaceport plaza with glowing seams, a hologram
+   -- stage, a beacon tower and the skyline of the future on the berm (HubDecor "Future").
+   offset = Vector3.new(16000, 0, 0), arrival = arrival(Vector3.new(16000, 0, 0)),
+   hub = hubLayout("World3Hub", "Future", "world_3", "FUTURE BALLS"),
    runoutDistance = 2000,
    -- The last World for now. Its portal completes it as usual, then plays a temporary finale
    -- (PortalJourneyClient) instead of a trip. To add World 4: give World 3 a nextWorldId and

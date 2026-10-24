@@ -96,7 +96,7 @@ The Alloy and Carbon Bats were removed (cleared from the developer's save; other
 - **In hand:** `EquipmentVisualServer` welds the styled model (`BatStyles`) to the Handle, massless and non-colliding, and hides the plain BatBody/BatGrip/BatKnob. Without a model the plain bat is painted as before.
 - **Swing trail:** the server adds `SwingTrailBase` (y 1.6) and `SwingTrailTip` (y 3.4) to the Handle; `BatEffects` on every client draws the bat's trail between them while the tip moves faster than 30 studs/s (real and practice swings).
 - **Contact burst:** when a ball leaves the tee, the batter's Bat burst plays at the tee (with the ball's launch burst).
-- **Display:** the Bat Display (upright 3.6-stud bats) stands beside the Ball Display at the back of the hub; both face the spawn.
+- **Display:** the Bat Display (upright 3.6-stud bats) stands just behind each World's Ball Display on the right side of the hub (seen from the spawn); both face the middle.
 
 ### Ball lineup, models and flight effects
 
@@ -164,7 +164,7 @@ The All-Star and Championship Balls were removed (their IDs were also cleared fr
 
 ### Item displays
 
-The World 1 hub has a physical **Ball Display** and **Bat Display** side by side at the back of the hub, behind the last Training Grounds (z 120, centred at x -36 and 36), facing the spawn down the walkway (`WorldConfig` `hub.displays`; built by `ItemDisplay.luau`). It is a white stepped stage with red trim and a backdrop wall, with the title ("BALLS" / "Earn more Cash per hit") above it. There is one pedestal per Ball in `EquipmentConfig` order, `perRow` (10) per row, sized so 10 Balls fit in one row about 67 studs wide (6.4-stud spacing, 2-stud items, compact labels); extra rows step back and up. Adding a Ball to the config adds a pedestal, and another category can get its own display with one more `displays` entry.
+Every World's hub has a physical **Ball Display** (that World's ball series) and **Bat Display** side by side on the right side of the hub as seen from the spawn, facing the middle, as one shopping zone (`WorldConfig` `hub.displays`, from the shared hub layout; built by `ItemDisplay.luau`; front edge hub x -36, centred at z 86 and 126). Each is a dark slate stepped stage with red trim and a backdrop wall, with the title ("BALLS" / "Earn more Cash per hit") above it. There is one pedestal per item of its series in `EquipmentConfig` order, `perRow` (5) per row (6.4-stud spacing, so a row is about 35 studs wide); further rows step back and up. Adding a Ball to the config adds a pedestal, and another category can get its own display with one more `displays` entry.
 
 - **Item models:** each pedestal shows `ServerStorage.RunwayAssets.DisplayItems.<item id>` when that model exists, scaled to 2 studs and spun about its centre. Without one, it shows a placeholder ball in the item's `appearance` colour with two red seams. To show a designed ball, put its model in `DisplayItems` named by its item ID (for example `practice_ball`).
 - **Labels (client):** a floating label per pedestal shows this player's status (EQUIPPED cyan, OWNED white, FOR SALE gold, LOCKED red), the name, the boost (×1.3 CASH) and the price (red when unaffordable). Items spin and bob locally (`ItemDisplayClient`).
@@ -317,6 +317,16 @@ The UI now follows the Check-UI skill (`.agents/skills/check-ui-clean-roblox/`) 
 - **Juice:** owned and active juices, showing multiplier, effect, and duration, plus "x3 · TAP TO DRINK" and "1:57 LEFT". Tapping drinks one. With nothing owned, an empty-state message explains juice.
 - Purchasing stays in the Shop.
 
+### Leaderboard stats (Schema 9)
+
+Schema 9 adds two saved stats for the global leaderboards (see Global Leaderboards), inside the existing `PlayerProgression` save. Older saves start both at zero; a malformed value (negative, fractional, too large or not a number) fails closed like Cash, so a known value is never overwritten.
+- **TimePlayed:** whole seconds in the game across all sessions. Server-authoritative: the saved total plus this session's time from the server's own clock (`os.clock`), stopping when the player leaves. It is saved with every normal save (autosave, leave, shutdown); no extra writes.
+- **RobuxSpent:** verified Robux spent in this experience, counted only from purchases the server can verify, never from the client:
+  - game passes bought through an in-game prompt (`PromptGamePassPurchaseFinished` with `purchased` true, which Roblox fires on the server), at Roblox's price (`GetProductInfo`), or the configured `robuxPrice` if that lookup fails;
+  - developer product receipts through `PlayerData.RecordRobuxReceipt(player, receipt)`, for a future `ProcessReceipt` handler to call once the product is granted. No developer products exist yet, so nothing calls it today.
+- **No double counting:** `RobuxPurchases` saves what has been counted: game pass ids (`Passes`) and the 50 most recent receipt `PurchaseId`s (`Receipts`). A repeated event or receipt, in the same session or after a rejoin, adds nothing.
+- **Limits:** passes bought outside the game (such as on the website) and purchases from before tracking began are not counted, and nothing is estimated. Both training passes have `gamePassId` 0 for now, so no Robux can be spent yet and the Robux Spent board shows R$ 0 until the passes are created.
+
 ### Juice (Schema 7)
 
 Juice is a consumable item that grants a temporary, server-timed bonus. The architecture is in place, but no juices are defined yet.
@@ -436,45 +446,75 @@ World 3 (Future World) is a trip from a near-future city out to the edge of real
 - **Floor patterns** (`RunwayDecor`, flags on the section): `floorLanes` (a glowing centre line and dashed lane lines), `floorHazard` (yellow and black warning bands along both edges) and `floorCraters` (crater rings scattered deterministically), alongside the earlier tiles, grid and cracks.
 - **Landmark:** `runway.landmarks` places single giant meshes by their centre. World 3 has one, a black hole with a glowing accretion disc looming above and behind its end portal (7550 studs downfield, 760 up, about 670 studs across).
 
-## Hub themes
+## Hubs
+
+### Shared compact hub layout
+
+Every World's hub uses one compact layout (`WorldConfig` `hubLayout`), so a player knows where everything is in any World; only the art differs. Positions are in the hub frame: origin at the tee, +Z back into the hub, +X to the right when facing down the runway. The spawn stands just behind the batting area looking **into** the hub, with the runway behind it, so from the spawn **left is +X and right is -X**:
+
+| Zone | What stands there | Hub frame |
+| --- | --- | --- |
+| Front | the batting circle round the tee; the runway beyond it, behind the spawn | z 0-20 |
+| Spawn | arrival point, facing into the hub (every World's `arrival`) | x 0, z 30 |
+| Left | the World's row of six Training Grounds, the first beside the batting area, doors facing the middle | plates x 56, z 18-183; scenery x 36-113 |
+| Right | the item displays: the World's balls, then the bats, facing the middle | front edge x -36, z 68-144 |
+| Middle | an open plaza (x -26 to 26) with a path from the spawn to the back, and the World's event piece in it | event square centre z 118, 40 across |
+| Back | the World portal in the middle, facing the spawn; World 1's four global leaderboards stand either side of it (the other Worlds keep those spots for later, marked by two lamps) | portal x 0, z 205; boards x ±22 and ±37, z 207 |
+
+- **Footprint:** the hub floor spans x -56 to 118 and 220 back (`hub.minX`, `hub.maxX`, `hub.depth`): 174 × 220 studs, down from 222 × 222. Only the Training Grounds' side reaches past the runway (x -86 to 86 with its walls); on the other side the runway's edge meets the corner of the stands. The depth is set by the row of six cages (each needs 33 studs).
+- **Paths** (`HubDecor` `hubPaths`, the same in every theme): a cross path in front of the spawn from the display lane to the Training Ground lane, a short path to the batting circle, an 8-stud lane along the cage doors and one before the displays, both running on to a back path that leads to the portal, and a path up the middle of the plaza past the event piece. They follow the configured positions, so moving a group moves its paths.
+- **View from the spawn:** the cages fill the left, the displays the right, and the path runs straight up the middle to the portal and the leaderboards; the World's landmark (scoreboard, clock tower or beacon tower) rises behind the portal. Event pieces stay flat (World 3's hologram globe floats high) so nothing hides the portal.
+- **Display rows:** each further row of a display rises above the one in front (`ItemDisplay`: label height + half a label + half an item + a small gap), so its items sit above the front row's labels and no names or prices overlap. Prompts reach 14 studs, plus 10 per row back, so the whole display can be used from its lane.
+
+### Hub themes
 
 Each World's hub can have its own look. `WorldConfig` `hub.theme` names a builder in `HubDecor`, which runs from `FieldBuilder.buildHub` into `<Hub>.Decor`. A themed hub supplies its own walkable floor, so the plain grey floor and boundary strips are skipped. Hub stations, item displays and Training Grounds are built the same way for every theme.
 
-**Home Field (World 1)** is a sunken ballpark in the hub frame (origin at the tee, +Z back into the hub). The hub reaches 136 studs left of the tee line, 86 right and 222 back (`hub.left`, `hub.right`, `hub.depth`): the left is filled by the cages, and the right and back end just past the displays and the last cage, so there is little empty floor.
-- **Layout:** the Training Grounds stand in one row down the left side. On the right, the World portal, the Ball display and the Bat display stand in one line (front edge hub x 60, at z 45, 95 and 145), all turned to face the cages across the middle; the displays have two rows of five each, turned with `yaw`. The middle is kept clear for events.
-- **Display rows:** each further row of a display rises above the one in front (`ItemDisplay`: label height + half a label + half an item + a small gap), so its items sit above the front row's labels and no names or prices overlap. Prompts reach 14 studs, plus 10 per row back, so the whole display can be used from its dirt lane.
-- **Ground:** 12 mowing stripes of grass form the floor. Dirt patches add a batter's circle behind the tee, a path across the front, a lane along the Training Ground doors, a lane in front of the displays, and a path up the middle. A white home plate marks the spawn.
-- **Open middle:** an infield diamond for events (`hub.eventArea`: dirt with an inner grass square, white bases and a pitcher's mound). A gold-ringed pad at the front of the display line (hub x 62.5, z 45) holds the World portal (`hub.portalPad`).
+**Home Field (World 1)** is a sunken ballpark.
+- **Ground:** 12 mowing stripes of grass form the floor, with the shared paths in dirt and a dirt batter's circle behind the tee. A white home plate marks the spawn.
+- **Plaza:** an infield diamond for events (`hub.eventArea`: dirt with an inner grass square, white bases and a pitcher's mound). A gold-ringed pad at the back holds the World portal (`hub.portalPad`), between the global leaderboards (see Global Leaderboards).
 - **Walls:** a padded green outfield wall with a gold cap runs along both sides and the back, with an invisible barrier above it to 14 studs and red, white and blue bunting along the top.
 - **Stands:** aluminium bleachers on both sides and across the back, five tiers with red and blue seats. They climb to a grass berm that is level with the runway's outer ground (9 studs), so the park sits in a bowl that meets the runway decks.
-- **Landmarks:** yellow foul poles where the runway walls begin, four light towers on the berm corners with spotlights on the field, and a "HOME FIELD / WORLD 1" scoreboard behind the back stand.
+- **Landmarks:** yellow foul poles where the runway walls begin, four light towers on the berm corners with spotlights on the field, and a "HOME FIELD / WORLD 1" scoreboard on tall legs behind the back stand, rising above the portal.
 - **Treeline:** trees, bushes and hills on the berm, reusing the runway's `MeadowTree`, `Bush` and `Hill` meshes through `RunwayDecor.PlaceMesh`.
 
-**Time Travel (World 2)** uses the same layout and size (World 2's cages in the same row on the left; the portal, World 2's ball display and the Bat display in one line on the right; the clock in the middle), styled as a sunken clockwork plaza:
+**Time Travel (World 2)** uses the shared layout, styled as a sunken clockwork plaza:
 - **Floor:** a lavender checkerboard of large tiles with thin brass seams, brass walkways (the same paths as World 1), a cyan glowing ring round the batter's circle, and a small clock rosette at the spawn.
 - **Event area:** a giant clock face (`hub.eventArea`) with Roman numerals, hour marks and turning hands.
 - **Bowl:** a slate wall with a brass cap and a cyan glow strip, then slate terraces with alternating brass and glowing cyan edges up to a dark slate berm at 9 studs.
 - **Landmarks:** a clock tower behind the back terraces (a turning clock and a "TIME TRAVEL / WORLD 2" sign), four chrono lamps, floating gears (the Blender `HubGear` when imported, brass discs until then) and bobbing time crystals.
 - **Monuments** from the eras ahead stand on the berm: a stone circle, a stepped pyramid with obelisks and a torii gate on the left; a Greek temple, a castle tower and a torii gate on the right.
-- World 2's own "TIME TRAVEL BALLS" display stands in front of the Bats (hub x 60, z 95). World 2's themed runway runs downfield from the tee (see World 2 Runway Themes).
+- World 2's own "TIME TRAVEL BALLS" display stands in front of the Bats, and two chrono lamps stand either side of the portal where World 1 has its leaderboards. World 2's themed runway runs downfield from the tee (see World 2 Runway Themes).
 
-**Future (World 3)** uses the same layout and size, styled as a sunken spaceport plaza:
+**Future (World 3)** uses the shared layout, styled as a sunken spaceport plaza:
 - **Floor:** a checkerboard of large white tiles with thin glowing cyan seams, dark navy walkways with glowing edges (the same paths as the other hubs), a glowing ring round the batter's circle, and a landing-pad marking at the spawn.
-- **Event area:** a hologram stage (`hub.eventArea`): a dark dais ringed with light, a faint beam rising to a pulsing hologram globe, and two tilted rings of lights orbiting it (cyan and pink).
+- **Event area:** a hologram stage (`hub.eventArea`): a dark dais ringed with light, a short glowing emitter and a pulsing hologram globe floating 40 studs up (above the spawn's view of the portal), and two tilted rings of lights orbiting it (cyan and pink).
 - **Bowl:** a white wall with a gunmetal cap and a cyan glow strip, then white terraces with alternating glowing cyan and white edges up to a dark concrete berm at 9 studs.
 - **Landmarks:** a beacon tower behind the back terraces (white fins round a glowing core, a ring of light turning round its crown, a pulsing beacon and a "FUTURE WORLD / WORLD 3" sign), four holo lamps with bobbing lights, and hovering drones over the plaza.
 - **Skyline:** glass skyscrapers with glowing bands and blinking spire lights on the berm, tallest at the back. Once imported, World 3's runway models join them through `RunwayDecor.PlaceMesh`: a rocket, a launch tower and a radar dish on the right; a biodome, an eco home, a solar tree and a row of wind turbines on the left; hover cars floating behind the beacon.
-- World 3's "FUTURE BALLS" display stands in front of the Bats.
+- World 3's "FUTURE BALLS" display stands in front of the Bats, and two holo lamps stand either side of the portal where World 1 has its leaderboards.
 
 Hub scenery and portal parts can carry motion attributes (`Spin`, with an optional `SpinPivot` to turn about a point such as a clock centre, `Bob`, `Sway`, `Pulse`); `TrainingStadiumClient` animates them in every hub on each client.
 
 ### World portals
 
-Each hub with a `portalPad` gets a World portal on it (`WorldPortal.luau`), at the front of the line of item displays (hub x 62.5, z 45), turned with `portalPad.yaw` to face the middle like the displays. The model is `ServerStorage.RunwayAssets.WorldPortal`, built by `tools/blender/world_portal.py`: an octagonal brass clockwork frame with iron bands and rivets, a swirling cyan vortex, an alarm clock on top with turning hands, hourglass lamps on the sides and two turning gears. It is scaled to 26 studs tall. Until it is imported, a plain octagon of parts stands in. A floating sign reads "WORLDS / TRAVEL PORTAL / Step in to choose a World".
+Each hub with a `portalPad` gets a World portal on it (`WorldPortal.luau`), at the back of the hub in the middle (hub x 0, z 205), facing the spawn down the plaza (`portalPad.yaw` 0). The model is `ServerStorage.RunwayAssets.WorldPortal`, built by `tools/blender/world_portal.py`: an octagonal brass clockwork frame with iron bands and rivets, a swirling cyan vortex, an alarm clock on top with turning hands, hourglass lamps on the sides and two turning gears. It is scaled to 26 studs tall. Until it is imported, a plain octagon of parts stands in. A floating sign reads "WORLDS / TRAVEL PORTAL / Step in to choose a World".
 
 **Future portal (World 2):** a World's portals wear the look of the World they lead to. World 2's hub portal and the giant portal at the end of its runway lead on to World 3, so they use `RunwayAssets.FuturePortal` (`WorldConfig` `portalModel`, built by `tools/blender/future_portal.py`) instead of the clockwork model: a smooth white composite ring with a gunmetal inner lip, eight clamps with glowing slots and a glowing inset ring, a segmented halo of light turning round the frame, a floating magenta crystal spinning on top, a stepped hexagonal platform with glowing step edges and two emitter posts, and a violet vortex with a pink swirl. Its looks live in `WorldPortal.luau` (`LOOKS.FuturePortal`); the vortex keeps the shared `PortalVortex` / `PortalSwirl` names, so the trigger, the ball capture and the trip work the same. World 1's and World 3's portals keep the clockwork look; if the Future model is missing, the clockwork one is used.
 
 The portal is not a teleporter. An invisible `Trigger` fills the opening, and stepping into it opens the Worlds menu on that client (`WorldTravelClient`), once per entry and only when another menu can open (not while batting, training, in a hit or travelling). The menu lists every World with its theme name and state (Worlds 1 to 3 for now). Choosing one sends the normal `WorldTravel` request, which the server checks against the unlock before relocating the player.
+
+### Global leaderboards
+
+World 1's hub (the starting, social hub) has four physical global leaderboards, two either side of the portal at the back (`WorldConfig` `hub.leaderboards`; built and refreshed by `Leaderboards.luau`, started by `LeaderboardServer`). Left to right from the spawn: **TOP LEVEL**, **TOP TIME PLAYED** | portal | **TOP ROBUX SPENT**, **TOP CASH**. Each board turns toward the plaza so the four read as one curved wall. They are not duplicated in Worlds 2 and 3; those hubs keep the same back layout, with lamps in the board spots.
+
+- **Look:** a green scoreboard panel (the ballpark scoreboard's colour) with a gold trim on two steel posts, a coloured header bar, a bold outlined title in the board's colour (Level blue, Time Played violet, Robux Spent green, Cash gold), "GLOBAL - TOP 10", ten ranked rows (#1 gold, #2 silver, #3 bronze) with the player's name and value, and a status line ("Updates every minute", "No scores yet", or "Couldn't update - retrying soon" while keeping the last rows). The SurfaceGui is unlit so it stays readable, and fades out beyond 220 studs.
+- **Values:** current Level (it resets on Rebirth; not the highest ever), current Cash (it drops when Cash is spent; not total earned), Time Played as `45m`, `2h 14m` or `3d 7h`, and Robux Spent as `R$ 1,500`. Large numbers are compacted (`$31.2M`).
+- **Source of truth:** PlayerData's save. Each board reads an OrderedDataStore that mirrors one saved field, keyed by UserId: `GlobalLeaderboard_Level_v1`, `GlobalLeaderboard_TimePlayed_v1`, `GlobalLeaderboard_RobuxSpent_v1`, `GlobalLeaderboard_Cash_v1` in live servers (Studio uses `Studio_` copies, below).
+- **Writes:** after each successful save, `PlayerData.OnSaved` hands the saved record to `Leaderboards.Submit`, in its own thread. A flush every 10 seconds writes a player's changed values at most once every 2 minutes while they play, and right away for the save made as they leave (and during shutdown). Unchanged values are not written; nothing is written per second or per Power tick. Writes check the sorted-store request budget first.
+- **Reads:** every server re-reads the four stores once a minute (top 10, highest first), if the read budget allows. Names come from the player when they are in the server, otherwise a cached `GetNameFromUserIdAsync` lookup (at most 10 new lookups per refresh; a failed one waits 5 minutes before retrying; "Unknown" meanwhile).
+- **Failures:** every write, read and lookup is wrapped. A failed write stays pending and is retried next flush (a departed player's after up to 5 attempts it is dropped); a failed read keeps the last rows. Nothing here can block or break gameplay or saves.
+- **Studio:** Studio playtests (`RunService:IsStudio()`) read and write separate copies of the four stores, prefixed `Studio_` (`Studio_GlobalLeaderboard_Level_v1` and so on), so test accounts and values never reach the live rankings. Player saves are not separated: Studio sessions still save to `PlayerProgression` and add to that account's real Time Played, which reaches the live boards the next time that account plays in a live server.
 
 ## Sky
 
@@ -490,7 +530,7 @@ All cosmetic; none of it affects launch, distance or rewards.
 
 - **Timing:** every effect starts when the client sees the ball leave the tee (the rendered ball 0.5 studs off its tee spot), not when `BallState` turns InFlight. The attribute arrives about 0.25 s before the ball's smoothed physics movement is drawn, so starting on it put the effects ahead of the ball.
 - **Bat crack:** each client plays the `BatCrack` cue (`GameAudio`) on the tee's Stem when any station's ball leaves the tee, so nearby players hear each other's hits in sync (Pro Sound Effects "Wood Bat Hits Hard Ball", with a little added low end). It is on the tee rather than the ball so it does not fly away with the hit. The recording has a quiet lead-in, with the crack itself 0.61 s in, so the cue starts at 0.58 s; it is preloaded so the session's first hit is on time. The cinematics start their impact sounds past any lead-in the same way (the fourth `startAt` value in their `SOUNDS` specs). A Mythic Hit, and the batter's own Legendary Hit, skip this crack, because the cinematic already cracked at contact.
-- **Cinematic swing and flight:** from the click that starts a real swing (BatClient fires "SwingStart" on the bat's local marker; Training practice swings do not), `HitCinematicClient` slides in black letterbox bars (11% of the screen each) and adds a light colour grade (contrast and saturation). They stay while the hit is active (`HitActive`) and ease out when it ends; a refused swing lets them slide back out after 1.2 s. The bars sit under the HUD, so the distance counter and 2x/Leave buttons stay on top. The Cash counter is hidden during flight.
+- **Cinematic swing and flight:** from the click that starts a real swing (BatClient fires "SwingStart" on the bat's local marker; Training practice swings do not), `HitCinematicClient` slides in black letterbox bars (11% of the screen each) and adds a light colour grade (contrast and saturation). They stay while the hit is active (`HitActive`) and ease out when it ends; a refused swing lets them slide back out after 1.2 s. The bars sit under the HUD, so the distance counter and 2x/Leave buttons stay on top. The Cash counter is hidden during flight. While the batter's own ball flies, thin white speed lines streak outward from around it across the screen (under the bars); how many there are and how bright depends on the ball's speed (none below 25 studs/s, full from 160), so they thin out as it rolls to a stop. Legendary and Mythic Hits keep their own speed lines instead.
 - **Camera:** from the click, the batting camera (`BatTimingClient`) zooms from 55° to 46° FOV through the backswing (Load and Windup, 0.24 s) and holds. When the ball leaves the tee it widens from there to 70° over 0.8 s with a 0.35 s decaying shake. With no launch it eases back out.
 - **Ball sounds** (`BallSounds`, run by `HitCinematicClient` for every station): from launch to reset, sounds come from the ball itself, so nearby players hear each other's hits:
   - a wind whoosh while it is in the air, louder and a little higher-pitched with speed, on a gentle curve so slow hits still whoosh a little
@@ -628,11 +668,11 @@ Training is the primary Power source.
 ### Physical Training Grounds, one row per World (supersedes the single logical stadium)
 
 Each Training Ground is its own batting cage, with its own plate and one occupant at a time. Every World's hub has its own row of six cages, under `<Hub>.TrainingGrounds.<ground id>` (`TrainingConfig.Hubs`). Dragon's Lair stands in every hub, so the server treats each plate in each hub as its own station.
-- Every row runs down the left side of its hub, from the runway back (`TrainingConfig.Row`). Plates are at hub-relative x -78, from z 34 stepping 33 studs back (the models' 44-stud spacing, narrowed with the cages), with doors facing the open middle; the item displays face them from the right side.
-- World 1, from the runway: Basic Training, Enchanted Grove, Sunken Atlantis, Sky Temple, Cosmic Rift, Dragon's Lair.
-- World 2, from the runway: Caveman Camp, Pharaoh's Tomb, Gladiator Colosseum, Samurai Dojo, Time Machine Lab, Dragon's Lair. They use the standard cage in era colors until their own models are made.
-- World 3, from the runway: Solar Rooftop, Robo Factory, Biodome Lab, Lunar Base, Quantum Lab, Dragon's Lair. Each has its own futuristic cage (see Future cages below).
-- Cages are turned a quarter turn so their doors face the middle and their machine ends point outward. The spawn is 60 studs behind each World's tee.
+- Every row runs front to back down the left side of its hub as seen from the spawn (the shared hub layout; `TrainingConfig.Row`), the first cage beside the batting area. Plates are at hub-relative x 56, from z 18 stepping 33 studs back (the models' 44-stud spacing, narrowed with the cages), with doors facing the open middle; the item displays face them from across the plaza.
+- World 1, from the front: Basic Training, Enchanted Grove, Sunken Atlantis, Sky Temple, Cosmic Rift, Dragon's Lair.
+- World 2, from the front: Caveman Camp, Pharaoh's Tomb, Gladiator Colosseum, Samurai Dojo, Time Machine Lab, Dragon's Lair. They use the standard cage in era colors until their own models are made.
+- World 3, from the front: Solar Rooftop, Robo Factory, Biodome Lab, Lunar Base, Quantum Lab, Dragon's Lair. Each has its own futuristic cage (see Future cages below).
+- Cages are turned a quarter turn so their doors face the middle and their machine ends point outward. The spawn is 30 studs behind each World's tee, facing into the hub.
 - The physical Shop, World Travel and Rebirth stations and the Training Grounds board are removed for now. Their settings are commented in `WorldConfig`; FieldBuilder deletes any unconfigured station left in the place.
 
 | # | Ground ID | World | Unlock | Power multiplier (× 20 Power per 2 s) |
@@ -746,7 +786,8 @@ only: no real ball launch, Cash, distance, sections, or world completion occurs.
 Schema 5 added SelectedTrainingGround and LastLogoutTime to PlayerProgression.
 Schema 8 retires SelectedTrainingGround: grounds are physical, so nothing is
 selected or saved, and the field is dropped on load and save. Existing profiles keep Cash, Power, Level,
-Rebirths, equipment, juices and worlds. Old schemas and missing, zero, malformed, or
+Rebirths, equipment, juices and worlds. Schema 9 adds TimePlayed, RobuxSpent and
+RobuxPurchases (see Leaderboard stats). Old schemas and missing, zero, malformed, or
 future timestamps grant no historical offline Power.
 
 Offline base Power = floor(min(elapsed seconds, 8 hours) * best usable ground's

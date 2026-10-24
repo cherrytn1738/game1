@@ -7,14 +7,16 @@ local TrainingStadium = require(script.Parent:WaitForChild("TrainingStadium"))
 local ItemDisplay = require(script.Parent:WaitForChild("ItemDisplay"))
 local HubDecor = require(script.Parent:WaitForChild("HubDecor"))
 local WorldPortal = require(script.Parent:WaitForChild("WorldPortal"))
+local Leaderboards = require(script.Parent:WaitForChild("Leaderboards"))
 local Builder = {}
 
 local function buildHub(world, area)
  local config = world.hub
  if not config then return end
- assert(config.left > 0 and config.right > 0 and config.depth > 0, "Hub dimensions must be positive")
- -- The hub spans x -left..right from the tee line, so it can be wider on one side.
- local width, centerX = config.left + config.right, (config.right - config.left) / 2
+ assert(config.minX < 0 and config.maxX > 0 and config.depth > 0, "Hub must reach both sides of the tee line")
+ -- The hub spans x minX..maxX from the tee line (WorldConfig's shared layout), so it can be
+ -- wider on one side.
+ local width, centerX = config.maxX - config.minX, (config.minX + config.maxX) / 2
  local origin = area.Tee.Stem.BallPosition.WorldPosition
  local difference = area.HitDirection.Position - origin
  local forward = Vector3.new(difference.X, 0, difference.Z).Unit
@@ -63,7 +65,7 @@ local function buildHub(world, area)
  if not themed then
   for _, side in {-1, 1} do
    part(side == -1 and "LeftBoundary" or "RightBoundary", Vector3.new(1, 0.025, config.depth),
-    Vector3.new(side == -1 and 0.5 - config.left or config.right - 0.5, 0.0125, config.depth / 2), boundaryColor, false)
+    Vector3.new(side == -1 and config.minX + 0.5 or config.maxX - 0.5, 0.0125, config.depth / 2), boundaryColor, false)
   end
   part("BackBoundary", Vector3.new(width, 0.025, 1),
    Vector3.new(centerX, 0.0125, config.depth - 0.5), boundaryColor, false)
@@ -118,6 +120,9 @@ local function buildHub(world, area)
  end
  if config.portalPad then
   WorldPortal.Build(hub, frame, config.portalPad, world.portalModel)
+ end
+ if config.leaderboards then
+  Leaderboards.Build(hub, frame, config.leaderboards)
  end
  -- This World's row of Training Grounds (TrainingConfig.Hubs).
  local layout = Training.GetHub(world.id)

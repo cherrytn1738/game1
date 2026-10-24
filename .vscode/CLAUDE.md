@@ -234,7 +234,7 @@ Server validates purchases and equipping.
 
 Training is the primary source of Power.
 
-Each World's hub has a row of six physical Training Grounds (batting cages) down its left side, each with its own plate. Dragon's Lair stands in every World.
+Each World's hub has a row of six physical Training Grounds (batting cages) down its left side as seen from the spawn, each with its own plate. Dragon's Lair stands in every World.
 
 Player walks onto an unlocked ground's training plate:
 
@@ -355,14 +355,15 @@ See `GAME_DESIGN.md` → 2× Ball Flight.
 
 ## Hub
 
-Each World with a `hub` config has a rectangular player hub (136 studs left of the tee line, 86 right, 222 back) behind its batting station, styled by `HubDecor` (`hub.theme`): Home Field (World 1, a sunken ballpark), Time Travel (World 2, a sunken clockwork plaza) and Future (World 3, a sunken spaceport plaza).
+Each World with a `hub` config has a compact rectangular player hub (hub x -56 to 118, 220 back) behind its batting station, styled by `HubDecor` (`hub.theme`): Home Field (World 1, a sunken ballpark), Time Travel (World 2, a sunken clockwork plaza) and Future (World 3, a sunken spaceport plaza).
 
-Layout (the same in every hub):
+Every hub shares one layout (`WorldConfig` `hubLayout`). The spawn stands just behind the batting area looking into the hub, with the runway behind it; sides are named from that view (left is hub +X):
 
-- front edge: batting station / field
-- left: the World's row of six Training Grounds
-- right: the World portal and the item displays in one line facing the cages (World 1: Balls and Bats; Worlds 2 and 3: their own ball series and Bats); the portal opens the Worlds menu when stepped into
-- middle: an event area (World 1 infield diamond, World 2 giant clock, World 3 hologram stage)
+- front: batting station, runway behind the spawn
+- left: the World's row of six Training Grounds, front to back, doors facing the middle
+- right: the item displays facing the middle (the World's own ball series, then Bats)
+- middle: an open plaza with a path to the back and the World's event piece (World 1 infield diamond, World 2 giant clock, World 3 hologram stage)
+- back: the World portal in the middle (opens the Worlds menu when stepped into); World 1's four global leaderboards stand either side of it (Worlds 2 and 3 keep those spots open)
 - the Shop, Travel and Rebirth stations are removed for now
 
 The hub intentionally leaves space for future content.
@@ -492,7 +493,9 @@ Existing safety principles include:
 
 Preserve these protections.
 
-Current schema is Schema 8 (Schema 6 removed Tee equipment; Schema 7 added Juice: OwnedJuices and ActiveJuices; Schema 8 retired SelectedTrainingGround).
+Current schema is Schema 9 (Schema 6 removed Tee equipment; Schema 7 added Juice: OwnedJuices and ActiveJuices; Schema 8 retired SelectedTrainingGround; Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards).
+
+The global leaderboards (World 1's hub) read OrderedDataStores that mirror saved values; PlayerData stays the source of truth (`Leaderboards.luau`).
 
 Tee equipment data was removed from active saves.
 
@@ -542,7 +545,7 @@ Unless explicitly requested, do not add:
 - quests
 - daily rewards
 - monetization
-- leaderboards
+- leaderboards beyond World 1's four global boards
 - trading
 - rarity systems
 - new currencies

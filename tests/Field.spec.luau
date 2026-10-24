@@ -88,6 +88,75 @@ return function(sources)
   previousEnd=section.endDistance
  end
  check(previousEnd==third.endDistance,"World 3's last section ends at its endpoint")
+ -- The shared compact hub layout, seen from the spawn looking into the hub (+Z): Training
+ -- Grounds on the left (+X), item displays on the right (-X), the event piece in the middle
+ -- and the portal at the back, all inside the hub and clear of each other.
+ local Training = assert(loadstring(sources.TrainingConfig))()
+ local CAGE_REACH_DOOR, CAGE_REACH_BACK, CAGE_HALF = 20, 57, 16 -- cage scenery around a plate
+ local DISPLAY_HALF, DISPLAY_DEPTH = 18, 15
+ local firstHub = first.hub
+ for _, world in Worlds.Worlds do
+  local hub = world.hub
+  check(hub and hub.minX < 0 and hub.maxX > 0 and hub.depth > 0 and hub.theme ~= nil, world.id .. " has a themed hub")
+  check(hub.minX == firstHub.minX and hub.maxX == firstHub.maxX and hub.depth == firstHub.depth
+   and hub.portalPad.center == firstHub.portalPad.center and hub.eventArea.center == firstHub.eventArea.center,
+   world.id .. " shares World 1's hub layout")
+  local function inside(x0, x1, z0, z1) return x0 >= hub.minX and x1 <= hub.maxX and z0 >= 0 and z1 <= hub.depth end
+  -- Arrival: the spawn just behind the batting circle, facing into the hub.
+  local tee = Vector3.new(-17.2, 0, -21.2) + world.offset
+  local spawn = world.arrival.Position - tee
+  check(math.abs(spawn.X - hub.spawn.X) < 0.01 and math.abs(spawn.Z - hub.spawn.Z) < 0.01 and spawn.Z > 20 and spawn.Z < 40
+   and world.arrival.LookVector.Z > 0.99, world.id .. " arrives just behind the batting area, facing into the hub")
+  -- Training Grounds: one row on the left, doors facing the middle, inside the hub, not overlapping.
+  local layout = Training.GetHub(world.id)
+  local doorFacing = CFrame.Angles(0, Training.GetPlateYaw(), 0):VectorToWorldSpace(Vector3.zAxis)
+  check(doorFacing.X < -0.99, "cage doors face the middle (-X)")
+  local cageDoorX, lastCageZ = math.huge, 0
+  for index, id in layout.grounds do
+   local plate = Training.GetPlatePosition(Training.Get(id), world.id)
+   check(plate.X > 0 and inside(plate.X - CAGE_REACH_DOOR, plate.X + CAGE_REACH_BACK, plate.Z - CAGE_HALF, plate.Z + CAGE_HALF),
+    id .. " stands inside the hub on the left")
+   if index > 1 then
+    local previous = Training.GetPlatePosition(Training.Get(layout.grounds[index - 1]), world.id)
+    check(plate.Z - previous.Z >= 2 * CAGE_HALF, "cages in the row do not overlap")
+   end
+   cageDoorX, lastCageZ = math.min(cageDoorX, plate.X - CAGE_REACH_DOOR), math.max(lastCageZ, plate.Z + CAGE_HALF)
+  end
+  -- Item displays: on the right facing the middle, inside the hub, side by side.
+  local displayFrontX, lastDisplayZ = -math.huge, 0
+  for index, display in hub.displays do
+   local facing = CFrame.Angles(0, display.yaw, 0):VectorToWorldSpace(Vector3.zAxis)
+   local p = display.position
+   check(p.X < 0 and facing.X > 0.99 and inside(p.X - DISPLAY_DEPTH, p.X, p.Z - DISPLAY_HALF, p.Z + DISPLAY_HALF),
+    display.id .. " stands inside the hub on the right, facing the middle")
+   if index > 1 then check(p.Z - hub.displays[index - 1].position.Z >= 2 * DISPLAY_HALF, "displays do not overlap") end
+   displayFrontX, lastDisplayZ = math.max(displayFrontX, p.X), math.max(lastDisplayZ, p.Z + DISPLAY_HALF)
+  end
+  check(hub.displays[1].category == "Ball" and hub.displays[2].category == "Bat"
+   and hub.displays[1].series == (world.id ~= "world_1" and world.id or nil), "each World shows its own balls, then the bats")
+  -- The plaza between them stays open (8-stud lanes along both sides), with the event piece in it.
+  local plaza0, plaza1 = displayFrontX + 8, cageDoorX - 8
+  check(plaza1 - plaza0 >= 40, "the middle plaza is at least 40 studs wide")
+  local event = hub.eventArea
+  check(event.center.X - event.size / 2 >= plaza0 and event.center.X + event.size / 2 <= plaza1
+   and event.center.Z - event.size / 2 > spawn.Z, "the event piece sits in the plaza, in front of the spawn")
+  -- The portal: middle of the back, facing the spawn, behind everything else.
+  local portal = hub.portalPad
+  check(portal.center.X == 0 and (portal.yaw or 0) == 0 and portal.center.Z + portal.radius <= hub.depth
+   and portal.center.Z - portal.radius > event.center.Z + event.size / 2 and portal.center.Z > lastDisplayZ,
+   "the portal stands at the back in the middle, facing the spawn")
+  -- World 1 alone holds the leaderboards: either side of the portal, behind the last cage.
+  check((hub.leaderboards ~= nil) == (world.id == Worlds.StartingWorldId), "only World 1 holds the global leaderboards")
+  for _, board in hub.leaderboards and hub.leaderboards.boards or {} do
+   local p = board.position
+   check(math.abs(p.X) - 6 > portal.radius and p.Z > lastCageZ and inside(p.X - 6, p.X + 6, p.Z - 2, p.Z + 2),
+    board.stat .. " board stands beside the portal, clear of it and of the cages")
+  end
+ end
+ local stats = {}
+ for _, board in firstHub.leaderboards.boards do stats[board.stat] = true end
+ check(stats.Level and stats.TimePlayed and stats.RobuxSpent and stats.Cash and #firstHub.leaderboards.boards == 4,
+  "four boards: Level, Time Played, Robux Spent and Cash")
  for _,distance in {0,599,600,1999,2000,4000,7000,8500} do
   local expected=distance<600 and 1 or distance<2000 and 1.15 or 1.35
   check(Field.GetSection(distance,third).rewardMultiplier==expected,"World 3 follows the reward tier pattern")

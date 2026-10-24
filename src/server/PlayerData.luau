@@ -12,7 +12,7 @@ local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 local Juice = require(game.ReplicatedStorage:WaitForChild("JuiceConfig"))
 
 local STORE_NAME = "PlayerProgression"
-local SCHEMA_VERSION = 8
+local SCHEMA_VERSION = 9
 local AUTOSAVE_SECONDS = 60
 local IMPORTANT_SAVE_SECONDS = 5 -- Rebirth joins the existing serialized save loop.
 local LEASE_SECONDS = 180
@@ -21,15 +21,43 @@ local MAX_ATTEMPTS = 3
 local REQUEST_SECONDS = 20
 local SHUTDOWN_SECONDS = 25
 local MAX_CASH = 9000000000000 -- Safely below the integer precision limit.
+local MAX_COUNTER = 9000000000000 -- the same limit for TimePlayed (seconds) and RobuxSpent
+local MAX_RECEIPTS = 50 -- recent developer product receipts remembered, so none counts twice
 local CATEGORIES = Equipment.CategoryOrder
 
 local PlayerData = {}
 local sessions = {}
 local started, shuttingDown = false, false
+local savedListener
 
 local function validCash(value)
  return typeof(value) == "number" and value == value
   and value >= 0 and value <= MAX_CASH and value % 1 == 0
+end
+
+local function validCounter(value)
+ return typeof(value) == "number" and value == value
+  and value >= 0 and value <= MAX_COUNTER and value % 1 == 0
+end
+
+-- RobuxPurchases: the purchases already counted in RobuxSpent, as {Passes = {["<game pass id>"]
+-- = true}, Receipts = {"<PurchaseId>", ...}} (the most recent MAX_RECEIPTS). Missing is empty;
+-- a malformed record returns nil (fails closed); stray entries are dropped.
+local function sanitizeRobuxPurchases(value)
+ if value == nil then return {Passes = {}, Receipts = {}} end
+ if typeof(value) ~= "table" or (value.Passes ~= nil and typeof(value.Passes) ~= "table")
+  or (value.Receipts ~= nil and typeof(value.Receipts) ~= "table") then
+  return nil
+ end
+ local passes, receipts = {}, {}
+ for id, counted in value.Passes or {} do
+  if type(id) == "string" and id:match("^%d+$") and counted == true then passes[id] = true end
+ end
+ for _, id in value.Receipts or {} do
+  if type(id) == "string" and #id > 0 and #id <= 64 then table.insert(receipts, id) end
+ end
+ while #receipts > MAX_RECEIPTS do table.remove(receipts, 1) end
+ return {Passes = passes, Receipts = receipts}
 end
 
 -- Only a missing record means NEW. A malformed record/version fails closed.
@@ -81,6 +109,19 @@ local function validate(record)
  local ownedJuices, activeJuices = Juice.Sanitize(data.OwnedJuices, data.ActiveJuices)
  if not ownedJuices then return nil, "invalid Juice data" end
  data.OwnedJuices, data.ActiveJuices = ownedJuices, activeJuices
+ -- Schema 9 adds, for the global leaderboards, TimePlayed (whole seconds in the game) and
+ -- RobuxSpent (verified Robux spent in this experience) with RobuxPurchases (what it already
+ -- counts). Older saves start at zero; a malformed value fails closed like Cash.
+ for _, field in {"TimePlayed", "RobuxSpent"} do
+  if data[field] == nil then
+   data[field] = 0
+  elseif not validCounter(data[field]) then
+   return nil, "invalid " .. field
+  end
+ end
+ local purchases = sanitizeRobuxPurchases(data.RobuxPurchases)
+ if not purchases then return nil, "invalid RobuxPurchases" end
+ data.RobuxPurchases = purchases
  data.UnlockedWorlds[Worlds.StartingWorldId] = true
  -- A recorded completion always implies ownership of that world and its next one.
  for _, world in Worlds.Worlds do
@@ -305,6 +346,69 @@ function PlayerData.RefreshTrainingPasses(player)
  publishTrainingPasses(player, session)
 end
 
+-- Leaderboard stats ------------------------------------------------------------------
+-- TimePlayed counts whole seconds in the game, from the server's own clock: the saved total
+-- plus this session's time so far (it stops when the player leaves).
+local function timePlayed(session)
+ local seconds = math.floor((session.closeClock or os.clock()) - session.playClock)
+ return math.min(MAX_COUNTER, session.timePlayed + math.max(0, seconds))
+end
+
+-- RobuxSpent counts only Robux the server saw being spent in this experience: game passes
+-- bought through an in-game prompt (PromptGamePassPurchaseFinished, which Roblox fires on the
+-- server) and developer product receipts (RecordRobuxReceipt). Each purchase counts once: a pass
+-- by its id, a receipt by its PurchaseId. Purchases made elsewhere (such as the website) or
+-- before tracking began are not counted, and no amount ever comes from the client.
+local function addRobux(session, amount)
+ session.robux.spent = math.min(MAX_COUNTER, session.robux.spent + amount)
+ scheduleImportantSave(session)
+end
+
+-- A game pass's price from Roblox, or failing that the price this game sells it for.
+local function gamePassPrice(gamePassId)
+ local ok, info = pcall(Marketplace.GetProductInfo, Marketplace, gamePassId, Enum.InfoType.GamePass)
+ if ok and typeof(info) == "table" and validCounter(info.PriceInRobux) then return info.PriceInRobux end
+ for _, ground in Training.PassGrounds do
+  if ground.gamePassId == gamePassId then return ground.robuxPrice end
+ end
+ return nil
+end
+
+-- Yields (price lookup). The pass is marked first, so a repeated event cannot count it twice.
+local function recordGamePassPurchase(player, session, gamePassId)
+ if not Progression.IsInteger(gamePassId, 1, MAX_COUNTER) then return end
+ local key = tostring(gamePassId)
+ if session.robux.passes[key] then return end
+ session.robux.passes[key] = true
+ local price = gamePassPrice(gamePassId)
+ if price and sessions[player] == session and not session.failed then addRobux(session, price) end
+end
+
+-- For a developer product's ProcessReceipt handler (none exist yet): call it once the product
+-- has been granted, with Roblox's receipt. Returns true when counted, false when the receipt is
+-- invalid, not this player's, not Robux, or already counted.
+function PlayerData.RecordRobuxReceipt(player, receipt)
+ if not PlayerData.IsReady(player) or typeof(receipt) ~= "table" or receipt.PlayerId ~= player.UserId then return false end
+ local id, spent = receipt.PurchaseId, receipt.CurrencySpent
+ if type(id) ~= "string" or #id == 0 or #id > 64 or not validCounter(spent)
+  or (receipt.CurrencyType ~= nil and receipt.CurrencyType ~= Enum.CurrencyType.Robux) then
+  return false
+ end
+ local session = sessions[player]
+ local receipts = session.robux.receipts
+ if table.find(receipts, id) then return false end
+ table.insert(receipts, id)
+ while #receipts > MAX_RECEIPTS do table.remove(receipts, 1) end
+ addRobux(session, spent)
+ return true
+end
+
+-- Leaderboards: callback(userId, savedData, final) runs after each successful save, in its own
+-- thread, so it can never delay or break a save. final is the save made as the player leaves.
+function PlayerData.OnSaved(callback)
+ savedListener = callback
+end
+
 function PlayerData.CanRebirth(player)
  if not PlayerData.IsReady(player) then return false end
  local state = sessions[player].progression
@@ -437,6 +541,9 @@ local function snapshot(player)
  data.OwnedJuices = table.clone(session.juices.owned)
  data.ActiveJuices = {}
  for id, remaining in session.juices.active do data.ActiveJuices[id] = math.ceil(remaining) end
+ data.TimePlayed = timePlayed(session)
+ data.RobuxSpent = session.robux.spent
+ data.RobuxPurchases = {Passes = table.clone(session.robux.passes), Receipts = table.clone(session.robux.receipts)}
  data.UnlockedWorlds, data.CompletedWorlds = {}, {}
  for _, world in Worlds.Worlds do
   -- Studio playtest unlocks are never saved; a real completion re-derives its unlock on load.
@@ -485,6 +592,7 @@ local function save(player, session, release)
   if not release then session.expiresAt = record.Session.ExpiresAt end
   print(string.format("[PlayerData] SAVED %d (%s), Cash=%d",
    player.UserId, release and "leave/shutdown" or "autosave", data.Cash))
+  if savedListener then task.spawn(savedListener, player.UserId, data, release == true) end
  elseif rejection then
   fail(player, session, rejection)
  else
@@ -497,6 +605,7 @@ end
 
 local function close(player, session)
  session.logoutTime = session.logoutTime or os.time()
+ session.closeClock = session.closeClock or os.clock()
  session.closing = true
  player:SetAttribute("DataLoaded", false)
  if not session.failed then player:SetAttribute("DataLoadState", "Closing") end
@@ -573,6 +682,9 @@ local function loadPlayer(player)
  publishTrainingPasses(player, session)
  session.juices = {owned = table.clone(record.OwnedJuices), active = table.clone(record.ActiveJuices)}
  publishJuices(player, session)
+ session.timePlayed, session.playClock = record.TimePlayed, os.clock()
+ session.robux = {spent = record.RobuxSpent, passes = table.clone(record.RobuxPurchases.Passes),
+  receipts = table.clone(record.RobuxPurchases.Receipts)}
  player:SetAttribute("OfflinePowerEarned", offlineResult and offlineResult.powerGranted or 0)
  player:SetAttribute("OfflineSeconds", offlineSeconds or 0)
  player:SetAttribute("OfflineTrainingGround",
@@ -662,13 +774,14 @@ function PlayerData.Start()
  -- This event fires on the server with Roblox's purchase result, so it can be trusted.
  Marketplace.PromptGamePassPurchaseFinished:Connect(function(player, gamePassId, purchased)
   local session = sessions[player]
-  if not purchased or not session or not session.loaded then return end
+  if not purchased or not session or not session.loaded or session.failed then return end
   for _, ground in Training.PassGrounds do
    if ground.gamePassId > 0 and ground.gamePassId == gamePassId then
     session.trainingPasses[ground.id] = true
     publishTrainingPasses(player, session)
    end
   end
+  recordGamePassPurchase(player, session, gamePassId)
  end)
  task.spawn(function()
   while not shuttingDown do

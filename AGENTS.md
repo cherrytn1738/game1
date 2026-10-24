@@ -223,7 +223,7 @@ Balls are sold in purchase series, each bought in order: World 1's ten (Baseball
 
 ### Training Grounds
 
-Each World's hub has one row of six physical Grounds, each its own batting cage, down the left side (parallel to the runway, the first ground nearest it; `TrainingConfig.Hubs`).
+Each World's hub has one row of six physical Grounds, each its own batting cage, down the left side as seen from the spawn (parallel to the runway, the first ground beside the batting area; `TrainingConfig.Hubs`).
 
 World 1 (Home Field):
 
@@ -355,6 +355,8 @@ World completion is based on authoritative final forward distance.
 
 Completing a World permanently unlocks the next World. World 3 (Future World) is the last World for now: its end portal plays a temporary "you finished the game" finale instead of a trip.
 
+Every hub shares one compact layout (`WorldConfig` `hubLayout`), named from the spawn, which looks into the hub with the batting area and runway behind it: Training Grounds on the left, item displays on the right, an open plaza with the World's event piece in the middle, and the World portal at the back. World 1's four global leaderboards (Level, Time Played, Robux Spent, Cash) stand either side of its portal. Only the art differs between Worlds.
+
 World unlocks persist.
 
 Players may travel between unlocked Worlds through the Worlds menu (from the HUD, or by stepping into the World portal in each hub); the server checks the unlock.
@@ -405,7 +407,9 @@ Preserve existing protections:
 - validation/sanitization
 - bounded retry behavior
 
-Current confirmed schema is Schema 8 (Schema 6 removed Tee equipment, Schema 7 added Juice, Schema 8 retired the saved Training Ground selection).
+Current confirmed schema is Schema 9 (Schema 6 removed Tee equipment, Schema 7 added Juice, Schema 8 retired the saved Training Ground selection, Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards).
+
+The global leaderboards' OrderedDataStores are mirrors of saved values, written from successful saves; PlayerData remains canonical.
 
 Tee equipment data and SelectedTrainingGround are obsolete and should not be reintroduced.
 
@@ -492,7 +496,7 @@ Unless asked, do not add:
 - quests
 - daily rewards
 - monetization (the two Training Ground game passes are the approved exception)
-- leaderboards
+- leaderboards (World 1's four global boards are the approved exception)
 - trading
 - rarity systems
 - new currencies

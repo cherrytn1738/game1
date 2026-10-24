@@ -101,7 +101,7 @@ local Training = {
     accent = Color3.fromRGB(255, 96, 20), frame = Color3.fromRGB(26, 24, 26), net = Color3.fromRGB(60, 50, 46),
     banner = Color3.fromRGB(150, 24, 20), lights = true, decorations = {}}},
  },
- -- Which grounds stand in each World's hub, in row order (the first is nearest the runway).
+ -- Which grounds stand in each World's hub, in row order (the first is nearest the batting area).
  -- The first hub is the starting World's.
  Hubs = {
   {world = "world_1", grounds = {"basic_training", "enchanted_grove", "sunken_atlantis", "sky_temple", "cosmic_rift", "dragons_lair"}},
@@ -116,12 +116,15 @@ local Training = {
  Cage = {modelLeft = -16, modelRight = 14, back = 14, front = -34, height = 14,
   modelDoorLeft = -13, modelDoorRight = -7, doorHeight = 8, templateScale = 4,
   widthScale = CAGE_WIDTH_SCALE, widthCenter = 3},
- -- Every hub's row runs down the left side, parallel to the runway, relative to the hub's
- -- batting-edge frame (+Z is back into the hub; right means right when facing down the runway,
- -- +X). Cages turn a quarter turn so their doors face the open middle. The models need 44
- -- studs apiece (14-stud gaps for outside decorations), narrowed with the cages. The item
- -- displays face them from the right side.
- Row = {first = Vector3.new(-78, 0, 34), step = Vector3.new(0, 0, 44 * CAGE_WIDTH_SCALE), yaw = math.pi / 2},
+ -- Every hub's row runs front to back down the side on the spawn's left (WorldConfig's shared
+ -- hub layout), parallel to the runway, in the hub's batting-edge frame (+Z is back into the
+ -- hub; +X is right when facing down the runway, so left when looking into the hub from the
+ -- spawn). The first cage stands beside the batting area. Cages turn a quarter turn so their
+ -- doors face the open middle (-X); a cage's scenery reaches about 20 studs from its plate
+ -- toward the door and 57 away from it, so x 36-113 here. The models need 44 studs apiece
+ -- (14-stud gaps for outside decorations), narrowed with the cages. The item displays face
+ -- them from across the plaza.
+ Row = {first = Vector3.new(56, 0, 18), step = Vector3.new(0, 0, 44 * CAGE_WIDTH_SCALE), yaw = -math.pi / 2},
  OfflineTrainingEnabled = true,
  MaximumOfflineSeconds = 8 * 60 * 60,
  OfflinePowerRateMultiplier = 0.25,

@@ -1,10 +1,12 @@
 -- Themed scenery for a World's hub (WorldConfig hub.theme), in FieldBuilder's hub frame:
 -- origin at the tee on the hub floor, +Z back into the hub, +X to the right when facing down
--- the runway.
---   HomeField (World 1): a sunken ballpark. Striped grass with dirt paths to the cages and a
---     home plate at the spawn; a padded outfield wall with bunting; bleachers on three sides
---     climbing to a grassy berm level with the runway's outer ground; light towers, foul poles,
---     a scoreboard, and a treeline on the berm.
+-- the runway (so on the left as seen from the spawn, which looks into the hub). Every theme
+-- lays the same paths for WorldConfig's shared layout (hubPaths) and marks the same spots: the
+-- spawn, the event piece in the middle of the plaza and the portal pad at the back.
+--   HomeField (World 1): a sunken ballpark. Striped grass with dirt paths and a home plate at
+--     the spawn, an infield diamond for events; a padded outfield wall with bunting; bleachers
+--     on three sides climbing to a grassy berm level with the runway's outer ground; light
+--     towers, foul poles, a scoreboard, and a treeline on the berm.
 --   TimeTravel (World 2): a sunken clockwork plaza. Checkered tiles with brass walkways, a
 --     giant clock face for events, glowing terraces up to the berm, a clock tower, chrono lamps,
 --     floating gears and time crystals, and monuments from the eras ahead on the berm.
@@ -74,33 +76,76 @@ local function kit(folder, frame)
 end
 
 -- Footprints of hub contents, for laying paths up to them: a Training Ground's scenery reaches
--- about 21 studs from its plate toward its door and 16 either side; a display's front row is
--- about 35 studs wide.
+-- about 21 studs from its plate toward its door and 16 either side along the row; a display's
+-- front row is about 35 studs wide.
 local CAGE_DOOR_REACH, CAGE_HALF_WIDTH = 22, 16
 local DISPLAY_HALF_WIDTH = 18
+local LANE_WIDTH = 8
 
--- How far the hub floor reaches from the tee line on one side (sign -1 left, 1 right); the
--- hub can be wider on one side (WorldConfig hub.left / hub.right).
+-- How far the hub floor reaches from the tee line on one side (sign -1 for -X, 1 for +X); the
+-- hub can be wider on one side (WorldConfig hub.minX / hub.maxX).
 local function edge(config, sign)
- return sign == -1 and config.left or config.right
+ return sign == -1 and -config.minX or config.maxX
 end
 
--- Where a hub's paths lead: the x of the lane along this World's Training Ground doors (left)
--- and how far back the cages reach, then the same for the item displays (right).
-local function layoutExtents(config, worldId)
- local doorX, cagesEnd = -config.left, 0
+-- The lanes in front of this World's Training Ground doors and before its item displays, as
+-- hub-frame rectangles {x0, x1, z0, z1} running the length of each group. Each lies on the side
+-- its doors / display fronts face, so the paths follow the layout wherever it is configured.
+local function layoutLanes(config, worldId)
+ local function lane(frontX, facingX, z0, z1)
+  local farX = frontX + (facingX < 0 and -LANE_WIDTH or LANE_WIDTH)
+  return {math.min(frontX, farX), math.max(frontX, farX), z0, z1}
+ end
+ local cageLane, displayLane
  local layout = Training.GetHub(worldId)
- for _, id in layout and layout.grounds or {} do
-  local plate = Training.GetPlatePosition(Training.Get(id), worldId)
-  doorX = math.max(doorX, plate.X + CAGE_DOOR_REACH)
-  cagesEnd = math.max(cagesEnd, plate.Z + CAGE_HALF_WIDTH)
+ if layout then
+  -- A cage's door is at its plate's local +Z (TrainingConfig.Cage).
+  local doorFacing = CFrame.Angles(0, Training.GetPlateYaw(), 0):VectorToWorldSpace(Vector3.zAxis).X
+  local doorX, z0, z1 = doorFacing < 0 and math.huge or -math.huge, math.huge, -math.huge
+  for _, id in layout.grounds do
+   local plate = Training.GetPlatePosition(Training.Get(id), worldId)
+   local x = plate.X + (doorFacing < 0 and -CAGE_DOOR_REACH or CAGE_DOOR_REACH)
+   doorX = doorFacing < 0 and math.min(doorX, x) or math.max(doorX, x)
+   z0, z1 = math.min(z0, plate.Z - CAGE_HALF_WIDTH), math.max(z1, plate.Z + CAGE_HALF_WIDTH)
+  end
+  cageLane = lane(doorX, doorFacing, z0, z1)
  end
- local displayX, displaysEnd = config.right, 0
  for _, display in config.displays or {} do
-  displayX = math.min(displayX, display.position.X)
-  displaysEnd = math.max(displaysEnd, display.position.Z + DISPLAY_HALF_WIDTH)
+  -- A display faces its local +Z (ItemDisplay); its front row's edge is at its position.
+  local facing = CFrame.Angles(0, display.yaw or math.pi, 0):VectorToWorldSpace(Vector3.zAxis).X
+  local z0, z1 = display.position.Z - DISPLAY_HALF_WIDTH, display.position.Z + DISPLAY_HALF_WIDTH
+  local this = lane(display.position.X, facing, z0, z1)
+  displayLane = displayLane and {displayLane[1], displayLane[2], math.min(displayLane[3], z0), math.max(displayLane[4], z1)} or this
  end
- return doorX, cagesEnd, displayX, displaysEnd
+ return cageLane, displayLane
+end
+
+-- The paths every hub shares (WorldConfig's layout): a cross path in front of the spawn from the
+-- display lane to the Training Ground lane, with a short path to the batting circle; the two
+-- lanes, running on to a back path that leads to the portal; and a path up the middle of the
+-- plaza from the spawn to the event piece and on to the back path. The event piece and the
+-- portal pad are drawn by each theme, inside eventArea's square and portalPad's circle.
+-- paint(name, x0, x1, z0, z1) lays one path in the theme's style.
+local function hubPaths(config, worldId, paint)
+ local cageLane, displayLane = layoutLanes(config, worldId)
+ local leftX = cageLane and cageLane[2] or 4
+ local rightX = displayLane and displayLane[1] or -4
+ local frontZ0, frontZ1 = config.spawn.Z - 6, config.spawn.Z + 2
+ paint("FrontPath", rightX, leftX, frontZ0, frontZ1)
+ paint("BatterPath", -4, 4, 20, frontZ0)
+ local portal = config.portalPad
+ local backZ1 = portal and portal.center.Z - portal.radius - 1 or config.depth - 10
+ local backZ0 = backZ1 - LANE_WIDTH
+ if cageLane then paint("CageLane", cageLane[1], cageLane[2], frontZ1, math.max(cageLane[4], backZ1)) end
+ if displayLane then paint("DisplayLane", displayLane[1], displayLane[2], frontZ1, math.max(displayLane[4], backZ1)) end
+ paint("BackPath", displayLane and displayLane[2] or rightX, cageLane and cageLane[1] or leftX, backZ0, backZ1)
+ local event = config.eventArea
+ if event then
+  paint("CenterPath", -4, 4, frontZ1, event.center.Z - event.size / 2)
+  paint("CenterPath", -4, 4, event.center.Z + event.size / 2, backZ0)
+ else
+  paint("CenterPath", -4, 4, frontZ1, backZ0)
+ end
 end
 
 -- The runway's outer ground is 9 studs above the ground (RunwayDecor: wallHeight - 3, on a frame
@@ -139,7 +184,7 @@ end
 -- distances from the tee line) and the back stand's far z.
 local function bowl(k, config, look)
  local depth = config.depth
- local left, right = config.left, config.right
+ local left, right = edge(config, -1), edge(config, 1)
  for _, sign in {-1, 1} do
   local x = sign * (edge(config, sign) + 0.5)
   k.block("OutfieldWall", x - 0.5, x + 0.5, 0, WALL_HEIGHT, 0, depth + 1, look.wall, look.wallMaterial)
@@ -218,8 +263,10 @@ local function lightTower(k, position, target)
  light.Parent = panel
 end
 
+-- The scoreboard stands on tall legs behind the back stand, so from the plaza it rises above
+-- the World portal and its sign in front of it.
 local function scoreboard(k, center)
- local legY0, legY1 = BERM_TOP, BERM_TOP + 10
+ local legY0, legY1 = BERM_TOP, BERM_TOP + 34
  for _, x in {-18, 18} do
   k.block("ScoreboardLeg", center.X + x - 1, center.X + x + 1, legY0, legY1, center.Z - 1, center.Z + 1, STEEL, M.Metal)
  end
@@ -248,32 +295,32 @@ local function homeField(k, folder, frame, config, worldId)
  -- The field: mowing stripes, the walkable floor.
  local stripes = 12
  for i = 1, stripes do
-  k.block("Grass", -config.left, config.right, -Field.GroundThickness, 0, (i - 1) * depth / stripes, i * depth / stripes,
+  k.block("Grass", config.minX, config.maxX, -Field.GroundThickness, 0, (i - 1) * depth / stripes, i * depth / stripes,
    i % 2 == 0 and GRASS_A or GRASS_B, M.Grass)
  end
 
- -- Dirt paths: a circle behind the batting area, a path across the front, a lane along the
- -- Training Ground doors (left) and one in front of the item displays (right), and a path up
- -- the middle to the event diamond. A home plate marks the spawn.
+ -- Dirt paths (the shared layout's paths) and a circle round the batting area. A home plate
+ -- marks the spawn.
  k.disc("BatterCircle", Vector3.new(0, 0, 10), 10, DIRT, M.Ground, 1)
- local doorX, cagesEnd, displayX, displaysEnd = layoutExtents(config, worldId)
- k.patch("FrontPath", doorX, displayX - 2, 20, 28, DIRT, M.Ground, 1)
- k.patch("CageLane", doorX, doorX + 8, 20, cagesEnd, DIRT, M.Ground, 1)
- k.patch("DisplayLane", displayX - 10, displayX - 2, 20, displaysEnd, DIRT, M.Ground, 1)
- local spawnZ = 60
+ hubPaths(config, worldId, function(name, x0, x1, z0, z1)
+  k.patch(name, x0, x1, z0, z1, DIRT, M.Ground, 1)
+ end)
+ local spawnZ = config.spawn.Z
  k.patch("HomePlate", -2.5, 2.5, spawnZ, spawnZ + 2.5, CHALK, M.SmoothPlastic, 3)
  k.box("HomePlatePoint", Vector3.new(3.54, 0.06, 3.54), Vector3.new(0, 0.05, spawnZ), CHALK, M.SmoothPlastic, false,
   CFrame.Angles(0, math.pi / 4, 0))
 
- -- The open middle, kept clear: an infield diamond for events (dirt with an inner grass
- -- square, white bases and a pitcher's mound) and the World portal's pad, in line with the item displays.
+ -- The middle of the plaza: an infield diamond for events (dirt with an inner grass square,
+ -- white bases and a pitcher's mound), its corners inside the event square, and the World
+ -- portal's pad at the back.
  local event = config.eventArea
  if event then
-  local center, reach = event.center, event.size / math.sqrt(2)
-  k.patch("CenterPath", -4, 4, 18, center.Z - reach + 2, DIRT, M.Ground, 1)
+  local center = event.center
+  local side = event.size * 0.7
+  local reach = side / math.sqrt(2)
   local diamond = CFrame.Angles(0, math.pi / 4, 0)
-  k.box("EventDiamond", Vector3.new(event.size, 0.04, event.size), center + Vector3.new(0, 0.02, 0), DIRT, M.Ground, false, diamond)
-  local grassSize = event.size * 0.62
+  k.box("EventDiamond", Vector3.new(side, 0.04, side), center + Vector3.new(0, 0.02, 0), DIRT, M.Ground, false, diamond)
+  local grassSize = side * 0.62
   k.box("EventInfield", Vector3.new(grassSize, 0.08, grassSize), center + Vector3.new(0, 0.04, 0), GRASS_A, M.Grass, false, diamond)
   for _, corner in {Vector3.new(0, 0, -reach + 3), Vector3.new(reach - 3, 0, 0), Vector3.new(0, 0, reach - 3), Vector3.new(-reach + 3, 0, 0)} do
    k.box("Base", Vector3.new(2.2, 0.3, 2.2), center + corner + Vector3.new(0, 0.15, 0), CHALK, M.SmoothPlastic, false, diamond)
@@ -294,7 +341,7 @@ local function homeField(k, folder, frame, config, worldId)
   local x = sign * (edge(config, sign) + 0.5)
   bunting(k, Vector3.new(x - sign * 0.7, WALL_HEIGHT + 0.2, 2), Vector3.new(x - sign * 0.7, WALL_HEIGHT + 0.2, depth - 1))
  end
- bunting(k, Vector3.new(-config.left + 1, WALL_HEIGHT + 0.2, depth - 0.2), Vector3.new(config.right - 1, WALL_HEIGHT + 0.2, depth - 0.2))
+ bunting(k, Vector3.new(config.minX + 1, WALL_HEIGHT + 0.2, depth - 0.2), Vector3.new(config.maxX - 1, WALL_HEIGHT + 0.2, depth - 0.2))
 
  -- Foul poles where the runway walls begin, light towers on the berm corners, the scoreboard.
  for _, sign in {-1, 1} do
@@ -598,43 +645,43 @@ end
 
 local function timeTravel(k, folder, frame, config, worldId)
  local depth = config.depth
- local width = config.left + config.right
+ local width = config.maxX - config.minX
 
  -- The plaza floor: checkered tiles with thin brass seams.
- local columns, rows = 9, 8
+ local columns, rows = 7, 8
  for i = 0, columns - 1 do
   for j = 0, rows - 1 do
-   k.block("Tile", -config.left + i * width / columns, -config.left + (i + 1) * width / columns, -Field.GroundThickness, 0,
+   k.block("Tile", config.minX + i * width / columns, config.minX + (i + 1) * width / columns, -Field.GroundThickness, 0,
     j * depth / rows, (j + 1) * depth / rows, (i + j) % 2 == 0 and TILE_A or TILE_B, M.SmoothPlastic)
   end
  end
  for i = 1, columns - 1 do
-  local x = -config.left + i * width / columns
+  local x = config.minX + i * width / columns
   k.patch("Seam", x - 0.3, x + 0.3, 0, depth, BRASS_DARK, M.SmoothPlastic, 1)
  end
  for j = 1, rows - 1 do
   local z = j * depth / rows
-  k.patch("Seam", -config.left, config.right, z - 0.3, z + 0.3, BRASS_DARK, M.SmoothPlastic, 1)
+  k.patch("Seam", config.minX, config.maxX, z - 0.3, z + 0.3, BRASS_DARK, M.SmoothPlastic, 1)
  end
 
- -- Brass walkways to the cages, the displays and the clock, a glowing ring around the batting
- -- area, and a small clock rosette marking the spawn.
+ -- Brass walkways (the shared layout's paths), a glowing ring around the batting area, and a
+ -- small clock rosette marking the spawn.
  k.disc("BatterRing", Vector3.new(0, 0, 10), 10.8, CHRONO, M.Neon, 2)
  k.disc("BatterCircle", Vector3.new(0, 0, 10), 10, WALKWAY, M.SmoothPlastic, 3)
- local doorX, cagesEnd, displayX, displaysEnd = layoutExtents(config, worldId)
- k.patch("FrontPath", doorX, displayX - 2, 20, 28, WALKWAY, M.SmoothPlastic, 2)
- k.patch("CageLane", doorX, doorX + 8, 20, cagesEnd, WALKWAY, M.SmoothPlastic, 2)
- k.patch("DisplayLane", displayX - 10, displayX - 2, 20, displaysEnd, WALKWAY, M.SmoothPlastic, 2)
- local spawnZ = 60
+ hubPaths(config, worldId, function(name, x0, x1, z0, z1)
+  k.patch(name, x0, x1, z0, z1, WALKWAY, M.SmoothPlastic, 2)
+ end)
+ local spawnZ = config.spawn.Z
  k.disc("SpawnRosette", Vector3.new(0, 0, spawnZ), 3.4, BRASS, M.SmoothPlastic, 4)
  k.disc("SpawnDial", Vector3.new(0, 0, spawnZ), 2.7, CREAM, M.SmoothPlastic, 5)
 
- -- A giant clock face for events in the middle, and the World portal's pad.
+ -- A giant clock face for events in the middle (its rim inside the event square), the World
+ -- portal's pad at the back, and a chrono lamp at each of the two spots either side of the
+ -- portal that World 1 fills with its leaderboards.
  local event = config.eventArea
- if event then
-  local radius = event.size / 2
-  k.patch("CenterPath", -4, 4, 18, event.center.Z - radius - 1, WALKWAY, M.SmoothPlastic, 2)
-  floorClock(k, event.center, radius)
+ if event then floorClock(k, event.center, event.size / 2 - 2) end
+ for _, side in {-1, 1} do
+  chronoLamp(k, Vector3.new(side * 30, 0, config.portalPad.center.Z + 2))
  end
  local portal = config.portalPad
  if portal then
@@ -649,7 +696,7 @@ local function timeTravel(k, folder, frame, config, worldId)
   local x = sign * (edge(config, sign) - 0.1)
   k.block("WallGlow", x - 0.1, x + 0.1, 2.6, 3.1, 0, depth, CHRONO, M.Neon, false)
  end
- k.block("WallGlow", -config.left, config.right, 2.6, 3.1, depth - 0.1, depth + 0.1, CHRONO, M.Neon, false)
+ k.block("WallGlow", config.minX, config.maxX, 2.6, 3.1, depth - 0.1, depth + 0.1, CHRONO, M.Neon, false)
 
  -- The clock tower at the back, chrono lamps at the corners, monuments on the berm.
  clockTower(k, Vector3.new(0, BERM_TOP, backFar + 24))
@@ -724,6 +771,7 @@ local function orbitLights(k, center, radius, tilt, count, color, speed)
 end
 
 -- The event stage: a dark dais ringed with light, and a hologram globe above it with lights in orbit.
+local GLOBE_HEIGHT = 40
 local function hologramStage(k, center, radius)
  k.disc("StageGlow", center, radius + 1.2, SEAM, M.Neon, 2)
  k.disc("Stage", center, radius, WALK, M.SmoothPlastic, 3)
@@ -733,7 +781,8 @@ local function hologramStage(k, center, radius)
  end
  k.disc("StageEmitter", center, 3, HULL, M.SmoothPlastic, 9)
  k.disc("StageEmitterGlow", center, 1.6, HOLO, M.Neon, 10)
- local globeCenter = center + Vector3.new(0, 16, 0)
+ -- High enough that the view from the spawn to the portal and its sign behind passes beneath it.
+ local globeCenter = center + Vector3.new(0, GLOBE_HEIGHT, 0)
  local globe = k.box("HoloGlobe", Vector3.one * 11, globeCenter, HOLO, M.Neon, false)
  globe.Shape, globe.Transparency = Enum.PartType.Ball, 0.55
  globe:SetAttribute("Pulse", 0.5)
@@ -741,8 +790,8 @@ local function hologramStage(k, center, radius)
  core.Shape = Enum.PartType.Ball
  orbitLights(k, globeCenter, 10, math.rad(20), 10, HOLO, 40)
  orbitLights(k, globeCenter, 13, math.rad(-35), 12, HOLO_PINK, -28)
- -- A faint beam from the emitter up to the globe.
- local beam = k.column("HoloBeam", center, 1.2, 0.2, 13, HOLO, M.Neon, false)
+ -- A short glow over the emitter; a beam all the way up would draw a line across the portal.
+ local beam = k.column("HoloBeam", center, 1.2, 0.2, 4, HOLO, M.Neon, false)
  beam.Transparency = 0.6
 end
 
@@ -845,44 +894,42 @@ end
 
 local function future(k, folder, frame, config, worldId)
  local depth = config.depth
- local width = config.left + config.right
+ local width = config.maxX - config.minX
 
  -- The plaza floor: white tiles with thin glowing seams.
- local columns, rows = 9, 8
+ local columns, rows = 7, 8
  for i = 0, columns - 1 do
   for j = 0, rows - 1 do
-   k.block("Tile", -config.left + i * width / columns, -config.left + (i + 1) * width / columns, -Field.GroundThickness, 0,
+   k.block("Tile", config.minX + i * width / columns, config.minX + (i + 1) * width / columns, -Field.GroundThickness, 0,
     j * depth / rows, (j + 1) * depth / rows, (i + j) % 2 == 0 and PLAZA_A or PLAZA_B, M.SmoothPlastic)
   end
  end
  for i = 1, columns - 1 do
-  local x = -config.left + i * width / columns
+  local x = config.minX + i * width / columns
   k.patch("Seam", x - 0.2, x + 0.2, 0, depth, SEAM, M.Neon, 1)
  end
  for j = 1, rows - 1 do
   local z = j * depth / rows
-  k.patch("Seam", -config.left, config.right, z - 0.2, z + 0.2, SEAM, M.Neon, 1)
+  k.patch("Seam", config.minX, config.maxX, z - 0.2, z + 0.2, SEAM, M.Neon, 1)
  end
 
- -- Dark walkways with glowing edges to the cages, the displays and the stage, a glowing ring
- -- round the batting area, and a landing-pad marking at the spawn.
+ -- Dark walkways with glowing edges (the shared layout's paths), a glowing ring round the
+ -- batting area, and a landing-pad marking at the spawn.
  k.disc("BatterRing", Vector3.new(0, 0, 10), 10.8, SEAM, M.Neon, 2)
  k.disc("BatterCircle", Vector3.new(0, 0, 10), 10, WALK, M.SmoothPlastic, 3)
- local doorX, cagesEnd, displayX, displaysEnd = layoutExtents(config, worldId)
- walkway(k, "FrontPath", doorX, displayX - 2, 20, 28)
- walkway(k, "CageLane", doorX, doorX + 8, 28, cagesEnd)
- walkway(k, "DisplayLane", displayX - 10, displayX - 2, 28, displaysEnd)
- local spawnZ = 60
+ hubPaths(config, worldId, function(name, x0, x1, z0, z1) walkway(k, name, x0, x1, z0, z1) end)
+ local spawnZ = config.spawn.Z
  k.disc("SpawnPadGlow", Vector3.new(0, 0, spawnZ), 4.2, SEAM, M.Neon, 4)
  k.disc("SpawnPad", Vector3.new(0, 0, spawnZ), 3.5, HULL, M.SmoothPlastic, 5)
  k.disc("SpawnPadCore", Vector3.new(0, 0, spawnZ), 1.4, SEAM, M.Neon, 6)
 
- -- The hologram stage for events, and the World portal's pad.
+ -- The hologram stage for events (inside the event square), the World portal's pad at the
+ -- back, and a holo lamp at each of the two spots either side of the portal that World 1 fills
+ -- with its leaderboards.
  local event = config.eventArea
- if event then
-  local radius = event.size / 2
-  walkway(k, "CenterPath", -4, 4, 28, event.center.Z - radius - 1)
-  hologramStage(k, event.center, radius)
+ if event then hologramStage(k, event.center, event.size / 2 - 1.2) end
+ for _, side in {-1, 1} do
+  holoLamp(k, Vector3.new(side * 30, 0, config.portalPad.center.Z + 2))
  end
  local portal = config.portalPad
  if portal then
@@ -897,7 +944,7 @@ local function future(k, folder, frame, config, worldId)
   local x = sign * (edge(config, sign) - 0.1)
   k.block("WallGlow", x - 0.1, x + 0.1, 2.6, 3.1, 0, depth, SEAM, M.Neon, false)
  end
- k.block("WallGlow", -config.left, config.right, 2.6, 3.1, depth - 0.1, depth + 0.1, SEAM, M.Neon, false)
+ k.block("WallGlow", config.minX, config.maxX, 2.6, 3.1, depth - 0.1, depth + 0.1, SEAM, M.Neon, false)
 
  -- The beacon tower at the back, holo lamps at the corners, drones over the plaza.
  beaconTower(k, Vector3.new(0, BERM_TOP, backFar + 24))
@@ -906,9 +953,9 @@ local function future(k, folder, frame, config, worldId)
   holoLamp(k, Vector3.new(sign * (outer[sign] + 8), BERM_TOP, backFar + 6))
  end
  local rng = Random.new(3030)
- for i = 1, 8 do
-  local sign = i % 2 == 0 and 1 or -1
-  drone(k, Vector3.new(sign * rng:NextNumber(20, 110), rng:NextNumber(24, 40), rng:NextNumber(30, 200)), rng:NextNumber(0, 2 * math.pi))
+ for _ = 1, 8 do
+  drone(k, Vector3.new(rng:NextNumber(config.minX + 10, config.maxX - 10), rng:NextNumber(24, 40), rng:NextNumber(30, 200)),
+   rng:NextNumber(0, 2 * math.pi))
  end
 
  -- A glass skyline on the berm, tallest at the back.

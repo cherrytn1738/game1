@@ -66,6 +66,13 @@ return function(sources)
   if passFailures[userId] then error("simulated pass lookup outage") end
   return ownedPasses[userId .. ":" .. passId] == true
  end
+ -- Roblox's price for a pass; a pass with no entry simulates a failed lookup.
+ local passPrices = {}
+ function marketplace:GetProductInfo(passId, infoType)
+  check(infoType == Enum.InfoType.GamePass, "pass prices are looked up as game passes")
+  if not passPrices[passId] then error("simulated product info outage") end
+  return {PriceInRobux = passPrices[passId]}
+ end
  -- Test fixtures: the shipped config defines no juices yet.
  Juice.Define({id = "test_power", displayName = "Test Power Juice", effect = "Power", multiplier = 2, durationSeconds = 60})
  Juice.Define({id = "test_cash", displayName = "Test Cash Juice", effect = "Cash", multiplier = 3, durationSeconds = 30})
@@ -202,7 +209,7 @@ return function(sources)
  check(b:GetAttribute("EquippedBat") == "metal_bat" and b.leaderstats.Cash.Value == 1700, "forged request inputs rejected")
  check(Data.EquipEquipment(a, "Bat", "wood_bat"), "select old item before saving")
  leave(a)
- check(saved.Player_1.SchemaVersion == 8 and saved.Player_1.Session == nil, "version 8 save and lease release")
+ check(saved.Player_1.SchemaVersion == 9 and saved.Player_1.Session == nil, "version 9 save and lease release")
  check(saved.Player_1.OwnedBats.amethyst_bat and saved.Player_1.EquippedBat == "wood_bat", "ownership and selection saved separately")
  check(saved.Player_1.OtherProgress == 42 and saved.Player_1.UnlockedWorlds.world_2, "other progression preserved")
  local returned = join(1)
@@ -357,7 +364,7 @@ return function(sources)
  check(ok and gain.powerGranted==300 and trainee:GetAttribute("Level")==2,"active training uses central multiplier/advancement")
  trainee:SetAttribute("TrainingActive",false)
  leave(trainee)
- check(saved.Player_30.SelectedTrainingGround==nil and saved.Player_30.SchemaVersion==8 and saved.Player_30.LastLogoutTime==math.floor(now),"no ground selection saved; logout saved")
+ check(saved.Player_30.SelectedTrainingGround==nil and saved.Player_30.SchemaVersion==9 and saved.Player_30.LastLogoutTime==math.floor(now),"no ground selection saved; logout saved")
  trainee=join(30)
  check(trainee:GetAttribute("OfflineTrainingGround")=="enchanted_grove" and trainee:GetAttribute("OfflinePowerEarned")==0,"rejoin with zero offline duration")
  local nowStamp=100000
@@ -413,6 +420,66 @@ return function(sources)
   and passHolder:GetAttribute("TrainingPass_dragons_lair")==true,"completed purchase opens the ground immediately")
  leave(passHolder)
  check(saved.Player_35.TrainingPasses==nil and saved.Player_35.SelectedTrainingGround==nil,"pass ownership is never saved")
+ -- The configured fallback price applied (no Roblox price for pass 222 here); the unknown pass
+ -- 999 has no price anywhere, so it adds nothing.
+ check(saved.Player_35.RobuxSpent==1000 and saved.Player_35.RobuxPurchases.Passes["222"]==true
+  and saved.Player_35.RobuxPurchases.Passes["999"]==true,"a verified in-game pass purchase counts its Robux")
+
+ -- Leaderboard stats (schema 9). TimePlayed: whole seconds from the server clock, across sessions.
+ saved.Player_42={SchemaVersion=8,Cash=10,Power=0,Level=1,Rebirths=0}
+ local veteran=join(42)
+ now += 125.6
+ leave(veteran)
+ check(saved.Player_42.TimePlayed==125 and saved.Player_42.RobuxSpent==0 and saved.Player_42.Cash==10,
+  "schema 8 saves start TimePlayed and RobuxSpent at zero; a session adds its whole seconds")
+ veteran=join(42)
+ veteran:SetAttribute("TimePlayed",999999)
+ now += 30.2
+ leave(veteran)
+ check(saved.Player_42.TimePlayed==155,"time accumulates across sessions; client attributes cannot change it")
+ -- Wind the fake clock back: these fakes never run the autosave loop that renews the other
+ -- players' leases, so 155 seconds would expire them.
+ now -= 155.8
+ -- RobuxSpent: Roblox's pass price is preferred, each pass counts once, cancelled purchases never.
+ passPrices[111]=450
+ local buyer=join(43)
+ marketplace.PromptGamePassPurchaseFinished:Fire(buyer,111,false)
+ marketplace.PromptGamePassPurchaseFinished:Fire(buyer,111,true)
+ marketplace.PromptGamePassPurchaseFinished:Fire(buyer,111,true)
+ check(Data.RecordRobuxReceipt(buyer,{PlayerId=43,PurchaseId="receipt-1",CurrencySpent=75,CurrencyType=Enum.CurrencyType.Robux}),
+  "a developer product receipt counts")
+ check(not Data.RecordRobuxReceipt(buyer,{PlayerId=43,PurchaseId="receipt-1",CurrencySpent=75,CurrencyType=Enum.CurrencyType.Robux}),
+  "a repeated receipt is not counted twice")
+ for _, bad in {{PlayerId=2,PurchaseId="r2",CurrencySpent=10}, {PlayerId=43,PurchaseId="r3",CurrencySpent=-5},
+  {PlayerId=43,PurchaseId="r4",CurrencySpent=1.5}, {PlayerId=43,PurchaseId="",CurrencySpent=10}, {PlayerId=43,PurchaseId={},CurrencySpent=10},
+  {PlayerId=43,PurchaseId="r5",CurrencySpent=10,CurrencyType="Robux"}, "receipt"} do
+  check(not Data.RecordRobuxReceipt(buyer,bad),"another player's, malformed or non-Robux receipts are rejected")
+ end
+ check(not Data.RecordRobuxReceipt(failed,{PlayerId=6,PurchaseId="r6",CurrencySpent=10}),"a failed load records nothing")
+ leave(buyer)
+ check(saved.Player_43.RobuxSpent==525 and saved.Player_43.RobuxPurchases.Passes["111"]==true
+  and saved.Player_43.RobuxPurchases.Receipts[1]=="receipt-1","pass and receipt Robux saved once each")
+ buyer=join(43)
+ marketplace.PromptGamePassPurchaseFinished:Fire(buyer,111,true)
+ check(not Data.RecordRobuxReceipt(buyer,{PlayerId=43,PurchaseId="receipt-1",CurrencySpent=75}),"counted purchases are remembered across sessions")
+ leave(buyer)
+ check(saved.Player_43.RobuxSpent==525,"a rejoin never counts a purchase again")
+ passPrices[111]=nil
+ -- Sanitizing: malformed counters fail closed (the save is untouched); stray purchase entries are dropped.
+ for id, record in {[44]={TimePlayed=-5}, [45]={RobuxSpent=1.5}, [46]={RobuxSpent="100"}, [47]={TimePlayed=1e20},
+  [48]={RobuxPurchases="bad"}, [49]={RobuxPurchases={Passes="bad"}}} do
+  record.SchemaVersion, record.Cash = 9, 7
+  saved["Player_" .. id] = record
+  local broken=join(id)
+  check(not Data.IsReady(broken) and saved["Player_" .. id].Cash==7,"malformed leaderboard stats fail closed")
+ end
+ saved.Player_50={SchemaVersion=9,Cash=7,TimePlayed=60,RobuxSpent=40,
+  RobuxPurchases={Passes={["12"]=true,bad=true,["13"]="yes"},Receipts={"r1",5,string.rep("x",80)}}}
+ local tidy=join(50)
+ leave(tidy)
+ local tidied=saved.Player_50.RobuxPurchases
+ check(tidied.Passes["12"]==true and tidied.Passes.bad==nil and tidied.Passes["13"]==nil and #tidied.Receipts==1
+  and tidied.Receipts[1]=="r1" and saved.Player_50.RobuxSpent==40 and saved.Player_50.TimePlayed==60,"stray purchase entries dropped, totals kept")
  -- Studio's UnlockAllWorlds playtest switch opens every World for the session only.
  workspace:SetAttribute("UnlockAllWorlds", true)
  saved.Player_37={SchemaVersion=8,Cash=1,Power=0,Level=1,Rebirths=0}
@@ -805,7 +872,7 @@ return function(sources)
  check(not migrated:FindFirstChild("OwnedTees") and migrated:GetAttribute("EquippedTee")==nil
   and migrated:GetAttribute("EquipmentPurchaseToken_Tee")==nil, "no retired runtime state")
  check(saved.Player_300.OwnedTees==nil and saved.Player_300.EquippedTee==nil
-  and saved.Player_300.SchemaVersion==8, "atomic migration discards even malformed Tee fields")
+  and saved.Player_300.SchemaVersion==9, "atomic migration discards even malformed Tee fields")
  check(not Data.PurchaseNextEquipment(migrated,"Tee","fake")
   and not Data.EquipEquipment(migrated,"Tee","basic_tee"), "removed category operations rejected")
  local migratedCash=migrated.leaderstats.Cash.Value
@@ -876,7 +943,7 @@ return function(sources)
  Data.TickJuices(30)
  check(juicer.ActiveJuices:GetAttribute("test_power") == 90, "timers count down")
  leave(juicer)
- check(saved.Player_400.SchemaVersion == 8 and saved.Player_400.ActiveJuices.test_power == 90
+ check(saved.Player_400.SchemaVersion == 9 and saved.Player_400.ActiveJuices.test_power == 90
   and saved.Player_400.OwnedJuices.test_power == nil, "juice state saves")
  now += 600
  local returning = join(400)
