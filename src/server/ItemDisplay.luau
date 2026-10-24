@@ -28,11 +28,16 @@ local ITEM_SIZE = 2 -- the item's largest dimension, in studs
 local ITEM_HEIGHT = 2.2 -- item centre above the pedestal top
 local LABEL_HEIGHT = 3.1 -- label centre above the item centre
 local PROMPT_DISTANCE = 14 -- reaches the front row from anywhere in the dirt lane before the display
+-- An item's glow (its style's light, tuned for the ball in flight) is much dimmer and shorter on
+-- a pedestal, so neighbouring glows don't wash out the white stage and the items themselves.
+local DISPLAY_LIGHT_BRIGHTNESS, DISPLAY_LIGHT_RANGE = 0.3, 0.4
 local BACKDROP_HEIGHT = 9 -- wall behind the top row, above its tier
 
-local STAGE_COLOR = Color3.fromRGB(236, 236, 242)
+-- A dark slate stage and pedestals: the items stand out against them, and they stay clear of
+-- bloom under bright lighting (a white stage blew out and hid the items).
+local STAGE_COLOR = Color3.fromRGB(52, 60, 84)
 local TRIM_COLOR = Color3.fromRGB(205, 40, 48)
-local PEDESTAL_COLOR = Color3.fromRGB(250, 250, 252)
+local PEDESTAL_COLOR = Color3.fromRGB(82, 92, 120)
 
 local function part(parent, name, size, cframe, color, shape)
  local p = Instance.new("Part")
@@ -62,7 +67,9 @@ local function addIdleEffects(model, style, itemSize)
  if not anchor then return end
  if style.light then
   local light = Instance.new("PointLight")
-  light.Color, light.Brightness, light.Range = style.light[1], style.light[2], style.light[3]
+  light.Color, light.Shadows = style.light[1], false
+  light.Brightness = style.light[2] * DISPLAY_LIGHT_BRIGHTNESS
+  light.Range = style.light[3] * DISPLAY_LIGHT_RANGE
   light.Parent = anchor
  end
  if style.idle then

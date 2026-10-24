@@ -478,12 +478,11 @@ The portal is not a teleporter. An invisible `Trigger` fills the opening, and st
 
 ## Sky
 
-`SkyServer` applies one stylized golden-hour sky to the whole game at server start:
-- a late-afternoon sun about 34° up, behind and to the left of the batter, so it lights the runway but never sits in the camera's view of the ball (an earlier sun placed straight down the runway made the ball hard to see)
-- warm pink and purple atmosphere, soft pink dynamic clouds, and gentle bloom and sun rays
-- a light saturation boost
+`SkyServer` applies one sky to the whole game at server start, from one of two presets chosen by `PRESET` at the top of the script:
+- **Daylight (current):** based on the developer's own Studio Lighting edits, toned down to be easier on the eyes: midday light (Brightness 2.8, exposure -0.1, clock 14.5), cool blue ambient, a light grey atmosphere with no haze or glare, no terrain clouds, moderate bloom (0.5, size 40, threshold 2.4), and a vivid but softer colour grade (contrast 0.2, saturation 0.32, a faint lavender tint). The place's Sky skybox is kept.
+- **GoldenHour (original):** a late-afternoon sun about 34° up, behind and to the left of the batter, so it lights the runway but never sits in the camera's view of the ball; warm pink and purple atmosphere, soft pink dynamic clouds, gentle bloom and sun rays, and a light saturation boost. Set `PRESET = "GoldenHour"` to go back to it.
 
-It reuses the place's existing Lighting effects rather than adding duplicates. All values are look-only and tunable at the top of the script. The sky does not change per section.
+Because SkyServer re-applies its preset at every server start, Lighting edits made in Studio only show in playtests once they are copied into a preset. It reuses the place's existing Lighting effects rather than adding duplicates. All values are look-only. The sky does not change per section.
 
 ## Hit presentation
 
