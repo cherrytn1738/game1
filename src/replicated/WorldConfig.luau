@@ -90,7 +90,7 @@ local Worlds = {
    stationName = "BattingArea2", fieldName = "LongRangeField2",
    -- Same hub layout as World 1 (TrainingConfig places World 2's cages in the same row), with
    -- spawn 60 studs behind this World's tee.
-   offset = Vector3.new(8000, 0, 0), arrival = CFrame.new(7982.8, 4, 38.8),
+   offset = Vector3.new(8000, 0, 0), arrival = CFrame.new(7982.8, 4, 38.8), nextWorldId = "world_3",
    hub = {name = "World2Hub", left = 136, right = 86, depth = 222,
     -- Scenery style (HubDecor): a sunken clockwork plaza with a giant clock face, a clock tower
     -- and monuments from the eras ahead.
@@ -109,7 +109,7 @@ local Worlds = {
     -- The World portal, placed as in World 1.
     portalPad = {center = Vector3.new(62.5, 0, 45), radius = 12, yaw = math.pi / 2}},
    runoutDistance = 2000,
-   -- The same portal ends World 2 (it completes the World; the trip plays once a next World exists).
+   -- The same portal ends World 2 and pulls the batter through to World 3.
    endPortal = {height = 360},
    -- Cosmetic only (RunwayDecor), as World 1.
    runway = {width = 160, wallHeight = 12, wallThickness = 6, wallTileLength = 12,
@@ -161,6 +161,85 @@ local Worlds = {
      order = 10, rewardMultiplier = 1.35, color = Color3.fromRGB(54, 48, 112), accent = Color3.fromRGB(92, 240, 255),
      material = Enum.Material.Glass, deckMaterial = Enum.Material.SmoothPlastic, props = {"timeRing", "hourglass", "holoClock"},
      backdrop = "futureSpires", fillers = {"rock"}, floorGrid = true},
+   }},
+  {id = "world_3", displayName = "World 3", title = "Future World", order = 3, endDistance = 7000,
+   stationName = "BattingArea3", fieldName = "LongRangeField3",
+   -- Same hub layout as the other Worlds, with spawn 60 studs behind this World's tee.
+   offset = Vector3.new(16000, 0, 0), arrival = CFrame.new(15982.8, 4, 38.8),
+   hub = {name = "World3Hub", left = 136, right = 86, depth = 222,
+    -- Scenery style (HubDecor): a sunken spaceport plaza with glowing seams, a hologram stage,
+    -- a beacon tower and the skyline of the future on the berm.
+    theme = "Future",
+    promptDistance = 10,
+    interactions = {},
+    displays = {
+     {id = "BallDisplay", category = "Ball", series = "world_3", title = "FUTURE BALLS", subtitle = "Earn more Cash per hit",
+      position = Vector3.new(60, 0, 95), yaw = -math.pi / 2, perRow = 5},
+     {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
+      position = Vector3.new(60, 0, 145), yaw = -math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
+    },
+    eventArea = {center = Vector3.new(0, 0, 125), size = 56},
+    portalPad = {center = Vector3.new(62.5, 0, 45), radius = 12, yaw = math.pi / 2}},
+   runoutDistance = 2000,
+   -- The last World for now. Its portal completes it as usual, then plays a temporary finale
+   -- (PortalJourneyClient) instead of a trip. To add World 4: give World 3 a nextWorldId and
+   -- remove the finale.
+   endPortal = {height = 360, finale = {title = "YOU FINISHED THE GAME!", subtitle = "MORE WORLDS COMING SOON",
+    closing = "THANKS FOR PLAYING!"}},
+   -- Cosmetic only (RunwayDecor), as the other Worlds. Landmarks are single giant meshes
+   -- (here a black hole looming behind the end portal); distance is downfield, height above
+   -- the ground.
+   runway = {width = 160, wallHeight = 12, wallThickness = 6, wallTileLength = 12,
+    deckWidth = 72, outerGroundWidth = 260, propSpacing = 60, backdropSpacing = 90,
+    propScale = 1.8, fillerScale = 1.5,
+    landmarks = {{kind = "blackHole", distance = 7550, height = 760, scale = 34}}},
+   -- A trip into the future, in the order of the World 3 balls (Solar Cell to Singularity
+   -- Orb). The Cash multipliers follow the earlier Worlds' pattern (x1 to 600, x1.15 to 2000,
+   -- x1.35 beyond).
+   -- floorLanes / floorHazard / floorCraters: lane markings, warning stripes along the edges
+   -- and crater rings (RunwayDecor), alongside the earlier floor patterns.
+   sections = {
+    {id = "solar", displayName = "Solar Suburbs", startDistance = 0, endDistance = 600,
+     order = 1, rewardMultiplier = 1, color = Color3.fromRGB(206, 214, 222), accent = Color3.fromRGB(255, 196, 64),
+     material = Enum.Material.Concrete, deckMaterial = Enum.Material.Grass, deckColor = Color3.fromRGB(112, 188, 98),
+     props = {"ecoHouse", "windTurbine", "solarTree"}, backdrop = "windFarm", fillers = {"planter", "flowers"}, floorTiles = true},
+    {id = "maglev", displayName = "Maglev Highway", startDistance = 600, endDistance = 1300,
+     order = 2, rewardMultiplier = 1.15, color = Color3.fromRGB(66, 72, 88), accent = Color3.fromRGB(80, 228, 255),
+     material = Enum.Material.Asphalt, deckMaterial = Enum.Material.Concrete, deckColor = Color3.fromRGB(150, 156, 168),
+     props = {"hoverCar", "maglevPylon", "holoSign"}, backdrop = "viaduct", fillers = {"planter"}, floorLanes = true},
+    {id = "metropolis", displayName = "Skyline Metropolis", startDistance = 1300, endDistance = 2000,
+     order = 3, rewardMultiplier = 1.15, color = Color3.fromRGB(176, 186, 210), accent = Color3.fromRGB(255, 92, 206),
+     material = Enum.Material.Marble, deckMaterial = Enum.Material.SmoothPlastic, props = {"holoBillboard", "neoLamp", "skyTaxi"},
+     backdrop = "skyscrapers", fillers = {"planter"}, floorTiles = true},
+    {id = "robotics", displayName = "Robo Assembly Line", startDistance = 2000, endDistance = 2700,
+     order = 4, rewardMultiplier = 1.35, color = Color3.fromRGB(96, 102, 114), accent = Color3.fromRGB(255, 160, 32),
+     material = Enum.Material.DiamondPlate, deckMaterial = Enum.Material.Metal, props = {"robotArm", "conveyor", "robotUnit"},
+     backdrop = "megaFactory", fillers = {"cargoCrate"}, floorHazard = true, wallTileColor = Color3.fromRGB(255, 196, 40)},
+    {id = "biodome", displayName = "Biodome Gardens", startDistance = 2700, endDistance = 3400,
+     order = 5, rewardMultiplier = 1.35, color = Color3.fromRGB(66, 150, 128), accent = Color3.fromRGB(214, 120, 255),
+     material = Enum.Material.LeafyGrass, deckMaterial = Enum.Material.LeafyGrass, deckColor = Color3.fromRGB(78, 156, 102),
+     props = {"biodome", "alienPlant", "glowShroom"},
+     backdrop = "domes", fillers = {"fern", "bush"}},
+    {id = "virtual", displayName = "Virtual Grid", startDistance = 3400, endDistance = 4100,
+     order = 6, rewardMultiplier = 1.35, color = Color3.fromRGB(26, 24, 48), accent = Color3.fromRGB(80, 255, 170),
+     material = Enum.Material.SmoothPlastic, deckMaterial = Enum.Material.SmoothPlastic, props = {"dataCube", "voxelTree", "glitchPillar"},
+     backdrop = "voxelPeaks", fillers = {"voxelBush"}, floorGrid = true},
+    {id = "spaceport", displayName = "Orbital Spaceport", startDistance = 4100, endDistance = 4800,
+     order = 7, rewardMultiplier = 1.35, color = Color3.fromRGB(168, 170, 176), accent = Color3.fromRGB(255, 120, 40),
+     material = Enum.Material.Concrete, deckMaterial = Enum.Material.Concrete, props = {"rocket", "radarDish", "fuelTank"},
+     backdrop = "launchTowers", fillers = {"cargoCrate"}, floorLanes = true},
+    {id = "lunar", displayName = "Lunar Colony", startDistance = 4800, endDistance = 5500,
+     order = 8, rewardMultiplier = 1.35, color = Color3.fromRGB(150, 150, 158), accent = Color3.fromRGB(120, 200, 255),
+     material = Enum.Material.Slate, deckMaterial = Enum.Material.Slate, deckColor = Color3.fromRGB(132, 132, 140),
+     props = {"habitatPod", "lunarLander", "astronautFlag"}, backdrop = "moonRidges", fillers = {"rock"}, floorCraters = true},
+    {id = "mars", displayName = "Red Planet Outpost", startDistance = 5500, endDistance = 6200,
+     order = 9, rewardMultiplier = 1.35, color = Color3.fromRGB(184, 92, 56), accent = Color3.fromRGB(255, 184, 96),
+     material = Enum.Material.Sand, deckMaterial = Enum.Material.Sand, props = {"marsRover", "terraformer", "marsHabitat"},
+     backdrop = "marsButtes", fillers = {"rock"}, floorCraters = true},
+    {id = "singularity", displayName = "Quantum Singularity", startDistance = 6200, endDistance = 7000,
+     order = 10, rewardMultiplier = 1.35, color = Color3.fromRGB(40, 26, 72), accent = Color3.fromRGB(222, 160, 255),
+     material = Enum.Material.Glass, deckMaterial = Enum.Material.SmoothPlastic, props = {"energyRing", "quantumShard", "riftRock"},
+     backdrop = "voidShards", fillers = {"rock"}, floorCracks = true},
    }},
  },
 }

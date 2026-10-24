@@ -1,0 +1,110 @@
+{
+ "DataCube": [
+  "DataCubeEdges",
+  "DataCubeCore",
+  "DataCubeBase"
+ ],
+ "VoxelTree": [
+  "VoxelTrunk",
+  "VoxelLeaves",
+  "VoxelLeavesLight"
+ ],
+ "GlitchPillar": [
+  "GlitchBlocks",
+  "GlitchGlow"
+ ],
+ "VoxelPeak": [
+  "VoxelPeakRock",
+  "VoxelPeakGlow",
+  "VoxelPeakSnow"
+ ],
+ "VoxelBush": [
+  "VoxelBushLeaves",
+  "VoxelBushGlow"
+ ],
+ "Rocket": [
+  "RocketBody",
+  "RocketAccent",
+  "RocketFins",
+  "RocketPad",
+  "RocketWindow"
+ ],
+ "RadarDish": [
+  "DishBowl",
+  "DishMount",
+  "DishFeed"
+ ],
+ "FuelTank": [
+  "TankBody",
+  "TankBands",
+  "TankPipes",
+  "TankBase"
+ ],
+ "LaunchTower": [
+  "GantrySteel",
+  "GantryRocket",
+  "GantryAccent",
+  "GantryPad",
+  "GantryLights"
+ ],
+ "CargoCrate": [
+  "CrateBody",
+  "CrateTrim",
+  "CrateGlow"
+ ],
+ "HabitatPod": [
+  "PodShell",
+  "PodWindows",
+  "PodTrim",
+  "PodLegs"
+ ],
+ "LunarLander": [
+  "LanderFoil",
+  "LanderModule",
+  "LanderLegs",
+  "LanderWindows"
+ ],
+ "AstronautFlag": [
+  "FlagPole",
+  "FlagCloth",
+  "FlagEmblem",
+  "FlagBase"
+ ],
+ "MoonRidge": [
+  "MoonRidgeRock",
+  "MoonRidgeCraters"
+ ],
+ "MarsRover": [
+  "RoverBody",
+  "RoverWheels",
+  "RoverDeck",
+  "RoverMast",
+  "RoverAccent"
+ ],
+ "Terraformer": [
+  "TerraformerBody",
+  "TerraformerCore",
+  "TerraformerFins",
+  "TerraformerBase"
+ ],
+ "EnergyRing": [
+  "EnergyRingFrame",
+  "EnergyRingGlow",
+  "EnergyRingBase"
+ ],
+ "QuantumShard": [
+  "ShardCrystal",
+  "ShardRing",
+  "ShardRock"
+ ],
+ "RiftRock": [
+  "RiftRockStone",
+  "RiftRockGlow",
+  "RiftRockCrystals"
+ ],
+ "BlackHole": [
+  "BlackHoleCore",
+  "BlackHoleDisc",
+  "BlackHoleHalo"
+ ]
+}

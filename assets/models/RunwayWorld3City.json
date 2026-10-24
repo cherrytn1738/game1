@@ -1,0 +1,101 @@
+{
+ "EcoHouse": [
+  "EcoHouseWalls",
+  "EcoHouseRoof",
+  "EcoHouseSolar",
+  "EcoHouseGlass",
+  "EcoHouseTrim",
+  "EcoHouseLawn"
+ ],
+ "WindTurbine": [
+  "TurbineTower",
+  "TurbineBlades",
+  "TurbineHub",
+  "TurbineBase"
+ ],
+ "SolarTree": [
+  "SolarTreeStem",
+  "SolarTreePanels",
+  "SolarTreeGlow"
+ ],
+ "HoverCar": [
+  "HoverCarBody",
+  "HoverCarGlass",
+  "HoverCarGlow",
+  "HoverCarTrim"
+ ],
+ "MaglevPylon": [
+  "PylonBody",
+  "PylonRail",
+  "PylonGlow"
+ ],
+ "HoloSign": [
+  "HoloSignPosts",
+  "HoloSignPanel",
+  "HoloSignSymbols"
+ ],
+ "Viaduct": [
+  "ViaductPillars",
+  "ViaductTrack",
+  "ViaductGlow",
+  "ViaductTrain",
+  "ViaductWindows"
+ ],
+ "HoloBillboard": [
+  "BillboardFrame",
+  "BillboardScreen",
+  "BillboardGlow"
+ ],
+ "NeoLamp": [
+  "NeoLampPole",
+  "NeoLampLight",
+  "NeoLampBase"
+ ],
+ "Skyscraper": [
+  "SkyscraperGlass",
+  "SkyscraperFrame",
+  "SkyscraperGlow"
+ ],
+ "RobotArm": [
+  "RobotArmBody",
+  "RobotArmJoints",
+  "RobotArmBase",
+  "RobotArmLight"
+ ],
+ "Conveyor": [
+  "ConveyorFrame",
+  "ConveyorBelt",
+  "ConveyorCrates",
+  "ConveyorStripes"
+ ],
+ "RobotUnit": [
+  "RobotShell",
+  "RobotJoints",
+  "RobotVisor",
+  "RobotStand",
+  "RobotAccent"
+ ],
+ "MegaFactory": [
+  "FactoryWalls",
+  "FactoryRoof",
+  "FactoryVents",
+  "FactoryGlow"
+ ],
+ "Biodome": [
+  "BiodomeFrame",
+  "BiodomeGlass",
+  "BiodomePlants",
+  "BiodomeFlowers",
+  "BiodomeBase"
+ ],
+ "AlienPlant": [
+  "AlienPlantStalks",
+  "AlienPlantLeaves",
+  "AlienPlantBulbs"
+ ],
+ "Planter": [
+  "PlanterBox",
+  "PlanterGlow",
+  "PlanterLeaves"
+ ]
+}

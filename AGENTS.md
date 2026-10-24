@@ -219,7 +219,7 @@ Ball equipment increases Cash rewards from batting.
 
 Ball does not affect Power gain or launch distance.
 
-Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball, up to 10x) and World 2's ten (Dino Egg to Chrono Orb, 12x-95x placeholders), which need World 2 unlocked but none of World 1's balls. Each series has its own server-issued purchase token. Owned balls of either series stay equippable everywhere.
+Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball, up to 10x), World 2's ten (Dino Egg to Chrono Orb, 12x-95x placeholders) and World 3's ten (Solar Cell to Singularity Orb, 110x-750x placeholders). A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
 
 ### Training Grounds
 
@@ -241,13 +241,21 @@ World 2 (Time Travel; placeholder values continuing on from World 1's):
 - Samurai Dojo: 12 Rebirths, 70x
 - Time Machine Lab: opened by Cosmic Rift's 500 Robux pass, 35x
 
+World 3 (Future World; placeholder values continuing on from World 2's):
+
+- Solar Rooftop: free once World 3 is unlocked, 90x
+- Robo Factory: 14 Rebirths, 120x
+- Biodome Lab: 16 Rebirths, 160x
+- Lunar Base: 18 Rebirths, 210x
+- Quantum Lab: opened by Cosmic Rift's 500 Robux pass, 120x
+
 Every World:
 
 - Dragon's Lair: 1000 Robux game pass, 30x (the most expensive ground)
 
 Multipliers apply to the first ground's base Power. A ground can only be used once a World it stands in is unlocked; World 1 grounds stay usable after reaching World 2. Paid grounds need no Rebirths. Game-pass ownership is checked by the server through MarketplaceService, never saved and never trusted from the client.
 
-World 1's grounds 2-6 are fantasy themed and get more intricate down the row; World 2's use the standard cage in era colors for now. The themes are visual only and never affect Power.
+World 1's grounds 2-6 are fantasy themed and World 3's grounds 1-5 futuristic, each with its own cage model, getting more intricate down the row; World 2's use the standard cage in era colors for now. The themes are visual only and never affect Power.
 
 Unlock requirements and multipliers are configurable and should not be treated as final balance.
 
@@ -345,7 +353,7 @@ Hub / batting area
 
 World completion is based on authoritative final forward distance.
 
-Completing a World permanently unlocks the next World.
+Completing a World permanently unlocks the next World. World 3 (Future World) is the last World for now: its end portal plays a temporary "you finished the game" finale instead of a trip.
 
 World unlocks persist.
 

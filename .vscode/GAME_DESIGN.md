@@ -132,10 +132,27 @@ The All-Star and Championship Balls were removed (their IDs were also cleared fr
 | Clockwork Ball (clockwork_ball) | 900,000,000 | ×75 | brass and cyan strands winding round it, spinning gears in orbit, steam, a ticking ring |
 | Chrono Orb (chrono_orb) | 2,000,000,000 | ×95 | ghostly echoes left behind, a swirling time vortex, colour-shifting strands, time ripples |
 
-- **Offers:** each series has its own server-issued purchase token (`EquipmentPurchaseToken_Ball` for World 1's, `EquipmentPurchaseToken_Ball_world_2` for World 2's). The server finds the series from the token, checks the World unlock, then sells that series' next ball.
+- **Offers:** each series has its own server-issued purchase token (`EquipmentPurchaseToken_Ball` for World 1's, `EquipmentPurchaseToken_Ball_world_2` for World 2's, `EquipmentPurchaseToken_Ball_world_3` for World 3's). The server finds the series from the token, checks the World unlock, then sells that series' next ball.
 - **Where they're sold:** World 2's ball display (`hub.displays` entry with `series = "world_2"`) and the Equipment menu, where locked cards say "Locked · Unlock World 2". World 1's ball display shows only World 1's series.
 - **Models:** `tools/blender/balls_world2.py` builds them like `balls.py` and exports `assets/models/BallsWorld2.fbx`, to be split into `DisplayItems` the same way. Until then, each shows as a plain sphere in its `appearance` colour.
 - **Effects:** each has its own flight layers like World 1's balls (see Flight layers above).
+
+**World 3 (Future World) balls** are the third series (`series` id `world_3`), one ball per World 3 runway section, sold the same way from World 3's "FUTURE BALLS" display and the Equipment menu. They need World 3 unlocked and none of the other series. Prices carry on from the Chrono Orb and stay far below `PlayerData`'s 9 trillion Cash cap; prices and multipliers are placeholders:
+
+| Ball (id) | Price | Cash | Flight |
+|---|---|---|---|
+| Solar Cell (solar_cell_ball) | 2,500,000,000 | ×110 | warm sunbeam streak in glowing segments, sun glints, rings of sunlight |
+| Hover Ball (hover_ball) | 3,500,000,000 | ×135 | twin thin cyan thruster contrails, hover rings rippling out |
+| Hologram Ball (hologram_ball) | 5,000,000,000 | ×165 | glitchy blue afterimages, a flickering scan-line ribbon, hologram sparks |
+| Robo Core (robo_core_ball) | 7,500,000,000 | ×200 | steel streak with a red laser core, sparks, nuts and bolts shaken loose |
+| Bio Seed (bio_seed_ball) | 11,000,000,000 | ×250 | curling vine-green trail, a glowing tendril, drifting spores, falling leaves |
+| Pixel Ball (pixel_ball) | 16,000,000,000 | ×310 | trail of square arcade pixels, a stepped rainbow ribbon |
+| Rocket Ball (rocket_ball) | 25,000,000,000 | ×390 | roaring flame exhaust, fire streak and a billowing smoke trail |
+| Moon Rock (moon_rock_ball) | 38,000,000,000 | ×480 | floating moon dust hanging behind it, pale moonlight, little moon rocks in orbit |
+| Red Planet (red_planet_ball) | 56,000,000,000 | ×600 | billowing red dust plume, rust-orange ribbon, two tiny moons in orbit |
+| Singularity Orb (singularity_orb) | 85,000,000,000 | ×750 | purple vortex wake, accretion ribbons whirling round it, warping rings, bright motes |
+
+- **Models:** `tools/blender/balls_world3.py` (reusing the World 1 and 2 ball helpers) exports `assets/models/BallsWorld3.fbx`, split into `DisplayItems` the same way.
 
 - **Models:** `tools/blender/balls.py` builds all ten (radius 1, meshes named `<id>__<Part>`) and exports `assets/models/Balls.fbx`; run it headless with `blender --background --python tools/blender/balls.py`. After import they are split into one model per id in `ServerStorage.RunwayAssets.DisplayItems`.
 - **Looks:** `BallStyles.luau` (ReplicatedStorage) colours each part by name and holds each ball's glow, flight effects, bursts and display idle particles. The physics ball keeps its locked `CustomPhysicalProperties`, so no look can change flight.
@@ -226,7 +243,8 @@ A giant time portal (the hub portal's model, 360 studs tall, `WorldConfig` `endP
   5. Plunge (6.0–6.85 s): a wide shot as they spiral into the swirl (an energy whoosh peaks as they vanish), then white with a last boom.
   6. Arrival: at 8.6 s the server moves them to the next World through the normal travel step; the white fades there with a shockwave, a sparkle burst, a magic chime and the World's title, and the HUD returns.
   Audio (Roblox-licensed): APM "New World Anthem Link 4" (music); Pro Sound Effects vortex blast, thunder, rushing pass-by and energy whoosh, the rare hits' launch boom and riser, and "Magic Transformation 17" (arrival). The rest of the mix ducks under it (the Cinematic duck), and the HUD skips its own World-unlock sting for portal hits. Dying, leaving or travelling cancels the trip.
-- Already-completed Worlds still capture the ball (normal rewards), without the trip. World 2's portal completes World 2; the trip plays there once a World 3 exists.
+- Already-completed Worlds still capture the ball (normal rewards), without the trip. World 1's portal leads to World 2 and World 2's to World 3.
+- **Finale (temporary, World 3):** World 3 is the last World for now, so its portal has a `finale` (`WorldConfig` `endPortal.finale`) instead of a next World. A first completion through it (or any portal hit with `ForcePortalJourney` in Studio) holds the batter the same way, sets `GameFinale`, and plays about 12 s on their client (`PortalJourneyClient`): the impact as above with APM's "A Winner's Anthem"; a push-in on the portal as "YOU FINISHED THE GAME! / MORE WORLDS COMING SOON" slams in; a crane shot over the runway's end as fireworks burst round the portal (Pro Sound Effects fireworks); then back at the tee, the batter in a shower of confetti and fireworks with a cheering crowd as "THANKS FOR PLAYING! / WORLD 3 COMPLETE" lands; then white, and at 11.8 s the server returns them to World 3's hub. World 3 still saves as completed, so a future World 4 can unlock from it: to add one, give World 3 a `nextWorldId` and remove the `finale`.
 - **Testing in Studio:** the Workspace attribute `ForcePortalJourney` plays the trip on every portal hit, not only the first completion; `StudioLaunchLevel` launches hits as that Level (80 reaches either portal; the saved Level is untouched); `StudioWalkSpeed` sets the playtest walk speed (e.g. to run down a runway). Live servers ignore all three.
 - The giant portals' gears, hands and swirl turn on each client (`PortalJourneyClient`).
 
@@ -239,7 +257,8 @@ World 1
 → reach World 1 end
 → unlock World 2
 → progress through World 2
-→ eventually unlock World 3
+→ reach World 2 end
+→ unlock World 3 (Future World, the last World for now)
 
 Unlocked worlds remain available permanently and players may return to previously unlocked worlds.
 
@@ -396,6 +415,27 @@ The 37 new meshes come from one generator, `tools/blender/runway_world2.py` (exp
 
 Every `RunwayDecor` part is anchored with collision, touch, and query disabled, so scenery cannot affect ball flight, measured distance, rewards, or camera occlusion. The full runway is about 3,000 decoration parts.
 
+## World 3 Runway Themes
+
+World 3 (Future World) is a trip from a near-future city out to the edge of reality, on the same 160-stud runway and scenery system, ten sections each matching a World 3 ball. Its endpoint is 7000 studs (plus the 2000-stud runout); the Cash multipliers follow the earlier pattern (×1 to 600, ×1.15 to 2000, ×1.35 beyond). Its stadium sits 16,000 studs along X from World 1's (`offset`).
+
+| # | ID | Name | Distance (studs) | Cash multiplier | Props | Backdrop | Floor |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | solar | Solar Suburbs | 0–600 | 1.00 | eco homes, wind turbines, solar flower lamps | wind farm | paving tiles, green lawns |
+| 2 | maglev | Maglev Highway | 600–1300 | 1.15 | hover cars, maglev pylons, hologram road signs | maglev viaduct with a train | asphalt lanes, glowing centre line |
+| 3 | metropolis | Skyline Metropolis | 1300–2000 | 1.15 | hologram billboards, neon street lamps, flying sky taxis | glass skyscrapers | polished plaza tiles |
+| 4 | robotics | Robo Assembly Line | 2000–2700 | 1.35 | robot arms, conveyors, robots on assembly stands | mega factory | steel plate, hazard stripes |
+| 5 | biodome | Biodome Gardens | 2700–3400 | 1.35 | biodomes, alien plants, glowing mushrooms | giant domes | moss |
+| 6 | virtual | Virtual Grid | 3400–4100 | 1.35 | floating data cubes, voxel trees, glitching pillars | voxel mountains | black with a green neon grid |
+| 7 | spaceport | Orbital Spaceport | 4100–4800 | 1.35 | rockets on pads, radar dishes, fuel tanks | launch towers | concrete with runway markings |
+| 8 | lunar | Lunar Colony | 4800–5500 | 1.35 | habitat pods, lunar landers, flags | moon ridges | grey dust with crater rings |
+| 9 | mars | Red Planet Outpost | 5500–6200 | 1.35 | Mars rovers, terraformer towers, red-dusted habitats | red buttes (World 1's Mesa) | rust sand with crater rings |
+| 10 | singularity | Quantum Singularity | 6200–7000 | 1.35 | energy ring gates, floating quantum shards, rift rocks | giant floating shards | violet glass with glowing reality cracks |
+
+- **Models:** two generators share World 2's helpers: `tools/blender/runway_world3_city.py` (sections 1–5, `assets/models/RunwayWorld3City.fbx`) and `runway_world3_space.py` (sections 6–10 plus the black hole, `RunwayWorld3Space.fbx`), each with a JSON manifest for grouping the import into `ServerStorage.RunwayAssets`. Fillers are new planters, cargo crates and voxel bushes plus World 1's flowers, ferns, bushes and rocks. Sky taxis are the hover car lifted high; the Mars habitats are the lunar pod dusted red; the glowing mushrooms are World 1's mushroom in neon.
+- **Floor patterns** (`RunwayDecor`, flags on the section): `floorLanes` (a glowing centre line and dashed lane lines), `floorHazard` (yellow and black warning bands along both edges) and `floorCraters` (crater rings scattered deterministically), alongside the earlier tiles, grid and cracks.
+- **Landmark:** `runway.landmarks` places single giant meshes by their centre. World 3 has one, a black hole with a glowing accretion disc looming above and behind its end portal (7550 studs downfield, 760 up, about 670 studs across).
+
 ## Hub themes
 
 Each World's hub can have its own look. `WorldConfig` `hub.theme` names a builder in `HubDecor`, which runs from `FieldBuilder.buildHub` into `<Hub>.Decor`. A themed hub supplies its own walkable floor, so the plain grey floor and boundary strips are skipped. Hub stations, item displays and Training Grounds are built the same way for every theme.
@@ -418,13 +458,21 @@ Each World's hub can have its own look. `WorldConfig` `hub.theme` names a builde
 - **Monuments** from the eras ahead stand on the berm: a stone circle, a stepped pyramid with obelisks and a torii gate on the left; a Greek temple, a castle tower and a torii gate on the right.
 - World 2's own "TIME TRAVEL BALLS" display stands in front of the Bats (hub x 60, z 95). World 2's themed runway runs downfield from the tee (see World 2 Runway Themes).
 
+**Future (World 3)** uses the same layout and size, styled as a sunken spaceport plaza:
+- **Floor:** a checkerboard of large white tiles with thin glowing cyan seams, dark navy walkways with glowing edges (the same paths as the other hubs), a glowing ring round the batter's circle, and a landing-pad marking at the spawn.
+- **Event area:** a hologram stage (`hub.eventArea`): a dark dais ringed with light, a faint beam rising to a pulsing hologram globe, and two tilted rings of lights orbiting it (cyan and pink).
+- **Bowl:** a white wall with a gunmetal cap and a cyan glow strip, then white terraces with alternating glowing cyan and white edges up to a dark concrete berm at 9 studs.
+- **Landmarks:** a beacon tower behind the back terraces (white fins round a glowing core, a ring of light turning round its crown, a pulsing beacon and a "FUTURE WORLD / WORLD 3" sign), four holo lamps with bobbing lights, and hovering drones over the plaza.
+- **Skyline:** glass skyscrapers with glowing bands and blinking spire lights on the berm, tallest at the back. Once imported, World 3's runway models join them through `RunwayDecor.PlaceMesh`: a rocket, a launch tower and a radar dish on the right; a biodome, an eco home, a solar tree and a row of wind turbines on the left; hover cars floating behind the beacon.
+- World 3's "FUTURE BALLS" display stands in front of the Bats.
+
 Hub scenery and portal parts can carry motion attributes (`Spin`, with an optional `SpinPivot` to turn about a point such as a clock centre, `Bob`, `Sway`, `Pulse`); `TrainingStadiumClient` animates them in every hub on each client.
 
 ### World portals
 
 Each hub with a `portalPad` gets a World portal on it (`WorldPortal.luau`), at the front of the line of item displays (hub x 62.5, z 45), turned with `portalPad.yaw` to face the middle like the displays. The model is `ServerStorage.RunwayAssets.WorldPortal`, built by `tools/blender/world_portal.py`: an octagonal brass clockwork frame with iron bands and rivets, a swirling cyan vortex, an alarm clock on top with turning hands, hourglass lamps on the sides and two turning gears. It is scaled to 26 studs tall. Until it is imported, a plain octagon of parts stands in. A floating sign reads "WORLDS / TRAVEL PORTAL / Step in to choose a World".
 
-The portal is not a teleporter. An invisible `Trigger` fills the opening, and stepping into it opens the Worlds menu on that client (`WorldTravelClient`), once per entry and only when another menu can open (not while batting, training, in a hit or travelling). The menu lists every World with its theme name and state (World 1 and World 2 for now). Choosing one sends the normal `WorldTravel` request, which the server checks against the unlock before relocating the player.
+The portal is not a teleporter. An invisible `Trigger` fills the opening, and stepping into it opens the Worlds menu on that client (`WorldTravelClient`), once per entry and only when another menu can open (not while batting, training, in a hit or travelling). The menu lists every World with its theme name and state (Worlds 1 to 3 for now). Choosing one sends the normal `WorldTravel` request, which the server checks against the unlock before relocating the player.
 
 ## Sky
 
@@ -582,6 +630,7 @@ Each Training Ground is its own batting cage, with its own plate and one occupan
 - Every row runs down the left side of its hub, from the runway back (`TrainingConfig.Row`). Plates are at hub-relative x -78, from z 34 stepping 33 studs back (the models' 44-stud spacing, narrowed with the cages), with doors facing the open middle; the item displays face them from the right side.
 - World 1, from the runway: Basic Training, Enchanted Grove, Sunken Atlantis, Sky Temple, Cosmic Rift, Dragon's Lair.
 - World 2, from the runway: Caveman Camp, Pharaoh's Tomb, Gladiator Colosseum, Samurai Dojo, Time Machine Lab, Dragon's Lair. They use the standard cage in era colors until their own models are made.
+- World 3, from the runway: Solar Rooftop, Robo Factory, Biodome Lab, Lunar Base, Quantum Lab, Dragon's Lair. Each has its own futuristic cage (see Future cages below).
 - Cages are turned a quarter turn so their doors face the middle and their machine ends point outward. The spawn is 60 studs behind each World's tee.
 - The physical Shop, World Travel and Rebirth stations and the Training Grounds board are removed for now. Their settings are commented in `WorldConfig`; FieldBuilder deletes any unconfigured station left in the place.
 
@@ -597,9 +646,14 @@ Each Training Ground is its own batting cage, with its own plate and one occupan
 | 8 | gladiator_colosseum | 2 | 10 Rebirths | 50× |
 | 9 | samurai_dojo | 2 | 12 Rebirths | 70× |
 | 10 | time_machine_lab | 2 | Cosmic Rift's 500 Robux pass | 35× |
-| 11 | dragons_lair | every World | 1000 Robux game pass | 30× (most expensive) |
+| 11 | solar_rooftop | 3 | free once World 3 is unlocked | 90× |
+| 12 | robo_factory | 3 | 14 Rebirths | 120× |
+| 13 | biodome_lab | 3 | 16 Rebirths | 160× |
+| 14 | lunar_base | 3 | 18 Rebirths | 210× |
+| 15 | quantum_lab | 3 | Cosmic Rift's 500 Robux pass | 120× |
+| 16 | dragons_lair | every World | 1000 Robux game pass | 30× (most expensive) |
 
-World 2's requirements and multipliers are placeholders that continue on from World 1's, for the later balance pass.
+World 2's and World 3's requirements and multipliers are placeholders that continue on from the World before, for the later balance pass. As in the earlier Worlds, the paid ground in World 3 is set below its top Rebirth ground.
 
 **Access:**
 - A ground can only be used once a World it stands in is unlocked (the server-set `WorldUnlocked_<id>` attributes). World 1 cages stay usable after reaching World 2.
@@ -608,7 +662,7 @@ World 2's requirements and multipliers are placeholders that continue on from Wo
 - Paid grounds need no Rebirths and are not lost on Rebirth.
 
 **Game passes:**
-- There are two passes. A ground with `sharesPass` has no pass of its own: Time Machine Lab is opened by Cosmic Rift's pass. Ownership, prompts, prices and the `TrainingPass_<id>` attribute all use the pass's own ground (`TrainingConfig.GetPassGround`, `TrainingConfig.PassGrounds`).
+- There are two passes. A ground with `sharesPass` has no pass of its own: Time Machine Lab and Quantum Lab are opened by Cosmic Rift's pass. Ownership, prompts, prices and the `TrainingPass_<id>` attribute all use the pass's own ground (`TrainingConfig.GetPassGround`, `TrainingConfig.PassGrounds`).
 - `gamePassId` stays 0 until the passes are created on Roblox. While it is 0, the ground shows "COMING SOON" and cannot be used or bought.
 - Ownership is read with `UserOwnsGamePassAsync` at login (before the offline grant) and updated by the server's `PromptGamePassPurchaseFinished` event.
 - Ownership is never saved and never taken from the client. A failed lookup grants nothing.
@@ -661,6 +715,20 @@ All five keep the standard layout:
 Every model is exported at 1/4 scale and imported into `ServerStorage.RunwayAssets` under its template name. `TrainingCageStyles` (server) gives every MeshPart its color, material, transparency and glow light by name, because FBX imports carry no colors. It also sets the `Spin`, `Bob`, `Sway` and `Pulse` motion attributes and lists each cage's particle effects, which use built-in Roblox particle textures. `TrainingStadiumClient` animates those attributes on each client, relative to the server-built CFrame.
 
 The Atlantis dome and Cosmic field are tinted glass, so the view through them reads as underwater or deep space. A style `tint` (Dragon's Lair) sets Tint* attributes on the cage, and the client blends a ColorCorrectionEffect in while its camera is inside that cage.
+
+### Future cages (World 3, grounds 1–5)
+
+World 3's five grounds each have their own futuristic Blender model on the same layout, conventions and `TrainingCageStyles` styling as the fantasy cages, more intricate down the row:
+
+| Ground | Script → FBX / template | Highlights |
+| --- | --- | --- |
+| Solar Rooftop | `solar_rooftop_cage.py` → `SolarRooftopCage` | White aluminium frame under a sawtooth canopy of glass solar modules, sky-blue glass walls, living walls and planters, a sun-emblem machine with a sun-tracking solar flower, rooftop deck with parapet and glass railing, HVAC units with spinning fans, a helical wind turbine, a stair hut with a blinking beacon, drifting sun motes |
+| Robo Factory | `robo_factory_cage.py` → `RoboFactoryCage` | Steel portal frames with hazard-striped guards, yellow safety fence and chain-link roof, a bridge crane carrying a bobbing cog, an orange six-axis robot pitcher holding the ball, spinning warning beacons, stack lights, a conveyor of robot parts through a laser scanner, a welding robot throwing sparks, steam |
+| Biodome Lab | `biodome_lab_cage.py` → `BiodomeLabCage` | A geodesic glass vault with glowing nodes and grow bars, raised beds of glowing alien plants and mushrooms, bobbing moss-ball planters, a misting tower with a spinning sprinkler, a giant seed-pod pitcher with a glowing throat, a woven-vine screen, hydroponic racks, specimen tubes, drifting spores |
+| Lunar Base | `lunar_base_cage.py` → `LunarBaseCage` | A pressurised tunnel of white module rings under a frosted shell, portholes, a mass-driver pitcher with glowing coils, EVA suits and consoles, a cratered regolith apron with a lander, a rover and a turning radar dish, and a turning, bobbing Earth framed by the observation window, low-gravity dust |
+| Quantum Lab | `quantum_lab_cage.py` → `QuantumLabCage` | Graphite ribs and hologram force-field walls traced with glowing grids, three energy rings turning round the whole cage, a particle accelerator overhead, a reactor with tilted spinning rings, a teleporter pitcher with a vortex core, golden quantum computers, glitching cubes, data rain |
+
+The Robo Factory and Biodome Lab scripts reuse small builders from the top of `solar_rooftop_cage.py`, and the Quantum Lab script reuses the top of `lunar_base_cage.py` (split at a marker, as the runway scripts do). A part's `spinAxis` is in its own space: a Blender direction (x, y, z) is (−x, z, y), because imported cages arrive turned a half turn. Lunar Base and Quantum Lab play the Cosmic Rift ambience, Solar Rooftop Sky Temple's wind, Biodome Lab the Grove's chimes and Robo Factory the Atlantis hum.
 
 A ground whose fantasy template is not imported falls back to the standard cage in its theme colors, with a warning. Banners hang between frames so every design leaves room for them. A larger invisible block keeps players out of the bigger machines.
 

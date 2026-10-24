@@ -288,12 +288,14 @@ return function(sources)
  check(migrated.Level == 1 and migrated.Power == 0 and migrated.Rebirths == 0, "legacy fields cannot grant new progression")
  local over = Progression.Normalize({Level=2, Power=1305, Rebirths=0},false)
  check(over.Level == 4 and over.Power == 5, "saved excess Power normalizes consistently")
- check(Worlds.Get("world_1").endDistance == 5000 and Worlds.Get("world_2").endDistance == 6000, "world endpoints unchanged")
+ check(Worlds.Get("world_1").endDistance == 5000 and Worlds.Get("world_2").endDistance == 6000
+  and Worlds.Get("world_3").endDistance == 7000, "world endpoints unchanged")
  -- Physical grounds: access derives from private Rebirths or a Roblox pass, and offline
  -- grants use the best usable ground inside the atomic login transaction.
  local multipliers = {}
  for _, entry in Training.Grounds do table.insert(multipliers, entry.powerMultiplier) end
- check(table.concat(multipliers, ",") == "1,5,10,20,10,25,35,50,70,35,30" and Training.Get("dragons_lair").basePower == 600, "ground multipliers on the first ground's Power")
+ check(table.concat(multipliers, ",") == "1,5,10,20,10,25,35,50,70,35,90,120,160,210,120,30" and Training.Get("dragons_lair").basePower == 600,
+  "ground multipliers on the first ground's Power")
  check(Training.Get("sky_temple").requiredRebirths == 6 and Training.IsPaid(Training.Get("cosmic_rift"))
   and not Training.IsUnlocked("cosmic_rift", 1000), "Rebirth and paid ground requirements")
  check(Training.GetBestGround(0, nil).id == "basic_training" and Training.GetBestGround(4, nil).id == "sunken_atlantis"
@@ -305,8 +307,9 @@ return function(sources)
  -- Per-World hubs: a ground needs a World it stands in to be unlocked; Dragon's Lair stands in
  -- every hub; Time Machine Lab is opened by Cosmic Rift's pass.
  local bothWorlds = {world_1=true, world_2=true}
- check(table.concat(Training.Get("dragons_lair").worlds, ",") == "world_1,world_2"
-  and table.concat(Training.Get("caveman_camp").worlds, ",") == "world_2", "grounds know the Worlds they stand in")
+ check(table.concat(Training.Get("dragons_lair").worlds, ",") == "world_1,world_2,world_3"
+  and table.concat(Training.Get("caveman_camp").worlds, ",") == "world_2"
+  and table.concat(Training.Get("solar_rooftop").worlds, ",") == "world_3", "grounds know the Worlds they stand in")
  check(Training.GetPlatePosition(Training.Get("dragons_lair"), "world_1") == Training.GetPlatePosition(Training.Get("dragons_lair"), "world_2")
   and Training.GetPlatePosition(Training.Get("caveman_camp"), "world_2") == Training.GetPlatePosition(Training.Get("basic_training"), "world_1"),
   "every hub uses the same row")
@@ -320,6 +323,22 @@ return function(sources)
  check(Training.CanUse("dragons_lair", 0, {dragons_lair=true}, {world_2=true}), "Dragon's Lair is usable from any World")
  check(Training.GetBestGround(0, nil, bothWorlds).id == "caveman_camp" and Training.GetBestGround(12, {dragons_lair=true}, bothWorlds).id == "samurai_dojo"
   and Training.GetBestGround(0, {cosmic_rift=true}, bothWorlds).id == "time_machine_lab", "best ground looks across unlocked Worlds")
+ -- World 3's grounds: its free ground waits for World 3, its Rebirth tiers continue on from
+ -- World 2's, and Quantum Lab is opened by Cosmic Rift's pass there.
+ local allWorlds = {world_1=true, world_2=true, world_3=true}
+ check(Training.GetPlatePosition(Training.Get("solar_rooftop"), "world_3") == Training.GetPlatePosition(Training.Get("basic_training"), "world_1")
+  and Training.GetPlatePosition(Training.Get("dragons_lair"), "world_3") == Training.GetPlatePosition(Training.Get("dragons_lair"), "world_1"),
+  "World 3's hub uses the same row")
+ check(not Training.CanUse("solar_rooftop", 99, nil, bothWorlds) and Training.CanUse("solar_rooftop", 0, nil, allWorlds),
+  "World 3 grounds wait for World 3")
+ check(Training.IsUnlocked("robo_factory", 14, allWorlds) and not Training.IsUnlocked("robo_factory", 13, allWorlds)
+  and Training.IsUnlocked("lunar_base", 18, allWorlds) and not Training.IsUnlocked("lunar_base", 17, allWorlds),
+  "World 3 Rebirth tiers continue on")
+ check(Training.CanUse("quantum_lab", 0, {cosmic_rift=true}, allWorlds) and not Training.CanUse("quantum_lab", 0, {cosmic_rift=true}, bothWorlds)
+  and Training.GetPassGround(Training.Get("quantum_lab")).id == "cosmic_rift" and #Training.PassGrounds == 2,
+  "Quantum Lab uses Cosmic Rift's pass in World 3")
+ check(Training.GetBestGround(0, nil, allWorlds).id == "solar_rooftop" and Training.GetBestGround(18, nil, allWorlds).id == "lunar_base"
+  and Training.GetBestGround(0, {cosmic_rift=true}, allWorlds).id == "quantum_lab", "best ground looks across all three Worlds")
  local trainee = join(30)
  check(trainee:GetAttribute("OfflinePowerEarned")==0 and trainee:GetAttribute("OfflineTrainingGround")==Training.DefaultGround,"new player has no historical reward")
  check(Data.CanUseTrainingGround(trainee,"basic_training") and not Data.CanUseTrainingGround(trainee,"enchanted_grove"),"Rebirth grounds start locked")
@@ -423,7 +442,15 @@ return function(sources)
  local aboveTen = true
  for _, ball in worldTwoBalls do aboveTen = aboveTen and ball.rewardMultiplier > 10 and ball.series == "world_2" end
  check(#worldTwoBalls == 10 and worldTwoBalls[1].id == "dino_egg_ball" and worldTwoBalls[10].id == "chrono_orb" and aboveTen
-  and #Equipment.GetSeriesItems("Ball") == 10 and #Equipment.GetItems("Ball") == 20, "World 2 sells ten balls above x10")
+  and #Equipment.GetSeriesItems("Ball") == 10 and #Equipment.GetItems("Ball") == 30, "World 2 sells ten balls above x10")
+ local worldThreeBalls = Equipment.GetSeriesItems("Ball", "world_3")
+ local aboveChrono = true
+ for _, ball in worldThreeBalls do
+  aboveChrono = aboveChrono and ball.rewardMultiplier > 95 and ball.series == "world_3" and ball.price > 2000000000
+ end
+ check(#worldThreeBalls == 10 and worldThreeBalls[1].id == "solar_cell_ball" and worldThreeBalls[10].id == "singularity_orb" and aboveChrono
+  and Equipment.GetSeriesInfo("Ball", "world_3").requiredWorld == "world_3" and worldThreeBalls[10].price < 9000000000000,
+  "World 3 sells ten balls above the Chrono Orb, below the Cash cap")
  saved.Player_39={SchemaVersion=8,Cash=5000000,Power=0,Level=1,Rebirths=0}
  local shopper=join(39)
  local worldTwoOffer=shopper:GetAttribute("EquipmentPurchaseToken_Ball_world_2")
@@ -439,6 +466,21 @@ return function(sources)
   and Data.GetNextEquipment(shopper,"Ball","world_2").id=="stone_ball","World 1's offer still buys World 1's next ball")
  leave(shopper)
  check(saved.Player_39.OwnedBalls.dino_egg_ball==true and saved.Player_39.OwnedBalls.practice_ball==true,"World 2 balls save with the rest")
+ -- World 3's series works the same way: its own offer, and World 3 must be unlocked.
+ saved.Player_41={SchemaVersion=8,Cash=3000000000,Power=0,Level=1,Rebirths=0}
+ local futureShopper=join(41)
+ local worldThreeOffer=futureShopper:GetAttribute("EquipmentPurchaseToken_Ball_world_3")
+ check(type(worldThreeOffer)=="string" and worldThreeOffer~=futureShopper:GetAttribute("EquipmentPurchaseToken_Ball_world_2"),
+  "World 3's ball series has its own offer")
+ futureShopper:SetAttribute("WorldUnlocked_world_2",true)
+ check(not Data.PurchaseNextEquipment(futureShopper,"Ball",worldThreeOffer) and futureShopper.leaderstats.Cash.Value==3000000000,
+  "World 3's balls need World 3 unlocked")
+ futureShopper:SetAttribute("WorldUnlocked_world_3",true)
+ check(Data.PurchaseNextEquipment(futureShopper,"Ball",worldThreeOffer) and Data.OwnsEquipment(futureShopper,"Ball","solar_cell_ball")
+  and futureShopper.leaderstats.Cash.Value==500000000 and Data.GetNextEquipment(futureShopper,"Ball","world_3").id=="hover_ball",
+  "World 3's first ball is bought from its own series")
+ leave(futureShopper)
+ check(saved.Player_41.OwnedBalls.solar_cell_ball==true,"World 3 balls save with the rest")
  passFailures[36] = true
  ownedPasses["36:111"] = true
  saved.Player_36={SchemaVersion=7,Cash=1,Power=0,Level=1,Rebirths=0,LastLogoutTime=math.floor(now)-12}
@@ -634,7 +676,8 @@ return function(sources)
  -- Move the fake clock only after earlier session assertions; every login below gets
  -- a fresh lease. These are actual PlayerData loads/grants/saves, never live DataStores.
  now = nowStamp
- local fixtureId = 200
+ -- One fixture per ground and Rebirth count, numbered clear of every other test player's id.
+ local fixtureId = 1000
  for _, rebirths in {0, 2, 4, 6} do
   for _, trainingGround in Training.Grounds do
    fixtureId += 1

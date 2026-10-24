@@ -352,6 +352,154 @@ Styles.Balls = {
   }},
   idle = "TimeDust",
  },
+ -- World 3 (Future World): one ball per runway section, from tools/blender/balls_world3.py.
+ solar_cell_ball = { -- Solar Cell
+  parts = {Shell = look(rgb(255, 190, 60), M.Foil), Panels = look(rgb(28, 48, 120), M.Glass), Frames = look(rgb(214, 218, 226), M.Metal),
+   Glow = look(rgb(255, 170, 40), M.Neon)},
+  light = {rgb(255, 200, 90), 1.5, 9},
+  -- A warm sunbeam streak in glowing segments, sun glints scattering off it, and a ring of sunlight.
+  flight = {color = rgb(255, 214, 110), land = "Solar", layers = {
+   ribbon {colors = {rgb(255, 250, 220), rgb(255, 200, 70), rgb(240, 140, 30)}, width = 0.8, lifetime = 0.5, glow = true, taper = "teardrop", bands = 4},
+   streak {colors = {rgb(255, 245, 200), rgb(255, 190, 60)}, size = 1.3, endSize = 0.3, lifetime = 0.35, glow = true, transparency = 0.25},
+   emit("SunGlints", {rate = 40}),
+   pulse {interval = 0.4, color = rgb(255, 220, 120), texture = "glow", from = 0.4, size = 3, life = 0.3},
+  }},
+  idle = "SunGlints",
+ },
+ hover_ball = {
+  parts = {Shell = look(rgb(214, 220, 230), M.Metal), Ring = look(rgb(70, 190, 255), M.Neon), Vents = look(rgb(32, 34, 42), M.Metal),
+   Lights = look(rgb(110, 220, 255), M.Neon)},
+  light = {rgb(110, 220, 255), 2, 10},
+  -- Twin thin cyan contrails like hover thrusters, with hover rings rippling out along the path.
+  flight = {color = rgb(110, 220, 255), land = "HoverRing", layers = {
+   ribbon {colors = {rgb(200, 245, 255), rgb(60, 180, 255)}, width = 0.12, lifetime = 0.5, glow = true, taper = "needle", offset = Vector3.new(0.45, 0, 0)},
+   ribbon {colors = {rgb(200, 245, 255), rgb(60, 180, 255)}, width = 0.12, lifetime = 0.5, glow = true, taper = "needle", offset = Vector3.new(-0.45, 0, 0)},
+   streak {colors = {rgb(170, 235, 255), rgb(70, 170, 255)}, size = 0.9, endSize = 0.2, lifetime = 0.25, glow = true, transparency = 0.35},
+   pulse {interval = 0.2, color = rgb(110, 225, 255), size = 3.2, life = 0.35},
+  }},
+ },
+ hologram_ball = {
+  parts = {Shell = look(rgb(90, 190, 255), M.Glass, 0.6), Grid = look(rgb(80, 220, 255), M.Neon), Scanlines = look(rgb(200, 250, 255), M.Neon, 0.2),
+   Core = look(rgb(225, 250, 255), M.Neon)},
+  light = {rgb(110, 220, 255), 2, 10},
+  -- Glitchy blue afterimages: flickering echoes of the ball, a crackling scan-line ribbon and
+  -- hologram sparks.
+  flight = {color = rgb(120, 230, 255), launch = "Glitch", land = "Glitch", layers = {
+   echoes {interval = 0.05, color = rgb(120, 230, 255), life = 0.3, grow = 1.25},
+   ribbon {colors = {rgb(200, 250, 255), rgb(60, 170, 255)}, width = 0.7, lifetime = 0.4, glow = true, taper = "scallop", bands = 6,
+    flicker = true, jitter = 0.06},
+   streak {colors = {rgb(170, 240, 255), rgb(60, 160, 255)}, size = 1, endSize = 0.3, lifetime = 0.3, glow = true, transparency = 0.4},
+   emit("HoloSparks", {rate = 35}),
+  }},
+  idle = "HoloSparks",
+ },
+ robo_core_ball = { -- Robo Core
+  parts = {Shell = look(rgb(160, 166, 176), M.Metal), Seams = look(rgb(96, 100, 110), M.Metal), Rivets = look(rgb(205, 210, 218), M.Metal),
+   Eye = look(rgb(255, 40, 30), M.Neon), Bezel = look(rgb(30, 30, 36), M.Metal)},
+  light = {rgb(255, 60, 40), 1.5, 8},
+  -- A steel streak with a red laser core, sparks flying and nuts and bolts shaken loose.
+  flight = {color = rgb(255, 90, 80), launch = "Clang", land = "Clang", layers = {
+   ribbon {colors = {rgb(220, 226, 236), rgb(130, 138, 152), rgb(70, 76, 88)}, width = 0.8, lifetime = 0.45, taper = "teardrop", fade = {0.05, 1}},
+   ribbon {colors = {rgb(255, 120, 110), rgb(220, 20, 30)}, width = 0.16, lifetime = 0.35, glow = true, taper = "needle"},
+   emit("Sparks", {rate = 45}),
+   debris {rate = 12, size = Vector3.new(0.14, 0.14, 0.2), colors = {rgb(120, 126, 138), rgb(170, 176, 188)}, material = M.Metal,
+    shape = "Cylinder", life = 0.7, fall = 8},
+  }},
+  idle = "Sparks",
+ },
+ bio_seed_ball = { -- Bio Seed
+  parts = {Shell = look(rgb(200, 255, 225), M.Glass, 0.6), Sprout = look(rgb(120, 255, 90), M.Neon), Soil = look(rgb(92, 60, 38), M.Ground),
+   Vines = look(rgb(60, 140, 55), M.Grass)},
+  light = {rgb(140, 255, 110), 1.8, 9},
+  -- A curling vine-green trail, glowing spores drifting off it, and leaves shed behind.
+  flight = {color = rgb(140, 255, 150), land = "Leaves", layers = {
+   ribbon {colors = {rgb(190, 255, 160), rgb(80, 200, 90), rgb(30, 120, 60)}, width = 0.6, lifetime = 0.5, taper = "scallop",
+    wobble = {amp = 0.22, freq = 2.2}},
+   ribbon {colors = {rgb(220, 255, 200), rgb(120, 230, 140)}, width = 0.14, lifetime = 0.5, glow = true, taper = "needle",
+    orbit = {radius = 0.5, speed = 1.4}},
+   streak {colors = {rgb(200, 255, 190), rgb(90, 210, 110)}, size = 1.1, endSize = 0.3, lifetime = 0.35, glow = true, transparency = 0.35},
+   emit("Spores", {rate = 40, back = true}),
+   debris {rate = 10, size = Vector3.new(0.24, 0.03, 0.14), colors = {rgb(90, 190, 80), rgb(130, 220, 100)}, life = 0.9, fall = 2.5, spread = 2},
+  }},
+  idle = "Spores",
+ },
+ pixel_ball = {
+  parts = {Shell = look(rgb(40, 120, 255)), Pixels1 = look(rgb(255, 60, 180)), Pixels2 = look(rgb(255, 215, 40)),
+   Pixels3 = look(rgb(240, 255, 255), M.Neon)},
+  light = {rgb(120, 255, 190), 1.8, 10},
+  -- A trail of square pixels in arcade colours and a stepped rainbow ribbon.
+  flight = {color = rgb(120, 255, 190), launch = "Pixels", land = "Pixels", layers = {
+   ribbon {rainbow = true, width = 0.6, lifetime = 0.45, glow = true, taper = "scallop", bands = 7},
+   debris {rate = 45, size = Vector3.new(0.2, 0.2, 0.2), colors = {rgb(255, 90, 140), rgb(255, 210, 60), rgb(90, 160, 255), rgb(60, 230, 160),
+    rgb(200, 120, 255)}, material = M.Neon, life = 0.55, fall = 0.5, spread = 1.4},
+   streak {colors = {rgb(220, 255, 240), rgb(120, 255, 190)}, size = 0.9, endSize = 0.2, lifetime = 0.25, glow = true, transparency = 0.45},
+  }},
+  idle = "PixelSparks",
+ },
+ rocket_ball = {
+  parts = {Shell = look(rgb(245, 245, 242)), Stripes = look(rgb(220, 35, 40)), Fins = look(rgb(220, 35, 40)),
+   Window = look(rgb(140, 210, 255), M.Glass, 0.2), Nozzle = look(rgb(52, 54, 60), M.Metal)},
+  light = {rgb(255, 150, 60), 2.2, 11},
+  -- Rocket exhaust: a roaring flame ribbon, a fire streak and a billowing smoke trail.
+  flight = {color = rgb(255, 150, 60), launch = "Fire", land = "Shockwave", layers = {
+   ribbon {colors = {rgb(255, 250, 200), rgb(255, 160, 40), rgb(230, 60, 20)}, width = 0.85, lifetime = 0.35, glow = true, taper = "flame",
+    wobble = {amp = 0.06, freq = 9}},
+   streak {texture = "fire", colors = {rgb(255, 230, 140), rgb(255, 110, 30)}, size = 1.1, endSize = 0.4, lifetime = 0.3, glow = true, rate = 90},
+   streak {texture = "smoke", colors = {rgb(230, 230, 236), rgb(150, 150, 160)}, size = 1, endSize = 3.4, lifetime = 0.9, rate = 70,
+    transparency = 0.4},
+   emit("Flame", {back = true}),
+  }},
+ },
+ moon_rock_ball = { -- Moon Rock
+  parts = {Shell = look(rgb(170, 170, 176), M.Slate), Craters = look(rgb(112, 112, 120), M.Slate), Glow = look(rgb(110, 255, 210), M.Neon)},
+  light = {rgb(120, 255, 210), 1.2, 8},
+  -- Floating moon dust hanging in the air behind it, pale moonlight, and little moon rocks in orbit.
+  flight = {color = rgb(190, 220, 255), land = "MoonDust", layers = {
+   streak {texture = "smoke", colors = {rgb(225, 228, 236), rgb(160, 164, 176)}, size = 1, endSize = 2.6, lifetime = 1.1, rate = 55,
+    transparency = 0.45},
+   ribbon {colors = {rgb(230, 240, 255), rgb(140, 170, 220)}, width = 0.45, lifetime = 0.5, glow = true, taper = "teardrop", fade = {0.3, 1}},
+   orbiters {count = 3, radius = 0.9, speed = 0.7, size = Vector3.new(0.18, 0.15, 0.2), colors = {rgb(150, 150, 158), rgb(120, 120, 128)},
+    material = M.Slate, spin = 2},
+   emit("MoonDust", {rate = 30, back = true}),
+  }},
+  idle = "MoonDust",
+ },
+ red_planet_ball = { -- Red Planet
+  parts = {Shell = look(rgb(196, 88, 46), M.Sandstone), Regions = look(rgb(120, 44, 28), M.Sandstone), Storm = look(rgb(248, 196, 140)),
+   IceCaps = look(rgb(245, 250, 255), M.Snow)},
+  light = {rgb(255, 150, 90), 1.8, 10},
+  -- A billowing plume of red dust, a rust-orange ribbon, and two tiny moons in orbit.
+  flight = {color = rgb(255, 150, 90), land = "RedDust", layers = {
+   streak {texture = "smoke", colors = {rgb(236, 150, 100), rgb(170, 70, 40)}, size = 1.2, endSize = 3.4, lifetime = 0.85, rate = 70,
+    transparency = 0.35},
+   ribbon {colors = {rgb(255, 200, 140), rgb(220, 100, 50), rgb(130, 40, 20)}, width = 0.7, lifetime = 0.45, glow = true, taper = "teardrop"},
+   orbiters {count = 2, radius = 1.05, speed = 1.3, size = Vector3.one * 0.16, shape = "Ball", colors = {rgb(160, 130, 110), rgb(130, 110, 96)},
+    trail = {width = 0.05, lifetime = 0.25}},
+   emit("RedDust", {back = true}),
+  }},
+  idle = "RedDust",
+ },
+ singularity_orb = { -- Singularity Orb
+  parts = {Shell = look(rgb(6, 6, 10)), Ring = look(rgb(255, 160, 60), M.Neon), Halo = look(rgb(255, 240, 210), M.Neon),
+   Lens = look(rgb(170, 190, 255), M.Glass, 0.8)},
+  light = {rgb(255, 170, 80), 2.5, 12},
+  -- Bends space: a purple vortex wake, an accretion ribbon whirling round the core, warping
+  -- rings rippling out, and bright motes spiralling in.
+  flight = {color = rgb(190, 130, 255), launch = "Singularity", land = "Singularity", layers = {
+   streak {texture = "vortex", colors = {rgb(210, 170, 255), rgb(60, 20, 110)}, size = 1.6, endSize = 2.8, lifetime = 0.55, glow = true,
+    rotSpeed = 300, transparency = 0.25},
+   ribbon {colors = {rgb(255, 230, 190), rgb(255, 150, 70)}, width = 0.18, lifetime = 0.5, glow = true, taper = "teardrop",
+    orbit = {radius = 0.55, speed = 2.6}},
+   ribbon {colors = {rgb(220, 180, 255), rgb(120, 60, 220)}, width = 0.18, lifetime = 0.5, glow = true, taper = "teardrop",
+    orbit = {radius = 0.55, speed = 2.6, phase = 0.5}},
+   echoes {interval = 0.08, color = rgb(150, 90, 255), life = 0.45, grow = 1.7},
+   pulse {interval = 0.22, color = rgb(190, 130, 255), texture = "vortex", size = 5.5, life = 0.45, rotSpeed = -220},
+   orbiters {count = 3, radius = 1.2, speed = 2.8, size = Vector3.one * 0.12, shape = "Ball", color = rgb(255, 230, 200),
+    trail = {width = 0.07, lifetime = 0.3}},
+   emit("VoidDust", {rate = 50}),
+  }},
+  idle = "VoidDust",
+ },
 }
 
 -- Particle presets on built-in Roblox textures (no uploads needed). Sizes suit the
@@ -427,6 +575,25 @@ Styles.Emitters = {
  TimeDust = {Texture = SPARKLE, Color = ColorSequence.new(rgb(140, 245, 255), rgb(180, 120, 255)), LightEmission = 1,
   Size = pop(0.4), Rate = 45, Lifetime = range(0.7, 1.3), Speed = range(0.3, 1.2), SpreadAngle = Vector2.new(180, 180),
   RotSpeed = range(-150, 150)},
+ -- World 3
+ SunGlints = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 250, 220), rgb(255, 196, 70)), LightEmission = 1,
+  Size = pop(0.35), Rate = 35, Lifetime = range(0.4, 0.8), Speed = range(0.8, 2.4), SpreadAngle = Vector2.new(180, 180),
+  RotSpeed = range(-120, 120)},
+ HoloSparks = {Texture = SPARK, Color = ColorSequence.new(rgb(210, 250, 255), rgb(60, 170, 255)), LightEmission = 1,
+  Size = pop(0.3), Rate = 30, Lifetime = range(0.2, 0.45), Speed = range(1, 3), SpreadAngle = Vector2.new(180, 180)},
+ PixelSparks = {Texture = SPARK, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, rgb(255, 90, 140)),
+  ColorSequenceKeypoint.new(0.33, rgb(255, 210, 60)), ColorSequenceKeypoint.new(0.66, rgb(90, 160, 255)),
+  ColorSequenceKeypoint.new(1, rgb(60, 230, 160))}), LightEmission = 0.8, Size = pop(0.35), Rate = 30, Lifetime = range(0.4, 0.8),
+  Speed = range(1, 3), SpreadAngle = Vector2.new(180, 180), RotSpeed = range(-90, 90)},
+ MoonDust = {Texture = SMOKE, Color = ColorSequence.new(rgb(230, 232, 240), rgb(170, 174, 186)), LightEmission = 0.2,
+  Size = grow(0.4, 1.8), Transparency = fadeOut(0.45), Rate = 20, Lifetime = range(1, 1.6), Speed = range(0.2, 0.8),
+  SpreadAngle = Vector2.new(180, 180), Acceleration = Vector3.new(0, -0.4, 0), RotSpeed = range(-30, 30)},
+ RedDust = {Texture = SMOKE, Color = ColorSequence.new(rgb(240, 160, 110), rgb(176, 76, 44)), Size = grow(0.5, 2),
+  Transparency = fadeOut(0.4), Rate = 22, Lifetime = range(0.6, 1), Speed = range(0.5, 1.5), SpreadAngle = Vector2.new(60, 60),
+  RotSpeed = range(-60, 60)},
+ VoidDust = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 220, 190), rgb(170, 100, 255)), LightEmission = 1,
+  Size = pop(0.4), Rate = 45, Lifetime = range(0.6, 1.1), Speed = range(0.4, 1.4), SpreadAngle = Vector2.new(180, 180),
+  RotSpeed = range(-200, 200)},
 }
 
 -- One-shot bursts at launch or landing: Emitters presets to emit, plus optional extras.
@@ -446,6 +613,10 @@ Styles.FlightSounds = {
  viking_rune_ball = {"rbxassetid://9125718987", 0.13, 0.8}, -- the shimmer, pitched down to a rune hum (0.6x)
  clockwork_ball = {"rbxassetid://9119409838", 0.15, 1.3}, -- the hum, pitched up like whirring gears (0.6x)
  chrono_orb = {"rbxassetid://9125636853", 0.45, 0.8}, -- the magic energy, slowed and deeper (0.9x)
+ hologram_ball = {"rbxassetid://9114237976", 0.26, 1.35}, -- the electric arcing, pitched up to a glitchy buzz (0.6x)
+ robo_core_ball = {"rbxassetid://9119409838", 0.15, 1.6}, -- the hum, pitched up to a servo whine (0.6x)
+ rocket_ball = {"rbxassetid://9112825609", 0.05, 0.8}, -- the fire roar, deeper, like an engine (0.8x)
+ singularity_orb = {"rbxassetid://9119409838", 0.2, 0.6}, -- the cosmic hum, slowed into a deep drone (0.9x)
 }
 
 Styles.Bursts = {
@@ -466,6 +637,14 @@ Styles.Bursts = {
  Clang = {emit = {{"Sparks", 45}}, ring = rgb(230, 236, 255), flash = rgb(255, 255, 255)},
  Sheriff = {emit = {{"Dust", 16}, {"GoldGlitter", 35}}, ring = rgb(255, 210, 90)},
  TimeWarp = {emit = {{"TimeDust", 70}}, ring = rgb(120, 240, 255), flash = rgb(170, 240, 255)},
+ -- World 3
+ Solar = {emit = {{"SunGlints", 60}}, ring = rgb(255, 214, 110), flash = rgb(255, 230, 160)},
+ HoverRing = {ring = rgb(110, 225, 255), flash = rgb(170, 235, 255)},
+ Glitch = {emit = {{"HoloSparks", 50}}, ring = rgb(120, 230, 255), flash = rgb(150, 235, 255)},
+ Pixels = {emit = {{"PixelSparks", 60}}, flash = rgb(170, 255, 210)},
+ MoonDust = {emit = {{"MoonDust", 30}}, ring = rgb(210, 220, 240)},
+ RedDust = {emit = {{"RedDust", 36}}, ring = rgb(230, 140, 90)},
+ Singularity = {emit = {{"VoidDust", 70}}, ring = rgb(190, 130, 255), flash = rgb(210, 170, 255), bolts = rgb(220, 190, 255)},
 }
 
 function Styles.Get(itemId)

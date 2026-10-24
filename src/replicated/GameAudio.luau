@@ -122,9 +122,13 @@ GameAudio.Ambience = {
  CosmicRift = {"rbxassetid://9113078321", 0.3, "Ambience", rolloff = {14, 70}},
 }
 -- Which loop each Training Ground plays (Basic Training and World 2's standard cages: none).
+-- World 3's cages reuse the loops that suit them: rooftop wind, the cosmic air on the Moon and in
+-- the quantum lab, the grove's chimes in the biodome, the hydrophone hum in the factory.
 GameAudio.GroundAmbience = {
  enchanted_grove = "Grove", sunken_atlantis = "Atlantis", sky_temple = "SkyTemple",
  dragons_lair = "DragonLair", cosmic_rift = "CosmicRift",
+ solar_rooftop = "SkyTemple", robo_factory = "Atlantis", biodome_lab = "Grove", lunar_base = "CosmicRift",
+ quantum_lab = "CosmicRift",
 }
 
 -- Background music: none is chosen yet. Set an APM track id here to turn it on (it loops in

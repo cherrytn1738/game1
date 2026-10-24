@@ -21,6 +21,15 @@ local TERRACOTTA = Color3.fromRGB(204, 106, 60)
 local STEEL = Color3.fromRGB(165, 172, 184)
 local BRASS = Color3.fromRGB(222, 164, 72)
 local COPPER = Color3.fromRGB(198, 108, 64)
+-- World 3 materials of the future.
+local COMPOSITE = Color3.fromRGB(240, 242, 246) -- white composite panels
+local CHROME = Color3.fromRGB(196, 202, 214)
+local GUNMETAL = Color3.fromRGB(62, 68, 80)
+local CONCRETE = Color3.fromRGB(188, 190, 194)
+local SOLAR = Color3.fromRGB(30, 52, 112) -- solar cells
+local TINTED_GLASS = Color3.fromRGB(150, 214, 255)
+local HAZARD_YELLOW = Color3.fromRGB(255, 200, 30)
+local HAZARD_BLACK = Color3.fromRGB(28, 28, 32)
 local CANDY = {Color3.fromRGB(247, 83, 155), Color3.fromRGB(255, 160, 60), Color3.fromRGB(150, 110, 245)}
 local FROSTING = {Color3.fromRGB(255, 150, 190), Color3.fromRGB(150, 105, 70), Color3.fromRGB(170, 230, 255)}
 -- Filler kinds used when a section does not list its own `fillers`.
@@ -483,7 +492,7 @@ local function buildSides(kit, config, runwayWidth, startDistance, length, c, de
    deckColor or c.base:Lerp(c.accent, 0.25), deckMaterial)
   local outerX = side * (runwayWidth / 2 + thickness + config.deckWidth + config.outerGroundWidth / 2)
   kit.box("OuterGround", Vector3.new(config.outerGroundWidth, 8, length), Vector3.new(outerX, height - 7, centerZ),
-   c.base:Lerp(BLACK, 0.15), deckMaterial)
+   (deckColor or c.base):Lerp(BLACK, 0.15), deckMaterial)
  end
 end
 
@@ -526,6 +535,37 @@ local function buildFloor(kit, section, runwayWidth, length, c)
    kit.inlay("PlankLine", Vector3.new(0.25, 0.03, length), Vector3.new(x, 0.015, centerZ), c.deep)
   end
  end
+ if section.floorLanes then
+  -- Road or launch-runway markings: a glowing centre line and dashed lane lines.
+  kit.inlay("CenterLine", Vector3.new(1.2, 0.03, length), Vector3.new(0, 0.015, centerZ), c.accent, Enum.Material.Neon)
+  for _, x in {-44, 44} do
+   for d = 16, length - 14, 26 do
+    kit.inlay("LaneDash", Vector3.new(0.9, 0.03, 12), Vector3.new(x, 0.015, -(startDistance + d + 6)), CREAM)
+   end
+  end
+ end
+ if section.floorHazard then
+  -- Yellow and black warning bands along both edges.
+  for _, side in {-1, 1} do
+   local x = side * (runwayWidth / 2 - 11)
+   kit.inlay("HazardBand", Vector3.new(6, 0.03, length), Vector3.new(x, 0.015, centerZ), HAZARD_YELLOW)
+   for d = 3, length - 3, 5 do
+    kit.box("HazardStripe", Vector3.new(1.1, 0.04, 6.4), Vector3.new(x, 0.02, -(startDistance + d)), HAZARD_BLACK, nil,
+     CFrame.Angles(0, math.rad(45), 0)).CastShadow = false
+   end
+  end
+ end
+ if section.floorCraters then
+  -- Crater rings scattered deterministically across the floor.
+  for d = 30, length - 30, 46 do
+   local index = math.floor(d / 46)
+   local x = ((index * 53) % 112) - 56
+   local size = 10 + (index % 3) * 7
+   local z = -(startDistance + d)
+   kit.cylinder("CraterRim", 0.03, size + 3.5, Vector3.new(x, 0.015, z), c.light).CastShadow = false
+   kit.cylinder("Crater", 0.04, size, Vector3.new(x, 0.02, z), c.dark).CastShadow = false
+  end
+ end
  if section.floorCracks then
   -- Short zigzag cracks of glowing lava, spread deterministically across the floor.
   for d = 18, length - 18, 26 do
@@ -563,6 +603,8 @@ end
 -- World 2's props come from tools/blender/runway_world2.py; Blender -Y faces downfield, so
 -- props with a front use faceTee = "exact" with a half turn to face the tee.
 local NEON = Enum.Material.Neon
+local GLASS = Enum.Material.Glass
+local METAL = Enum.Material.Metal
 local MESH_PROPS = {
  tree = {template = "MeadowTree", colors = function(c)
   return {TreeTrunk = BARK, TreeLeaves = c.base, TreeLeavesTop = c.base:Lerp(c.accent, 0.55)}
@@ -781,6 +823,162 @@ local MESH_PROPS = {
   materials = {HoloClockRing = NEON, HoloClockHands = NEON, HoloClockCore = NEON}, colors = function(c)
   return {HoloClockRing = c.accent, HoloClockHands = Color3.fromRGB(255, 120, 230), HoloClockCore = WHITE}
  end},
+
+ -- World 3 (Future World): props from tools/blender/runway_world3_city.py and
+ -- runway_world3_space.py. Solar Suburbs.
+ ecoHouse = {template = "EcoHouse", faceTee = "exact", yawOffset = math.pi,
+  materials = {EcoHouseSolar = GLASS, EcoHouseGlass = GLASS}, transparency = {EcoHouseGlass = 0.15}, colors = function()
+  return {EcoHouseWalls = COMPOSITE, EcoHouseRoof = Color3.fromRGB(74, 79, 88), EcoHouseSolar = SOLAR, EcoHouseGlass = TINTED_GLASS,
+   EcoHouseTrim = Color3.fromRGB(196, 140, 92), EcoHouseLawn = Color3.fromRGB(112, 190, 92)}
+ end},
+ windTurbine = {template = "WindTurbine", faceTee = true, materials = {TurbineBase = Enum.Material.Concrete}, colors = function(c)
+  return {TurbineTower = COMPOSITE, TurbineBlades = Color3.fromRGB(250, 251, 253), TurbineHub = c.accent, TurbineBase = CONCRETE}
+ end},
+ solarTree = {template = "SolarTree", materials = {SolarTreePanels = GLASS, SolarTreeGlow = NEON}, colors = function(c)
+  return {SolarTreeStem = COMPOSITE, SolarTreePanels = SOLAR, SolarTreeGlow = c.accent:Lerp(WHITE, 0.35)}
+ end},
+ -- Fillers for the city sections.
+ planter = {template = "Planter", materials = {PlanterGlow = NEON}, colors = function(c, v)
+  return {PlanterBox = COMPOSITE, PlanterGlow = c.accent, PlanterLeaves = Color3.fromRGB(70, 160, 85):Lerp(c.accent, (v % 3) * 0.08)}
+ end},
+ -- Maglev Highway (and Skyline Metropolis's sky taxis, the same car floating high). Traffic runs
+ -- along the runway both ways; the cars hover on glowing pads.
+ hoverCar = {template = "HoverCar", faceTee = true, lift = 0.6, materials = {HoverCarGlow = NEON, HoverCarGlass = GLASS, HoverCarTrim = METAL},
+  transparency = {HoverCarGlass = 0.25}, colors = function(c, v)
+  local paint = ({Color3.fromRGB(255, 196, 40), Color3.fromRGB(235, 72, 84), Color3.fromRGB(80, 170, 255), COMPOSITE})[v % 4 + 1]
+  return {HoverCarBody = paint, HoverCarGlass = Color3.fromRGB(140, 205, 240), HoverCarGlow = c.accent, HoverCarTrim = Color3.fromRGB(45, 48, 56)}
+ end},
+ skyTaxi = {template = "HoverCar", faceTee = true, lift = 12, materials = {HoverCarGlow = NEON, HoverCarGlass = GLASS, HoverCarTrim = METAL},
+  transparency = {HoverCarGlass = 0.25}, colors = function(c)
+  return {HoverCarBody = Color3.fromRGB(255, 200, 40), HoverCarGlass = Color3.fromRGB(140, 205, 240), HoverCarGlow = c.accent,
+   HoverCarTrim = HAZARD_BLACK}
+ end},
+ maglevPylon = {template = "MaglevPylon", faceTee = true, materials = {PylonGlow = NEON, PylonRail = METAL}, colors = function(c)
+  return {PylonBody = Color3.fromRGB(232, 236, 242), PylonRail = Color3.fromRGB(150, 158, 172), PylonGlow = c.accent}
+ end},
+ holoSign = {template = "HoloSign", faceTee = true, materials = {HoloSignPanel = NEON, HoloSignSymbols = NEON, HoloSignPosts = METAL},
+  transparency = {HoloSignPanel = 0.55}, colors = function(c)
+  return {HoloSignPosts = Color3.fromRGB(70, 76, 90), HoloSignPanel = c.accent, HoloSignSymbols = Color3.fromRGB(190, 250, 255)}
+ end},
+ -- Skyline Metropolis. Billboards show a glowing ad (a baseball and headline bars) on a dark screen.
+ holoBillboard = {template = "HoloBillboard", faceTee = true, materials = {BillboardGlow = NEON, BillboardFrame = METAL},
+  colors = function(c, v)
+  local glow = ({c.accent, Color3.fromRGB(80, 220, 255), Color3.fromRGB(255, 200, 70)})[v % 3 + 1]
+  return {BillboardFrame = Color3.fromRGB(52, 56, 66), BillboardScreen = Color3.fromRGB(30, 24, 72), BillboardGlow = glow}
+ end},
+ neoLamp = {template = "NeoLamp", materials = {NeoLampLight = NEON, NeoLampBase = METAL}, colors = function(c)
+  return {NeoLampPole = COMPOSITE, NeoLampLight = c.accent:Lerp(WHITE, 0.3), NeoLampBase = Color3.fromRGB(50, 54, 64)}
+ end},
+ -- Robo Assembly Line. The arm shows its side to the batter.
+ robotArm = {template = "RobotArm", faceTee = "exact", yawOffset = math.pi / 2,
+  materials = {RobotArmLight = NEON, RobotArmJoints = METAL, RobotArmBase = METAL}, colors = function(c)
+  return {RobotArmBody = c.accent, RobotArmJoints = Color3.fromRGB(48, 52, 60), RobotArmBase = Color3.fromRGB(150, 156, 166),
+   RobotArmLight = Color3.fromRGB(90, 230, 255)}
+ end},
+ conveyor = {template = "Conveyor", faceTee = true, materials = {ConveyorFrame = METAL}, colors = function()
+  return {ConveyorFrame = Color3.fromRGB(62, 66, 76), ConveyorBelt = Color3.fromRGB(30, 30, 34), ConveyorCrates = Color3.fromRGB(205, 152, 96),
+   ConveyorStripes = HAZARD_YELLOW}
+ end},
+ robotUnit = {template = "RobotUnit", faceTee = "exact", yawOffset = math.pi,
+  materials = {RobotVisor = NEON, RobotJoints = METAL, RobotStand = METAL}, colors = function(c)
+  return {RobotShell = COMPOSITE, RobotJoints = Color3.fromRGB(46, 50, 58), RobotVisor = Color3.fromRGB(110, 235, 255),
+   RobotStand = Color3.fromRGB(120, 126, 138), RobotAccent = c.accent}
+ end},
+ -- Fillers for the robotics and spaceport sections.
+ cargoCrate = {template = "CargoCrate", materials = {CrateGlow = NEON, CrateTrim = METAL}, colors = function(c, v)
+  local body = ({Color3.fromRGB(220, 224, 230), Color3.fromRGB(230, 130, 40), Color3.fromRGB(96, 110, 140)})[v % 3 + 1]
+  return {CrateBody = body, CrateTrim = Color3.fromRGB(50, 54, 64), CrateGlow = c.accent}
+ end},
+ -- Biodome Gardens (with World 1's mushroom, glowing). The dome's entrance faces the batter.
+ biodome = {template = "Biodome", faceTee = "exact", yawOffset = math.pi, materials = {BiodomeGlass = GLASS},
+  transparency = {BiodomeGlass = 0.55}, colors = function(c)
+  return {BiodomeFrame = Color3.fromRGB(240, 244, 248), BiodomeGlass = Color3.fromRGB(170, 230, 255), BiodomePlants = Color3.fromRGB(70, 170, 90),
+   BiodomeFlowers = c.accent, BiodomeBase = Color3.fromRGB(185, 190, 198)}
+ end},
+ alienPlant = {template = "AlienPlant", materials = {AlienPlantBulbs = NEON}, colors = function(c, v)
+  local bulbs = ({Color3.fromRGB(170, 255, 90), c.accent, Color3.fromRGB(255, 110, 200)})[v % 3 + 1]
+  return {AlienPlantStalks = Color3.fromRGB(110, 60, 160), AlienPlantLeaves = Color3.fromRGB(40, 165, 140), AlienPlantBulbs = bulbs}
+ end},
+ glowShroom = {template = "Mushroom", materials = {MushroomCap = NEON, MushroomSpots = NEON}, colors = function(c, v)
+  return {MushroomStem = Color3.fromRGB(226, 240, 232), MushroomGills = Color3.fromRGB(190, 220, 210),
+   MushroomCap = ({c.accent, Color3.fromRGB(90, 240, 220)})[v % 2 + 1], MushroomSpots = WHITE, MushroomGrass = c.base}
+ end},
+ -- Virtual Grid.
+ dataCube = {template = "DataCube", materials = {DataCubeEdges = NEON, DataCubeCore = NEON}, colors = function(c)
+  return {DataCubeEdges = c.accent, DataCubeCore = Color3.fromRGB(255, 70, 190), DataCubeBase = Color3.fromRGB(28, 32, 48)}
+ end},
+ voxelTree = {template = "VoxelTree", colors = function(c)
+  return {VoxelTrunk = Color3.fromRGB(70, 56, 110), VoxelLeaves = c.accent:Lerp(BLACK, 0.4), VoxelLeavesLight = c.accent:Lerp(WHITE, 0.1)}
+ end},
+ glitchPillar = {template = "GlitchPillar", materials = {GlitchGlow = NEON}, colors = function(c, v)
+  return {GlitchBlocks = Color3.fromRGB(24, 26, 44), GlitchGlow = ({Color3.fromRGB(255, 60, 200), c.accent})[v % 2 + 1]}
+ end},
+ voxelBush = {template = "VoxelBush", materials = {VoxelBushGlow = NEON}, colors = function(c)
+  return {VoxelBushLeaves = c.accent:Lerp(BLACK, 0.45), VoxelBushGlow = c.accent}
+ end},
+ -- Orbital Spaceport. Rockets, dishes and tanks show their fronts (portholes, ladders) to the batter.
+ rocket = {template = "Rocket", faceTee = "exact", yawOffset = math.pi, materials = {RocketWindow = NEON, RocketPad = METAL},
+  colors = function(c, v)
+  local accent = ({Color3.fromRGB(220, 50, 50), c.accent})[v % 2 + 1]
+  return {RocketBody = Color3.fromRGB(240, 240, 236), RocketAccent = accent, RocketFins = accent:Lerp(BLACK, 0.1),
+   RocketPad = Color3.fromRGB(105, 110, 120), RocketWindow = Color3.fromRGB(150, 220, 255)}
+ end},
+ radarDish = {template = "RadarDish", faceTee = "exact", yawOffset = math.pi, materials = {DishMount = METAL}, colors = function()
+  return {DishBowl = Color3.fromRGB(236, 238, 242), DishMount = Color3.fromRGB(150, 156, 168), DishFeed = Color3.fromRGB(255, 190, 60)}
+ end},
+ fuelTank = {template = "FuelTank", faceTee = "exact", yawOffset = math.pi, materials = {TankBands = METAL}, colors = function()
+  return {TankBody = Color3.fromRGB(238, 238, 234), TankBands = Color3.fromRGB(140, 146, 158), TankPipes = Color3.fromRGB(255, 196, 40),
+   TankBase = Color3.fromRGB(150, 150, 146)}
+ end},
+ -- Lunar Colony (the habitat also stands on Mars, dusted red). Airlocks, ladders and flags face the
+ -- batter. PodWindows also holds the habitat's solar cells.
+ habitatPod = {template = "HabitatPod", faceTee = "exact", yawOffset = math.pi,
+  materials = {PodWindows = GLASS, PodTrim = METAL, PodLegs = METAL}, colors = function()
+  return {PodShell = Color3.fromRGB(240, 240, 236), PodWindows = Color3.fromRGB(45, 90, 170), PodTrim = Color3.fromRGB(170, 176, 188),
+   PodLegs = Color3.fromRGB(70, 74, 84)}
+ end},
+ marsHabitat = {template = "HabitatPod", faceTee = "exact", yawOffset = math.pi,
+  materials = {PodWindows = GLASS, PodTrim = METAL, PodLegs = METAL}, colors = function()
+  return {PodShell = Color3.fromRGB(236, 214, 196), PodWindows = Color3.fromRGB(45, 90, 170), PodTrim = Color3.fromRGB(205, 110, 60),
+   PodLegs = Color3.fromRGB(70, 74, 84)}
+ end},
+ lunarLander = {template = "LunarLander", faceTee = "exact", yawOffset = math.pi,
+  materials = {LanderFoil = Enum.Material.Foil, LanderModule = METAL, LanderLegs = METAL, LanderWindows = GLASS}, colors = function()
+  return {LanderFoil = Color3.fromRGB(235, 180, 60), LanderModule = Color3.fromRGB(196, 200, 208), LanderLegs = Color3.fromRGB(90, 94, 104),
+   LanderWindows = Color3.fromRGB(20, 26, 40)}
+ end},
+ astronautFlag = {template = "AstronautFlag", faceTee = true, materials = {FlagPole = METAL}, colors = function(c)
+  return {FlagPole = Color3.fromRGB(210, 214, 222), FlagCloth = Color3.fromRGB(40, 90, 200), FlagEmblem = WHITE, FlagBase = c.base:Lerp(WHITE, 0.1)}
+ end},
+ -- Red Planet Outpost.
+ marsRover = {template = "MarsRover", faceTee = "exact", yawOffset = math.pi,
+  materials = {RoverDeck = GLASS, RoverMast = METAL, RoverAccent = Enum.Material.Foil}, colors = function()
+  return {RoverBody = Color3.fromRGB(236, 236, 232), RoverWheels = Color3.fromRGB(45, 46, 52), RoverDeck = Color3.fromRGB(30, 60, 140),
+   RoverMast = Color3.fromRGB(190, 194, 204), RoverAccent = Color3.fromRGB(230, 170, 60)}
+ end},
+ terraformer = {template = "Terraformer", materials = {TerraformerCore = NEON, TerraformerFins = METAL}, colors = function(c)
+  return {TerraformerBody = Color3.fromRGB(214, 206, 196), TerraformerCore = Color3.fromRGB(255, 140, 50), TerraformerFins = Color3.fromRGB(70, 76, 88),
+   TerraformerBase = Color3.fromRGB(96, 90, 86)}
+ end},
+ -- Quantum Singularity.
+ energyRing = {template = "EnergyRing", faceTee = true, materials = {EnergyRingGlow = NEON, EnergyRingFrame = METAL}, colors = function()
+  return {EnergyRingFrame = Color3.fromRGB(40, 44, 62), EnergyRingGlow = Color3.fromRGB(90, 230, 255), EnergyRingBase = Color3.fromRGB(22, 24, 38)}
+ end},
+ quantumShard = {template = "QuantumShard", lift = 5, materials = {ShardCrystal = GLASS, ShardRing = NEON, ShardRock = Enum.Material.Slate},
+  transparency = {ShardCrystal = 0.1}, colors = function(c, v)
+  return {ShardCrystal = ({Color3.fromRGB(160, 100, 255), c.accent})[v % 2 + 1], ShardRing = Color3.fromRGB(90, 240, 255),
+   ShardRock = Color3.fromRGB(48, 44, 66)}
+ end},
+ riftRock = {template = "RiftRock", lift = 7, materials = {RiftRockGlow = NEON, RiftRockCrystals = NEON, RiftRockStone = Enum.Material.Slate},
+  colors = function()
+  return {RiftRockStone = Color3.fromRGB(70, 60, 92), RiftRockGlow = Color3.fromRGB(255, 80, 210), RiftRockCrystals = Color3.fromRGB(90, 240, 220)}
+ end},
+ -- The black hole behind World 3's end portal (WorldConfig runway.landmarks): placed by its centre,
+ -- its photon ring toward the batter.
+ blackHole = {template = "BlackHole", faceTee = "exact", yawOffset = math.pi, materials = {BlackHoleDisc = NEON, BlackHoleHalo = NEON},
+  colors = function()
+  return {BlackHoleCore = Color3.new(0, 0, 0), BlackHoleDisc = Color3.fromRGB(255, 150, 60), BlackHoleHalo = Color3.fromRGB(255, 245, 220)}
+ end},
 }
 
 -- Backdrops: large shapes on the outer ground, mostly prop meshes at a much bigger scale.
@@ -839,6 +1037,40 @@ local BACKDROP_MESHES = {
  futureSpires = {template = "FutureSpire", scale = 4, materials = {FutureSpireGlow = NEON}, colors = function(c)
   return {FutureSpireBody = Color3.fromRGB(225, 230, 240), FutureSpireGlow = c.accent}
  end},
+ -- World 3.
+ windFarm = {template = "WindTurbine", scale = 4, faceTee = true, materials = MESH_PROPS.windTurbine.materials,
+  colors = MESH_PROPS.windTurbine.colors},
+ viaduct = {template = "Viaduct", scale = 4, faceTee = "exact", materials = {ViaductGlow = NEON, ViaductWindows = GLASS,
+  ViaductPillars = Enum.Material.Concrete}, colors = function(c)
+  return {ViaductPillars = Color3.fromRGB(200, 204, 212), ViaductTrack = Color3.fromRGB(226, 230, 237), ViaductGlow = c.accent,
+   ViaductTrain = Color3.fromRGB(246, 248, 251), ViaductWindows = Color3.fromRGB(28, 38, 58)}
+ end},
+ skyscrapers = {template = "Skyscraper", scale = 7, materials = {SkyscraperGlass = GLASS, SkyscraperGlow = NEON}, colors = function(c, v)
+  local glass = ({Color3.fromRGB(70, 130, 195), Color3.fromRGB(110, 165, 220), Color3.fromRGB(80, 110, 180)})[v % 3 + 1]
+  return {SkyscraperGlass = glass, SkyscraperFrame = Color3.fromRGB(236, 239, 244), SkyscraperGlow = c.accent}
+ end},
+ megaFactory = {template = "MegaFactory", scale = 3.5, faceTee = "exact", yawOffset = math.pi,
+  materials = {FactoryGlow = NEON, FactoryRoof = METAL, FactoryVents = METAL}, colors = function()
+  return {FactoryWalls = Color3.fromRGB(206, 211, 219), FactoryRoof = Color3.fromRGB(70, 76, 88), FactoryVents = Color3.fromRGB(140, 148, 160),
+   FactoryGlow = Color3.fromRGB(255, 196, 90)}
+ end},
+ domes = {template = "Biodome", scale = 4, faceTee = "exact", yawOffset = math.pi, materials = MESH_PROPS.biodome.materials,
+  transparency = MESH_PROPS.biodome.transparency, colors = MESH_PROPS.biodome.colors},
+ voxelPeaks = {template = "VoxelPeak", scale = 4, materials = {VoxelPeakGlow = NEON}, colors = function(c)
+  return {VoxelPeakRock = Color3.fromRGB(40, 44, 70), VoxelPeakGlow = c.accent, VoxelPeakSnow = Color3.fromRGB(235, 245, 255)}
+ end},
+ launchTowers = {template = "LaunchTower", scale = 4, materials = {GantryLights = NEON, GantrySteel = METAL}, colors = function()
+  return {GantrySteel = Color3.fromRGB(200, 70, 50), GantryRocket = Color3.fromRGB(240, 240, 236), GantryAccent = Color3.fromRGB(30, 32, 38),
+   GantryPad = Color3.fromRGB(140, 140, 136), GantryLights = Color3.fromRGB(255, 60, 50)}
+ end},
+ moonRidges = {template = "MoonRidge", scale = 4.5, faceTee = "exact", yawOffset = math.pi, colors = function(c)
+  return {MoonRidgeRock = c.base:Lerp(WHITE, 0.08), MoonRidgeCraters = c.base:Lerp(BLACK, 0.22)}
+ end},
+ marsButtes = {template = "Mesa", scale = 3.5, colors = function(c)
+  return {MesaRockA = Color3.fromRGB(150, 62, 38), MesaRockB = c.base}
+ end},
+ voidShards = {template = "QuantumShard", scale = 4, lift = 12, materials = MESH_PROPS.quantumShard.materials,
+  transparency = MESH_PROPS.quantumShard.transparency, colors = MESH_PROPS.quantumShard.colors},
 }
 
 local function getTemplate(definition)
@@ -1018,6 +1250,15 @@ function RunwayDecor.Build(field, world, frame)
   field:SetAttribute("GateRadius", radius)
  else
   buildTitle(kit, world.endDistance, string.upper(world.displayName) .. " FINISH", last)
+ end
+ -- Landmarks: single giant meshes placed by their centre (skipped while the model is missing).
+ for index, landmark in config.landmarks or {} do
+  local definition = MESH_PROPS[landmark.kind] or BACKDROP_MESHES[landmark.kind]
+  local template = getTemplate(definition)
+  if template then
+   placeMesh(finish, frame, template, definition, last, Vector3.new(landmark.x or 0, landmark.height, -landmark.distance),
+    landmark.scale, index)
+  end
  end
 end
 

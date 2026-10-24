@@ -13,6 +13,13 @@
 --                 chase camera and speed lines
 --       plunge    a wide shot as they spiral into the swirl, then white
 --       arrival   the white fades in the new World with a shockwave and its title
+--   * the temporary finale after the last World (WorldConfig endPortal.finale; the server holds
+--     the batter and sets GameFinale, then returns them to the hub at 11.8 s):
+--       impact    as the trip, with a winner's anthem
+--       reveal    a slow push-in on the giant portal as "YOU FINISHED THE GAME!" slams in
+--       fireworks a crane shot rising over the runway's end as fireworks burst round the portal
+--       batter    back at the tee, the batter in a shower of confetti and fireworks as the
+--                 closing title lands, then white and back to the hub
 -- Presentation only: the server unlocks the World and performs the travel.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -65,8 +72,25 @@ local THEME = {
 local GRADE = {Saturation = 0.25, Contrast = 0.18, Brightness = 0.02, TintColor = Color3.fromRGB(225, 240, 255)}
 local NEUTRAL = {Saturation = 0, Contrast = 0, Brightness = 0, TintColor = Color3.new(1, 1, 1)}
 
+-- The finale's own audio (APM Music and Pro Sound Effects).
+local FINALE_SOUNDS = {
+ Music = {"rbxassetid://1845666791", 0.6}, -- APM "A Winner's Anthem"
+ Fireworks = {"rbxassetid://9114447096", 0.5}, -- "Fireworks Fast 1": launches and bangs
+ Sparkle = {"rbxassetid://9114447277", 0.4}, -- "Fireworks Sparks 1": crackling tails
+ Cheer = {"rbxassetid://9120975204", 0.3}, -- "Wrestling Crowd 2": a cheering crowd
+}
+-- Finale timeline (seconds from its start); BattingTimingServer's GAME_FINALE_SECONDS is 11.8.
+local FINALE_REVEAL_END = 3.2
+local FINALE_TITLE_AT = 0.9
+local FINALE_BATTER_AT = 7.6
+local FINALE_CLOSING_AT = 8.1
+local FINALE_WHITE_AT = 11.2
+local FIREWORK_COLORS = {Color3.fromRGB(255, 90, 120), Color3.fromRGB(255, 210, 90), Color3.fromRGB(110, 235, 255),
+ Color3.fromRGB(180, 120, 255), Color3.fromRGB(120, 255, 160), Color3.new(1, 1, 1)}
+
 local specs = {}
 for _, spec in SOUNDS do table.insert(specs, spec) end
+for _, spec in FINALE_SOUNDS do table.insert(specs, spec) end
 FX.Preload(specs)
 
 -- ---------- the giant portals' motion ----------
@@ -382,4 +406,234 @@ end
 
 Player:GetAttributeChangedSignal("PortalJourney"):Connect(function()
  if Player:GetAttribute("PortalJourney") then task.spawn(journey) end
+end)
+
+-- ---------- the finale (temporary, after the last World) ----------
+
+-- A firework: a bright shell streaks up from `from` to `at`, then bursts into a sphere of
+-- sparks that droop and fade. size scales the burst (studs per unit of spark speed).
+local function firework(from, at, color, size)
+ local shell = FX.Neon("FireworkShell", CFrame.new(from), Vector3.one * size * 0.5, color:Lerp(Color3.new(1, 1, 1), 0.6), 0,
+  Enum.PartType.Ball)
+ local tail = FX.Emitter(shell, {Texture = FX.Textures.Sparkle, Speed = NumberRange.new(0), Lifetime = NumberRange.new(0.35, 0.5),
+  Rate = 90, Color = ColorSequence.new(Color3.new(1, 1, 1), color), Size = NumberSequence.new(size * 0.45, 0)})
+ local rise = rng:NextNumber(0.45, 0.65)
+ FX.Tween(shell, rise, {CFrame = CFrame.new(at)})
+ task.delay(rise, function()
+  tail.Enabled = false
+  shell.Transparency = 1
+  local burst = FX.Part("FireworkBurst", CFrame.new(at))
+  FX.Emitter(burst, {Texture = FX.Textures.Sparkle, Speed = NumberRange.new(size * 9, size * 13), Lifetime = NumberRange.new(1.1, 1.7),
+   Rate = 0, SpreadAngle = Vector2.new(180, 180), Drag = 1.8, Acceleration = Vector3.new(0, -size * 3, 0),
+   Color = ColorSequence.new(Color3.new(1, 1, 1), color), Size = NumberSequence.new(size * 1.2, 0),
+   Transparency = NumberSequence.new(0, 1)}):Emit(70)
+  FX.Emitter(burst, {Texture = FX.Textures.Spark, Speed = NumberRange.new(size * 4, size * 7), Lifetime = NumberRange.new(0.6, 1),
+   Rate = 0, SpreadAngle = Vector2.new(180, 180), Drag = 2, Color = ColorSequence.new(color), Size = NumberSequence.new(size * 0.5, 0)}):Emit(30)
+  local light = Instance.new("PointLight")
+  light.Color, light.Brightness, light.Range = color, 4, size * 16
+  light.Parent = burst
+  FX.Tween(light, 1.2, {Brightness = 0})
+  game:GetService("Debris"):AddItem(burst, 2.2)
+  game:GetService("Debris"):AddItem(shell, 1)
+ end)
+end
+
+-- Confetti showering down over the batter (a box of coloured flakes above them).
+local function confetti(position)
+ local zone = FX.Part("FinaleConfetti", CFrame.new(position + Vector3.yAxis * 14), Vector3.new(26, 1, 26))
+ local keys = {}
+ for index, color in FIREWORK_COLORS do
+  table.insert(keys, ColorSequenceKeypoint.new((index - 1) / (#FIREWORK_COLORS - 1), color))
+ end
+ local flakes = FX.Emitter(zone, {Texture = FX.Textures.Spark, Shape = Enum.ParticleEmitterShape.Box,
+  EmissionDirection = Enum.NormalId.Bottom, Speed = NumberRange.new(2, 5), Lifetime = NumberRange.new(2.5, 3.5),
+  Rate = 140, Acceleration = Vector3.new(0, -6, 0), Drag = 0.6, RotSpeed = NumberRange.new(-300, 300),
+  Rotation = NumberRange.new(0, 360), LightEmission = 0.4, Color = ColorSequence.new(keys), Size = NumberSequence.new(0.45, 0.3)})
+ return zone, flakes
+end
+
+local function hideScreens()
+ local hidden = {}
+ for _, name in HIDDEN_SCREENS do
+  local screen = Player.PlayerGui:FindFirstChild(name)
+  if screen and screen:IsA("ScreenGui") and screen.Enabled then
+   screen.Enabled = false
+   table.insert(hidden, screen)
+  end
+ end
+ return hidden
+end
+
+local function finale()
+ if running then return end
+ local world = Worlds.Get(Player:GetAttribute("GameFinale"))
+ local text = world and world.endPortal and world.endPortal.finale
+ local gate = gateOf(world)
+ local area = world and workspace:FindFirstChild(world.stationName)
+ local character = Player.Character
+ local root = character and character:FindFirstChild("HumanoidRootPart")
+ if not text or not gate or not area or not root then return end
+ running = true
+ local c = {}
+ local center, radius = gate:GetAttribute("OpeningCenter"), gate:GetAttribute("OpeningRadius")
+ local difference = area.HitDirection.Position - area.Tee.Stem.Position
+ local forward = Vector3.new(difference.X, 0, difference.Z).Unit
+ local right = forward:Cross(Vector3.yAxis)
+ local home = root.CFrame -- where the server holds the batter
+ local floor = home.Position.Y - 3 -- about the ground under the batter and the runway
+ local camera = workspace.CurrentCamera
+ local startFov = camera.FieldOfView
+ task.spawn(function() pcall(function() Player:RequestStreamAroundAsync(center) end) end)
+
+ GameAudio.Duck("PortalJourney", "Cinematic")
+ boostTarget = SPIN_BOOST
+ local hidden = hideScreens()
+ Player:SetAttribute("CinematicCamera", true)
+ camera.CameraType = Enum.CameraType.Scriptable
+ local theme = {edge = GOLD, stroke = Color3.fromRGB(70, 34, 8), subtitleColor = Color3.fromRGB(255, 240, 200),
+  speedLineColor = Color3.fromRGB(255, 240, 200), title = text.title, subtitle = text.subtitle,
+  titleColors = ColorSequence.new({
+   ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 170, 50)), ColorSequenceKeypoint.new(0.42, Color3.fromRGB(255, 228, 130)),
+   ColorSequenceKeypoint.new(0.5, Color3.new(1, 1, 1)), ColorSequenceKeypoint.new(0.58, Color3.fromRGB(170, 240, 255)),
+   ColorSequenceKeypoint.new(1, CYAN)})}
+ FX.ShowScreen(theme)
+ FX.Flash(Color3.new(1, 1, 1), 0, 0.6)
+ FX.SetBars(0.13, 0.35)
+ local grade = Instance.new("ColorCorrectionEffect")
+ grade.Name, grade.Parent = "PortalJourneyGrade", Lighting
+ FX.Tween(grade, 0.4, GRADE)
+
+ -- Impact: the ball is swallowed; the anthem starts.
+ local sounds = game:GetService("SoundService")
+ FX.PlayFor(c, SOUNDS.Boom, sounds)
+ FX.PlayFor(c, SOUNDS.Thunder, sounds)
+ local music = FX.PlayFor(c, FINALE_SOUNDS.Music, sounds)
+ for k = 0, 2 do
+  task.delay(k * 0.12, ring, center, forward, radius * 0.6, radius * (4 + k), 1.1 + k * 0.2, k == 1 and GOLD or CYAN)
+ end
+ rimBolts(center, right, radius, 8)
+
+ local startedAt = os.clock()
+ local nextBolt, nextFirework, shake = 0, FINALE_REVEAL_END - 0.6, 0.6
+ local played = {}
+ local function once(key, at, fn)
+  if not played[key] and os.clock() - startedAt >= at then
+   played[key] = true
+   fn()
+  end
+ end
+ local confettiZone, flakes
+ local connection = RunService.RenderStepped:Connect(function(dt)
+  local t = os.clock() - startedAt
+  shake = math.max(0, shake - dt * 0.8)
+  local jolt = Vector3.new(math.noise(t * 9, 0.2), math.noise(0.6, t * 9), math.noise(t * 9, 4.1)) * shake * 3
+
+  once("title", FINALE_TITLE_AT, function() FX.ShowTitle() end)
+  once("fireworksSound", FINALE_REVEAL_END - 0.6, function()
+   FX.PlayFor(c, FINALE_SOUNDS.Fireworks, sounds)
+   FX.PlayFor(c, FINALE_SOUNDS.Sparkle, sounds, {TimePosition = 0.5})
+  end)
+  once("fireworksSound2", FINALE_REVEAL_END + 2.8, function() FX.PlayFor(c, FINALE_SOUNDS.Fireworks, sounds, {PlaybackSpeed = 1.08}) end)
+
+  if t < FINALE_BATTER_AT and t >= nextFirework then
+   -- Fireworks round the portal, launched from the runway's end.
+   nextFirework = t + rng:NextNumber(0.18, 0.34)
+   local at = center + right * rng:NextNumber(-2.4, 2.4) * radius + Vector3.yAxis * rng:NextNumber(0.2, 1.5) * radius
+    + forward * rng:NextNumber(-0.6, 0.6) * radius
+   local from = Vector3.new(at.X, floor, at.Z) - forward * rng:NextNumber(0.2, 0.8) * radius
+   firework(from, at, FIREWORK_COLORS[rng:NextInteger(1, #FIREWORK_COLORS)], radius * rng:NextNumber(0.06, 0.1))
+  end
+
+  if t < FINALE_REVEAL_END then
+   -- Reveal: a slow push-in on the giant portal from low on the runway.
+   local s = smooth(t / FINALE_REVEAL_END)
+   local eye = center - forward * lerp(radius * 3.4, radius * 2.4, s) + right * lerp(radius * 0.7, radius * 0.25, s)
+    + Vector3.yAxis * lerp(-radius * 1.1, -radius * 0.6, s)
+   camera.CFrame = CFrame.lookAt(eye + jolt, center)
+   camera.FieldOfView = lerp(62, 55, s)
+   if t >= nextBolt then
+    nextBolt = t + 0.3
+    rimBolts(center, right, radius, 2)
+   end
+  elseif t < FINALE_BATTER_AT then
+   -- Fireworks: a crane shot rising and sweeping across the runway's end.
+   local s = smooth((t - FINALE_REVEAL_END) / (FINALE_BATTER_AT - FINALE_REVEAL_END))
+   local eye = center - forward * lerp(radius * 5.4, radius * 4.4, s) + right * lerp(-radius * 1.6, radius * 1.4, s)
+    + Vector3.yAxis * lerp(-radius * 0.7, radius * 0.9, s)
+   camera.CFrame = CFrame.lookAt(eye + jolt * 0.4, center + Vector3.yAxis * radius * 0.4)
+   camera.FieldOfView = lerp(72, 64, s)
+  else
+   -- The batter: back at the tee in a shower of confetti, the camera circling them.
+   once("batter", FINALE_BATTER_AT, function()
+    FX.Flash(Color3.new(1, 1, 1), 0.3, 0.35)
+    FX.Shockwave(home.Position - Vector3.yAxis * 2.8, GOLD, 2, 46, 1)
+    FX.HideTitle()
+    FX.PlayFor(c, FINALE_SOUNDS.Cheer, sounds)
+    confettiZone, flakes = confetti(home.Position)
+    nextFirework = t
+   end)
+   once("closing", FINALE_CLOSING_AT, function()
+    theme.title = text.closing or text.title
+    theme.subtitle = string.upper(world.displayName) .. " COMPLETE"
+    FX.ShowScreen(theme)
+    FX.ShowTitle()
+   end)
+   if t >= nextFirework then
+    nextFirework = t + rng:NextNumber(0.3, 0.5)
+    local at = home.Position + forward * rng:NextNumber(30, 70) + right * rng:NextNumber(-45, 45) + Vector3.yAxis * rng:NextNumber(30, 55)
+    firework(Vector3.new(at.X, floor, at.Z), at, FIREWORK_COLORS[rng:NextInteger(1, #FIREWORK_COLORS)], rng:NextNumber(1.3, 2))
+   end
+   -- From behind the batter, swinging round them, looking up at the fireworks downfield.
+   local s = smooth((t - FINALE_BATTER_AT) / (FINALE_WHITE_AT - FINALE_BATTER_AT))
+   local offset = CFrame.fromAxisAngle(Vector3.yAxis, lerp(-0.7, 0.7, s)):VectorToWorldSpace(-forward * 12)
+   camera.CFrame = CFrame.lookAt(home.Position + offset + Vector3.yAxis * lerp(3, 6, s), home.Position + forward * 25 + Vector3.yAxis * 10)
+   camera.FieldOfView = lerp(64, 72, s)
+  end
+ end)
+
+ -- White covers the screen from FINALE_WHITE_AT until the server has moved us (GameFinale clears).
+ local white = Instance.new("ScreenGui")
+ white.Name, white.DisplayOrder, white.ResetOnSpawn, white.IgnoreGuiInset = "PortalWhite", 60, false, true
+ local fill = Instance.new("Frame")
+ fill.Size, fill.BorderSizePixel, fill.BackgroundColor3, fill.BackgroundTransparency = UDim2.fromScale(1, 1), 0, Color3.new(1, 1, 1), 1
+ fill.Parent = white
+ white.Parent = Player:WaitForChild("PlayerGui")
+ task.delay(FINALE_WHITE_AT - 0.4, function() FX.Tween(fill, 0.4, {BackgroundTransparency = 0}) end)
+ local waited = os.clock()
+ while Player:GetAttribute("GameFinale") and os.clock() - waited < WAIT_LIMIT + 4 do task.wait() end
+ while os.clock() - startedAt < FINALE_WHITE_AT + 0.1 do task.wait() end
+ connection:Disconnect()
+ fill.BackgroundTransparency = 0
+ if flakes then flakes.Enabled = false end
+ if confettiZone then game:GetService("Debris"):AddItem(confettiZone, 4) end
+ boostTarget = 1
+
+ -- Back in the hub as the white fades.
+ local newCharacter = Player.Character
+ camera.CameraType = Enum.CameraType.Custom
+ camera.FieldOfView = startFov
+ local humanoid = newCharacter and newCharacter:FindFirstChildOfClass("Humanoid")
+ if humanoid then camera.CameraSubject = humanoid end
+ Player:SetAttribute("CinematicCamera", nil)
+ task.wait(0.15)
+ FX.HideTitle()
+ FX.Tween(fill, 0.9, {BackgroundTransparency = 1})
+ FX.SetBars(0, 0.6)
+ FX.Tween(grade, 1.5, NEUTRAL)
+ GameAudio.Unduck("PortalJourney")
+ for _, screen in hidden do
+  if screen.Parent then screen.Enabled = true end
+ end
+ task.wait(0.7)
+ FX.HideScreen()
+ white:Destroy()
+ task.delay(1, function() grade:Destroy() end)
+ if music then music.Looped = false end
+ -- (FX.Sound removes its sounds 14 s after they start, so the fade ends before then.)
+ FX.FadeSounds(c, 1.2)
+ running = false
+end
+
+Player:GetAttributeChangedSignal("GameFinale"):Connect(function()
+ if Player:GetAttribute("GameFinale") then task.spawn(finale) end
 end)

@@ -20,6 +20,9 @@ local BallLauncher = {}
 -- Set by BattingTimingServer: called with (player, world, nextWorld) when a hit through a
 -- World's end portal completes it for the first time, to play the trip to the next World.
 BallLauncher.OnPortalJourney = nil
+-- Set by BattingTimingServer: called with (player, world) instead when that World is the last
+-- one for now (its endPortal has a finale), to play the temporary "you finished" finale.
+BallLauncher.OnGameFinale = nil
 local stations = {}
 
 local function teeFrame(station)
@@ -224,12 +227,17 @@ local function launch(station, hit)
   end
   cleanup(station, hit)
   -- Through the portal for the first time (or, in Studio, with the Workspace attribute
-  -- ForcePortalJourney for repeat testing): the trip to the next World.
+  -- ForcePortalJourney for repeat testing): the trip to the next World, or the finale after the
+  -- last World.
   local nextWorld = world.nextWorldId and Worlds.Get(world.nextWorldId)
   local forced = RunService:IsStudio() and Workspace:GetAttribute("ForcePortalJourney") == true
-  if reason == "portal" and nextWorld and (final.worldCompletionMessage or forced) and BallLauncher.OnPortalJourney
+  local firstTime = final.worldCompletionMessage or forced
+  if reason == "portal" and nextWorld and firstTime and BallLauncher.OnPortalJourney
    and player.Parent == Players and player:GetAttribute("WorldUnlocked_" .. nextWorld.id) == true then
    BallLauncher.OnPortalJourney(player, world, nextWorld)
+  elseif reason == "portal" and not nextWorld and world.endPortal.finale and firstTime and BallLauncher.OnGameFinale
+   and player.Parent == Players then
+   BallLauncher.OnGameFinale(player, world)
   end
  end
 

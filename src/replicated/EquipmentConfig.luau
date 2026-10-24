@@ -85,6 +85,7 @@ local Equipment = {
    -- (startingId). A series with requiredWorld can only be bought once that World is unlocked.
    series = {
     {id = "world_2", startingId = "dino_egg_ball", requiredWorld = "world_2"},
+    {id = "world_3", startingId = "solar_cell_ball", requiredWorld = "world_3"},
    },
    items = {
     baseball = {
@@ -213,6 +214,68 @@ local Equipment = {
      rewardMultiplier = 95,
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(90, 230, 255), material = Enum.Material.Neon},
+    },
+    -- World 3 (Future World) series, one ball per runway section. Placeholder balance: prices
+    -- carry on from the Chrono Orb and stay far below PlayerData's Cash cap.
+    solar_cell_ball = {
+     id = "solar_cell_ball", displayName = "Solar Cell", price = 2500000000,
+     rewardMultiplier = 110, nextId = "hover_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(255, 196, 64), material = Enum.Material.Foil},
+    },
+    hover_ball = {
+     id = "hover_ball", displayName = "Hover Ball", price = 3500000000,
+     rewardMultiplier = 135, nextId = "hologram_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(200, 208, 220), material = Enum.Material.Metal},
+    },
+    hologram_ball = {
+     id = "hologram_ball", displayName = "Hologram Ball", price = 5000000000,
+     rewardMultiplier = 165, nextId = "robo_core_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(110, 220, 255), material = Enum.Material.Glass},
+    },
+    robo_core_ball = {
+     id = "robo_core_ball", displayName = "Robo Core", price = 7500000000,
+     rewardMultiplier = 200, nextId = "bio_seed_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(150, 158, 170), material = Enum.Material.Metal},
+    },
+    bio_seed_ball = {
+     id = "bio_seed_ball", displayName = "Bio Seed", price = 11000000000,
+     rewardMultiplier = 250, nextId = "pixel_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(150, 240, 170), material = Enum.Material.Glass},
+    },
+    pixel_ball = {
+     id = "pixel_ball", displayName = "Pixel Ball", price = 16000000000,
+     rewardMultiplier = 310, nextId = "rocket_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(80, 255, 170), material = Enum.Material.SmoothPlastic},
+    },
+    rocket_ball = {
+     id = "rocket_ball", displayName = "Rocket Ball", price = 25000000000,
+     rewardMultiplier = 390, nextId = "moon_rock_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(245, 245, 250), material = Enum.Material.SmoothPlastic},
+    },
+    moon_rock_ball = {
+     id = "moon_rock_ball", displayName = "Moon Rock", price = 38000000000,
+     rewardMultiplier = 480, nextId = "red_planet_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(160, 160, 168), material = Enum.Material.Slate},
+    },
+    red_planet_ball = {
+     id = "red_planet_ball", displayName = "Red Planet", price = 56000000000,
+     rewardMultiplier = 600, nextId = "singularity_orb",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(196, 86, 48), material = Enum.Material.Sand},
+    },
+    singularity_orb = {
+     id = "singularity_orb", displayName = "Singularity Orb", price = 85000000000,
+     rewardMultiplier = 750,
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(20, 16, 30), material = Enum.Material.Neon},
     },
    },
   },

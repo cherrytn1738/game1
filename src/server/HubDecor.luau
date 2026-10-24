@@ -8,6 +8,10 @@
 --   TimeTravel (World 2): a sunken clockwork plaza. Checkered tiles with brass walkways, a
 --     giant clock face for events, glowing terraces up to the berm, a clock tower, chrono lamps,
 --     floating gears and time crystals, and monuments from the eras ahead on the berm.
+--   Future (World 3): a sunken spaceport plaza. White tiles with glowing seams and dark
+--     walkways, a hologram stage for events with a globe and orbiting lights, white terraces,
+--     a beacon tower with the World's sign, holo lamps, hovering drones, a glass skyline on the
+--     berm, and World 3's runway models (rockets, domes, turbines) once they are imported.
 -- Cosmetic only. A themed hub's floor is its walkable floor (FieldBuilder skips the plain one).
 -- Parts with Spin/SpinPivot/Bob/Pulse attributes are animated on each client
 -- (TrainingStadiumClient).
@@ -677,7 +681,270 @@ local function timeTravel(k, folder, frame, config, worldId)
  end
 end
 
-local THEMES = {HomeField = homeField, TimeTravel = timeTravel}
+-- ---------- Future ----------
+
+local PLAZA_A, PLAZA_B = Color3.fromRGB(230, 235, 243), Color3.fromRGB(214, 221, 233)
+local SEAM = Color3.fromRGB(90, 224, 255) -- the cyan glow of World 3
+local WALK = Color3.fromRGB(38, 48, 80)
+local HULL = Color3.fromRGB(240, 243, 248) -- white composite panels
+local GUNMETAL = Color3.fromRGB(64, 72, 92)
+local HOLO = Color3.fromRGB(120, 236, 255)
+local HOLO_PINK = Color3.fromRGB(255, 110, 214)
+local SKY_GLASS = Color3.fromRGB(120, 170, 225)
+local BEACON_RED = Color3.fromRGB(255, 72, 84)
+local FUTURE_BOWL = {wall = HULL, wallMaterial = M.SmoothPlastic, cap = GUNMETAL,
+ step = Color3.fromRGB(198, 206, 220), stepMaterial = M.Metal, seats = {HOLO, Color3.fromRGB(250, 251, 253)},
+ seatMaterials = {M.Neon, M.SmoothPlastic}, berm = Color3.fromRGB(58, 66, 92), bermMaterial = M.Concrete}
+
+-- A dark walkway patch with glowing edges along its long sides.
+local function walkway(k, name, x0, x1, z0, z1)
+ k.patch(name, x0, x1, z0, z1, WALK, M.SmoothPlastic, 2)
+ if x1 - x0 >= z1 - z0 then
+  k.patch(name .. "Edge", x0, x1, z0, z0 + 0.4, SEAM, M.Neon, 3)
+  k.patch(name .. "Edge", x0, x1, z1 - 0.4, z1, SEAM, M.Neon, 3)
+ else
+  k.patch(name .. "Edge", x0, x0 + 0.4, z0, z1, SEAM, M.Neon, 3)
+  k.patch(name .. "Edge", x1 - 0.4, x1, z0, z1, SEAM, M.Neon, 3)
+ end
+end
+
+-- Lights circling a centre: `count` small glowing spheres on a tilted ring (tilt about X), each
+-- turning about the centre (Spin with SpinPivot, so they orbit).
+local function orbitLights(k, center, radius, tilt, count, color, speed)
+ local axis = CFrame.Angles(tilt, 0, 0).UpVector
+ for i = 1, count do
+  local angle = 2 * math.pi * i / count
+  local offset = CFrame.Angles(tilt, 0, 0):VectorToWorldSpace(Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius)
+  local light = k.box("OrbitLight", Vector3.one * 1.1, center + offset, color, M.Neon, false)
+  light.Shape = Enum.PartType.Ball
+  light:SetAttribute("Spin", speed)
+  light:SetAttribute("SpinAxis", axis)
+  light:SetAttribute("SpinPivot", -offset)
+ end
+end
+
+-- The event stage: a dark dais ringed with light, and a hologram globe above it with lights in orbit.
+local function hologramStage(k, center, radius)
+ k.disc("StageGlow", center, radius + 1.2, SEAM, M.Neon, 2)
+ k.disc("Stage", center, radius, WALK, M.SmoothPlastic, 3)
+ for index, r in {radius * 0.78, radius * 0.5} do
+  k.disc("StageRing", center, r, HOLO, M.Neon, 3 + index * 2)
+  k.disc("StageRingInner", center, r - 0.6, WALK, M.SmoothPlastic, 4 + index * 2)
+ end
+ k.disc("StageEmitter", center, 3, HULL, M.SmoothPlastic, 9)
+ k.disc("StageEmitterGlow", center, 1.6, HOLO, M.Neon, 10)
+ local globeCenter = center + Vector3.new(0, 16, 0)
+ local globe = k.box("HoloGlobe", Vector3.one * 11, globeCenter, HOLO, M.Neon, false)
+ globe.Shape, globe.Transparency = Enum.PartType.Ball, 0.55
+ globe:SetAttribute("Pulse", 0.5)
+ local core = k.box("HoloGlobeCore", Vector3.one * 5, globeCenter, Color3.fromRGB(230, 252, 255), M.Neon, false)
+ core.Shape = Enum.PartType.Ball
+ orbitLights(k, globeCenter, 10, math.rad(20), 10, HOLO, 40)
+ orbitLights(k, globeCenter, 13, math.rad(-35), 12, HOLO_PINK, -28)
+ -- A faint beam from the emitter up to the globe.
+ local beam = k.column("HoloBeam", center, 1.2, 0.2, 13, HOLO, M.Neon, false)
+ beam.Transparency = 0.6
+end
+
+-- A holo lamp: a slim white pole with a glowing ring cap and a bobbing light above it.
+local function holoLamp(k, position)
+ k.column("LampBase", position, 2, position.Y, position.Y + 1.6, GUNMETAL, M.SmoothPlastic, true)
+ k.column("LampPole", position, 0.6, position.Y + 1.6, position.Y + 26, HULL, M.Metal, true)
+ k.column("LampCap", position, 2.2, position.Y + 26, position.Y + 27, SEAM, M.Neon, false)
+ local orb = k.box("LampOrb", Vector3.one * 3.6, position + Vector3.new(0, 31, 0), HOLO, M.Neon, false)
+ orb.Shape = Enum.PartType.Ball
+ orb:SetAttribute("Bob", 1.2)
+ orb:SetAttribute("BobSpeed", 1.4)
+ orb:SetAttribute("Phase", position.X * 0.1)
+ local light = Instance.new("PointLight")
+ light.Color, light.Range, light.Brightness, light.Shadows = HOLO, 40, 1.5, false
+ light.Parent = orb
+end
+
+-- A hovering drone: a small white body with glowing rotor rings and an eye, bobbing in place.
+local function drone(k, position, phase)
+ local parts = {
+  k.box("DroneBody", Vector3.new(2.4, 0.9, 2.4), position, HULL, M.SmoothPlastic, false),
+  k.box("DroneEye", Vector3.new(0.9, 0.5, 0.3), position + Vector3.new(0, -0.1, -1.25), HOLO, M.Neon, false),
+ }
+ for _, corner in {Vector3.new(-1.6, 0.3, -1.6), Vector3.new(1.6, 0.3, -1.6), Vector3.new(-1.6, 0.3, 1.6), Vector3.new(1.6, 0.3, 1.6)} do
+  local rotor = k.box("DroneRotor", Vector3.new(0.15, 1.6, 1.6), position + corner, HOLO, M.Neon, false, CFrame.Angles(0, 0, math.pi / 2))
+  rotor.Shape, rotor.Transparency = Enum.PartType.Cylinder, 0.35
+  table.insert(parts, rotor)
+ end
+ for _, part in parts do
+  part:SetAttribute("Bob", 0.8)
+  part:SetAttribute("BobSpeed", 1.6)
+  part:SetAttribute("Phase", phase)
+ end
+end
+
+-- A glass skyscraper on the berm: setback crown, glowing bands, a spire with a blinking light.
+local function skyTower(k, base, width, height, glow)
+ local half = width / 2
+ k.block("SkyTower", base.X - half, base.X + half, base.Y, base.Y + height, base.Z - half, base.Z + half, SKY_GLASS, M.Glass)
+ for band = 1, math.floor(height / 14) do
+  local y = base.Y + band * 14
+  k.block("SkyTowerBand", base.X - half - 0.2, base.X + half + 0.2, y, y + 0.7, base.Z - half - 0.2, base.Z + half + 0.2, glow, M.Neon, false)
+ end
+ local crown = height * 0.16
+ k.block("SkyTowerCrown", base.X - half * 0.62, base.X + half * 0.62, base.Y + height, base.Y + height + crown,
+  base.Z - half * 0.62, base.Z + half * 0.62, HULL, M.SmoothPlastic)
+ local top = base.Y + height + crown
+ k.column("SkyTowerSpire", Vector3.new(base.X, 0, base.Z), 0.45, top, top + 12, HULL, M.Metal, false)
+ local tip = k.box("SkyTowerBeacon", Vector3.one * 1.8, Vector3.new(base.X, top + 12.9, base.Z), BEACON_RED, M.Neon, false)
+ tip.Shape = Enum.PartType.Ball
+ tip:SetAttribute("Pulse", 0.8)
+ tip:SetAttribute("Phase", base.X * 0.05)
+end
+
+-- The beacon tower behind the back terraces, facing the plaza (-Z): a white shaft with a glowing
+-- core, the World's sign, a turning ring of light and a pulsing beacon on top.
+local function beaconTower(k, base)
+ local x, y, z = base.X, base.Y, base.Z
+ k.block("BeaconFoot", x - 12, x + 12, y, y + 5, z - 12, z + 12, GUNMETAL, M.SmoothPlastic)
+ for _, cx in {-1, 1} do
+  for _, cz in {-1, 1} do
+   k.block("BeaconFin", x + cx * 6.5 - 1.5, x + cx * 6.5 + 1.5, y + 5, y + 52, z + cz * 6.5 - 1.5, z + cz * 6.5 + 1.5, HULL, M.SmoothPlastic)
+  end
+ end
+ k.column("BeaconCore", Vector3.new(x, 0, z), 4.2, y + 5, y + 56, SEAM, M.Neon, false).Transparency = 0.15
+ k.column("BeaconCollar", Vector3.new(x, 0, z), 9, y + 52, y + 54, HULL, M.SmoothPlastic, true)
+ k.column("BeaconCrown", Vector3.new(x, 0, z), 6, y + 54, y + 62, HULL, M.SmoothPlastic, true)
+ local light = k.box("BeaconLight", Vector3.one * 6, Vector3.new(x, y + 66, z), HOLO, M.Neon, false)
+ light.Shape = Enum.PartType.Ball
+ light:SetAttribute("Pulse", 0.6)
+ local point = Instance.new("PointLight")
+ point.Color, point.Range, point.Brightness, point.Shadows = HOLO, 60, 2, false
+ point.Parent = light
+ -- A ring of light segments turning round the crown.
+ local ringCenter = Vector3.new(x, y + 58, z)
+ for i = 1, 8 do
+  local angle = 2 * math.pi * i / 8
+  local offset = Vector3.new(math.cos(angle), 0, math.sin(angle)) * 12
+  local segment = k.box("BeaconRing", Vector3.new(1, 0.8, 7.5), ringCenter + offset, i % 2 == 0 and HOLO or HOLO_PINK, M.Neon, false,
+   CFrame.Angles(0, -angle, 0))
+  segment:SetAttribute("Spin", 30)
+  segment:SetAttribute("SpinAxis", Vector3.yAxis)
+  segment:SetAttribute("SpinPivot", CFrame.Angles(0, -angle, 0):VectorToObjectSpace(-offset))
+ end
+ -- The World's sign on the front fins.
+ local board = k.box("BeaconSign", Vector3.new(15, 8, 0.6), Vector3.new(x, y + 24, z - 8.4), WALK, M.SmoothPlastic, false)
+ k.box("BeaconSignTrim", Vector3.new(16, 9, 0.4), Vector3.new(x, y + 24, z - 8.2), SEAM, M.Neon, false)
+ local gui = Instance.new("SurfaceGui")
+ gui.Face, gui.SizingMode, gui.PixelsPerStud, gui.LightInfluence = Enum.NormalId.Front, Enum.SurfaceGuiSizingMode.PixelsPerStud, 24, 0
+ gui.Parent = board
+ for _, line in {{"FUTURE WORLD", 0.08, 0.5, HOLO}, {"WORLD 3", 0.62, 0.3, Color3.new(1, 1, 1)}} do
+  local label = Instance.new("TextLabel")
+  label.BackgroundTransparency, label.Font, label.TextScaled = 1, Enum.Font.GothamBlack, true
+  label.Text, label.TextColor3 = line[1], line[4]
+  label.Position, label.Size = UDim2.fromScale(0.05, line[2]), UDim2.fromScale(0.9, line[3])
+  label.Parent = gui
+ end
+end
+
+local function future(k, folder, frame, config, worldId)
+ local depth = config.depth
+ local width = config.left + config.right
+
+ -- The plaza floor: white tiles with thin glowing seams.
+ local columns, rows = 9, 8
+ for i = 0, columns - 1 do
+  for j = 0, rows - 1 do
+   k.block("Tile", -config.left + i * width / columns, -config.left + (i + 1) * width / columns, -Field.GroundThickness, 0,
+    j * depth / rows, (j + 1) * depth / rows, (i + j) % 2 == 0 and PLAZA_A or PLAZA_B, M.SmoothPlastic)
+  end
+ end
+ for i = 1, columns - 1 do
+  local x = -config.left + i * width / columns
+  k.patch("Seam", x - 0.2, x + 0.2, 0, depth, SEAM, M.Neon, 1)
+ end
+ for j = 1, rows - 1 do
+  local z = j * depth / rows
+  k.patch("Seam", -config.left, config.right, z - 0.2, z + 0.2, SEAM, M.Neon, 1)
+ end
+
+ -- Dark walkways with glowing edges to the cages, the displays and the stage, a glowing ring
+ -- round the batting area, and a landing-pad marking at the spawn.
+ k.disc("BatterRing", Vector3.new(0, 0, 10), 10.8, SEAM, M.Neon, 2)
+ k.disc("BatterCircle", Vector3.new(0, 0, 10), 10, WALK, M.SmoothPlastic, 3)
+ local doorX, cagesEnd, displayX, displaysEnd = layoutExtents(config, worldId)
+ walkway(k, "FrontPath", doorX, displayX - 2, 20, 28)
+ walkway(k, "CageLane", doorX, doorX + 8, 28, cagesEnd)
+ walkway(k, "DisplayLane", displayX - 10, displayX - 2, 28, displaysEnd)
+ local spawnZ = 60
+ k.disc("SpawnPadGlow", Vector3.new(0, 0, spawnZ), 4.2, SEAM, M.Neon, 4)
+ k.disc("SpawnPad", Vector3.new(0, 0, spawnZ), 3.5, HULL, M.SmoothPlastic, 5)
+ k.disc("SpawnPadCore", Vector3.new(0, 0, spawnZ), 1.4, SEAM, M.Neon, 6)
+
+ -- The hologram stage for events, and the World portal's pad.
+ local event = config.eventArea
+ if event then
+  local radius = event.size / 2
+  walkway(k, "CenterPath", -4, 4, 28, event.center.Z - radius - 1)
+  hologramStage(k, event.center, radius)
+ end
+ local portal = config.portalPad
+ if portal then
+  k.disc("PortalPadGlow", portal.center, portal.radius + 1, SEAM, M.Neon, 3)
+  k.disc("PortalPadRing", portal.center, portal.radius, HULL, M.SmoothPlastic, 4)
+  k.disc("PortalPad", portal.center, portal.radius - 1.6, WALK, M.SmoothPlastic, 5)
+ end
+
+ -- White walls with a gunmetal cap and a glowing strip, white terraces up to the berm.
+ local outer, backFar = bowl(k, config, FUTURE_BOWL)
+ for _, sign in {-1, 1} do
+  local x = sign * (edge(config, sign) - 0.1)
+  k.block("WallGlow", x - 0.1, x + 0.1, 2.6, 3.1, 0, depth, SEAM, M.Neon, false)
+ end
+ k.block("WallGlow", -config.left, config.right, 2.6, 3.1, depth - 0.1, depth + 0.1, SEAM, M.Neon, false)
+
+ -- The beacon tower at the back, holo lamps at the corners, drones over the plaza.
+ beaconTower(k, Vector3.new(0, BERM_TOP, backFar + 24))
+ for _, sign in {-1, 1} do
+  holoLamp(k, Vector3.new(sign * (outer[sign] + 8), BERM_TOP, 8))
+  holoLamp(k, Vector3.new(sign * (outer[sign] + 8), BERM_TOP, backFar + 6))
+ end
+ local rng = Random.new(3030)
+ for i = 1, 8 do
+  local sign = i % 2 == 0 and 1 or -1
+  drone(k, Vector3.new(sign * rng:NextNumber(20, 110), rng:NextNumber(24, 40), rng:NextNumber(30, 200)), rng:NextNumber(0, 2 * math.pi))
+ end
+
+ -- A glass skyline on the berm, tallest at the back.
+ for i = 1, 22 do
+  local sign = i % 2 == 0 and 1 or -1
+  local base, height
+  if i % 3 == 0 then
+   base = Vector3.new(rng:NextNumber(-outer[-1] - 40, outer[1] + 40), BERM_TOP, rng:NextNumber(backFar + 70, 470))
+   height = rng:NextNumber(70, 130)
+  else
+   base = Vector3.new(sign * rng:NextNumber(outer[sign] + 70, 390), BERM_TOP, rng:NextNumber(30, 430))
+   height = rng:NextNumber(40, 100)
+  end
+  skyTower(k, base, rng:NextNumber(14, 24), height, i % 4 == 0 and HOLO_PINK or HOLO)
+ end
+
+ -- World 3's runway models on the berm and the terraces' edge (each skipped while missing).
+ local colors = {color = Color3.fromRGB(206, 214, 222), accent = HOLO}
+ local spaceport = {color = Color3.fromRGB(168, 170, 176), accent = Color3.fromRGB(255, 120, 40)}
+ RunwayDecor.PlaceMesh(folder, frame, "rocket", Vector3.new(outer[1] + 40, BERM_TOP, 70), 2.4, 2, spaceport)
+ RunwayDecor.PlaceMesh(folder, frame, "launchTowers", Vector3.new(outer[1] + 46, BERM_TOP, 170), 0.55, 1, spaceport)
+ RunwayDecor.PlaceMesh(folder, frame, "radarDish", Vector3.new(outer[1] + 30, BERM_TOP, 236), 2, 3, spaceport)
+ RunwayDecor.PlaceMesh(folder, frame, "biodome", Vector3.new(-(outer[-1] + 44), BERM_TOP, 60), 2.4, 1,
+  {color = Color3.fromRGB(66, 150, 128), accent = Color3.fromRGB(214, 120, 255)})
+ RunwayDecor.PlaceMesh(folder, frame, "ecoHouse", Vector3.new(-(outer[-1] + 34), BERM_TOP, 150), 2, 2, colors)
+ RunwayDecor.PlaceMesh(folder, frame, "solarTree", Vector3.new(-(outer[-1] + 20), BERM_TOP, 210), 1.8, 1, colors)
+ for i = 1, 4 do
+  RunwayDecor.PlaceMesh(folder, frame, "windTurbine", Vector3.new(-(outer[-1] + 90 + i * 28), BERM_TOP, 40 + i * 70), 3, i, colors)
+ end
+ for i = 1, 3 do
+  RunwayDecor.PlaceMesh(folder, frame, "hoverCar", Vector3.new((i - 2) * 60, 46 + i * 6, backFar + 30 + i * 12), 2, i,
+   {color = Color3.fromRGB(66, 72, 88), accent = HOLO})
+ end
+end
+
+local THEMES = {HomeField = homeField, TimeTravel = timeTravel, Future = future}
 
 -- Builds the hub's theme into hub.Decor (rebuilt each time). Returns true when a theme was built,
 -- in which case it supplies the hub's floor.

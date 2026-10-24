@@ -66,6 +66,34 @@ local Training = {
     lane = Color3.fromRGB(70, 230, 255), laneMaterial = M.Neon,
     accent = Color3.fromRGB(70, 230, 255), frame = Color3.fromRGB(196, 150, 70), net = Color3.fromRGB(110, 70, 200),
     banner = Color3.fromRGB(40, 30, 100), lights = true, decorations = {}}},
+  -- World 3 (Future World). Its Rebirth tiers continue on from World 2's; the first cage is
+  -- free once World 3 is unlocked, and Quantum Lab shares Cosmic Rift's pass like Time Machine
+  -- Lab. Each has its own futuristic cage (TrainingCageStyles), more intricate down the row.
+  {id = "solar_rooftop", displayName = "Solar Rooftop", requiredRebirths = 0, powerMultiplier = 90, interval = 2,
+   theme = {template = "SolarRooftopCage", turf = Color3.fromRGB(196, 200, 206), turfMaterial = M.Concrete,
+    lane = Color3.fromRGB(90, 150, 220), laneMaterial = M.SmoothPlastic,
+    accent = Color3.fromRGB(255, 196, 64), frame = Color3.fromRGB(240, 242, 245), net = Color3.fromRGB(150, 210, 240),
+    banner = Color3.fromRGB(36, 112, 196), lights = true, decorations = {}}},
+  {id = "robo_factory", displayName = "Robo Factory", requiredRebirths = 14, powerMultiplier = 120, interval = 2,
+   theme = {template = "RoboFactoryCage", turf = Color3.fromRGB(72, 76, 84), turfMaterial = M.DiamondPlate,
+    lane = Color3.fromRGB(240, 180, 40), laneMaterial = M.SmoothPlastic,
+    accent = Color3.fromRGB(255, 150, 30), frame = Color3.fromRGB(90, 96, 108), net = Color3.fromRGB(60, 64, 72),
+    banner = Color3.fromRGB(226, 116, 20), lights = true, decorations = {}}},
+  {id = "biodome_lab", displayName = "Biodome Lab", requiredRebirths = 16, powerMultiplier = 160, interval = 2,
+   theme = {template = "BiodomeLabCage", turf = Color3.fromRGB(70, 150, 110), turfMaterial = M.LeafyGrass,
+    lane = Color3.fromRGB(150, 230, 190), laneMaterial = M.SmoothPlastic,
+    accent = Color3.fromRGB(200, 120, 255), frame = Color3.fromRGB(236, 240, 236), net = Color3.fromRGB(80, 160, 120),
+    banner = Color3.fromRGB(36, 136, 106), lights = true, decorations = {}}},
+  {id = "lunar_base", displayName = "Lunar Base", requiredRebirths = 18, powerMultiplier = 210, interval = 2,
+   theme = {template = "LunarBaseCage", turf = Color3.fromRGB(150, 150, 156), turfMaterial = M.Slate,
+    lane = Color3.fromRGB(200, 206, 216), laneMaterial = M.SmoothPlastic,
+    accent = Color3.fromRGB(120, 200, 255), frame = Color3.fromRGB(236, 238, 242), net = Color3.fromRGB(110, 120, 140),
+    banner = Color3.fromRGB(36, 56, 120), lights = true, decorations = {}}},
+  {id = "quantum_lab", displayName = "Quantum Lab", sharesPass = "cosmic_rift", powerMultiplier = 120, interval = 2,
+   theme = {template = "QuantumLabCage", turf = Color3.fromRGB(20, 22, 40), turfMaterial = M.SmoothPlastic,
+    lane = Color3.fromRGB(120, 240, 255), laneMaterial = M.Neon,
+    accent = Color3.fromRGB(120, 240, 255), frame = Color3.fromRGB(200, 206, 230), net = Color3.fromRGB(110, 80, 230),
+    banner = Color3.fromRGB(58, 30, 140), lights = true, decorations = {}}},
   -- The most expensive ground; it stands in every World's hub.
   {id = "dragons_lair", displayName = "Dragon's Lair", gamePassId = 0, robuxPrice = 1000, powerMultiplier = 30, interval = 2,
    theme = {template = "DragonLairCage", turf = Color3.fromRGB(34, 28, 30), turfMaterial = M.Basalt,
@@ -78,6 +106,7 @@ local Training = {
  Hubs = {
   {world = "world_1", grounds = {"basic_training", "enchanted_grove", "sunken_atlantis", "sky_temple", "cosmic_rift", "dragons_lair"}},
   {world = "world_2", grounds = {"caveman_camp", "pharaohs_tomb", "gladiator_colosseum", "samurai_dojo", "time_machine_lab", "dragons_lair"}},
+  {world = "world_3", grounds = {"solar_rooftop", "robo_factory", "biodome_lab", "lunar_base", "quantum_lab", "dragons_lair"}},
  },
  -- Batting cage footprint in training-plate space (studs): batter faces +X, the machine is
  -- at -Z, and the door is in the batter-end net (z = back). The room behind the batter keeps

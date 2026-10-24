@@ -261,11 +261,12 @@ Current Grounds (Power multiplier on 20 Power every ~2 seconds; `TrainingConfig.
 
 - World 1: Basic Training (start, 1x), Enchanted Grove (2 Rebirths, 5x), Sunken Atlantis (4 Rebirths, 10x), Sky Temple (6 Rebirths, 20x), Cosmic Rift (500 Robux game pass, 10x)
 - World 2 (placeholder values): Caveman Camp (free once World 2 is unlocked, 25x), Pharaoh's Tomb (8 Rebirths, 35x), Gladiator Colosseum (10 Rebirths, 50x), Samurai Dojo (12 Rebirths, 70x), Time Machine Lab (Cosmic Rift's pass, 35x)
+- World 3 (placeholder values): Solar Rooftop (free once World 3 is unlocked, 90x), Robo Factory (14 Rebirths, 120x), Biodome Lab (16 Rebirths, 160x), Lunar Base (18 Rebirths, 210x), Quantum Lab (Cosmic Rift's pass, 120x)
 - Every World: Dragon's Lair (1000 Robux game pass, 30x, most expensive)
 
 A ground needs a World it stands in to be unlocked. Paid grounds need no Rebirths. Pass ownership is server-checked through MarketplaceService and is never saved; a shared pass (`sharesPass`) is keyed by its owning ground. `gamePassId` is 0 until the passes are created. Offline Training and the Training teleport use the best ground the player can use in any unlocked World.
 
-World 1's themes are fantasy after the first ground and get more intricate down the row. Each has its own Blender model (tools/blender/*_cage.py, sharing cage_helpers.py) styled by TrainingCageStyles; a ground whose model is not imported falls back to the standard cage. World 2's grounds use the standard cage in era colors until their own models are made.
+World 1's themes are fantasy after the first ground and World 3's are futuristic, getting more intricate down the row. Each has its own Blender model (tools/blender/*_cage.py, sharing cage_helpers.py) styled by TrainingCageStyles; a ground whose model is not imported falls back to the standard cage. World 2's grounds use the standard cage in era colors until their own models are made.
 
 ---
 
@@ -338,9 +339,9 @@ World completion is based on authoritative final forward distance.
 
 The old design used a broad/open field.
 
-World 1 now uses a 160-stud-wide runway with 10 cosmetic themed sections (Meadow Run → Starlight Finish), built by `RunwayDecor` (walls, decks, props, backdrops, and floating text-only section and finish titles; no physical signs). It has no distance labels. Some props are Blender meshes from `ServerStorage.RunwayAssets` (not in Git; sources in `tools/blender/`, exports in `assets/models/`), with primitive fallbacks. `SkyServer` sets one golden-hour sky for the whole game, with the sun behind and left of the batter (kept out of the ball's path). Reward tiers and the 5000-stud endpoint are unchanged. World 2 still uses the original wide field with distance markers.
+World 1 now uses a 160-stud-wide runway with 10 cosmetic themed sections (Meadow Run → Starlight Finish), built by `RunwayDecor` (walls, decks, props, backdrops, and floating text-only section and finish titles; no physical signs). It has no distance labels. Some props are Blender meshes from `ServerStorage.RunwayAssets` (not in Git; sources in `tools/blender/`, exports in `assets/models/`), with primitive fallbacks. `SkyServer` sets one golden-hour sky for the whole game, with the sun behind and left of the batter (kept out of the ball's path). Reward tiers and the 5000-stud endpoint are unchanged. World 2 (Time Travel, 6000 studs) and World 3 (Future World, 7000 studs) have their own themed runways on the same system. A giant portal stands at each endpoint: World 1's and World 2's pull the batter through to the next World; World 3's, the last World for now, plays a temporary "you finished the game" finale.
 
-See `GAME_DESIGN.md` → World 1 Runway Themes.
+See `GAME_DESIGN.md` → World 1/2/3 Runway Themes and End portal.
 
 ## 2× Ball Flight
 
@@ -354,14 +355,14 @@ See `GAME_DESIGN.md` → 2× Ball Flight.
 
 ## Hub
 
-Each World with a `hub` config has a rectangular player hub (136 studs left of the tee line, 86 right, 222 back) behind its batting station, styled by `HubDecor` (`hub.theme`): Home Field (World 1, a sunken ballpark) and Time Travel (World 2, a sunken clockwork plaza).
+Each World with a `hub` config has a rectangular player hub (136 studs left of the tee line, 86 right, 222 back) behind its batting station, styled by `HubDecor` (`hub.theme`): Home Field (World 1, a sunken ballpark), Time Travel (World 2, a sunken clockwork plaza) and Future (World 3, a sunken spaceport plaza).
 
-Layout (the same in both hubs):
+Layout (the same in every hub):
 
 - front edge: batting station / field
 - left: the World's row of six Training Grounds
-- right: the World portal and the item displays in one line facing the cages (World 1: Balls and Bats; World 2: its own Time Travel balls and Bats); the portal opens the Worlds menu when stepped into
-- middle: an event area (World 1 infield diamond, World 2 giant clock)
+- right: the World portal and the item displays in one line facing the cages (World 1: Balls and Bats; Worlds 2 and 3: their own ball series and Bats); the portal opens the Worlds menu when stepped into
+- middle: an event area (World 1 infield diamond, World 2 giant clock, World 3 hologram stage)
 - the Shop, Travel and Rebirth stations are removed for now
 
 The hub intentionally leaves space for future content.
@@ -578,6 +579,8 @@ After Milestone 18, the following were implemented:
 - World 1 themed runway (10 sections), with a detailed scenery pass
 - 2× ball flight (implemented, currently disabled)
 
-World 2 (Time Travel) is being built in stages. Stage 2 (done): per-World Training Grounds with World 2's row, the Time Travel hub, World portals that open the Worlds menu, and cross-World Training teleport and offline Training. World 2's ten balls (Stage 4) are in as their own purchase series (models pending import). Still NOT implemented: World 2's runway zones (Stage 3) and World 2 cage models (Stage 5).
+World 2 (Time Travel): per-World Training Grounds with World 2's row, the Time Travel hub, World portals that open the Worlds menu, cross-World Training teleport and offline Training, World 2's ten balls as their own purchase series, and its themed runway. Still NOT implemented: World 2 cage models (it uses the standard cage in era colors).
+
+World 3 (Future World): its themed runway (ten sections and a black-hole landmark), ten balls as the third purchase series, five futuristic cage models, the Future hub, and the temporary finale at its end portal. The Blender models live in ServerStorage.RunwayAssets once imported (sources in tools/blender/, exports in assets/models/).
 
 Always inspect the current code before acting on those planned features.

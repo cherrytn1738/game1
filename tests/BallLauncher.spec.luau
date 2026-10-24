@@ -275,6 +275,33 @@ return function(sources)
  check(firstHit.distanceResult.worldCompletionMessage==completionMessage,"the portal hit completes the World")
  check(#journeys==1 and journeys[1].who==player and journeys[1].to.id==world.nextWorldId,"a first completion starts the trip to the next World")
  completionMessage=nil
+ -- Through the last World's portal (World 3 for now) a first completion plays the finale
+ -- instead of a trip.
+ local last=Worlds.Get("world_3")
+ workspaceFake[last.fieldName]:SetAttribute("GateCenter",Vector3.new(0,150,-last.endDistance))
+ local finales={}
+ Launcher.OnGameFinale=function(who,from) table.insert(finales,{who=who,from=from}) end
+ player:SetAttribute("CurrentWorldId",last.id)
+ local function lastPortalHit(swingId)
+  local hit={worldId=last.id,session=1,swingId=swingId,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+  check(Launcher.TryLaunch(player,hit,tool),"last World portal hit accepted")
+  local launchNow=table.remove(delayed,1)
+  launchNow.fn(table.unpack(launchNow.args,1,launchNow.args.n))
+  balls[last.id].CFrame=CFrame.new(0,420,-(last.endDistance+3))
+  heartbeat:Fire(1/60)
+  testTime += 1.7
+  heartbeat:Fire(1/60)
+  return hit
+ end
+ local repeatLast=lastPortalHit(960)
+ check(repeatLast.distanceResult and repeatLast.distanceResult.finishReason=="portal" and repeatLast.distanceResult.distanceStuds==last.endDistance
+  and #finales==0,"a repeat completion of the last World plays no finale")
+ completionMessage="World 3 Complete!"
+ lastPortalHit(961)
+ check(#finales==1 and finales[1].who==player and finales[1].from.id==last.id and #journeys==1,
+  "a first completion of the last World plays the finale, not a trip")
+ completionMessage=nil
+ player:SetAttribute("CurrentWorldId",world.id)
  for _,definition in Worlds.Worlds do workspaceFake[definition.fieldName].Ground:Destroy() end
  return {passed=passed,message="Launch/rewards and 2x flight: authorization, one-way speed, acceleration, reset and once-only rewards"}
 end

@@ -28,6 +28,9 @@ local TEE_TELEPORT_BACK = 7
 -- while their client plays the cinematic (PortalJourneyClient; its screen is white from 6.85 s),
 -- then travels.
 local PORTAL_JOURNEY_SECONDS = 8.6
+-- The finale after the last World (BallLauncher.OnGameFinale): held the same way while the
+-- client celebrates (white from 11.2 s), then returned to that World's hub.
+local GAME_FINALE_SECONDS = 11.8
 local states = {}
 local occupants = {}
 
@@ -122,9 +125,10 @@ local function addPlayer(player)
    leave(player)
    BallLauncher.CancelPlayer(player)
   end)
-  -- A new character ends any portal trip in progress (it respawns where it is).
+  -- A new character ends any portal trip or finale in progress (it respawns where it is).
   state.journey = nil
   player:SetAttribute("PortalJourney", nil)
+  player:SetAttribute("GameFinale", nil)
   player:SetAttribute("WorldTraveling", false)
   local world = Worlds.Get(player:GetAttribute("CurrentWorldId")) or Worlds.Get(Worlds.StartingWorldId)
   character:PivotTo(world.arrival)
@@ -152,11 +156,11 @@ end
 -- Training, and any active hit (shared by World Travel and the Training and tee teleports).
 local function relocate(player, state, character, root, world, destination)
  state.lastTravel = os.clock()
- -- Any travel ends a portal trip in progress, which holds the character in place.
+ -- Any travel ends a portal trip or finale in progress, which holds the character in place.
  if state.journey then
+  player:SetAttribute(state.journey.attribute, nil)
   state.journey = nil
   root.Anchored = false
-  player:SetAttribute("PortalJourney", nil)
  end
  player:SetAttribute("WorldTraveling", true)
  Training.Stop(player)
@@ -171,20 +175,22 @@ local function relocate(player, state, character, root, world, destination)
  player:SetAttribute("WorldTraveling", false)
 end
 
--- The batter's ball went through a World's end portal and opened the next World: end batting,
--- hold the character (its client shows it being pulled into the portal; PortalJourney names the
--- destination, and WorldTraveling keeps menus and the HUD out of the way), then travel there.
-BallLauncher.OnPortalJourney = function(player, world, nextWorld)
+-- Holds a batter whose ball went through a World's end portal while their client plays a
+-- cinematic: ends batting, anchors the character, keeps the giant portal streamed in on that
+-- client, and sets `attribute` to `value` (PortalJourneyClient plays the matching cinematic;
+-- WorldTraveling keeps menus and the HUD out of the way). After `seconds` the character is
+-- relocated to `destination` in `destinationWorld`, unless the hold was ended or the player is
+-- no longer eligible (`stillEligible`).
+local function holdForCinematic(player, world, attribute, value, seconds, destinationWorld, stillEligible)
  local state = states[player]
  local character, root = livingCharacter(player)
  if not state or not character or state.journey or player:GetAttribute("CurrentWorldId") ~= world.id then return end
  Training.Stop(player)
  leave(player)
- local journey = {}
+ local journey = {attribute = attribute}
  state.journey = journey
  root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
  root.Anchored = true
- -- Keep the giant portal streamed in on that client while its camera is there.
  local field = workspace:FindFirstChild(world.fieldName)
  local vortex = field and field:FindFirstChild("PortalVortex", true)
  if vortex then
@@ -192,21 +198,36 @@ BallLauncher.OnPortalJourney = function(player, world, nextWorld)
   journey.focus = vortex
  end
  player:SetAttribute("WorldTraveling", true)
- player:SetAttribute("PortalJourney", nextWorld.id)
- task.delay(PORTAL_JOURNEY_SECONDS, function()
+ player:SetAttribute(attribute, value)
+ task.delay(seconds, function()
   if journey.focus and player.Parent == Players then player:RemoveReplicationFocus(journey.focus) end
   if state.journey ~= journey or states[player] ~= state then return end
   local currentCharacter, currentRoot = livingCharacter(player)
-  if currentCharacter ~= character or not PlayerData.IsReady(player)
-   or player:GetAttribute("WorldUnlocked_" .. nextWorld.id) ~= true then
+  if currentCharacter ~= character or not PlayerData.IsReady(player) or not stillEligible() then
    state.journey = nil
    root.Anchored = false
-   player:SetAttribute("PortalJourney", nil)
+   player:SetAttribute(attribute, nil)
    player:SetAttribute("WorldTraveling", false)
    return
   end
-  -- (No "Arrived" notice: the cinematic's arrival title says it.)
-  relocate(player, state, currentCharacter, currentRoot, nextWorld, nextWorld.arrival)
+  -- (No "Arrived" notice: the cinematic's closing title says it.)
+  relocate(player, state, currentCharacter, currentRoot, destinationWorld, destinationWorld.arrival)
+ end)
+end
+
+-- The batter's ball went through a World's end portal and opened the next World: they are
+-- pulled through it (PortalJourney names the destination), then travel there.
+BallLauncher.OnPortalJourney = function(player, world, nextWorld)
+ holdForCinematic(player, world, "PortalJourney", nextWorld.id, PORTAL_JOURNEY_SECONDS, nextWorld, function()
+  return player:GetAttribute("WorldUnlocked_" .. nextWorld.id) == true
+ end)
+end
+
+-- The ball went through the last World's end portal: the temporary finale (GameFinale names
+-- the World), then back to that World's hub.
+BallLauncher.OnGameFinale = function(player, world)
+ holdForCinematic(player, world, "GameFinale", world.id, GAME_FINALE_SECONDS, world, function()
+  return player:GetAttribute("CurrentWorldId") == world.id
  end)
 end
 

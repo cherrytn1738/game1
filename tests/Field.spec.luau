@@ -77,6 +77,21 @@ return function(sources)
   local expected=distance<300 and 1 or distance<800 and 1.15 or 1.35
   check(Field.GetSection(distance,first).rewardMultiplier==expected,"new themes preserve existing reward tiers")
  end
+ local third = Worlds.Get("world_3")
+ check(second.nextWorldId=="world_3" and third and third.order==3 and third.endDistance==7000 and third.nextWorldId==nil,
+  "World 2 leads to World 3, the last World for now (7000 studs)")
+ check(third.endPortal and third.endPortal.finale and third.endPortal.finale.title~=nil,"World 3's end portal has the temporary finale")
+ check(#third.sections==10 and Field.GetWidth(third)==160,"World 3 has ten runway themes on a 160-stud runway")
+ local previousEnd=0
+ for index,section in third.sections do
+  check(section.order==index and section.startDistance==previousEnd,"World 3's sections are consecutive")
+  previousEnd=section.endDistance
+ end
+ check(previousEnd==third.endDistance,"World 3's last section ends at its endpoint")
+ for _,distance in {0,599,600,1999,2000,4000,7000,8500} do
+  local expected=distance<600 and 1 or distance<2000 and 1.15 or 1.35
+  check(Field.GetSection(distance,third).rewardMultiplier==expected,"World 3 follows the reward tier pattern")
+ end
  check(Progress.Complete(a,first,first.endDistance-0.001)==nil,"below endpoint does not unlock")
  check(Progress.Complete(a,first,0/0)==nil and Progress.Complete(a,first,math.huge)==nil,"nonfinite final distance rejected")
  a.ready=false

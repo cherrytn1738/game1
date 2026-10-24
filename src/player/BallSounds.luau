@@ -106,6 +106,10 @@ local SECTION_SURFACES = {
  prehistoric = "soft", stoneage = "soft", samurai = "soft", frontier = "soft",
  egypt = "hard", greek = "hard", viking = "hard", knight = "hard", foundry = "hard",
  chrono = "glassy",
+ -- World 3.
+ biodome = "soft", lunar = "soft", mars = "soft",
+ solar = "hard", maglev = "hard", metropolis = "hard", robotics = "hard", spaceport = "hard",
+ virtual = "glassy", singularity = "glassy",
 }
 local MATERIAL_SURFACES = {
  [Enum.Material.Glass] = "glassy", [Enum.Material.Ice] = "glassy", [Enum.Material.Glacier] = "glassy",
