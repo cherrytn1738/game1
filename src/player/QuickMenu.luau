@@ -45,17 +45,17 @@ local function createTile(navigation, definition, center, size, onActivated)
  button.Size, button.BackgroundColor3 = UDim2.fromOffset(size.X, size.Y), Color3.fromRGB(24, 43, 54)
  button.BorderSizePixel, button.ZIndex, button.Parent = 0, 2, navigation
  corner(button, 13)
- stroke(button, Color3.fromRGB(12, 20, 26), 3.5)
+ stroke(button, UI.Colors.Border, 4)
  local face = frame(button, "Face", UDim2.new(1, 0, 1, -6), UDim2.new(), Color3.new(1,1,1), 3)
  corner(face, 12)
  stroke(face, Color3.fromRGB(24, 30, 34), 3)
  local gradient = Instance.new("UIGradient")
- gradient.Color = ColorSequence.new(Color3.fromRGB(167, 232, 255), Color3.fromRGB(102, 191, 236))
+ gradient.Color = ColorSequence.new(Color3.fromRGB(110, 170, 245), Color3.fromRGB(46, 96, 196)) -- the Inventory tabs' blue
  gradient.Rotation, gradient.Parent = 90, face
  local highlight = frame(face, "InnerHighlight", UDim2.new(1,-6,1,-6), UDim2.fromOffset(3,3), Color3.new(), 4)
  highlight.BackgroundTransparency = 1
  corner(highlight, 10)
- stroke(highlight, Color3.fromRGB(220, 248, 255), 1.2)
+ stroke(highlight, Color3.fromRGB(190, 225, 255), 2)
  -- Faint texture across the face, inset so it stays inside the rounded corners.
  local texture = UI.Damier(face, Color3.new(1, 1, 1), 18, NumberSequence.new(.9, .78))
  texture.AnchorPoint, texture.Position, texture.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.new(1, -10, 1, -10)
@@ -67,10 +67,10 @@ local function createTile(navigation, definition, center, size, onActivated)
  icon.Image, icon.ScaleType = definition.image, Enum.ScaleType.Fit
  icon.ZIndex, icon.Parent = 5, face
  local label = Instance.new("TextLabel")
- label.Name, label.Text, label.Font = "Label", definition.label or definition.name, Enum.Font.GothamBlack
+ label.Name, label.Text, label.Font = "Label", definition.label or definition.name, UI.Font
  label.TextColor3, label.BackgroundTransparency = Color3.new(1,1,1), 1
  label.ZIndex, label.Parent = 6, face
- stroke(label, Color3.new(0, 0, 0), 3)
+ stroke(label, UI.Colors.Border, 3.5)
  if definition.wide then
   -- Wide tile: icon on the left, label filling the rest.
   icon.AnchorPoint, icon.Position, icon.Size = Vector2.new(0, .5), UDim2.new(0, 14, .5, 2), UDim2.fromOffset(42, 42)

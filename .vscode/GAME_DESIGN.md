@@ -283,26 +283,28 @@ The beginning of the game should leave substantial visible room for future power
 
 Level 1 should produce a short hit far below the World 1 endpoint.
 
-## UI Presentation (Check-UI redo)
+## UI Presentation (Inventory style)
 
-The UI now follows the Check-UI skill (`.agents/skills/check-ui-clean-roblox/`) strictly. `UICommon` implements it behind the same API, so clients keep their gameplay wiring.
+Every screen follows the Inventory's chunky cartoon style, built on the Check-UI foundation (`.agents/skills/check-ui-clean-roblox/`). `UICommon` implements it behind the same API, so clients keep their gameplay wiring; the Worlds and Inventory menus use its `UI.ShowcaseMenu` variant (both blue).
 
-- **Windows:** a slightly see-through slate canvas (`#3B5866` at `UI.MenuBoxTransparency` 0.3, so the blurred world shows behind it; 4px corners, 3.5px `#181E22` outline) with a faint full-height checkerboard.
-- **Titles:** each menu's icon and title (GothamBlack up to 46px, thick black outline, white fading to the theme tint) ride over the top edge of the box, half above it, with the close button on the top-right corner. A 6px themed gradient strip runs along the top of the box: Shop magenta, Rebirth purple, Worlds cyan, Training amber, Welcome Back blue, Inventory orange.
-- **Close button:** the signature 38×38 beveled crimson close button.
-- **Buttons:** follow the canonical iconless blueprint: sharp rectangle, 3px `#0C141A` border, vertical state gradient, black checkerboard fading 0.91 to 0.62, triple glass rims, and a 3px outlined label.
+- **Font:** FredokaOne (`UI.Font`) everywhere, with a heavy near-black outline in proportion to the text size (2 to 6px). Hit cinematic titles keep their own font.
+- **Windows:** a slightly see-through blue rounded window (`UI.MenuBoxTransparency` 0.3, so the blurred world shows faintly through; 16px corners) with a top-to-bottom blue gradient, a faint checker, a soft white inner rim and a thick 4px outline.
+- **Titles:** the menu's title rides centred over the top edge of the window (up to 56px, white fading to light cyan), with the menu's icon just left of the text, and the close button on the top-right corner.
+- **Close button:** a 52×52 red rounded square with a white outlined X.
+- **Buttons:** chunky and studded: a slightly rounded face in the state's colours with a faint white stud pattern, a darker bottom edge, a white inner rim, a 4px outline and a big outlined caption.
 - **Button states:**
-  - Claim (gold): available actions. The UI uses no green; positive feedback text is gold too.
-  - Claimed (silver): equipped, selected, or disabled.
-  - Locked (crimson): locked items and destructive actions such as Leave and Cancel.
-  - Cyan: neutral buttons and the selected tab.
+  - Claim (green): available actions (go, buy, equip, confirm).
+  - Claimed (grey): equipped, selected, or disabled.
+  - Locked (red): locked items and destructive actions such as Leave and Cancel.
+  - Cyan (blue): neutral buttons and the selected tab.
 - **Motion and sound:** hover 1.05, press 0.94 with a Back.Out release, and a click sound.
-- **Cards:** recessed (`#1A2C34`, black border, slate inner highlight). A cyan highlight marks the selected card; a crimson tint marks locked ones.
-- **Badges:** beveled tiles.
-- **Notifications:** solid panels with a themed top bar.
+- **Cards:** rounded dark blue cards (12px corners) with a thick outline and a light blue inner rim. A bright cyan rim marks the selected card; a dark tint with a red rim marks locked ones.
+- **Badges:** rounded tiles with a thick outline.
+- **Notifications:** blue rounded panels with a themed top bar.
+- **Training:** the HUD stays on screen while training (counters, the Level / Power bar and the menu tiles) and no status panel appears; the red Leave button or Space ends training. A menu tile tapped while training leaves training first, then opens its menu (menus can't open while training).
 - **Scaling:** windows scale with the skill's responsive rule (1050×620 baseline, clamped 0.52 to 1.18) times `UI.MenuScale` (0.95), never below `UI.MenuMinScale` (0.75) so menus stay large and tappable on phones. The window is capped by the screen, so it never goes off-screen.
-- **Rebirth:** follows the skill's Rebirth archetype: gold "Rebirth N ➡ Rebirth N+1" comparison cards (Power multiplier and Level Cap), an orange-to-gold Level progress bar, and a recessed requirements box, above the Reset/Keep/Gain cards.
-- **Quick menu:** matches the reference 2×2 tile design (dark outline and bevel, textured sky-blue face, colored top accent bar, large icon, outlined label) with Shop, Rebirth, Inventory, and Rewards. Rewards is a placeholder that shows "coming soon". A wide **Training** tile sits under the grid, and a **Batting** button sits under the level bar (it replaced the Rebirth Available shortcut; Rebirth is still in the quick menu):
+- **Rebirth:** follows the skill's Rebirth archetype: green "Rebirth N ➡ Rebirth N+1" comparison cards (Power multiplier and Level Cap), an orange-to-gold Level progress bar, and a recessed requirements box, above the Reset/Keep/Gain cards.
+- **Quick menu:** a 2×2 tile design matching the Inventory tabs (thick dark outline and bevel, textured blue face, colored top accent bar, large icon, outlined label) with Shop, Rebirth, Inventory, and Rewards. Rewards is a placeholder that shows "coming soon". A wide **Training** tile sits under the grid, and a **Batting** button sits under the level bar (it replaced the Rebirth Available shortcut; Rebirth is still in the quick menu):
   - **Training** teleports the player to their best usable Training Ground (see below).
   - **Batting** uses the `TeeTeleport` remote, which takes no arguments. It places the player 7 studs behind the batter's box of their current world, facing it, so batting never starts by itself. It shows whenever the level bar does, and is refused during a hit or while already batting.
 
@@ -312,9 +314,9 @@ The UI now follows the Check-UI skill (`.agents/skills/check-ui-clean-roblox/`) 
 
 ### Inventory
 
-`InventoryClient` opens from the Inventory tile: an orange-themed Check-UI window with three tabs down the left side and a three-column card grid (two columns on narrow windows).
-- **Bats / Balls:** every item in the category, with tier-colored borders and names (gray, blue, purple, gold by item order), its effect, and a state line (EQUIPPED, TAP TO EQUIP, or a lock icon with BUY IN THE SHOP). Tapping an owned item sends the existing `EquipmentUpgrade` "Equip" intent; the server validates it as before. Counters show "BATS 2 / 4" and the equipped item. The Bats and Balls tab icons are small 3D previews.
-- **Juice:** owned and active juices, showing multiplier, effect, and duration, plus "x3 · TAP TO DRINK" and "1:57 LEFT". Tapping drinks one. With nothing owned, an empty-state message explains juice.
+`InventoryClient` opens from the Inventory tile in the showcase menu style (`UI.ShowcaseMenu`, shared with the Worlds menu; each menu picks a colour theme from `UI.ShowcaseThemes`: Worlds and Inventory both blue with a white-to-cyan title, the Inventory's tabs and cards tinted blue and its selected tab bright cyan): a big rounded title over a coloured, faintly checkered rounded window with a thick black outline, a dark well for the content and a red rounded close button. Three tabs (Bats, Balls, Juice: a picture over the name) stand down the left, sticking out of the window; the selected one turns blue. The title follows the tab ("My Bats" with a bat beside it), with a count under it ("3 / 10 Bats").
+- **Bats / Balls:** only the items you own, as square picture cards (the item's designed model in a ViewportFrame, from `ReplicatedStorage.BatModels` / `BallModels`, which `ItemDisplay.PublishItemModels` fills; a plain stand-in if a model is missing) with the multiplier along the bottom in green: a Power bolt and "x2.5" for bats, a Cash icon and "x1.3" for balls. No names or text lines. The equipped item has a blue frame and a green tick. Tapping an owned item sends the existing `EquipmentUpgrade` "Equip" intent; the server validates it and the result shows as a notification.
+- **Juice:** owned and active juices as cards with the multiplier along the bottom and the count ("x3") or time left ("1:57") on top; active ones are framed and ticked. Tapping drinks one. With nothing owned, an empty-state message explains juice.
 - Purchasing stays in the Shop.
 
 ### Leaderboard stats (Schema 9)
@@ -323,7 +325,7 @@ Schema 9 adds two saved stats for the global leaderboards (see Global Leaderboar
 - **TimePlayed:** whole seconds in the game across all sessions. Server-authoritative: the saved total plus this session's time from the server's own clock (`os.clock`), stopping when the player leaves. It is saved with every normal save (autosave, leave, shutdown); no extra writes.
 - **RobuxSpent:** verified Robux spent in this experience, counted only from purchases the server can verify, never from the client:
   - game passes bought through an in-game prompt (`PromptGamePassPurchaseFinished` with `purchased` true, which Roblox fires on the server), at Roblox's price (`GetProductInfo`), or the configured `robuxPrice` if that lookup fails;
-  - developer product receipts through `PlayerData.RecordRobuxReceipt(player, receipt)`, for a future `ProcessReceipt` handler to call once the product is granted. No developer products exist yet, so nothing calls it today.
+  - developer product receipts through `PlayerData.RecordRobuxReceipt(player, receipt)`, called once a developer product is granted (today the Welcome Back 3x offer, through `ProductServer`).
 - **No double counting:** `RobuxPurchases` saves what has been counted: game pass ids (`Passes`) and the 50 most recent receipt `PurchaseId`s (`Receipts`). A repeated event or receipt, in the same session or after a rejoin, adds nothing.
 - **Limits:** passes bought outside the game (such as on the website) and purchases from before tracking began are not counted, and nothing is estimated. Both training passes have `gamePassId` 0 for now, so no Robux can be spent yet and the Robux Spent board shows R$ 0 until the passes are created.
 
@@ -464,6 +466,7 @@ Every World's hub uses one compact layout (`WorldConfig` `hubLayout`), so a play
 - **Footprint:** the hub floor spans x -56 to 118 and 220 back (`hub.minX`, `hub.maxX`, `hub.depth`): 174 × 220 studs, down from 222 × 222. Only the Training Grounds' side reaches past the runway (x -86 to 86 with its walls); on the other side the runway's edge meets the corner of the stands. The depth is set by the row of six cages (each needs 33 studs).
 - **Paths** (`HubDecor` `hubPaths`, the same in every theme): a cross path in front of the spawn from the display lane to the Training Ground lane, a short path to the batting circle, an 8-stud lane along the cage doors and one before the displays, both running on to a back path that leads to the portal, and a path up the middle of the plaza past the event piece. They follow the configured positions, so moving a group moves its paths.
 - **View from the spawn:** the cages fill the left, the displays the right, and the path runs straight up the middle to the portal and the leaderboards; the World's landmark (scoreboard, clock tower or beacon tower) rises behind the portal. Event pieces stay flat (World 3's hologram globe floats high) so nothing hides the portal.
+- **Stairs:** each display has a staircase (`stairSide`) beside its outer end, the Ball display's toward the spawn and the Bat display's toward the back, climbing in 0.75-stud steps with red nosings and handrails to the top tier. The top row's pedestals stand 1.3 studs further back so a 3-stud walkway runs in front of them.
 - **Display rows:** each further row of a display rises above the one in front (`ItemDisplay`: label height + half a label + half an item + a small gap), so its items sit above the front row's labels and no names or prices overlap. Prompts reach 14 studs, plus 10 per row back, so the whole display can be used from its lane.
 
 ### Hub themes
@@ -503,6 +506,7 @@ Each hub with a `portalPad` gets a World portal on it (`WorldPortal.luau`), at t
 **Future portal (World 2):** a World's portals wear the look of the World they lead to. World 2's hub portal and the giant portal at the end of its runway lead on to World 3, so they use `RunwayAssets.FuturePortal` (`WorldConfig` `portalModel`, built by `tools/blender/future_portal.py`) instead of the clockwork model: a smooth white composite ring with a gunmetal inner lip, eight clamps with glowing slots and a glowing inset ring, a segmented halo of light turning round the frame, a floating magenta crystal spinning on top, a stepped hexagonal platform with glowing step edges and two emitter posts, and a violet vortex with a pink swirl. Its looks live in `WorldPortal.luau` (`LOOKS.FuturePortal`); the vortex keeps the shared `PortalVortex` / `PortalSwirl` names, so the trigger, the ball capture and the trip work the same. World 1's and World 3's portals keep the clockwork look; if the Future model is missing, the clockwork one is used.
 
 The portal is not a teleporter. An invisible `Trigger` fills the opening, and stepping into it opens the Worlds menu on that client (`WorldTravelClient`), once per entry and only when another menu can open (not while batting, training, in a hit or travelling). The menu lists every World with its theme name and state (Worlds 1 to 3 for now). Choosing one sends the normal `WorldTravel` request, which the server checks against the unlock before relocating the player.
+**Worlds menu** (`WorldTravelClient`, showcase menu style): a "Worlds" title over the window and one big picture card per World in a scrolling list. Each card shows a picture of the World's hub (`WorldConfig` `preview.image`: a high Studio capture looking into the hub from over the runway, cropped to the card's 3.4:1 shape and uploaded as an image; a World without one shows a painted scene in its `preview` sky and ground colours instead). After a hub redesign, retake and re-upload its picture, the World's name and theme over the top-left, what unlocks it along the bottom-left for a locked World ("REACH 5,000 STUDS IN WORLD 1", which is also shaded darker), and a chunky status button on the bottom-right: YOU ARE HERE (blue, and the card gets a blue frame), TRAVEL (green, sends the trip request), PLEASE WAIT (grey) or LOCKED (red; pressing it shows the requirement). Results and errors show as notifications.
 
 ### Global leaderboards
 
@@ -551,7 +555,7 @@ All sound is client-side presentation; nothing in it affects gameplay. `GameAudi
 - **Positional vs flat:** physical sounds (crack, swish, ball, Training, cage ambience) come from parts in the world, so nearby players hear them; personal progression and UI play flat for the local player only.
 - **Swing:** a short dry swish from the bat, timed so its loudest moment lands as the barrel moves fastest (0.46 s into the swing), just before contact. Skipped if a cinematic already holds the swing.
 - **Training:** a soft pitch thump, a quieter swish, a lighter and smaller crack than a real hit, and a barely-there tick with each Power grant (it repeats every 2 s, so it must never tire).
-- **Progression:** Level Up (APM "Magical", trimmed to ~1.5 s); Max Level is the same figure crowned by a bright bell; Rebirth is a rising build into a big magic burst (~3 s); World unlock is an APM reveal sting (~3.4 s). Rebirth and World unlock briefly duck music, ambience and gameplay.
+- **Progression:** Level Up (APM "Magical", cut to its ~0.8 s opening flourish and a little quieter than the other payoffs); Max Level is the same figure crowned by a bright bell; Rebirth is a triumphant brass fanfare (APM "Triumphant Fanfare", ~5 s) with a magic burst sparkling over its opening; World unlock is an APM reveal sting (~3.4 s). Rebirth and World unlock briefly duck music, ambience and gameplay.
 - **Rewards and shop:** a "ka-ching" for a hit's Cash (a register snap, then a bright bell ding with a coin ring under it); a register snap plus a short ding for a purchase (a purchase also equips, which plays only the purchase sound); a mechanical lock-in for equipping; a rising whoosh for World travel; a soft sparkle for Welcome Back.
 - **UI vocabulary** (`UICommon`): the shared click; a soft swoosh up on menu open and down on close; a muted thunk when pressing a locked or unavailable button; a soft "no" tone on refusals (error notices); a quiet notice tone for routine updates. Level Up, Rebirth, unlock, offline and purchase notices stay silent because their payoff sounds play where they happen.
 - **Ambience** (`AmbienceClient`): a quiet themed loop at each fantasy Training Ground, heard only near its cage (Grove wind and chimes, Atlantis underwater air, Sky Temple high wind, Dragon's Lair slow breathing rumble, Cosmic Rift cosmic air). The hub air bed (`HubAir`) is a placeholder: no licensed outdoor-air loop has been chosen yet. There is no runway ambience; the flight sounds and visuals carry the runway.
@@ -635,7 +639,7 @@ Malformed new fields are repaired; LevelCap is derived, never trusted from a sav
 
 - Power is progress toward the next Level. Requirement = `100 * Level^2`.
 - Requirements are consumed on advancement; one grant can advance multiple Levels.
-- At the cap, Power is zero and excess grants are discarded (no overflow bank).
+- At the cap, Level stops but Power keeps building (no grant is discarded) up to the technical `MaxPower` limit; a Rebirth resets it to 0 with the Level.
 - Level cap = `10 + 10 * Rebirths`; Power gain multiplier = `Rebirths + 1`.
 - A valid finalized field hit grants base 2 Power, once, through server-only
   `PlayerData.GrantPower(player, baseAmount, source)`. Active training uses this API; offline grants use the same private grant path inside the atomic load transaction.
@@ -659,9 +663,9 @@ Milestone 15A added no training mechanics or Rebirth UI. Training is added below
 ## Training and Offline Power (Milestone 15B)
 
 **Feedback (presentation only):**
-- Each Training Power tick shows a small rising "+Power" popup with the Power icon (`ProgressFeedbackClient`). The server publishes the exact grant as the display attributes `TrainingPowerGained` and `TrainingPowerTick`.
+- Each time the bat meets a practice ball, a "+Power" popup like the Cash popup after a real hit pops in above the batter (the Power bolt and the amount in green, rising and fading) with a soft tick (`TrainingClient`). The amount is what each Training tick grants, from the same formula the server uses (ground, Bat, Rebirths and any Power juice). The server grants it at that same moment (below), so the HUD's Power bar moves with the hit and the popup. It shows at the Level Cap too, where Power keeps building. (The server's `TrainingPowerGained` / `TrainingPowerTick` display attributes remain but nothing shows them.)
 - Every practice hit plays a quieter bat crack from the cage's contact point as the ball reaches the bat (`TrainingClient`).
-- Any level-up plays APM's "Magical (f)" chime and a slight 0.45 s camera shake. The offline catch-up at login is shown by the Welcome Back screen instead.
+- Any level-up plays a short (~0.8 s) APM "Magical (f)" chime and a slight 0.45 s camera shake. The offline catch-up at login is shown by the Welcome Back screen instead.
 
 Training is the primary Power source.
 
@@ -778,9 +782,9 @@ before shopping or rebirthing. Space/touch Leave restores movement and requires
 stepping off before re-entry. Death, respawn, disconnect, invalid data/character,
 and travel release the plate. Normal batting and active-hit state exclude training.
 
-The server grants a configured tick through PlayerData.GrantPower: `floor(ground base Power * equipped Bat multiplier * Rebirth multiplier)`. Level advancement and cap overflow rules remain unchanged.
-Ticks do not catch up in bursts after server stalls. At the cap, no Power grant
-calls are made. Client-local pitches and the reused Bat swing are presentation
+The server grants a configured tick as the bat meets each practice ball: the client's practice loop runs on the server clock from `TrainingStartedAt` (contact `PracticePitchSeconds` = 1.1 s into each 2 s cycle), and the server grants on that same schedule, checking trainees every frame, so the Power bar, the hit and its "+Power" popup land together (each ground's interval must equal `PracticeCycleSeconds`; hits missed during a server stall are skipped, never caught up). Each tick goes through PlayerData.GrantPower: `floor(ground base Power * equipped Bat multiplier * Rebirth multiplier)`. Level advancement and cap overflow rules remain unchanged.
+Ticks do not catch up in bursts after server stalls. At the cap, grants continue
+and Power keeps building. Client-local pitches and the reused Bat swing are presentation
 only: no real ball launch, Cash, distance, sections, or world completion occurs.
 
 Schema 5 added SelectedTrainingGround and LastLogoutTime to PlayerProgression.
@@ -800,6 +804,11 @@ grant again. There is no client offline-claim operation. Normal exit records the
 server close time; autosaves record a checkpoint time for crash recovery. No
 extra periodic DataStore writes are added. A crash before the first autosave after
 login conservatively has no new offline timestamp to use.
+
+**Welcome Back screen and the 3x offer.** The screen (`TrainingClient`, standard window) has a clock in its title (`UI.ClockIcon`: a white face with a blue rim, hour marks and hands, and the Power bolt over its edge), "You trained while you were offline:", the Power earned in full ("+1,486,600 POWER") under a glowing bolt, the ground and time trained, and two buttons:
+- **Claim!** (green) closes the screen; the reward was already added at login.
+- **3x** (rainbow, with the tripled amount and a Robux price tag) buys the offline reward twice more, 3x in all (`TrainingConfig.OfflineTriple`: a developer product, `productId` 0 and `robuxPrice` nil until it is created and priced, while the tag reads SOON and a tap explains it is coming soon). It shows whenever this login had an offline reward, at the Level Cap too (`OfflineTripleAvailable`, set by the server).
+- **Server authority:** the client only opens Roblox's purchase prompt. Roblox sends the receipt to `ProductServer` (the game's one `ProcessReceipt` handler), which calls `PlayerData.ClaimOfflineTriple`: it adds this login's offline base reward x2 through the normal grant path, with the Bat that earned it, under the usual Level Cap rules; records the receipt (RobuxSpent, never twice: a repeated receipt is acknowledged without granting again); withdraws the offer; and saves straight away before telling Roblox the purchase was granted. The offer is once per login. A receipt with no offer to fill (a second purchase in the same login, or the player not in the server) is left for Roblox to retry later, such as at their next login with an offline reward. The window then shows the tripled total.
 
 TrainingRequest accepts only Buy(id), which shows the pass prompt, or Exit(session). TrainingTeleport accepts an
 optional ground id; anything the player cannot use falls back to their best ground. No remote starts

@@ -1,11 +1,15 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Actions = game:GetService("ContextActionService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local MarketplaceService = game:GetService("MarketplaceService")
 local Storage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 local Config = require(Storage:WaitForChild("TrainingConfig"))
 local Progression = require(Storage:WaitForChild("ProgressionConfig"))
 local Equipment = require(Storage:WaitForChild("EquipmentConfig"))
+local Juice = require(Storage:WaitForChild("JuiceConfig"))
 local Swing = require(Storage:WaitForChild("SwingConfig"))
 local Worlds = require(Storage:WaitForChild("WorldConfig"))
 local Remote = Storage:WaitForChild("TrainingRequest")
@@ -65,32 +69,47 @@ end
 Interfaces.Register("Training",show)
 Remote.OnClientEvent:Connect(function(ok,message) UI.Notify(message,ok and "success" or "error") end)
 
-local hud = UI.Screen("TrainingHUD",12)
-local box = UI.Surface(hud,"Status")
-box.BackgroundColor3,box.BackgroundTransparency=UI.Colors.Panel,0
-UI.Shrink(box)
-box.AnchorPoint, box.Position, box.Size = Vector2.new(.5,1), UDim2.new(.5,0,1,-80), UDim2.new(1,-24,0,128)
-local heading = UI.Label(box,"Heading","TRAINING",16,UI.Colors.Accent)
-heading.Position, heading.Size = UDim2.fromOffset(48,10), UDim2.new(1,-60,0,24)
-heading.TextColor3 = UI.Colors.Gold
-local trainingIcon=UI.Icon(box,"PowerIcon",UI.Icons.Power)
-trainingIcon.Position,trainingIcon.Size=UDim2.fromOffset(12,8),UDim2.fromOffset(28,28)
-local detail = UI.Label(box,"Detail","",14)
-detail.Position, detail.Size, detail.TextWrapped = UDim2.fromOffset(12,38), UDim2.new(1,-24,0,64), true
-local exit = UI.Label(box,"Exit","Space / Leave to stop",13,UI.Colors.Muted)
-exit.Position, exit.Size = UDim2.fromOffset(12,110), UDim2.new(1,-24,0,22)
-local function resizeStatus()
- local size = hud.AbsoluteSize
- if size.Y < 440 and size.X >= 600 then
-  box.AnchorPoint, box.Position = Vector2.new(0,1),UDim2.new(0,12,1,-76)
-  box.Size = UDim2.fromOffset(math.min(300,size.X-296),138)
- else
-  box.AnchorPoint, box.Position = Vector2.new(.5,1),UDim2.new(.5,0,1,size.X < 600 and -282 or -80)
-  box.Size = UDim2.fromOffset(math.min(300,size.X-24),138)
- end
+-- No status panel is shown while training (the HUD's Power bar and Leave button cover it);
+-- Space leaves through the same action as the HUD's Leave button.
+
+-- "+Power" popup each time the bat meets a practice ball, like the Cash popup after a real hit:
+-- the Power bolt and the amount, popping in above the batter, rising and fading. The amount is
+-- what each Training tick grants (the server's own formula: ground, Bat, Rebirths and any Power
+-- juice), granted by the server at that same moment, at the Level Cap too.
+local POPUP_SECONDS, POPUP_RISE = 1.4, 50
+local popupGui = UI.Screen("TrainingPopups", 12)
+popupGui.IgnoreGuiInset = true
+local function powerPerHit()
+ local ground = Config.Get(Player:GetAttribute("TrainingGround"))
+ if not ground then return 0 end
+ local bat = Equipment.Get("Bat", Player:GetAttribute("EquippedBat"))
+ local active = Player:FindFirstChild("ActiveJuices")
+ local boost = active and Juice.GetMultiplier(active:GetAttributes(), "Power") or 1
+ return Progression.GetPowerGrant(ground.basePower, Player:GetAttribute("Rebirths") or 0, bat and bat.powerGainMultiplier or 1, boost)
 end
-hud:GetPropertyChangedSignal("AbsoluteSize"):Connect(resizeStatus)
-task.defer(resizeStatus)
+local function powerPopup(amount)
+ local popup = Instance.new("CanvasGroup")
+ popup.Name, popup.BackgroundTransparency = "PowerPopup", 1
+ popup.AnchorPoint, popup.Size = Vector2.new(.5, .5), UDim2.fromOffset(240, 64)
+ -- A little sideways jitter so quick repeats don't stack exactly.
+ local x = .5 + (math.random() - .5) * .05
+ popup.Position = UDim2.fromScale(x, .4)
+ local scale = Instance.new("UIScale")
+ scale.Scale, scale.Parent = .85 * UI.SizeScale, popup
+ local icon = UI.Icon(popup, "PowerIcon", UI.Icons.Power)
+ icon.Position, icon.Size = UDim2.fromOffset(8, 8), UDim2.fromOffset(48, 48)
+ local label = UI.Label(popup, "Amount", "+" .. UI.Compact(amount), 34, UI.Showcase.Value)
+ label.Position, label.Size, label.TextScaled = UDim2.fromOffset(62, 6), UDim2.new(1, -68, 1, -12), true
+ local limit = Instance.new("UITextSizeConstraint")
+ limit.MinTextSize, limit.MaxTextSize, limit.Parent = 20, 34, label
+ popup.Parent = popupGui
+ TweenService:Create(scale, TweenInfo.new(.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = UI.SizeScale}):Play()
+ TweenService:Create(popup, TweenInfo.new(POPUP_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+  {Position = UDim2.new(x, 0, .4, -POPUP_RISE)}):Play()
+ TweenService:Create(popup, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, POPUP_SECONDS - .5),
+  {GroupTransparency = 1}):Play()
+ Debris:AddItem(popup, POPUP_SECONDS + .1)
+end
 
 local visual, rendering, leaveBound
 local refresh
@@ -101,7 +120,6 @@ end
 local function stopPresentation()
  stopVisual()
  if leaveBound then Actions:UnbindAction("ExitTraining") leaveBound=false end
- hud.Enabled = false
 end
 local function leave(_,state)
  if state == Enum.UserInputState.Begin then Remote:FireServer("Exit",Player:GetAttribute("TrainingSession")) end
@@ -109,7 +127,7 @@ local function leave(_,state)
 end
 -- Practice audio (GameAudio): a soft machine thump as each ball is pitched, and a lighter,
 -- smaller bat crack than a real hit, heard from the cage. The swing's swish comes from the Bat.
-GameAudio.Preload({"PracticeCrack", "PracticePitch", "OfflineReward"})
+GameAudio.Preload({"PracticeCrack", "PracticePitch", "OfflineReward", "PowerTick"})
 
 local function startPresentation()
  if rendering then return end
@@ -153,6 +171,11 @@ local function startPresentation()
   if cycle ~= lastCrackCycle and phase >= Config.PracticePitchSeconds then
    lastCrackCycle = cycle
    GameAudio.Play("PracticeCrack", contact)
+   local amount = powerPerHit()
+   if amount > 0 then
+    powerPopup(amount)
+    GameAudio.Play("PowerTick")
+   end
   end
  end)
 end
@@ -187,16 +210,8 @@ function refresh()
  end
  local humanoid = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
  local active = Player:GetAttribute("DataLoaded") and Player:GetAttribute("TrainingActive") and humanoid and humanoid.Health>0
- hud.Enabled = active == true
  if not active then stopPresentation() return end
- local ground = Config.Get(Player:GetAttribute("TrainingGround"))
- if not ground then stopPresentation() return end
- local capped = Player:GetAttribute("Level") >= Player:GetAttribute("LevelCap")
- detail.Text = ground.displayName .. "\n" .. (capped and "MAX LEVEL - Rebirth available"
-  or UI.Number(Progression.GetPowerGrant(ground.basePower, rebirths, batMultiplier)/ground.interval,1) .. " Power / second")
-  .. "\nLevel " .. UI.Number(Player:GetAttribute("Level")) .. " / " .. UI.Number(Player:GetAttribute("LevelCap"))
-  .. (capped and " | Gains paused" or " | Power " .. UI.Number(Player:GetAttribute("Power")) .. " / "
-   .. UI.Number(Progression.PowerRequiredForNextLevel(Player:GetAttribute("Level"))))
+ if not Config.Get(Player:GetAttribute("TrainingGround")) then stopPresentation() return end
  startPresentation()
 end
 for _, name in {"DataLoaded","TrainingActive","TrainingGround","BattingActive","HitActive","EquippedBat","Rebirths","Level","LevelCap","Power","WorldTraveling"} do
@@ -211,24 +226,83 @@ end
 panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
 Player.CharacterRemoving:Connect(stopPresentation)
 
-local offlineGui, offlinePanel, showOffline = UI.Menu("OfflineTrainingGui","Welcome back!","Your offline Training has already been added.",Interfaces.CloseAll)
+-- Welcome Back: a clock in the title, "You trained while you were offline:", the Power earned
+-- under a glowing bolt, and two choices: Claim! (the reward already added at login) or a rainbow
+-- 3x button that buys the reward twice more for Robux (the server grants it from the receipt;
+-- see PlayerData.ClaimOfflineTriple). Without an offer only Claim! shows.
+local offlineGui, offlinePanel, showOffline = UI.Menu("OfflineTrainingGui","Welcome Back!","You trained while you were offline:",Interfaces.CloseAll)
+local titleIcon = offlinePanel:FindFirstChild("TitleIcon")
+if titleIcon then
+ titleIcon.Image, titleIcon.Size = "", UDim2.fromOffset(84, 84)
+ UI.ClockIcon(titleIcon)
+end
+local offlineSubtitle = offlinePanel:FindFirstChild("Subtitle")
+if offlineSubtitle then offlineSubtitle.TextSize, offlineSubtitle.TextColor3 = 22, UI.Colors.Text end
 local offlineList = UI.Scroll(offlinePanel,"Summary")
-offlineList.Position, offlineList.Size = UDim2.fromOffset(16,110),UDim2.new(1,-32,1,-180)
+offlineList.Position, offlineList.Size = UDim2.fromOffset(16,108),UDim2.new(1,-32,1,-196)
 local offlineHero = UI.Hero(offlineList,UI.Icons.Power)
 offlineHero.LayoutOrder = 0
-local offlineAmount = UI.Label(offlineList,"Power","",36,UI.Colors.Gold)
-offlineAmount.Size, offlineAmount.LayoutOrder, offlineAmount.TextXAlignment = UDim2.new(1,-12,0,68),1,Enum.TextXAlignment.Center
-offlineAmount.TextWrapped = true
-local offlineBody = UI.Label(offlineList,"Details","",20)
+local offlineAmount = UI.Label(offlineList,"Power","",44,UI.Colors.Gold)
+offlineAmount.Size, offlineAmount.LayoutOrder, offlineAmount.TextXAlignment = UDim2.new(1,-12,0,60),1,Enum.TextXAlignment.Center
+offlineAmount.TextScaled = true
+local amountSize = Instance.new("UITextSizeConstraint")
+amountSize.MinTextSize, amountSize.MaxTextSize, amountSize.Parent = 24, 44, offlineAmount
+local offlineBody = UI.Label(offlineList,"Details","",18)
 offlineBody.Size, offlineBody.AutomaticSize, offlineBody.TextWrapped = UDim2.new(1,-12,0,0),Enum.AutomaticSize.Y,true
 offlineBody.LayoutOrder, offlineBody.TextXAlignment = 2,Enum.TextXAlignment.Center
-local continue = UI.Button(offlinePanel,"Continue","CONTINUE")
-continue.Position,continue.Size = UDim2.new(0,16,1,-66),UDim2.new(1,-32,0,54)
-UI.SetButton(continue,"CONTINUE",true,true)
-continue.Activated:Connect(Interfaces.CloseAll)
-Interfaces.Register("Offline",showOffline)
 
--- No claim request exists. This display runs once for this player session, not per respawn.
+-- The 3x button: rainbow, the tripled amount in big text, and a Robux price tag on its corner.
+local triple = Config.OfflineTriple
+local tripleButton = UI.Button(offlinePanel,"Triple","")
+tripleButton.TextSize = 34
+UI.SetButton(tripleButton,"",true,true)
+local tripleFace = tripleButton.Visual:FindFirstChildOfClass("UIGradient")
+tripleFace.Rotation = 0
+tripleFace.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(190, 60, 255)), ColorSequenceKeypoint.new(.2, Color3.fromRGB(60, 120, 255)),
+ ColorSequenceKeypoint.new(.4, Color3.fromRGB(40, 220, 255)), ColorSequenceKeypoint.new(.6, Color3.fromRGB(90, 230, 70)),
+ ColorSequenceKeypoint.new(.8, Color3.fromRGB(255, 220, 40)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 60, 70))})
+local priceTag = UI.Label(tripleButton,"Price","",24,UI.Showcase.Value)
+priceTag.AnchorPoint, priceTag.Position, priceTag.Size = Vector2.new(1, .5), UDim2.new(1, 8, 0, 0), UDim2.fromOffset(90, 30)
+priceTag.TextXAlignment, priceTag.ZIndex = Enum.TextXAlignment.Right, 6
+priceTag.Text = triple.productId > 0 and triple.robuxPrice and ("R$ " .. UI.Number(triple.robuxPrice)) or "SOON"
+local claim = UI.Button(offlinePanel,"Continue","Claim!")
+claim.TextSize = 32
+UI.SetButton(claim,"Claim!",true,true)
+claim.Activated:Connect(Interfaces.CloseAll)
+local function layoutOfflineButtons()
+ local offered = Player:GetAttribute("OfflineTripleAvailable") == true
+ tripleButton.Visible = offered
+ if offered then
+  tripleButton.Position, tripleButton.Size = UDim2.new(0,16,1,-80),UDim2.new(.58,-24,0,64)
+  claim.Position, claim.Size = UDim2.new(.58,4,1,-76),UDim2.new(.42,-20,0,56)
+ else
+  claim.Position, claim.Size = UDim2.new(0,16,1,-76),UDim2.new(1,-32,0,56)
+ end
+end
+tripleButton.Activated:Connect(function()
+ if Player:GetAttribute("OfflineTripleAvailable") ~= true then return end
+ if triple.productId <= 0 then
+  UI.Notify("The 3x offline reward is coming soon!")
+  return
+ end
+ MarketplaceService:PromptProductPurchase(Player, triple.productId)
+end)
+-- Bought: the server adds the extra Power and withdraws the offer. Show the tripled total.
+local offlineEarned = 0
+Player:GetAttributeChangedSignal("OfflineTripleAvailable"):Connect(function()
+ if Player:GetAttribute("OfflineTripleAvailable") == false and offlineEarned > 0 and offlineGui.Scrim.Visible then
+  offlineAmount.Text = "+" .. UI.Number(offlineEarned * triple.multiplier) .. " POWER"
+  GameAudio.Play("OfflineReward")
+ end
+ layoutOfflineButtons()
+end)
+Interfaces.Register("Offline",function(visible)
+ if visible then layoutOfflineButtons() end
+ showOffline(visible)
+end)
+
+-- The base reward was added at login (Claim! only closes the screen). This display runs once for
+-- this player session, not per respawn.
 local offlineCaptured, offlineShown, offlinePending = false, false, false
 local offlineMessage, offlineHealthConnection
 local function offlineNotice()
@@ -241,7 +315,9 @@ local function offlineNotice()
   local ground = Config.Get(Player:GetAttribute("OfflineTrainingGround"))
   local oldLevel, newLevel = Player:GetAttribute("OfflineOldLevel"),Player:GetAttribute("OfflineNewLevel")
   local capped = newLevel and newLevel >= Player:GetAttribute("LevelCap")
-  offlineAmount.Text = "+" .. UI.Compact(amount) .. " POWER"
+  offlineEarned = amount
+  offlineAmount.Text = "+" .. UI.Number(amount) .. " POWER"
+  tripleButton.Text = "+" .. UI.Number(amount * triple.multiplier)
   offlineMessage = (ground and ground.displayName or "Training")
    .. " | " .. math.floor(seconds/3600) .. "h " .. math.floor(seconds%3600/60) .. "m trained"
 

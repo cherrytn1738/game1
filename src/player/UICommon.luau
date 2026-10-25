@@ -1,22 +1,27 @@
--- Shared presentation helpers following the Check-UI design system
--- (.agents/skills/check-ui-clean-roblox). No gameplay state or authoritative calculations.
+-- Shared presentation helpers. Every screen follows the Inventory's chunky cartoon style:
+-- the rounded FredokaOne font with heavy black outlines, blue rounded windows with a faint
+-- checker, a big title riding over the window's top edge, a red rounded close button,
+-- rounded dark-blue cards, and studded buttons in blue, green, red and grey. (Built on the
+-- Check-UI foundation in .agents/skills/check-ui-clean-roblox.) No gameplay state or
+-- authoritative calculations.
 local TweenService = game:GetService("TweenService")
 local GameAudio = require(game:GetService("ReplicatedStorage"):WaitForChild("GameAudio"))
 local player = game.Players.LocalPlayer
 local UI = {}
 
-UI.Font = Enum.Font.GothamBlack
+UI.Font = Enum.Font.FredokaOne
 -- Global size factor for the HUD, quick menu, and notifications (1 = full size).
 UI.SizeScale = 0.75
 -- Menus (Shop, Rebirth, Training, Worlds, Inventory, Welcome Back) are sized separately and
 -- larger, with a higher floor so they stay readable and easy to tap on phones.
 UI.MenuScale = 0.95
 UI.MenuMinScale = 0.75
+-- Menu windows are slightly see-through, so the blurred world shows faintly behind them.
 UI.MenuBoxTransparency = 0.3
 UI.Colors = {
- Panel = Color3.fromRGB(59, 88, 102), -- Solid slate window canvas (#3B5866).
- Card = Color3.fromRGB(26, 44, 52), -- Recessed item container (#1A2C34).
- Border = Color3.fromRGB(24, 30, 34), -- Window outline (#181E22).
+ Panel = Color3.fromRGB(34, 86, 196), -- Blue window canvas.
+ Card = Color3.fromRGB(26, 48, 100), -- Dark blue card / recessed container.
+ Border = Color3.fromRGB(14, 14, 18), -- The thick near-black outline.
  Text = Color3.fromRGB(255, 255, 255),
  Muted = Color3.fromRGB(225, 235, 245), -- Subtitle / instruction text (#E1EBF5).
  Accent = Color3.fromRGB(0, 190, 255),
@@ -34,27 +39,22 @@ UI.Icons = {
 
 local CHECKER = "rbxassetid://385956923"
 local SUNBURST = "rbxassetid://130563114903838"
-local OUTLINE = Color3.fromRGB(12, 20, 26) -- #0C141A button border.
 local TEXT_OUTLINE = Color3.fromRGB(17, 23, 26) -- #11171A label stroke.
 
--- Button state triad (plus the cyan "Codes" palette for neutral/selected-tab buttons).
+-- Button states, as the face's top and bottom colours: Claim (go / buy / confirm) green,
+-- Claimed (done or unavailable) grey, Locked red, Cyan (neutral, selected tabs) blue.
 local BUTTON_STATES = {
- Claim = {Color3.fromRGB(255, 214, 40), Color3.fromRGB(255, 150, 0)},
- Claimed = {Color3.fromRGB(216, 222, 228), Color3.fromRGB(148, 160, 176)},
- Locked = {Color3.fromRGB(255, 32, 80), Color3.fromRGB(208, 0, 32)},
- Cyan = {Color3.fromRGB(0, 205, 255), Color3.fromRGB(0, 130, 245)},
+ Claim = {Color3.fromRGB(120, 230, 70), Color3.fromRGB(50, 175, 40)},
+ Claimed = {Color3.fromRGB(160, 162, 172), Color3.fromRGB(110, 112, 122)},
+ Locked = {Color3.fromRGB(255, 80, 90), Color3.fromRGB(215, 25, 45)},
+ Cyan = {Color3.fromRGB(70, 160, 255), Color3.fromRGB(30, 105, 235)},
 }
 UI.ButtonStates = BUTTON_STATES
 
--- Header themes: gradient top/bottom, top highlight, damier colour, dark divider.
-local HEADER_THEMES = {
- EquipmentShopGui = {Color3.fromRGB(255, 20, 150), Color3.fromRGB(225, 0, 25), Color3.fromRGB(255, 200, 225), Color3.fromRGB(150, 0, 20), Color3.fromRGB(125, 0, 18)},
- RebirthGui = {Color3.fromRGB(160, 0, 255), Color3.fromRGB(96, 0, 200), Color3.fromRGB(224, 160, 255), Color3.fromRGB(96, 0, 144), Color3.fromRGB(80, 0, 120)},
- WorldTravelGui = {Color3.fromRGB(0, 205, 255), Color3.fromRGB(0, 130, 245), Color3.fromRGB(180, 240, 255), Color3.fromRGB(0, 75, 150), Color3.fromRGB(0, 50, 110)},
- TrainingGroundGui = {Color3.fromRGB(255, 208, 0), Color3.fromRGB(255, 140, 0), Color3.fromRGB(255, 240, 160), Color3.fromRGB(176, 96, 0), Color3.fromRGB(153, 76, 0)},
- OfflineTrainingGui = {Color3.fromRGB(80, 170, 255), Color3.fromRGB(30, 100, 230), Color3.fromRGB(200, 230, 255), Color3.fromRGB(20, 60, 150), Color3.fromRGB(15, 45, 115)},
- InventoryGui = {Color3.fromRGB(255, 150, 60), Color3.fromRGB(205, 95, 30), Color3.fromRGB(255, 215, 170), Color3.fromRGB(140, 60, 10), Color3.fromRGB(110, 45, 5)},
-}
+-- Every window is blue, like the Inventory: its gradient (top, bottom), faint checker tint and
+-- the title's gradient end colour.
+local WINDOW = {top = Color3.fromRGB(72, 150, 245), bottom = Color3.fromRGB(34, 86, 196),
+ checker = Color3.fromRGB(10, 40, 110), title = Color3.fromRGB(150, 228, 255)}
 
 local function corner(parent, radius)
  local object = Instance.new("UICorner")
@@ -169,9 +169,9 @@ function UI.Label(parent, name, text, size, color)
  label.TextSize, label.TextColor3 = size or 16, color or UI.Colors.Text
  label.Font = UI.Font
  label.TextStrokeTransparency = 1
- -- Black outline proportional to the font size (2.0 to 3.5px).
+ -- A heavy near-black outline proportional to the font size (2 to 6px).
  local outline = Instance.new("UIStroke")
- outline.Thickness, outline.Color = math.clamp((size or 16) / 11, 2, 3.5), Color3.new(0, 0, 0)
+ outline.Thickness, outline.Color = math.clamp((size or 16) / 9, 2, 6), UI.Colors.Border
  outline.Parent = label
  label.BackgroundTransparency = 1
  label.TextXAlignment = Enum.TextXAlignment.Left
@@ -180,19 +180,16 @@ function UI.Label(parent, name, text, size, color)
  return label
 end
 
--- Surfaces. Passing UI.Colors.Card makes a recessed item card (#1A2C34, black border,
--- slate inner highlight); any other colour makes a solid panel with the window outline.
+-- Surfaces: rounded, with the thick dark outline. Passing UI.Colors.Card makes a dark blue
+-- card with a light blue inner rim; any other colour makes a solid panel.
+local CARD_RIM = Color3.fromRGB(110, 160, 235)
 function UI.Surface(parent, name, color, className)
  local panel = Instance.new(className or "Frame")
  panel.Name, panel.BorderSizePixel = name, 0
  panel.BackgroundColor3, panel.BackgroundTransparency = color or UI.Colors.Panel, 0
- corner(panel, 4)
- if color == UI.Colors.Card then
-  stroke(panel, Color3.new(0, 0, 0), 2.8)
-  rim(panel, 4, Color3.fromRGB(75, 125, 145), 1.2, .4, 3)
- else
-  stroke(panel, UI.Colors.Border, 3.5)
- end
+ corner(panel, 12)
+ stroke(panel, UI.Colors.Border, 4)
+ if color == UI.Colors.Card then rim(panel, 6, CARD_RIM, 2, .45, 9) end
  panel.Parent = parent
  return panel
 end
@@ -202,14 +199,14 @@ function UI.CardState(frame, state)
  local highlightStroke = highlight and highlight:FindFirstChildOfClass("UIStroke")
  frame.BackgroundTransparency = 0
  if state == "selected" then
-  frame.BackgroundColor3 = Color3.fromRGB(28, 66, 82)
-  if highlightStroke then highlightStroke.Color, highlightStroke.Transparency, highlightStroke.Thickness = Color3.fromRGB(0, 205, 255), 0, 2 end
+  frame.BackgroundColor3 = Color3.fromRGB(40, 92, 178)
+  if highlightStroke then highlightStroke.Color, highlightStroke.Transparency, highlightStroke.Thickness = Color3.fromRGB(110, 210, 255), 0, 3 end
  elseif state == "locked" then
-  frame.BackgroundColor3 = Color3.fromRGB(34, 32, 42)
-  if highlightStroke then highlightStroke.Color, highlightStroke.Transparency, highlightStroke.Thickness = Color3.fromRGB(144, 0, 24), .2, 1.2 end
+  frame.BackgroundColor3 = Color3.fromRGB(30, 32, 50)
+  if highlightStroke then highlightStroke.Color, highlightStroke.Transparency, highlightStroke.Thickness = Color3.fromRGB(215, 25, 45), .25, 2 end
  else
   frame.BackgroundColor3 = UI.Colors.Card
-  if highlightStroke then highlightStroke.Color, highlightStroke.Transparency, highlightStroke.Thickness = Color3.fromRGB(75, 125, 145), .4, 1.2 end
+  if highlightStroke then highlightStroke.Color, highlightStroke.Transparency, highlightStroke.Thickness = CARD_RIM, .45, 2 end
  end
 end
 
@@ -218,8 +215,8 @@ function UI.Badge(parent, text, color)
  local badge = Instance.new("Frame")
  badge.Name, badge.Size, badge.BorderSizePixel = "Badge", UDim2.fromOffset(64, 64), 0
  badge.BackgroundColor3 = color or UI.Colors.Accent
- corner(badge, 4)
- stroke(badge, Color3.new(0, 0, 0), 2.8)
+ corner(badge, 12)
+ stroke(badge, UI.Colors.Border, 4)
  local shade = Instance.new("UIGradient")
  shade.Rotation, shade.Color = 90, ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(170, 170, 170))
  shade.Parent = badge
@@ -240,11 +237,13 @@ end
 function UI.ProgressBar(parent, name)
  local trough = Instance.new("Frame")
  trough.Name, trough.BorderSizePixel = name or "ProgressTrough", 0
- trough.BackgroundColor3, trough.ClipsDescendants = Color3.fromRGB(20, 30, 36), true
- stroke(trough, Color3.fromRGB(12, 18, 22), 2)
+ trough.BackgroundColor3, trough.ClipsDescendants = Color3.fromRGB(22, 36, 74), true
+ corner(trough, 8)
+ stroke(trough, UI.Colors.Border, 3)
  local fill = Instance.new("Frame")
  fill.Name, fill.BorderSizePixel = "ProgressFill", 0
  fill.Size, fill.BackgroundColor3 = UDim2.fromScale(0, 1), Color3.new(1, 1, 1)
+ corner(fill, 8)
  UI.Gradient(fill, Color3.fromRGB(255, 200, 0), Color3.fromRGB(255, 106, 0))
  local bevel = Instance.new("Frame")
  bevel.Name, bevel.BorderSizePixel = "Bevel", 0
@@ -260,9 +259,10 @@ function UI.ProgressBar(parent, name)
  end
 end
 
--- Buttons follow the canonical iconless blueprint: sharp rectangle, 3px dark border,
--- vertical state gradient, fading black damier, triple glass rim, outlined label.
--- The TextButton stays a stable hit target; only its centered Visual scales.
+-- Buttons are chunky and studded like the Inventory's: a slightly rounded face in the state's
+-- colours with a faint stud pattern, a darker bottom edge, a white inner rim, a thick dark
+-- outline and a big outlined caption. The TextButton stays a stable hit target; only its
+-- centered Visual scales.
 local buttonVisuals = {}
 
 local SELECTED_TEXT = {EQUIPPED = true, SELECTED = true, ["YOU ARE HERE"] = true}
@@ -302,14 +302,16 @@ function UI.Button(parent, name, text)
  visual.Size, visual.BorderSizePixel, visual.BackgroundColor3 = UDim2.fromScale(1, 1), 0, Color3.new(1, 1, 1)
  visual.ClipsDescendants = true
  visual.Parent = button
- stroke(visual, OUTLINE, 3)
+ corner(visual, 6)
+ stroke(visual, UI.Colors.Border, 4)
  local gradient = UI.Gradient(visual, BUTTON_STATES.Cyan[1], BUTTON_STATES.Cyan[2])
- damier(visual, Color3.new(0, 0, 0), 19, NumberSequence.new(.91, .62))
- for index, transparency in {.25, .45, .8} do
-  rim(visual, index * 2, Color3.new(1, 1, 1), 1, transparency).Name = "InnerHighlight" .. index
- end
+ damier(visual, Color3.new(1, 1, 1), 22, NumberSequence.new(.86, .9)).Name = "Studs"
+ local edge = Instance.new("Frame")
+ edge.Name, edge.BorderSizePixel, edge.Size, edge.Position = "Edge", 0, UDim2.new(1, 0, 0, 5), UDim2.new(0, 0, 1, -5)
+ edge.BackgroundColor3, edge.BackgroundTransparency, edge.Parent = Color3.new(0, 0, 0), .7, visual
+ rim(visual, 6, Color3.new(1, 1, 1), 2, .55, 4).Name = "InnerHighlight1"
  local caption = UI.Label(visual, "Caption", text, 22)
- caption.AnchorPoint, caption.Position = Vector2.new(.5, .5), UDim2.new(.5, 0, .5, -1)
+ caption.AnchorPoint, caption.Position = Vector2.new(.5, .5), UDim2.new(.5, 0, .5, -2)
  caption.Size, caption.TextXAlignment, caption.TextWrapped, caption.ZIndex = UDim2.new(1, -12, 1, 0), Enum.TextXAlignment.Center, true, 3
  local captionStroke = caption:FindFirstChildOfClass("UIStroke")
  captionStroke.Color, captionStroke.Thickness = TEXT_OUTLINE, 3
@@ -360,28 +362,20 @@ function UI.Button(parent, name, text)
  return button
 end
 
--- Signature 38x38 3D beveled square close button (Check-UI 3.1).
+-- The close button, as on the Inventory: a red rounded square with a white outlined X.
 local function closeButton(parent)
  local button = Instance.new("ImageButton")
- button.Name, button.Size = "Close", UDim2.fromOffset(38, 38)
+ button.Name, button.Size = "Close", UDim2.fromOffset(52, 52)
  button.AnchorPoint, button.Position = Vector2.new(.5, .5), UDim2.new(1, -34, .5, -2)
- button.BackgroundColor3, button.BorderSizePixel, button.AutoButtonColor = Color3.fromRGB(115, 0, 16), 0, false
+ button.BackgroundColor3, button.BorderSizePixel, button.AutoButtonColor = Color3.new(1, 1, 1), 0, false
  button.ZIndex = 25
- stroke(button, Color3.new(0, 0, 0), 2.8)
- local face = Instance.new("Frame")
- face.Name, face.Size, face.BorderSizePixel, face.ZIndex = "Face", UDim2.new(1, 0, 1, -4), 0, 26
- face.BackgroundColor3 = Color3.new(1, 1, 1)
- UI.Gradient(face, Color3.fromRGB(255, 125, 175), Color3.fromRGB(255, 20, 40))
- rim(face, 2, Color3.fromRGB(255, 210, 235), 1.2).ZIndex = 27
- face.Parent = button
- local line = Instance.new("Frame")
- line.Name, line.Size, line.Position = "SepLine", UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 1, -4)
- line.BackgroundColor3, line.BorderSizePixel, line.ZIndex = Color3.fromRGB(70, 0, 10), 0, 27
- line.Parent = button
- local x = UI.Label(face, "X", "X", 29)
- x.AnchorPoint, x.Position, x.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(1, 1)
+ corner(button, 12)
+ stroke(button, UI.Colors.Border, 4)
+ UI.Gradient(button, Color3.fromRGB(255, 70, 90), Color3.fromRGB(220, 15, 45))
+ rim(button, 8, Color3.new(1, 1, 1), 2, .5, 8).ZIndex = 26
+ local x = UI.Label(button, "X", "X", 40)
+ x.AnchorPoint, x.Position, x.Size = Vector2.new(.5, .5), UDim2.new(.5, 0, .5, -2), UDim2.fromScale(1, 1)
  x.TextXAlignment, x.ZIndex = Enum.TextXAlignment.Center, 28
- x:FindFirstChildOfClass("UIStroke").Thickness = 3
  local scale = Instance.new("UIScale")
  scale.Name, scale.Parent = "ButtonScale", button
  local function animate(value, style, duration)
@@ -419,7 +413,11 @@ local MENU_ICONS = {
  EquipmentShopGui = UI.Icons.Shop, RebirthGui = UI.Icons.Rebirth, WorldTravelGui = UI.Icons.Worlds,
  TrainingGroundGui = UI.Icons.Training, OfflineTrainingGui = UI.Icons.Power, InventoryGui = UI.Icons.Inventory,
 }
-function UI.Menu(name, title, subtitle, close)
+-- The shared modal shell: a dimming scrim, a transparent CanvasGroup panel with a responsive
+-- WindowScale, and the open/close animation, blur and sounds. The panel is capped at
+-- maxWidth x maxHeight menu units; onResize(scale, panel) runs after each resize. Returns the
+-- ScreenGui, scrim, panel and show(visible).
+local function modalShell(name, maxWidth, maxHeight, onResize)
  local gui = UI.Screen(name, 20)
  local scrim = Instance.new("Frame")
  scrim.Name, scrim.Size = "Scrim", UDim2.fromScale(1, 1)
@@ -429,41 +427,6 @@ function UI.Menu(name, title, subtitle, close)
  panel.Name, panel.BackgroundTransparency, panel.BorderSizePixel = "Panel", 1, 0
  panel.AnchorPoint, panel.Position, panel.Active = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), true
  panel.Parent = scrim
- -- Inset so the box outline is not clipped by the CanvasGroup edges.
- local box = UI.Surface(panel, "Box", UI.Colors.Panel)
- box.Position, box.Size = UDim2.fromOffset(4, TITLE_RISE), UDim2.new(1, -8, 1, -TITLE_RISE - 4)
- -- Slightly see-through so the blurred world shows behind the menu.
- box.BackgroundTransparency = UI.MenuBoxTransparency
- -- Subtle full-height damier on the canvas, faded so content stays readable.
- damier(box, Color3.new(0, 0, 0), 22, NumberSequence.new({NumberSequenceKeypoint.new(0, 1),
-  NumberSequenceKeypoint.new(.5, .97), NumberSequenceKeypoint.new(1, .9)})).Name = "CanvasDamier"
- local theme = HEADER_THEMES[name] or HEADER_THEMES.WorldTravelGui
- -- Themed accent strip along the top of the box, under the title.
- local accent = Instance.new("Frame")
- accent.Name, accent.Size, accent.BorderSizePixel = "TopAccent", UDim2.new(1, 0, 0, 6), 0
- accent.BackgroundColor3 = Color3.new(1, 1, 1)
- UI.Gradient(accent, theme[1], theme[2])
- accent.Parent = box
- local icon = Instance.new("ImageLabel")
- icon.Name, icon.BackgroundTransparency, icon.ZIndex = "TitleIcon", 1, 4
- icon.AnchorPoint, icon.Position, icon.Size = Vector2.new(.5, .5), UDim2.fromOffset(38, TITLE_RISE), UDim2.fromOffset(58, 58)
- icon.Image, icon.ScaleType = MENU_ICONS[name] or UI.Icons.Worlds, Enum.ScaleType.Fit
- icon.Parent = panel
- local heading = UI.Label(panel, "Title", string.upper(title), 46)
- heading.AnchorPoint, heading.ZIndex = Vector2.new(0, .5), 3
- heading.Position, heading.Size = UDim2.fromOffset(74, TITLE_RISE), UDim2.new(1, -130, 0, 52)
- heading.TextScaled = true
- heading:FindFirstChildOfClass("UIStroke").Thickness = 4
- UI.Gradient(heading, Color3.new(1, 1, 1), theme[3])
- local titleSize = Instance.new("UITextSizeConstraint")
- titleSize.MinTextSize, titleSize.MaxTextSize, titleSize.Parent = 22, 46, heading
- local sub = UI.Label(panel, "Subtitle", subtitle, 14, UI.Colors.Muted)
- sub.Position, sub.Size, sub.TextWrapped = UDim2.fromOffset(20, 74), UDim2.new(1, -40, 0, 28), true
- sub.TextXAlignment = Enum.TextXAlignment.Center
- sub:FindFirstChildOfClass("UIStroke").Thickness = 1.9
- local closer = closeButton(panel)
- closer.Position = UDim2.new(1, -30, 0, TITLE_RISE)
- closer.Activated:Connect(close)
  local windowScale = Instance.new("UIScale")
  windowScale.Name, windowScale.Parent = "WindowScale", panel
  local baseScale, transition = 1, nil
@@ -487,8 +450,8 @@ function UI.Menu(name, title, subtitle, close)
   local scale = math.max(UI.MenuMinScale, math.clamp(math.min(viewport.X / 1050, viewport.Y / 620), .52, 1.18) * UI.MenuScale)
   baseScale = scale
   applyAnimation()
-  panel.Size = UDim2.fromOffset(math.min(680, math.max(240, (available.X - 24) / scale)), math.min(520 + TITLE_RISE, math.max(240, (available.Y - 24) / scale)))
-  sub.Visible = panel.Size.Y.Offset * scale >= 400
+  panel.Size = UDim2.fromOffset(math.min(maxWidth, math.max(240, (available.X - 24) / scale)), math.min(maxHeight, math.max(240, (available.Y - 24) / scale)))
+  if onResize then onResize(scale, panel) end
  end
  scrim:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
  task.defer(resize)
@@ -498,7 +461,7 @@ function UI.Menu(name, title, subtitle, close)
   modalScreens[gui] = nil
   updateBlur()
  end)
- return gui, panel, function(visible)
+ return gui, scrim, panel, function(visible)
   if shown == visible then return end
   shown = visible
   GameAudio.Play(visible and "MenuOpen" or "MenuClose")
@@ -519,7 +482,284 @@ function UI.Menu(name, title, subtitle, close)
  end
 end
 
+function UI.Menu(name, title, subtitle, close)
+ local sub
+ local gui, _, panel, show = modalShell(name, 680, 520 + TITLE_RISE, function(scale, window)
+  if sub then sub.Visible = window.Size.Y.Offset * scale >= 400 end
+ end)
+ -- The blue rounded window (inset so its outline is not clipped by the CanvasGroup edges):
+ -- a vertical gradient, a faint checker and a soft white inner rim.
+ local box = UI.Surface(panel, "Box", Color3.new(1, 1, 1))
+ box.BackgroundTransparency = UI.MenuBoxTransparency
+ box.Position, box.Size = UDim2.fromOffset(4, TITLE_RISE), UDim2.new(1, -8, 1, -TITLE_RISE - 4)
+ box:FindFirstChildOfClass("UICorner").CornerRadius = UDim.new(0, 16)
+ UI.Gradient(box, WINDOW.top, WINDOW.bottom)
+ damier(box, WINDOW.checker, 30, NumberSequence.new(.9, .78)).Name = "CanvasDamier"
+ rim(box, 8, Color3.new(1, 1, 1), 2, .65, 12)
+ -- The title rides centred over the top edge, white fading to light cyan, with the menu's icon
+ -- just left of the text.
+ local heading = UI.Label(panel, "Title", title, 56)
+ heading.AnchorPoint, heading.ZIndex = Vector2.new(.5, .5), 5
+ heading.Position, heading.Size = UDim2.new(.5, 0, 0, TITLE_RISE), UDim2.new(1, -170, 0, 60)
+ heading.TextScaled, heading.TextXAlignment = true, Enum.TextXAlignment.Center
+ UI.Gradient(heading, Color3.new(1, 1, 1), WINDOW.title)
+ local titleSize = Instance.new("UITextSizeConstraint")
+ titleSize.MinTextSize, titleSize.MaxTextSize, titleSize.Parent = 24, 56, heading
+ local icon = Instance.new("ImageLabel")
+ icon.Name, icon.BackgroundTransparency, icon.ZIndex = "TitleIcon", 1, 6
+ icon.AnchorPoint, icon.Size = Vector2.new(1, .5), UDim2.fromOffset(58, 58)
+ icon.Image, icon.ScaleType = MENU_ICONS[name] or UI.Icons.Worlds, Enum.ScaleType.Fit
+ icon.Parent = panel
+ local function placeIcon()
+  local width = math.min(heading.TextBounds.X, heading.AbsoluteSize.X) / math.max(panel.WindowScale.Scale, .01)
+  icon.Position = heading.Position + UDim2.fromOffset(-width / 2 - 4, -2)
+ end
+ heading:GetPropertyChangedSignal("TextBounds"):Connect(placeIcon)
+ placeIcon()
+ sub = UI.Label(panel, "Subtitle", subtitle, 16, UI.Colors.Muted)
+ sub.Position, sub.Size, sub.TextWrapped = UDim2.fromOffset(20, 74), UDim2.new(1, -40, 0, 28), true
+ sub.TextXAlignment = Enum.TextXAlignment.Center
+ local closer = closeButton(panel)
+ closer.Position = UDim2.new(1, -34, 0, TITLE_RISE + 2)
+ closer.Activated:Connect(close)
+ return gui, panel, show
+end
+
+-- ---------- Showcase menus (Worlds, Inventory) ----------
+-- A chunkier cartoon style: a big rounded title riding over the top edge, a grey rounded
+-- window with a thick black outline holding a dark well, and a red rounded close button on the
+-- top-right corner. Text uses ShowcaseFont with heavy black outlines.
+UI.ShowcaseFont = Enum.Font.FredokaOne
+UI.Showcase = {
+ Window = Color3.fromRGB(72, 70, 80), -- the grey window frame
+ Well = Color3.fromRGB(38, 39, 45), -- the dark area holding the content
+ Outline = Color3.fromRGB(14, 14, 18),
+ Card = Color3.fromRGB(88, 88, 98), -- an item card
+ CardLight = Color3.fromRGB(150, 150, 160), -- an item card's rim
+ Selected = Color3.fromRGB(170, 240, 255), -- the selected/equipped rim
+ Value = Color3.fromRGB(110, 240, 60), -- multiplier text (green)
+}
+-- Button colours by kind: top and bottom of the face.
+UI.ShowcaseButtons = {
+ Blue = {Color3.fromRGB(70, 160, 255), Color3.fromRGB(30, 105, 235)},
+ Red = {Color3.fromRGB(255, 80, 90), Color3.fromRGB(215, 25, 45)},
+ Green = {Color3.fromRGB(120, 230, 70), Color3.fromRGB(50, 175, 40)},
+ Grey = {Color3.fromRGB(160, 162, 172), Color3.fromRGB(110, 112, 122)},
+}
+local SHOWCASE_RISE = 44 -- how far the title rises above the window
+-- Colour themes for showcase menus: the window's gradient (top, bottom), its faint checker
+-- tint, the dark well, the title's gradient end colour, and a tint for cards and tabs.
+UI.ShowcaseThemes = {
+ Blue = {top = Color3.fromRGB(72, 150, 245), bottom = Color3.fromRGB(34, 86, 196), checker = Color3.fromRGB(10, 40, 110),
+  well = Color3.fromRGB(22, 36, 74), title = Color3.fromRGB(150, 228, 255), tint = Color3.fromRGB(70, 120, 210)},
+ Purple = {top = Color3.fromRGB(160, 100, 240), bottom = Color3.fromRGB(96, 52, 184), checker = Color3.fromRGB(50, 10, 100),
+  well = Color3.fromRGB(38, 24, 66), title = Color3.fromRGB(255, 214, 120), tint = Color3.fromRGB(140, 90, 210)},
+ Grey = {top = Color3.fromRGB(80, 78, 88), bottom = Color3.fromRGB(64, 62, 72), checker = Color3.new(0, 0, 0),
+  well = Color3.fromRGB(38, 39, 45), title = Color3.new(1, 1, 1), tint = Color3.fromRGB(88, 88, 98)},
+}
+
+-- A label in the showcase style: rounded font, white, heavy black outline.
+function UI.ShowcaseLabel(parent, name, text, size, color)
+ local label = UI.Label(parent, name, text, size, color)
+ label.Font = UI.ShowcaseFont
+ local outline = label:FindFirstChildOfClass("UIStroke")
+ outline.Thickness, outline.Color = math.clamp(size / 9, 2.5, 6), UI.Showcase.Outline
+ return label
+end
+
+-- A rounded frame with a thick black outline.
+function UI.ShowcaseFrame(parent, name, color, radius)
+ local frame = Instance.new("Frame")
+ frame.Name, frame.BorderSizePixel, frame.BackgroundColor3 = name, 0, color
+ corner(frame, radius or 14)
+ stroke(frame, UI.Showcase.Outline, 4)
+ frame.Parent = parent
+ return frame
+end
+
+-- A chunky rectangular button: coloured face with a faint stud pattern, a darker bottom edge,
+-- a thick black outline and a big outlined caption. Set its look with UI.SetShowcaseButton.
+function UI.ShowcaseButton(parent, name)
+ local button = Instance.new("TextButton")
+ button.Name, button.Text, button.AutoButtonColor, button.BackgroundTransparency = name, "", false, 1
+ button.Parent = parent
+ local visual = Instance.new("Frame")
+ visual.Name, visual.AnchorPoint, visual.Position = "Visual", Vector2.new(.5, .5), UDim2.fromScale(.5, .5)
+ visual.Size, visual.BorderSizePixel, visual.BackgroundColor3 = UDim2.fromScale(1, 1), 0, Color3.new(1, 1, 1)
+ visual.ClipsDescendants, visual.Parent = true, button
+ corner(visual, 6)
+ stroke(visual, UI.Showcase.Outline, 4)
+ local gradient = UI.Gradient(visual, UI.ShowcaseButtons.Blue[1], UI.ShowcaseButtons.Blue[2])
+ gradient.Name = "Face"
+ local studs = damier(visual, Color3.new(1, 1, 1), 22, NumberSequence.new(.86, .9))
+ studs.Name = "Studs"
+ local edge = Instance.new("Frame")
+ edge.Name, edge.BorderSizePixel, edge.Size, edge.Position = "Edge", 0, UDim2.new(1, 0, 0, 6), UDim2.new(0, 0, 1, -6)
+ edge.BackgroundColor3, edge.BackgroundTransparency, edge.Parent = Color3.new(0, 0, 0), .7, visual
+ rim(visual, 6, Color3.new(1, 1, 1), 2, .55, 4)
+ local caption = UI.ShowcaseLabel(visual, "Caption", "", 34)
+ caption.Size, caption.Position, caption.ZIndex = UDim2.new(1, -16, 1, -6), UDim2.fromOffset(8, 0), 3
+ caption.TextXAlignment, caption.TextScaled = Enum.TextXAlignment.Center, true
+ local limit = Instance.new("UITextSizeConstraint")
+ limit.MaxTextSize, limit.Parent = 34, caption
+ local scale = Instance.new("UIScale")
+ scale.Name, scale.Parent = "ButtonScale", visual
+ local function animate(value, duration, style)
+  TweenService:Create(scale, TweenInfo.new(duration or .08, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = value}):Play()
+ end
+ button.MouseEnter:Connect(function() if button.Active then animate(1.04) end end)
+ button.MouseLeave:Connect(function() animate(1) end)
+ button.MouseButton1Down:Connect(function()
+  if not button.Active then GameAudio.Play("Locked") return end
+  playClick()
+  animate(.95, .05)
+ end)
+ button.MouseButton1Up:Connect(function() animate(button.Active and 1.04 or 1, .12, Enum.EasingStyle.Back) end)
+ return button
+end
+
+-- kind is a UI.ShowcaseButtons key; enabled sets whether a press does anything.
+function UI.SetShowcaseButton(button, text, kind, enabled)
+ local colors = UI.ShowcaseButtons[kind] or UI.ShowcaseButtons.Grey
+ button.Active, button.Selectable = enabled, enabled
+ button:SetAttribute("Kind", kind)
+ button.Visual.Face.Color = ColorSequence.new(colors[1], colors[2])
+ button.Visual.Caption.Text = text
+end
+
+-- The showcase close button: a red rounded square with a white X.
+local function showcaseClose(parent)
+ local button = Instance.new("TextButton")
+ button.Name, button.Text, button.AutoButtonColor = "Close", "", false
+ button.AnchorPoint, button.Size, button.ZIndex = Vector2.new(.5, .5), UDim2.fromOffset(64, 64), 25
+ button.BackgroundColor3, button.BorderSizePixel = Color3.new(1, 1, 1), 0
+ corner(button, 12)
+ stroke(button, UI.Showcase.Outline, 4)
+ UI.Gradient(button, Color3.fromRGB(255, 70, 90), Color3.fromRGB(220, 15, 45))
+ rim(button, 8, Color3.new(1, 1, 1), 2, .5, 8).ZIndex = 26
+ local x = UI.ShowcaseLabel(button, "X", "X", 50)
+ x.Size, x.Position, x.ZIndex, x.TextXAlignment = UDim2.fromScale(1, 1), UDim2.fromOffset(0, -2), 27, Enum.TextXAlignment.Center
+ local scale = Instance.new("UIScale")
+ scale.Name, scale.Parent = "ButtonScale", button
+ local function animate(value, duration, style)
+  TweenService:Create(scale, TweenInfo.new(duration or .08, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = value}):Play()
+ end
+ button.MouseEnter:Connect(function() animate(1.06) end)
+ button.MouseLeave:Connect(function() animate(1) end)
+ button.MouseButton1Down:Connect(function() playClick() animate(.92, .05) end)
+ button.MouseButton1Up:Connect(function() animate(1.06, .12, Enum.EasingStyle.Back) end)
+ button.Parent = parent
+ return button
+end
+
+-- A showcase modal. options: maxWidth / maxHeight (menu units), boxLeft (extra left inset for
+-- tabs that stick out of the window), theme (a UI.ShowcaseThemes key, Grey by default).
+-- Returns the ScreenGui, the panel, show(visible) and the window parts {box, title, titleIcon
+-- (a holder left of the title, empty by default), theme}. Content is laid out in panel space;
+-- the window's top edge is at y = SHOWCASE_RISE.
+function UI.ShowcaseMenu(name, title, close, options)
+ options = options or {}
+ local theme = UI.ShowcaseThemes[options.theme or "Grey"]
+ local gui, _, panel, show = modalShell(name, options.maxWidth or 860, options.maxHeight or 620)
+ local left = 4 + (options.boxLeft or 0)
+ local box = UI.ShowcaseFrame(panel, "Box", Color3.new(1, 1, 1), 16)
+ box.BackgroundTransparency = UI.MenuBoxTransparency
+ box.Position, box.Size = UDim2.fromOffset(left, SHOWCASE_RISE), UDim2.new(1, -left - 4, 1, -SHOWCASE_RISE - 4)
+ UI.Gradient(box, theme.top, theme.bottom)
+ damier(box, theme.checker, 30, NumberSequence.new(.9, .78)).Name = "Checker"
+ rim(box, 8, Color3.new(1, 1, 1), 2, .65, 12)
+ local heading = UI.ShowcaseLabel(panel, "Title", title, 72)
+ UI.Gradient(heading, Color3.new(1, 1, 1), theme.title)
+ heading.AnchorPoint, heading.ZIndex = Vector2.new(.5, .5), 5
+ heading.Position, heading.Size = UDim2.new(.5, (options.boxLeft or 0) / 2, 0, SHOWCASE_RISE), UDim2.new(1, -220, 0, 80)
+ heading.TextXAlignment, heading.TextScaled = Enum.TextXAlignment.Center, true
+ local limit = Instance.new("UITextSizeConstraint")
+ limit.MinTextSize, limit.MaxTextSize, limit.Parent = 30, 72, heading
+ -- A soft drop shadow under the title.
+ local shadow = UI.ShowcaseLabel(panel, "TitleShadow", title, 72, UI.Showcase.Outline)
+ shadow.AnchorPoint, shadow.ZIndex, shadow.TextTransparency = Vector2.new(.5, .5), 4, .4
+ shadow.Position, shadow.Size = heading.Position + UDim2.fromOffset(0, 5), heading.Size
+ shadow.TextXAlignment, shadow.TextScaled = Enum.TextXAlignment.Center, true
+ shadow:FindFirstChildOfClass("UIStroke").Transparency = .4
+ limit:Clone().Parent = shadow
+ heading:GetPropertyChangedSignal("Text"):Connect(function() shadow.Text = heading.Text end)
+ local titleIcon = Instance.new("Frame")
+ titleIcon.Name, titleIcon.BackgroundTransparency, titleIcon.ZIndex = "TitleIcon", 1, 6
+ titleIcon.AnchorPoint, titleIcon.Size = Vector2.new(1, .5), UDim2.fromOffset(80, 80)
+ titleIcon.Parent = panel
+ -- Keeps the icon just left of the title's text, however wide the text is.
+ local function placeIcon()
+  local width = math.min(heading.TextBounds.X, heading.AbsoluteSize.X) / math.max(panel.WindowScale.Scale, .01)
+  titleIcon.Position = heading.Position + UDim2.fromOffset(-width / 2 - 4, -4)
+ end
+ heading:GetPropertyChangedSignal("TextBounds"):Connect(placeIcon)
+ placeIcon()
+ local closer = showcaseClose(panel)
+ closer.Position = UDim2.new(1, -38, 0, SHOWCASE_RISE + 2)
+ closer.Activated:Connect(close)
+ return gui, panel, show, {box = box, title = heading, titleIcon = titleIcon, top = SHOWCASE_RISE, left = left, theme = theme}
+end
+
 -- Featured icon over a continuously rotating sunburst (20 degrees per second while visible).
+-- A cartoon clock filling parent: a white face with a thick blue rim and dark outline, hour marks,
+-- blue hands at ten past ten, and the Power bolt tucked over its lower-right edge (Welcome Back:
+-- time spent offline turned into Power).
+function UI.ClockIcon(parent)
+ local clock = Instance.new("Frame")
+ clock.Name, clock.BackgroundTransparency = "Clock", 1
+ clock.AnchorPoint, clock.Position, clock.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(1, 1)
+ clock.Parent = parent
+ local rim = Instance.new("Frame")
+ rim.Name, rim.BorderSizePixel = "Rim", 0
+ rim.AnchorPoint, rim.Position, rim.Size = Vector2.new(.5, .5), UDim2.fromScale(.46, .46), UDim2.fromScale(.86, .86)
+ rim.BackgroundColor3 = Color3.new(1, 1, 1)
+ Instance.new("UICorner", rim).CornerRadius = UDim.new(.5, 0)
+ UI.Gradient(rim, Color3.fromRGB(120, 200, 255), Color3.fromRGB(30, 110, 230))
+ stroke(rim, UI.Colors.Border, 3)
+ rim.Parent = clock
+ local face = Instance.new("Frame")
+ face.Name, face.BorderSizePixel = "Face", 0
+ face.AnchorPoint, face.Position, face.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(.76, .76)
+ face.BackgroundColor3 = Color3.new(1, 1, 1)
+ Instance.new("UICorner", face).CornerRadius = UDim.new(.5, 0)
+ UI.Gradient(face, Color3.new(1, 1, 1), Color3.fromRGB(214, 230, 245))
+ stroke(face, Color3.fromRGB(20, 60, 140), 2)
+ face.Parent = rim
+ for hour = 1, 12 do
+  local angle = math.rad(hour * 30)
+  local mark = Instance.new("Frame")
+  mark.BorderSizePixel, mark.BackgroundColor3 = 0, Color3.fromRGB(40, 70, 130)
+  mark.AnchorPoint = Vector2.new(.5, .5)
+  mark.Position = UDim2.fromScale(.5 + math.sin(angle) * .4, .5 - math.cos(angle) * .4)
+  mark.Size = hour % 3 == 0 and UDim2.fromScale(.07, .07) or UDim2.fromScale(.04, .04)
+  Instance.new("UICorner", mark).CornerRadius = UDim.new(.5, 0)
+  mark.Parent = face
+ end
+ -- A hand grows from the centre toward rotation 0 = 12 o'clock.
+ for _, hand in {{"MinuteHand", .36, .07, 60}, {"HourHand", .25, .09, -60}} do
+  local pivot = Instance.new("Frame")
+  pivot.Name, pivot.BackgroundTransparency = hand[1], 1
+  pivot.AnchorPoint, pivot.Position, pivot.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(1, 1)
+  pivot.Rotation, pivot.Parent = hand[4], face
+  local bar = Instance.new("Frame")
+  bar.BorderSizePixel, bar.BackgroundColor3 = 0, Color3.fromRGB(30, 90, 210)
+  bar.AnchorPoint, bar.Position, bar.Size = Vector2.new(.5, 1), UDim2.fromScale(.5, .5), UDim2.fromScale(hand[3], hand[2])
+  Instance.new("UICorner", bar).CornerRadius = UDim.new(.5, 0)
+  stroke(bar, UI.Colors.Border, 1.5)
+  bar.Parent = pivot
+ end
+ local cap = Instance.new("Frame")
+ cap.Name, cap.BorderSizePixel, cap.BackgroundColor3 = "CenterCap", 0, Color3.fromRGB(30, 90, 210)
+ cap.AnchorPoint, cap.Position, cap.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(.14, .14)
+ Instance.new("UICorner", cap).CornerRadius = UDim.new(.5, 0)
+ stroke(cap, UI.Colors.Border, 1.5)
+ cap.Parent = face
+ local bolt = UI.Icon(clock, "Bolt", UI.Icons.Power)
+ bolt.AnchorPoint, bolt.Position, bolt.Size = Vector2.new(.5, .5), UDim2.fromScale(.8, .74), UDim2.fromScale(.56, .56)
+ bolt.Rotation, bolt.ZIndex = 12, 3
+ return clock
+end
+
 function UI.Hero(parent, imageId)
  local hero = Instance.new("Frame")
  hero.Name, hero.Size, hero.BackgroundTransparency = "Hero", UDim2.new(1, -12, 0, 136), 1

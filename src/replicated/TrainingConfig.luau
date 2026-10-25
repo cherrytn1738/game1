@@ -129,9 +129,16 @@ local Training = {
  MaximumOfflineSeconds = 8 * 60 * 60,
  OfflinePowerRateMultiplier = 0.25,
  OfflineNoticeMinimumSeconds = 60,
+ -- Welcome Back's "3x" offer: a Robux developer product that adds the offline reward twice more
+ -- (multiplier 3 in all), once per login. productId 0 = not created yet (the button shows SOON);
+ -- robuxPrice is the price shown on the button (nil until decided).
+ OfflineTriple = {productId = 0, robuxPrice = nil, multiplier = 3},
  PlateSize = Vector3.new(5, 0.1, 5),
  PitchOffset = Vector3.new(3, 3, -24),
  ContactOffset = Vector3.new(3, 3, 0),
+ -- The practice loop: one pitch every PracticeCycleSeconds, met by the bat PracticePitchSeconds in.
+ -- The server grants each Training tick on that hit (TrainingService), so the cycle matches
+ -- every ground's interval (asserted below).
  PracticeCycleSeconds = 2,
  PracticePitchSeconds = 1.1,
 }
@@ -165,6 +172,7 @@ for index, ground in Training.Grounds do
   if table.find(hub.grounds, ground.id) then table.insert(ground.worlds, hub.world) end
  end
  assert(#ground.worlds > 0, "Training ground " .. ground.id .. " stands in no hub")
+ assert(ground.interval == Training.PracticeCycleSeconds, ground.id .. "'s interval must match the practice cycle")
  if ground.gamePassId ~= nil then table.insert(Training.PassGrounds, ground) end
 end
 for _, ground in Training.Grounds do

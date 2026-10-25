@@ -32,6 +32,12 @@ local PROMPT_DISTANCE = 14 -- reaches the front row from anywhere in the dirt la
 -- a pedestal, so neighbouring glows don't wash out the white stage and the items themselves.
 local DISPLAY_LIGHT_BRIGHTNESS, DISPLAY_LIGHT_RANGE = 0.3, 0.4
 local BACKDROP_HEIGHT = 9 -- wall behind the top row, above its tier
+-- Stairs up to the top tier (WorldConfig display stairSide): each step at most STAIR_RISE high
+-- and STAIR_RUN deep, STAIR_WIDTH wide; the top row's pedestals stand UPPER_SETBACK further
+-- back so a 3-stud walkway runs in front of them.
+local STAIR_RISE, STAIR_RUN, STAIR_WIDTH = 0.75, 1.2, 4
+local RAIL_HEIGHT = 3
+local UPPER_SETBACK = 1.3
 
 -- A dark slate stage and pedestals: the items stand out against them, and they stay clear of
 -- bloom under bright lighting (a white stage blew out and hid the items).
@@ -136,6 +142,39 @@ end
 -- definition: a WorldConfig hub display; frame: the hub's batting-edge frame (+Z into the hub).
 -- definition.yaw turns the display about its position (default math.pi: facing the runway;
 -- -math.pi / 2 faces -X, e.g. from the right side of the hub toward its middle).
+-- A staircase beside one end of the stage (side 1 = the display's local +X end, -1 = -X) up
+-- to the top tier, in line with the walkway in front of its pedestals: solid steps with a red
+-- nosing, and a handrail on each side.
+local function buildStairs(display, base, side, width, topHeight, rows)
+ local steps = math.ceil(topHeight / STAIR_RISE)
+ local rise, run = topHeight / steps, STAIR_RUN
+ -- The walkway in front of the top row's pedestals, which the stairs line up with.
+ local front = -(rows - 1) * ROW_DEPTH
+ local centreZ = front - STAIR_WIDTH / 2
+ local inner = width / 2
+ for step = 1, steps do
+  -- Step 1 is outermost and lowest; the last step meets the tier.
+  local x0 = inner + (steps - step) * run
+  local height = step * rise
+  part(display, "StairStep" .. step, Vector3.new(run, height, STAIR_WIDTH),
+   base * CFrame.new(side * (x0 + run / 2), height / 2, centreZ), STAGE_COLOR)
+  part(display, "StairNosing" .. step, Vector3.new(0.3, 0.3, STAIR_WIDTH + 0.1),
+   base * CFrame.new(side * (x0 + run - 0.15), height - 0.15, centreZ), TRIM_COLOR)
+ end
+ local length = steps * run
+ for _, z in {front + 0.25, front - STAIR_WIDTH - 0.25} do
+  local bottom = base * Vector3.new(side * (inner + length), rise + RAIL_HEIGHT, z)
+  local top = base * Vector3.new(side * inner, topHeight + RAIL_HEIGHT, z)
+  part(display, "StairRail", Vector3.new(0.35, 0.35, (top - bottom).Magnitude),
+   CFrame.lookAt((bottom + top) / 2, top), TRIM_COLOR)
+  for _, t in {0, 0.5, 1} do
+   local postTop = bottom:Lerp(top, t)
+   part(display, "StairPost", Vector3.new(0.35, RAIL_HEIGHT, 0.35),
+    CFrame.new(postTop - Vector3.new(0, RAIL_HEIGHT / 2, 0)) * base.Rotation, PEDESTAL_COLOR)
+  end
+ end
+end
+
 function ItemDisplay.Build(hub, frame, definition, worldId)
  local old = hub:FindFirstChild(definition.id)
  if old then old:Destroy() end
@@ -173,8 +212,9 @@ function ItemDisplay.Build(hub, frame, definition, worldId)
   local top = tierTop(row)
   local pedestal = Instance.new("Model")
   pedestal.Name = item.id
-  local slab = part(pedestal, "Pedestal", PEDESTAL,
-   base * CFrame.new(x, top + PEDESTAL.Y / 2, -(row + 0.5) * ROW_DEPTH), PEDESTAL_COLOR)
+  -- Higher rows sit toward the back of their tier, leaving a walkway in front reached by the stairs.
+  local depth = -(row + 0.5) * ROW_DEPTH - (row > 0 and UPPER_SETBACK or 0)
+  local slab = part(pedestal, "Pedestal", PEDESTAL, base * CFrame.new(x, top + PEDESTAL.Y / 2, depth), PEDESTAL_COLOR)
   -- A red plinth band under the white top.
   part(pedestal, "Band", Vector3.new(PEDESTAL.X + 0.5, 0.35, PEDESTAL.Z + 0.5),
    slab.CFrame * CFrame.new(0, -PEDESTAL.Y / 2 + 0.175, 0), TRIM_COLOR)
@@ -193,6 +233,9 @@ function ItemDisplay.Build(hub, frame, definition, worldId)
   CollectionService:AddTag(pedestal, ItemDisplay.PedestalTag)
   pedestal.Parent = display
  end
+ if rows > 1 and definition.stairSide then
+  buildStairs(display, base, definition.stairSide, width, tierTop(rows - 1), rows)
+ end
  -- A backdrop wall behind the top row, with a red cap, and the title above it.
  local wallTop = tierTop(rows - 1) + BACKDROP_HEIGHT
  local wallZ = -rows * ROW_DEPTH - 0.5
@@ -208,35 +251,37 @@ function ItemDisplay.Build(hub, frame, definition, worldId)
  return display
 end
 
--- Copies each designed Ball model, styled, into ReplicatedStorage.BallModels so clients can
--- show it on the station ball and in flight (ServerStorage is not visible to clients).
--- BallDiameter is the ball body's size in the model, used to fit the 0.8-stud physics ball.
-function ItemDisplay.PublishBallModels()
+-- Copies each designed Ball and Bat model, styled, into ReplicatedStorage.BallModels /
+-- BatModels so clients can show them (ServerStorage is not visible to clients): balls on the
+-- station ball and in flight, both as Inventory icons. BallDiameter is the ball body's size in
+-- the model, used to fit the 0.8-stud physics ball.
+function ItemDisplay.PublishItemModels()
  local ReplicatedStorage = game:GetService("ReplicatedStorage")
  local assets = game:GetService("ServerStorage"):FindFirstChild("RunwayAssets")
  local source = assets and assets:FindFirstChild("DisplayItems")
- local folder = ReplicatedStorage:FindFirstChild("BallModels") or Instance.new("Folder")
- folder.Name = "BallModels"
- folder:ClearAllChildren()
- for _, item in Equipment.GetItems("Ball") do
-  local template = source and source:FindFirstChild(item.id)
-  local body = template and template:IsA("Model") and mainPart(template)
-  if body then
-   local model = BallStyles.ApplyLook(template:Clone(), item.id)
-   model.Name = item.id
-   if not model.PrimaryPart then model.WorldPivot = body.CFrame end
-   model:SetAttribute("BallDiameter", math.max(body.Size.X, body.Size.Y, body.Size.Z))
-   for _, descendant in model:GetDescendants() do
-    if descendant:IsA("BasePart") then
-     descendant.Anchored, descendant.CanCollide, descendant.CanTouch, descendant.CanQuery = true, false, false, false
-     descendant.Massless = true
+ for category, folderName in {Ball = "BallModels", Bat = "BatModels"} do
+  local folder = ReplicatedStorage:FindFirstChild(folderName) or Instance.new("Folder")
+  folder.Name = folderName
+  folder:ClearAllChildren()
+  for _, item in Equipment.GetItems(category) do
+   local template = source and source:FindFirstChild(item.id)
+   local body = template and template:IsA("Model") and mainPart(template)
+   if body then
+    local model = STYLES[category].ApplyLook(template:Clone(), item.id)
+    model.Name = item.id
+    if not model.PrimaryPart then model.WorldPivot = body.CFrame end
+    if category == "Ball" then model:SetAttribute("BallDiameter", math.max(body.Size.X, body.Size.Y, body.Size.Z)) end
+    for _, descendant in model:GetDescendants() do
+     if descendant:IsA("BasePart") then
+      descendant.Anchored, descendant.CanCollide, descendant.CanTouch, descendant.CanQuery = true, false, false, false
+      descendant.Massless = true
+     end
     end
+    model.Parent = folder
    end
-   model.Parent = folder
   end
+  folder.Parent = ReplicatedStorage
  end
- folder.Parent = ReplicatedStorage
- return folder
 end
 
 return ItemDisplay

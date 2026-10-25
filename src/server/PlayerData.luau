@@ -186,8 +186,8 @@ local function grantProgression(state, baseAmount, source, batId, boost)
  local bat = Equipment.Get("Bat", batId)
  if not bat then return false, "Invalid Bat for Power grant." end
  local oldLevel = state.Level
- local amount = state.Level < state.LevelCap
-  and Progression.GetPowerGrant(baseAmount, state.Rebirths, bat.powerGainMultiplier, boost) or 0
+ -- Granted at the Level Cap too: Power keeps building there until a Rebirth.
+ local amount = Progression.GetPowerGrant(baseAmount, state.Rebirths, bat.powerGainMultiplier, boost)
  Progression.Advance(state, amount)
  return true, {powerGranted = amount, oldLevel = oldLevel, newLevel = state.Level, source = source}
 end
@@ -384,16 +384,19 @@ local function recordGamePassPurchase(player, session, gamePassId)
  if price and sessions[player] == session and not session.failed then addRobux(session, price) end
 end
 
--- For a developer product's ProcessReceipt handler (none exist yet): call it once the product
--- has been granted, with Roblox's receipt. Returns true when counted, false when the receipt is
--- invalid, not this player's, not Robux, or already counted.
+local function validReceipt(player, receipt)
+ if typeof(receipt) ~= "table" or receipt.PlayerId ~= player.UserId then return false end
+ local id = receipt.PurchaseId
+ return type(id) == "string" and #id > 0 and #id <= 64 and validCounter(receipt.CurrencySpent)
+  and (receipt.CurrencyType == nil or receipt.CurrencyType == Enum.CurrencyType.Robux)
+end
+
+-- For a developer product's ProcessReceipt handler: call it once the product has been granted,
+-- with Roblox's receipt. Returns true when counted, false when the receipt is invalid, not this
+-- player's, not Robux, or already counted.
 function PlayerData.RecordRobuxReceipt(player, receipt)
- if not PlayerData.IsReady(player) or typeof(receipt) ~= "table" or receipt.PlayerId ~= player.UserId then return false end
+ if not PlayerData.IsReady(player) or not validReceipt(player, receipt) then return false end
  local id, spent = receipt.PurchaseId, receipt.CurrencySpent
- if type(id) ~= "string" or #id == 0 or #id > 64 or not validCounter(spent)
-  or (receipt.CurrencyType ~= nil and receipt.CurrencyType ~= Enum.CurrencyType.Robux) then
-  return false
- end
  local session = sessions[player]
  local receipts = session.robux.receipts
  if table.find(receipts, id) then return false end
@@ -603,6 +606,34 @@ local function save(player, session, release)
  end
 end
 
+-- Welcome Back's 3x offer, from the developer product's receipt (ProductServer): adds this
+-- login's offline Training reward twice more (3x in all) through the normal grant path, with the
+-- Bat that earned it, under the usual Level Cap rules. Once per login. Returns Roblox's
+-- ProductPurchaseDecision:
+--   PurchaseGranted  granted now (and saved straight away), or this receipt was already granted
+--   NotProcessedYet  the player's data isn't ready or there is no offer to fill; Roblox retries
+--                    the receipt later (such as at their next login with an offline reward)
+function PlayerData.ClaimOfflineTriple(player, receipt)
+ local decision = Enum.ProductPurchaseDecision
+ if not PlayerData.IsReady(player) or not validReceipt(player, receipt) then return decision.NotProcessedYet end
+ local session = sessions[player]
+ if table.find(session.robux.receipts, receipt.PurchaseId) then return decision.PurchaseGranted end
+ local offer = session.offlineTriple
+ if not offer then return decision.NotProcessedYet end
+ local extra = offer.baseAmount * (Training.OfflineTriple.multiplier - 1)
+ local granted = grantProgression(session.progression, extra, "OfflineTriple", offer.batId)
+ if not granted then return decision.NotProcessedYet end
+ session.offlineTriple = nil
+ player:SetAttribute("OfflineTripleAvailable", false)
+ publishProgression(player, session.progression)
+ PlayerData.RecordRobuxReceipt(player, receipt)
+ -- Save now rather than at the next autosave, so a paid reward is on record before Roblox is
+ -- told it was granted. (A failed save is retried by the autosave loop.)
+ while session.saving do task.wait(0.1) end
+ save(player, session, false)
+ return decision.PurchaseGranted
+end
+
 local function close(player, session)
  session.logoutTime = session.logoutTime or os.time()
  session.closeClock = session.closeClock or os.clock()
@@ -629,7 +660,7 @@ local function loadPlayer(player)
  player:SetAttribute("DataLoadState", "Loading")
  local rejection, repairs
  local newRecord = false
- local offlineResult, offlineSeconds, offlineGround
+ local offlineResult, offlineSeconds, offlineGround, offlineBase, offlineBat
  -- Pass ownership is needed before the atomic login: offline Training uses the best
  -- ground the player can use, including paid ones.
  local passes = fetchTrainingPasses(player)
@@ -661,6 +692,7 @@ local function loadPlayer(player)
    if not granted then rejection = "invalid offline reward configuration" return nil end
    for field, value in progression do data[field] = value end
    offlineResult, offlineSeconds = result, seconds
+   offlineBase, offlineBat = baseAmount, data.EquippedBat
   end
   -- Reward and timestamp consumption commit WITH the session claim. A response-loss
   -- retry sees our session ID and cannot apply the reward a second time.
@@ -691,6 +723,11 @@ local function loadPlayer(player)
   offlineGround or Training.GetBestGround(session.progression.Rebirths, passes, record.UnlockedWorlds).id)
  player:SetAttribute("OfflineOldLevel", offlineResult and offlineResult.oldLevel or session.progression.Level)
  player:SetAttribute("OfflineNewLevel", offlineResult and offlineResult.newLevel or session.progression.Level)
+ -- Welcome Back's 3x offer (ClaimOfflineTriple): this login's offline reward, for adding it
+ -- twice more. Offered whenever there was a reward (Power keeps building at the Level Cap).
+ local tripleEligible = offlineBase ~= nil and offlineBase > 0
+ session.offlineTriple = tripleEligible and {baseAmount = offlineBase, batId = offlineBat} or nil
+ player:SetAttribute("OfflineTripleAvailable", tripleEligible)
  publishProgression(player, session.progression)
  -- Publish the complete authoritative runtime state only after a successful claim.
  local stats = Instance.new("Folder")

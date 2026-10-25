@@ -83,8 +83,12 @@ local function enter(player, ground, plate, character, humanoid, root)
  sessionId += 1
  local height = humanoid.HipHeight + root.Size.Y/2
  local frame = plate.CFrame * CFrame.new(0,plate.Size.Y/2+height,0) * CFrame.Angles(0,-math.pi/2,0)
+ -- Power is granted as the bat meets each practice ball: the client's practice loop runs on the
+ -- same server clock from TrainingStartedAt (contact PracticePitchSeconds into each cycle), so
+ -- the HUD's Power bar moves with the hit and its "+Power" popup.
+ local startedAt = workspace:GetServerTimeNow()
  active[player] = {player=player, character=character, humanoid=humanoid, root=root, tool=tool,
-  ground=ground, plate=plate, frame=frame, nextTick=os.clock()+ground.interval,
+  ground=ground, plate=plate, frame=frame, nextTick=startedAt+Training.PracticePitchSeconds,
   saved={anchored=root.Anchored,walkSpeed=humanoid.WalkSpeed,jumpPower=humanoid.JumpPower,
    jumpHeight=humanoid.JumpHeight,autoRotate=humanoid.AutoRotate}}
  occupants[plate] = player
@@ -94,7 +98,7 @@ local function enter(player, ground, plate, character, humanoid, root)
  plate:SetAttribute("OccupantUserId", player.UserId)
  player:SetAttribute("TrainingGround", ground.id)
  player:SetAttribute("TrainingSession",sessionId)
- player:SetAttribute("TrainingStartedAt",workspace:GetServerTimeNow())
+ player:SetAttribute("TrainingStartedAt",startedAt)
  player:SetAttribute("TrainingActive",true)
  humanoid:EquipTool(tool)
 end
@@ -153,27 +157,29 @@ function Service.Start()
  for _, player in Players:GetPlayers() do watch(player) end
  local elapsed = 0
  RunService.Heartbeat:Connect(function(dt)
-  elapsed += dt
-  if elapsed < .1 then return end
-  elapsed = 0
+  -- Active trainees are checked every frame so each grant lands on its hit, not up to 0.1 s late.
+  local now = workspace:GetServerTimeNow()
   for player, state in active do
    local character, _, root = characterState(player)
    if character ~= state.character or root ~= state.root or state.tool.Parent ~= character
     or (root.Position-state.frame.Position).Magnitude > 1 or not Data.CanUseTrainingGround(player, state.ground.id) then
     Service.Stop(player)
-   elseif os.clock() >= state.nextTick then
-    state.nextTick = os.clock() + state.ground.interval -- No burst/catch-up rewards after stalls.
-    local progression = Data.GetProgression(player)
-    if progression.Level < progression.LevelCap then
-     local granted, result = Data.GrantPower(player,state.ground.basePower,"ActiveTraining")
-     -- Display copies for the client's "+Power" popup; the tick count makes repeats visible.
-     if granted and result.powerGranted > 0 then
-      player:SetAttribute("TrainingPowerGained", result.powerGranted)
-      player:SetAttribute("TrainingPowerTick", (player:GetAttribute("TrainingPowerTick") or 0) + 1)
-     end
+   elseif now >= state.nextTick then
+    -- One grant per hit; hits missed during a stall are skipped (no burst/catch-up rewards).
+    repeat state.nextTick += state.ground.interval until state.nextTick > now
+    -- Granted at the Level Cap too (Power keeps building there until a Rebirth).
+    local granted, result = Data.GrantPower(player,state.ground.basePower,"ActiveTraining")
+    -- Display copies of the grant; the tick count makes repeats visible.
+    if granted and result.powerGranted > 0 then
+     player:SetAttribute("TrainingPowerGained", result.powerGranted)
+     player:SetAttribute("TrainingPowerTick", (player:GetAttribute("TrainingPowerTick") or 0) + 1)
     end
    end
   end
+  -- Looking for players stepping onto a plate only needs to happen every 0.1 s.
+  elapsed += dt
+  if elapsed < .1 then return end
+  elapsed = 0
   for _, player in Players:GetPlayers() do
    local character, humanoid, root = characterState(player)
    if root and not active[player] then

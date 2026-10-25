@@ -44,16 +44,16 @@ function Progression.GetLaunchSpeed(level)
 end
 
 -- Shared pure arithmetic; only PlayerData may grant authoritative Power.
--- Requirements are consumed, multiple levels can advance, and cap overflow is discarded.
+-- Requirements are consumed and multiple levels can advance. At the Level Cap, Level stops but
+-- Power keeps building (up to MaxPower) until the player Rebirths.
 function Progression.Advance(state, amount)
- state.Power += amount
+ state.Power = math.min(Progression.MaxPower, state.Power + amount)
  while state.Level < state.LevelCap do
   local required = Progression.PowerRequiredForNextLevel(state.Level)
   if state.Power < required then break end
   state.Power -= required
   state.Level += 1
  end
- if state.Level >= state.LevelCap then state.Power = 0 end
 end
 
 -- Legacy saves receive defaults. Invalid new fields are repaired independently;

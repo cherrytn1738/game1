@@ -97,7 +97,20 @@ local navigation = QuickMenu.Create(root, function(name)
   if remote and not Interfaces.IsOpen() then remote:FireServer() end
   return
  end
- if not Interfaces.CanOpen() or Interfaces.IsOpen() then return end
+ if Interfaces.IsOpen() then return end
+ -- Menus can't open while training, so a menu tile leaves training first (the same request as
+ -- the Leave button), then opens once the server has stopped it.
+ if quickMenuInterfaces[name] and Player:GetAttribute("TrainingActive") then
+  ReplicatedStorage.TrainingRequest:FireServer("Exit", Player:GetAttribute("TrainingSession"))
+  task.spawn(function()
+   local started = os.clock()
+   while Player:GetAttribute("TrainingActive") and os.clock() - started < 3 do task.wait(0.1) end
+   task.wait(0.1)
+   if Interfaces.CanOpen() and not Interfaces.IsOpen() then Interfaces.Open(quickMenuInterfaces[name]) end
+  end)
+  return
+ end
+ if not Interfaces.CanOpen() then return end
  if quickMenuInterfaces[name] then
   Interfaces.Open(quickMenuInterfaces[name])
  else
@@ -250,10 +263,13 @@ local function refresh()
  end
  -- Hidden while a hit is in flight to keep the cinematic view clear.
  wallet.Visible = not Interfaces.IsOpen() and not playing
- progression.Visible = not Interfaces.IsOpen() and not Player:GetAttribute("TrainingActive") and not batting and not playing
+ -- Training keeps the HUD up: the Level / Power bar (watch Power grow), the counters and the
+ -- menu tiles. Only batting and a hit in flight clear the screen.
+ local training = ready and alive and Player:GetAttribute("TrainingActive") == true
+ progression.Visible = not Interfaces.IsOpen() and not batting and not playing
  battingShortcut.Visible = progression.Visible and ready and alive == true and Interfaces.CanOpen()
  UI.SetButton(battingShortcut,"BATTING",Interfaces.CanOpen(),true)
- navigation.Visible = Interfaces.CanOpen() and not Interfaces.IsOpen()
+ navigation.Visible = (Interfaces.CanOpen() or training) and not Interfaces.IsOpen()
  hint.Visible = batting and not playing and os.clock() >= popupUntil
  hint.Text = UserInputService.TouchEnabled and "SWING to hit · LEAVE to exit" or "Click to swing · Space to leave"
  if Interfaces.IsOpen() or not ready or not alive then

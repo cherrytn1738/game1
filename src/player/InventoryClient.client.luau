@@ -1,5 +1,8 @@
--- Inventory: browse Bats and Balls (equip from here) and Juice (drink from here).
--- Presentation and intent only; the server validates every equip and juice use.
+-- Inventory: the Bats and Balls you own (tap one to equip it) and your Juice (tap to drink).
+-- Tabs stand down the left of the window; each owned item is a picture card with its multiplier
+-- along the bottom, and the equipped one has a blue frame and a green tick.
+-- Presentation and intent only; the server validates every equip and juice use, and the
+-- Equipment menu's listener shows each equip result as a notification.
 local Player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local Storage = game:GetService("ReplicatedStorage")
@@ -9,19 +12,24 @@ local EquipRemote = Storage:WaitForChild("EquipmentUpgrade")
 local UI = require(script.Parent:WaitForChild("UICommon"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
 
--- Card borders/names by tier (item order in its category), like rarity colours.
-local TIER_COLORS = {Color3.fromRGB(190, 200, 210), Color3.fromRGB(70, 150, 255), Color3.fromRGB(175, 90, 255), Color3.fromRGB(255, 200, 40)}
-local LOCK_ICON = "rbxassetid://17368080973"
 local JUICE_ICON = "rbxassetid://15403270948"
-local TAB_WIDTH, TAB_HEIGHT, GAP = 112, 96, 10
-local CARD_HEIGHT = 86
+local TAB_WIDTH, TAB_HEIGHT, TAB_GAP = 150, 104, 14
+local TAB_OVERHANG = 70 -- how far the tabs stick out left of the window
+local CARD_SIZE, CARD_GAP = 124, 16
+-- Inside the window, content starts clear of the tabs that overlap its left edge.
+local CONTENT_LEFT = TAB_WIDTH - TAB_OVERHANG + 22
 local TABS = {
  {id = "Bat", label = "Bats"},
  {id = "Ball", label = "Balls"},
  {id = "Juice", label = "Juice"},
 }
+-- Where each category's published models are (ItemDisplay.PublishItemModels).
+local MODEL_FOLDERS = {Bat = "BatModels", Ball = "BallModels"}
+-- The multiplier's icon: Bats multiply Power, Balls multiply Cash.
+local VALUE_ICONS = {Bat = UI.Icons.Power, Ball = UI.Icons.Cash, Power = UI.Icons.Power, Cash = UI.Icons.Cash}
 
-local gui, panel, show = UI.Menu("InventoryGui", "Inventory", "", Interfaces.CloseAll)
+local _, panel, show, window = UI.ShowcaseMenu("InventoryGui", "My Bats", Interfaces.CloseAll,
+ {maxWidth = 900, maxHeight = 620, boxLeft = TAB_OVERHANG, theme = "Blue"})
 local visible, selected = false, "Bat"
 
 local function corner(parent, radius)
@@ -36,37 +44,62 @@ local function outline(parent, color, thickness)
  return object
 end
 
--- Small 3D previews built from parts, so the tabs show an actual bat and ball.
-local function modelIcon(parent, kind)
- local viewport = Instance.new("ViewportFrame")
- viewport.Name, viewport.BackgroundTransparency = "Icon", 1
- viewport.Ambient, viewport.LightColor, viewport.LightDirection = Color3.fromRGB(190, 190, 190), Color3.new(1, 1, 1), Vector3.new(-1, -1, -1)
+-- A ViewportFrame showing a model, fitted to its frame. Bats lean diagonally like the reference
+-- icons; balls face the camera.
+local function viewport(parent, model, kind)
+ local frame = Instance.new("ViewportFrame")
+ frame.Name, frame.BackgroundTransparency = "Icon", 1
+ frame.Ambient, frame.LightColor, frame.LightDirection = Color3.fromRGB(200, 200, 200), Color3.new(1, 1, 1), Vector3.new(-1, -1.5, -1)
+ local clone = model:Clone()
+ clone:PivotTo(kind == "Bat" and CFrame.Angles(0, 0, math.rad(-45)) or CFrame.Angles(math.rad(10), math.rad(-20), 0))
+ clone.Parent = frame
+ local box, size = clone:GetBoundingBox()
+ local camera = Instance.new("Camera")
+ camera.FieldOfView = 30
+ local reach = math.max(size.X, size.Y) / 2 / math.tan(math.rad(camera.FieldOfView / 2)) * 1.12 + size.Z / 2
+ camera.CFrame = CFrame.lookAt(box.Position + Vector3.new(0, 0, reach), box.Position)
+ camera.Parent, frame.CurrentCamera = frame, camera
+ frame.Parent = parent
+ return frame
+end
+
+-- A simple bat or ball built from parts, for the tabs and for items with no designed model.
+local function partModel(kind, color)
  local model = Instance.new("Model")
- model.Parent = viewport
- local function part(shape, size, cframe, color)
+ local function part(shape, size, cframe, partColor)
   local object = Instance.new("Part")
-  object.Shape, object.Size, object.CFrame, object.Color = shape, size, cframe, color
+  object.Shape, object.Size, object.CFrame, object.Color = shape, size, cframe, partColor
   object.Material, object.Anchored, object.Parent = Enum.Material.SmoothPlastic, true, model
  end
  if kind == "Bat" then
-  local wood = Color3.fromRGB(196, 140, 80)
-  local tilt = CFrame.Angles(0, 0, math.rad(50))
-  part(Enum.PartType.Cylinder, Vector3.new(2.3, .62, .62), tilt * CFrame.new(.9, 0, 0), wood)
-  part(Enum.PartType.Cylinder, Vector3.new(1.9, .32, .32), tilt * CFrame.new(-1.1, 0, 0), wood)
-  part(Enum.PartType.Cylinder, Vector3.new(.18, .5, .5), tilt * CFrame.new(-2.1, 0, 0), Color3.fromRGB(120, 80, 45))
+  local wood = color or Color3.fromRGB(196, 140, 80)
+  local up = CFrame.Angles(0, 0, math.pi / 2)
+  part(Enum.PartType.Cylinder, Vector3.new(2.3, .62, .62), CFrame.new(0, 2.2, 0) * up, wood)
+  part(Enum.PartType.Cylinder, Vector3.new(1.9, .32, .32), CFrame.new(0, .2, 0) * up, wood)
+  part(Enum.PartType.Cylinder, Vector3.new(.18, .5, .5), CFrame.new(0, -.8, 0) * up, Color3.fromRGB(120, 80, 45))
  else
-  part(Enum.PartType.Ball, Vector3.one * 2, CFrame.new(), Color3.fromRGB(250, 250, 245))
+  part(Enum.PartType.Ball, Vector3.one * 2, CFrame.new(), color or Color3.fromRGB(250, 250, 245))
   -- Two thin discs read as the red stitched seams.
   for _, angle in {.5, -.5} do
    part(Enum.PartType.Cylinder, Vector3.new(.05, 2.04, 2.04), CFrame.Angles(0, math.pi / 2 + angle, .35), Color3.fromRGB(220, 40, 50))
   end
  end
- local camera = Instance.new("Camera")
- -- Close framing so each model fills its tab icon.
- camera.FieldOfView, camera.CFrame = 40, CFrame.lookAt(Vector3.new(0, 0, kind == "Bat" and 4.8 or 3.3), Vector3.zero)
- camera.Parent, viewport.CurrentCamera = viewport, camera
- viewport.Parent = parent
- return viewport
+ return model
+end
+
+-- The picture of an item: its designed model when published, otherwise a plain stand-in in the
+-- item's colour.
+local function itemPicture(parent, category, item)
+ local folder = Storage:FindFirstChild(MODEL_FOLDERS[category])
+ local model = folder and folder:FindFirstChild(item.id)
+ local appearance = item.appearance
+ local color = typeof(appearance) == "table" and typeof(appearance.color) == "Color3" and appearance.color or nil
+ return viewport(parent, model or partModel(category, color), category)
+end
+
+local function tabPicture(parent, id)
+ if id == "Juice" then return UI.Icon(parent, "Icon", JUICE_ICON) end
+ return viewport(parent, partModel(id), id)
 end
 
 local function pressable(button, visual)
@@ -75,80 +108,79 @@ local function pressable(button, visual)
  local function animate(value, style, duration)
   TweenService:Create(scale, TweenInfo.new(duration or .08, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = value}):Play()
  end
- button.MouseEnter:Connect(function() animate(1.04) end)
+ button.MouseEnter:Connect(function() animate(1.05) end)
  button.MouseLeave:Connect(function() animate(1) end)
- button.MouseButton1Down:Connect(function() animate(.95, Enum.EasingStyle.Quad, .05) end)
- button.MouseButton1Up:Connect(function() animate(1.04, Enum.EasingStyle.Back, .12) end)
+ button.MouseButton1Down:Connect(function() animate(.94, Enum.EasingStyle.Quad, .05) end)
+ button.MouseButton1Up:Connect(function() animate(1.05, Enum.EasingStyle.Back, .12) end)
 end
 
--- Left column of tabs.
+-- Tabs down the left, sticking out of the window: a picture over the tab's name. The selected
+-- tab turns blue.
+local TINT = window.theme.tint
+local TAB_IDLE = {TINT:Lerp(Color3.new(1, 1, 1), .1), TINT:Lerp(Color3.new(0, 0, 0), .35)}
+local TAB_SELECTED = {Color3.fromRGB(120, 225, 255), Color3.fromRGB(40, 160, 235)}
 local tabButtons = {}
 for index, tab in TABS do
  local button = Instance.new("TextButton")
  button.Name, button.Text, button.AutoButtonColor, button.BackgroundTransparency = tab.id .. "Tab", "", false, 1
- button.Position, button.Size = UDim2.fromOffset(12, 76 + (index - 1) * (TAB_HEIGHT + GAP)), UDim2.fromOffset(TAB_WIDTH, TAB_HEIGHT)
- button.Parent = panel
+ button.ZIndex, button.Parent = 8, panel
  local visual = Instance.new("Frame")
  visual.Name, visual.AnchorPoint, visual.Position = "Visual", Vector2.new(.5, .5), UDim2.fromScale(.5, .5)
  visual.Size, visual.BorderSizePixel, visual.BackgroundColor3 = UDim2.fromScale(1, 1), 0, Color3.new(1, 1, 1)
- visual.Parent = button
- corner(visual, 8)
- outline(visual, Color3.new(0, 0, 0), 2.8)
- local gradient = UI.Gradient(visual, UI.ButtonStates.Claimed[1], UI.ButtonStates.Claimed[2])
- UI.Damier(visual, Color3.new(0, 0, 0), 18, NumberSequence.new(.92, .72))
- local icon = tab.id == "Juice" and UI.Icon(visual, "Icon", JUICE_ICON) or modelIcon(visual, tab.id)
- icon.AnchorPoint, icon.Position, icon.Size, icon.ZIndex = Vector2.new(.5, 0), UDim2.new(.5, 0, 0, 6), UDim2.fromOffset(58, 58), 2
- local label = UI.Label(visual, "Label", tab.label, 22)
- label.AnchorPoint, label.Position, label.Size = Vector2.new(.5, 1), UDim2.new(.5, 0, 1, -4), UDim2.new(1, -6, 0, 28)
- label.TextXAlignment, label.ZIndex = Enum.TextXAlignment.Center, 3
+ visual.ZIndex, visual.Parent = 8, button
+ corner(visual, 10)
+ outline(visual, UI.Showcase.Outline, 4)
+ local gradient = UI.Gradient(visual, TAB_IDLE[1], TAB_IDLE[2])
+ local highlight = Instance.new("Frame")
+ highlight.Name, highlight.BackgroundTransparency, highlight.AnchorPoint = "Highlight", 1, Vector2.new(.5, .5)
+ highlight.Position, highlight.Size, highlight.ZIndex = UDim2.fromScale(.5, .5), UDim2.new(1, -6, 1, -6), 9
+ corner(highlight, 8)
+ local highlightStroke = outline(highlight, Color3.new(1, 1, 1), 3)
+ highlight.Parent = visual
+ local icon = tabPicture(visual, tab.id)
+ icon.AnchorPoint, icon.Position, icon.Size, icon.ZIndex = Vector2.new(.5, 0), UDim2.new(.5, 0, 0, 4), UDim2.new(.62, 0, .62, 0), 10
+ local label = UI.ShowcaseLabel(visual, "Label", tab.label, 38)
+ label.AnchorPoint, label.Position, label.Size = Vector2.new(.5, 1), UDim2.new(.5, 0, 1, -2), UDim2.new(1, -8, .42, 0)
+ label.TextXAlignment, label.TextScaled, label.ZIndex = Enum.TextXAlignment.Center, true, 11
  pressable(button, visual)
- tabButtons[tab.id] = {button = button, gradient = gradient}
+ tabButtons[tab.id] = {button = button, gradient = gradient, highlight = highlightStroke, index = index}
 end
 
--- Right side: counters, item grid, feedback line.
-local contentX = 12 + TAB_WIDTH + 12
-local countLabel = UI.Label(panel, "Count", "", 20)
-countLabel.Position, countLabel.Size = UDim2.fromOffset(contentX + 4, 72), UDim2.new(.5, -contentX / 2, 0, 30)
-local statusLabel = UI.Label(panel, "Status", "", 18, UI.Colors.Muted)
-statusLabel.AnchorPoint, statusLabel.Position, statusLabel.Size = Vector2.new(1, 0), UDim2.new(1, -16, 0, 72), UDim2.new(.5, -contentX / 2, 0, 30)
-statusLabel.TextXAlignment = Enum.TextXAlignment.Right
-local well = UI.Surface(panel, "Items", UI.Colors.Card)
-well.Position, well.Size = UDim2.fromOffset(contentX, 106), UDim2.new(1, -contentX - 12, 1, -148)
+-- Inside the window: the count ("3 / 10 Bats") and the dark well holding the item grid.
+local countLabel = UI.ShowcaseLabel(window.box, "Count", "", 34)
+countLabel.Position, countLabel.Size = UDim2.fromOffset(CONTENT_LEFT + 16, 28), UDim2.new(1, -CONTENT_LEFT - 110, 0, 42)
+countLabel.TextScaled = true
+local countSize = Instance.new("UITextSizeConstraint")
+countSize.MaxTextSize, countSize.Parent = 34, countLabel
+local well = UI.ShowcaseFrame(window.box, "Items", window.theme.well, 18)
+well.Position, well.Size = UDim2.fromOffset(CONTENT_LEFT, 78), UDim2.new(1, -CONTENT_LEFT - 24, 1, -100)
 local grid = Instance.new("ScrollingFrame")
 grid.Name, grid.BackgroundTransparency, grid.BorderSizePixel = "Grid", 1, 0
-grid.Position, grid.Size = UDim2.fromOffset(10, 10), UDim2.new(1, -20, 1, -20)
-grid.ScrollBarThickness, grid.ScrollBarImageColor3 = 6, Color3.fromRGB(85, 140, 160)
+grid.Position, grid.Size = UDim2.fromOffset(6, 6), UDim2.new(1, -12, 1, -12)
+grid.ScrollBarThickness, grid.ScrollBarImageColor3 = 8, UI.Showcase.CardLight
 grid.CanvasSize, grid.AutomaticCanvasSize = UDim2.new(), Enum.AutomaticSize.Y
-grid.ZIndex, grid.Parent = 2, well
+grid.Parent = well
 local layout = Instance.new("UIGridLayout")
-layout.CellPadding, layout.SortOrder = UDim2.fromOffset(10, 10), Enum.SortOrder.LayoutOrder
-layout.Parent = grid
+layout.CellSize, layout.CellPadding = UDim2.fromOffset(CARD_SIZE, CARD_SIZE), UDim2.fromOffset(CARD_GAP, CARD_GAP)
+layout.SortOrder, layout.Parent = Enum.SortOrder.LayoutOrder, grid
 local padding = Instance.new("UIPadding")
-padding.PaddingTop, padding.PaddingLeft, padding.PaddingRight = UDim.new(0, 4), UDim.new(0, 4), UDim.new(0, 4)
+for _, side in {"PaddingTop", "PaddingLeft", "PaddingRight", "PaddingBottom"} do padding[side] = UDim.new(0, 26) end
 padding.Parent = grid
-local emptyLabel = UI.Label(well, "Empty", "", 18, UI.Colors.Muted)
-emptyLabel.AnchorPoint, emptyLabel.Position, emptyLabel.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.new(1, -40, 0, 80)
-emptyLabel.TextXAlignment, emptyLabel.TextWrapped, emptyLabel.ZIndex = Enum.TextXAlignment.Center, true, 3
-local feedback = UI.Label(panel, "Feedback", "", 15, UI.Colors.Muted)
-feedback.Position, feedback.Size = UDim2.new(0, contentX + 4, 1, -38), UDim2.new(1, -contentX - 16, 0, 28)
+local emptyLabel = UI.ShowcaseLabel(well, "Empty", "", 28, Color3.fromRGB(200, 204, 214))
+emptyLabel.AnchorPoint, emptyLabel.Position, emptyLabel.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.new(1, -60, 0, 100)
+emptyLabel.TextXAlignment, emptyLabel.TextWrapped = Enum.TextXAlignment.Center, true
 
--- Short windows shrink the tabs so all three always fit.
+-- Short windows shrink the tabs so all three always fit beside the window.
 local function layoutTabs()
- local height = math.clamp((panel.Size.Y.Offset - 76 - 14 - GAP * (#TABS - 1)) / #TABS, 64, TAB_HEIGHT)
- for index, tab in TABS do
-  local button = tabButtons[tab.id].button
-  button.Position, button.Size = UDim2.fromOffset(12, 76 + (index - 1) * (height + GAP)), UDim2.fromOffset(TAB_WIDTH, height)
+ local top = window.top + 30
+ local height = math.clamp((panel.Size.Y.Offset - top - 20 - TAB_GAP * (#TABS - 1)) / #TABS, 70, TAB_HEIGHT)
+ for _, tab in tabButtons do
+  tab.button.Position = UDim2.fromOffset(4, top + (tab.index - 1) * (height + TAB_GAP))
+  tab.button.Size = UDim2.fromOffset(TAB_WIDTH, height)
  end
 end
 panel:GetPropertyChangedSignal("Size"):Connect(layoutTabs)
 layoutTabs()
-
-local function resizeGrid()
- local width = grid.AbsoluteSize.X / math.max(panel.WindowScale.Scale, .01) - 8
- local columns = width < 330 and 2 or 3
- layout.CellSize = UDim2.fromOffset(math.max(90, math.floor((width - (columns - 1) * 10) / columns)), CARD_HEIGHT)
-end
-grid:GetPropertyChangedSignal("AbsoluteSize"):Connect(resizeGrid)
 
 local function formatTime(seconds)
  seconds = math.max(0, math.ceil(seconds))
@@ -156,39 +188,64 @@ local function formatTime(seconds)
  return hours > 0 and string.format("%d:%02d:%02d", hours, minutes, secs) or string.format("%d:%02d", minutes, secs)
 end
 
+local function multiplier(value)
+ return "x" .. (value >= 100 and UI.Compact(value) or (string.format("%.2f", value):gsub("%.?0+$", "")))
+end
+
 local function folderValue(folderName, id)
  local folder = Player:FindFirstChild(folderName)
  return folder and folder:GetAttribute(id)
 end
 
--- One item card: tier-coloured border and name, an effect line, and a state line.
-local function card(order, title, color, effect, state, stateColor, locked, highlighted, onClick)
+-- A green round badge with a white tick, on the equipped card's top-right corner.
+local function tick(parent)
+ local badge = Instance.new("Frame")
+ badge.Name, badge.AnchorPoint, badge.Position = "Equipped", Vector2.new(.5, .5), UDim2.new(1, -14, 0, 14)
+ badge.Size, badge.BorderSizePixel, badge.BackgroundColor3, badge.ZIndex = UDim2.fromOffset(38, 38), 0, Color3.new(1, 1, 1), 5
+ corner(badge, 19)
+ outline(badge, UI.Showcase.Outline, 3)
+ UI.Gradient(badge, Color3.fromRGB(110, 230, 80), Color3.fromRGB(40, 170, 50))
+ for _, stroke in {{Vector2.new(-6, 4), 10, 45}, {Vector2.new(4, 0), 20, -50}} do
+  local bar = Instance.new("Frame")
+  bar.AnchorPoint, bar.BorderSizePixel, bar.BackgroundColor3 = Vector2.new(.5, .5), 0, Color3.new(1, 1, 1)
+  bar.Position, bar.Size, bar.Rotation, bar.ZIndex = UDim2.new(.5, stroke[1].X, .5, stroke[1].Y), UDim2.fromOffset(stroke[2], 5), stroke[3], 6
+  corner(bar, 2)
+  bar.Parent = badge
+ end
+ badge.Parent = parent
+end
+
+-- One item card: the picture, the multiplier along the bottom (icon + green value), an optional
+-- note on top (a juice count or time left), and a blue frame and tick when equipped/active.
+local function card(order, name, picture, valueIcon, valueText, note, highlighted, onClick)
  local button = Instance.new("TextButton")
- button.Name, button.Text, button.AutoButtonColor, button.BackgroundTransparency = title, "", false, 1
+ button.Name, button.Text, button.AutoButtonColor, button.BackgroundTransparency = name, "", false, 1
  button.LayoutOrder, button.Parent = order, grid
  local visual = Instance.new("Frame")
  visual.Name, visual.AnchorPoint, visual.Position = "Visual", Vector2.new(.5, .5), UDim2.fromScale(.5, .5)
- visual.Size, visual.BorderSizePixel = UDim2.fromScale(1, 1), 0
- visual.BackgroundColor3 = highlighted and Color3.fromRGB(28, 66, 82) or Color3.fromRGB(16, 26, 32)
+ visual.Size, visual.BorderSizePixel, visual.BackgroundColor3 = UDim2.fromScale(1, 1), 0, Color3.new(1, 1, 1)
  visual.Parent = button
- corner(visual, 8)
- outline(visual, highlighted and UI.ButtonStates.Cyan[1] or color, 3).Transparency = locked and .45 or 0
- local name = UI.Label(visual, "Name", title, 20, locked and color:Lerp(Color3.new(.3, .3, .3), .45) or color)
- name.Position, name.Size, name.TextXAlignment = UDim2.fromOffset(8, 6), UDim2.new(1, -36, 0, 28), Enum.TextXAlignment.Center
- name.TextScaled = true
- local constraint = Instance.new("UITextSizeConstraint")
- constraint.MinTextSize, constraint.MaxTextSize, constraint.Parent = 9, 20, name
- local effectLabel = UI.Label(visual, "Effect", effect, 14, UI.ButtonStates.Claim[1])
- effectLabel.Position, effectLabel.Size, effectLabel.TextXAlignment = UDim2.fromOffset(6, 36), UDim2.new(1, -12, 0, 20), Enum.TextXAlignment.Center
- local stateLabel = UI.Label(visual, "State", state, 12, stateColor)
- stateLabel.Position, stateLabel.Size, stateLabel.TextXAlignment = UDim2.fromOffset(6, 60), UDim2.new(1, -12, 0, 18), Enum.TextXAlignment.Center
- stateLabel.TextScaled = true
- local stateSize = Instance.new("UITextSizeConstraint")
- stateSize.MinTextSize, stateSize.MaxTextSize, stateSize.Parent = 7, 12, stateLabel
- if locked then
-  local lock = UI.Icon(visual, "Lock", LOCK_ICON)
-  lock.AnchorPoint, lock.Position, lock.Size = Vector2.new(1, 0), UDim2.new(1, -4, 0, 4), UDim2.fromOffset(22, 22)
+ corner(visual, 12)
+ outline(visual, highlighted and UI.Showcase.Selected or TINT:Lerp(Color3.new(1, 1, 1), .45), highlighted and 5 or 4)
+ UI.Gradient(visual, TINT:Lerp(Color3.new(1, 1, 1), .08), TINT:Lerp(Color3.new(0, 0, 0), .3))
+ local image = picture(visual)
+ image.AnchorPoint, image.Position, image.Size, image.ZIndex = Vector2.new(.5, .5), UDim2.fromScale(.5, .4), UDim2.fromScale(.86, .86), 2
+ local value = Instance.new("Frame")
+ value.Name, value.BackgroundTransparency, value.ZIndex = "Value", 1, 3
+ value.AnchorPoint, value.Position, value.Size = Vector2.new(.5, 1), UDim2.new(.5, 0, 1, -4), UDim2.new(1, -8, .32, 0)
+ value.Parent = visual
+ local row = Instance.new("UIListLayout")
+ row.FillDirection, row.HorizontalAlignment, row.VerticalAlignment = Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center
+ row.SortOrder, row.Padding, row.Parent = Enum.SortOrder.LayoutOrder, UDim.new(0, 2), value
+ local icon = UI.Icon(value, "Icon", valueIcon)
+ icon.Size, icon.ZIndex, icon.LayoutOrder = UDim2.fromOffset(34, 34), 4, 1
+ local text = UI.ShowcaseLabel(value, "Amount", valueText, 32, UI.Showcase.Value)
+ text.AutomaticSize, text.Size, text.ZIndex, text.LayoutOrder = Enum.AutomaticSize.X, UDim2.fromOffset(0, 36), 4, 2
+ if note then
+  local noteLabel = UI.ShowcaseLabel(visual, "Note", note, 22, Color3.fromRGB(255, 220, 90))
+  noteLabel.Position, noteLabel.Size, noteLabel.ZIndex = UDim2.fromOffset(8, 4), UDim2.new(1, -16, 0, 24), 5
  end
+ if highlighted then tick(visual) end
  pressable(button, visual)
  button.Activated:Connect(onClick)
 end
@@ -199,66 +256,49 @@ local function clearGrid()
  end
 end
 
-local function equipmentEffect(category, item)
- if category == "Bat" then return UI.Number(item.powerGainMultiplier, 2) .. "x Power gain" end
- return UI.Number(item.rewardMultiplier, 2) .. "x Cash"
-end
-
 local function buildEquipment(category)
  local definition = Equipment.Categories[category]
  local equippedId = Player:GetAttribute("Equipped" .. category)
  local items, ownedCount = Equipment.GetItems(category), 0
  for _, item in items do
-  local owned = folderValue(definition.ownedField, item.id) == true
-  local equipped = item.id == equippedId
-  if owned then ownedCount += 1 end
-  local color = TIER_COLORS[math.min(item.order, #TIER_COLORS)]
-  card(item.order, item.displayName, color, equipmentEffect(category, item),
-   equipped and "EQUIPPED" or owned and "TAP TO EQUIP" or "BUY IN THE SHOP",
-   equipped and UI.ButtonStates.Cyan[1] or owned and UI.Colors.Text or UI.Colors.Muted, not owned, equipped,
-   function()
-    if equipped then return end
-    if not owned then
-     feedback.Text, feedback.TextColor3 = "Buy " .. item.displayName .. " in the Shop first.", UI.Colors.Muted
-     return
-    end
-    feedback.Text, feedback.TextColor3 = "Equipping " .. item.displayName .. "...", UI.Colors.Muted
-    EquipRemote:FireServer("Equip", category, item.id)
-   end)
+  if folderValue(definition.ownedField, item.id) == true then
+   ownedCount += 1
+   local equipped = item.id == equippedId
+   local value = category == "Bat" and item.powerGainMultiplier or item.rewardMultiplier
+   card(item.order, item.id, function(parent) return itemPicture(parent, category, item) end, VALUE_ICONS[category],
+    multiplier(value), nil, equipped, function()
+     if equipped then return end
+     EquipRemote:FireServer("Equip", category, item.id)
+    end)
+  end
  end
- local equipped = Equipment.Get(category, equippedId)
- countLabel.Text = string.upper(definition.displayName) .. " " .. ownedCount .. " / " .. #items
- statusLabel.Text = equipped and "EQUIPPED: " .. string.upper(equipped.displayName) or ""
- emptyLabel.Visible = false
+ countLabel.Text = ownedCount .. " / " .. #items .. " " .. definition.displayName
+ emptyLabel.Visible = ownedCount == 0
+ emptyLabel.Text = "Buy " .. string.lower(definition.displayName) .. " at the displays in each World!"
 end
 
 local juiceRemote
 local function buildJuice()
- local ownedTotal, activeCount, shown = 0, 0, 0
+ local ownedTotal, shown = 0, 0
  for _, definition in Juice.GetAll() do
   local owned = folderValue("OwnedJuices", definition.id) or 0
   local remaining = folderValue("ActiveJuices", definition.id) or 0
   ownedTotal += owned
-  if remaining > 0 then activeCount += 1 end
   if owned > 0 or remaining > 0 then
    shown += 1
-   local effect = Juice.Effects[definition.effect]
-   local stateParts = {}
-   if remaining > 0 then table.insert(stateParts, formatTime(remaining) .. " LEFT") end
-   if owned > 0 then table.insert(stateParts, "x" .. owned .. " · TAP TO DRINK") end
-   card(definition.order, definition.displayName, definition.color or UI.Colors.Accent,
-    string.format("%gx %s · %s", definition.multiplier, effect.displayName, formatTime(definition.durationSeconds)),
-    table.concat(stateParts, " · "),
-    remaining > 0 and UI.ButtonStates.Claim[1] or UI.Colors.Text, false, remaining > 0,
+   card(definition.order, definition.id, function(parent)
+     local icon = UI.Icon(parent, "Icon", JUICE_ICON)
+     icon.ImageColor3 = definition.color or Color3.new(1, 1, 1)
+     return icon
+    end, VALUE_ICONS[definition.effect] or UI.Icons.Power, multiplier(definition.multiplier),
+    remaining > 0 and formatTime(remaining) or ("x" .. owned), remaining > 0,
     function()
      if owned < 1 or not juiceRemote then return end
-     feedback.Text, feedback.TextColor3 = "Drinking " .. definition.displayName .. "...", UI.Colors.Muted
      juiceRemote:FireServer("Use", definition.id)
     end)
   end
  end
- countLabel.Text = "JUICE " .. UI.Number(ownedTotal)
- statusLabel.Text = activeCount > 0 and activeCount .. " ACTIVE" or "NONE ACTIVE"
+ countLabel.Text = UI.Number(ownedTotal) .. " Juice"
  emptyLabel.Text = "No juice yet!\nJuice gives temporary boosts, like 2x Power for an hour."
  emptyLabel.Visible = shown == 0
 end
@@ -266,19 +306,23 @@ end
 local function refresh()
  if not visible then return end
  for id, tab in tabButtons do
-  local state = id == selected and UI.ButtonStates.Cyan or UI.ButtonStates.Claimed
-  tab.gradient.Color = ColorSequence.new(state[1], state[2])
+  local colors = id == selected and TAB_SELECTED or TAB_IDLE
+  tab.gradient.Color = ColorSequence.new(colors[1], colors[2])
+  tab.highlight.Enabled = id == selected
  end
+ local label = selected == "Juice" and "Juice" or Equipment.Categories[selected].displayName
+ window.title.Text = "My " .. label
+ window.titleIcon:ClearAllChildren()
+ local titleIcon = tabPicture(window.titleIcon, selected)
+ titleIcon.Size, titleIcon.Rotation, titleIcon.ZIndex = UDim2.fromScale(1, 1), -15, 6
  clearGrid()
  if selected == "Juice" then buildJuice() else buildEquipment(selected) end
- resizeGrid()
 end
 
 for id, tab in tabButtons do
  tab.button.Activated:Connect(function()
   if selected == id then return end
   selected = id
-  feedback.Text = ""
   grid.CanvasPosition = Vector2.zero
   refresh()
  end)
@@ -287,10 +331,7 @@ end
 Interfaces.Register("Inventory", function(open)
  visible = open
  show(open)
- if open then
-  feedback.Text = ""
-  refresh()
- end
+ if open then refresh() end
 end)
 
 -- Keep the open inventory in sync with server-replicated ownership, equips, and juice timers.
@@ -306,10 +347,6 @@ task.spawn(function()
  juiceRemote = Storage:WaitForChild("JuiceRequest")
  juiceRemote.OnClientEvent:Connect(function(success, message)
   if type(message) ~= "string" then return end
-  if visible then
-   feedback.Text, feedback.TextColor3 = message, success and UI.Colors.Success or UI.Colors.Error
-  else
-   UI.Notify(message, success and "success" or "error")
-  end
+  UI.Notify(message, success and "success" or "error")
  end)
 end)

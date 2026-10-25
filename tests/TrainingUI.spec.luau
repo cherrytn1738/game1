@@ -15,7 +15,9 @@ return function(sources)
   }
  end
  local function object(name)
-  return {Name=name,AbsoluteSize=Vector2.new(720,550),Activated=signal(),GetPropertyChangedSignal=function() return signal() end}
+  local function find() return nil end
+  return {Name=name,AbsoluteSize=Vector2.new(720,550),Activated=signal(),GetPropertyChangedSignal=function() return signal() end,
+   FindFirstChild=find,Visual={FindFirstChildOfClass=function() return {} end},Scrim={Visible=false}}
  end
  local attributes = {DataLoaded=true,Rebirths=1,Level=4,LevelCap=20,Power=0,OfflineSeconds=0,WorldUnlocked_world_1=true}
  local changed = {}
@@ -32,7 +34,7 @@ return function(sources)
  end
  player.Character={FindFirstChildOfClass=function() return {Health=100} end}
  local buttons,requests,labels,teleports={},{},{},{}
- local UI={Colors={},Icons={},Number=tostring,Compact=tostring,Notify=function() end,CardState=function() end}
+ local UI={Colors={},Icons={},Showcase={},Number=tostring,Compact=tostring,Notify=function() end,CardState=function() end}
  function UI.Badge() return object("Badge") end
  function UI.Icon() return object("Icon") end
  function UI.Menu() return object("Menu"),object("Panel"),function() end end
@@ -66,18 +68,20 @@ return function(sources)
  local modules={UICommon=UI,HubInterfaces=Interfaces,
   EquipmentConfig=compile(sources.EquipmentConfig)(),TrainingConfig=trainingConfig,
   ProgressionConfig=compile(sources.ProgressionConfig)(),SwingConfig={},WorldConfig=compile(sources.WorldConfig)(),
+  JuiceConfig=compile(sources.JuiceConfig)(),
   GameAudio={Play=function() end,Preload=function() end}}
  local storage={}
  -- The real client fetches its RemoteEvents directly rather than requiring them.
  function storage:WaitForChild(name)
   return name=="TrainingRequest" and remote or name=="TrainingTeleport" and teleport or name
  end
- local services={Players={LocalPlayer=player},RunService={},ContextActionService={},ReplicatedStorage=storage}
+ local services={Players={LocalPlayer=player},RunService={},ContextActionService={},ReplicatedStorage=storage,TweenService={},Debris={},MarketplaceService={}}
  local environment=setmetatable({
   game={GetService=function(_,name) return assert(services[name],name) end},
   script={Parent={UICommon="UICommon",HubInterfaces="HubInterfaces"}},
   require=function(name) return assert(modules[name],name) end,
   task={defer=function() end,spawn=function() end,delay=function() end},
+  Instance={new=function(className) return object(className) end},
  },{__index=getfenv()})
  local client=compile(sources.TrainingClient)
  setfenv(client,environment)

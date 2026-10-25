@@ -343,7 +343,7 @@ end
 
 function Builder.Build()
  local template = workspace:WaitForChild(Worlds.Get(Worlds.StartingWorldId).stationName)
- ItemDisplay.PublishBallModels()
+ ItemDisplay.PublishItemModels()
  for _, world in Worlds.Worlds do
   local area = workspace:FindFirstChild(world.stationName)
   if not area then

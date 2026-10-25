@@ -387,7 +387,7 @@ Relevant files:
 
 Use that skill as a design foundation, not as a reason to make every screen identical.
 
-Preserve the game's own visual identity.
+The game's own visual identity is the Inventory's style, which every screen follows (`UICommon`): the rounded FredokaOne font with heavy dark outlines, blue rounded windows with a faint checker and a title riding over the top edge, a red rounded close button, rounded dark blue cards, and chunky studded buttons (green go, grey done, red locked, blue neutral). Preserve it.
 
 Do not copy another game's proprietary assets, branding, or exact UI layout.
 
@@ -495,7 +495,7 @@ Unless asked, do not add:
 - crates
 - quests
 - daily rewards
-- monetization (the two Training Ground game passes are the approved exception)
+- monetization (the two Training Ground game passes and the Welcome Back 3x offline-reward developer product are the approved exceptions)
 - leaderboards (World 1's four global boards are the approved exception)
 - trading
 - rarity systems

@@ -56,18 +56,19 @@ GameAudio.Cues = {
  -- Training Power gain: plays every couple of seconds, so it is barely there. PSE "Synth
  -- Tone Multi Pitch Short Waa Tone Swell": a short smooth blip.
  PowerTick = {"rbxassetid://9126086045", 0.09, "UI", vary = 0.03, eq = {0, 0, -4}, cooldown = 0.5},
- -- APM Music "Magical (f)": a sparkling rising figure, faded out after its first phrase (~1.5 s)
- -- so frequent Level Ups stay short.
- LevelUp = {"rbxassetid://1841173505", 0.85, "UI", fadeAt = 1.1, fadeSeconds = 0.4, cooldown = 0.3},
+ -- APM Music "Magical (f)": a sparkling rising figure, cut to its opening flourish (~0.8 s) and
+ -- kept a little under the other payoffs, so frequent Level Ups stay short and light.
+ LevelUp = {"rbxassetid://1841173505", 0.65, "UI", fadeAt = 0.55, fadeSeconds = 0.25, cooldown = 0.3},
  -- Max Level: the same Level Up figure crowned by a bright bell, so it is related but
  -- unmistakable. PSE "Synth Sparkle Tone High Pitch Bell Tone Burst" (bell 0.3 s in).
- MaxLevel = {"rbxassetid://1841173505", 0.85, "UI", fadeAt = 1.1, fadeSeconds = 0.4, cooldown = 0.5, follow = {"MaxLevelBell", 0.3}},
+ MaxLevel = {"rbxassetid://1841173505", 0.7, "UI", fadeAt = 0.7, fadeSeconds = 0.3, cooldown = 0.5, follow = {"MaxLevelBell", 0.3}},
  MaxLevelBell = {"rbxassetid://9126072453", 0.55, "UI", startAt = 0.28, eq = {0, 0, -4}},
- -- Rebirth: a rising build, then a big magic burst with a glowing tail (~3 s). PSE "Synth
- -- Power Up Multi Tone Wind Ups Rise 2" (its last stretch) and PSE "Magic Burst 1".
- Rebirth = {"rbxassetid://9119816546", 0.7, "UI", startAt = 1, follow = {"RebirthBurst", 1.1},
-  duck = "Sting", duckSeconds = 3.5},
- RebirthBurst = {"rbxassetid://9116384485", 0.5, "UI"},
+ -- Rebirth: a triumphant brass fanfare straight away (APM Music "Triumphant Fanfare", 5.3 s,
+ -- eased out after ~4.5 s), with a magic burst sparkling over its opening (PSE "Magic Burst 1")
+ -- so it still reads as a rebirth. The rest of the mix ducks under it.
+ Rebirth = {"rbxassetid://1845287239", 0.85, "UI", fadeAt = 4.2, fadeSeconds = 0.8, follow = {"RebirthBurst", 0.05},
+  duck = "Sting", duckSeconds = 4.6},
+ RebirthBurst = {"rbxassetid://9116384485", 0.35, "UI"},
  -- APM Music "System Transforms Sting": a broad musical reveal (~3.4 s), different in kind
  -- from Rebirth's magic.
  WorldUnlock = {"rbxassetid://9043809359", 0.85, "UI", duck = "Sting", duckSeconds = 3.5},

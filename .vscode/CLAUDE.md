@@ -403,6 +403,8 @@ Reference design direction resembles modern simulator UI, but do not copy anothe
 
 ## Check-UI Skill
 
+Every screen follows the Inventory's style (`UICommon`): FredokaOne with heavy dark outlines, blue rounded windows with a title over the top edge, a red rounded close button, rounded dark blue cards, and chunky studded buttons (green go, grey done, red locked, blue neutral). The skill below is its foundation.
+
 A Roblox UI design skill is installed in:
 
 `.agents/skills/check-ui-clean-roblox/`
@@ -544,7 +546,7 @@ Unless explicitly requested, do not add:
 - crates
 - quests
 - daily rewards
-- monetization
+- monetization beyond the two Training Ground passes and the Welcome Back 3x offline-reward product
 - leaderboards beyond World 1's four global boards
 - trading
 - rarity systems

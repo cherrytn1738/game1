@@ -33,7 +33,7 @@ local function card(name, order, title)
  text.LayoutOrder = 2
  return heading, text
 end
--- Check-UI Rebirth comparison flow: two gold tier cards with an arrow between them.
+-- Rebirth comparison flow: two green tier cards with an arrow between them.
 local comparison = Instance.new("Frame")
 comparison.Name, comparison.BackgroundTransparency, comparison.LayoutOrder = "Comparison", 1, 1
 comparison.Size, comparison.Parent = UDim2.new(1, -10, 0, 124), list
@@ -43,10 +43,10 @@ local function tierCard(name, anchorX, positionX)
  frame.AnchorPoint, frame.Position, frame.Size = Vector2.new(anchorX, 0), UDim2.new(positionX, 0, 0, 2), UDim2.new(.5, -30, 1, -4)
  frame.BackgroundColor3 = Color3.new(1, 1, 1)
  UI.Gradient(frame, UI.ButtonStates.Claim[1], UI.ButtonStates.Claim[2])
- Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
+ Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
  local outline = Instance.new("UIStroke", frame)
- outline.Color, outline.Thickness = Color3.new(0, 0, 0), 2.8
- UI.Damier(frame, Color3.fromRGB(176, 96, 0), 22)
+ outline.Color, outline.Thickness = UI.Colors.Border, 4
+ UI.Damier(frame, Color3.fromRGB(20, 110, 20), 22)
  frame.Parent = comparison
  local tier = UI.Label(frame, "Tier", "", 18)
  tier.Position, tier.Size, tier.TextXAlignment, tier.ZIndex = UDim2.fromOffset(6, 8), UDim2.new(1, -12, 0, 24), Enum.TextXAlignment.Center, 2
@@ -74,10 +74,10 @@ levelBar.Size = UDim2.new(1, -4, 1, -4)
 levelBar.Position = UDim2.fromOffset(2, 2)
 local requirement = Instance.new("Frame")
 requirement.Name, requirement.BorderSizePixel, requirement.LayoutOrder = "Requirement", 0, 3
-requirement.BackgroundColor3, requirement.Size = Color3.fromRGB(20, 34, 42), UDim2.new(1, -10, 0, 40)
-Instance.new("UICorner", requirement).CornerRadius = UDim.new(0, 4)
+requirement.BackgroundColor3, requirement.Size = UI.Colors.Card, UDim2.new(1, -10, 0, 40)
+Instance.new("UICorner", requirement).CornerRadius = UDim.new(0, 12)
 local requirementStroke = Instance.new("UIStroke", requirement)
-requirementStroke.Color, requirementStroke.Thickness = Color3.fromRGB(85, 140, 160), 1.2
+requirementStroke.Color, requirementStroke.Thickness = UI.Colors.Border, 4
 requirement.Parent = list
 local requirementText = UI.Label(requirement, "Text", "", 17)
 requirementText.Position, requirementText.Size = UDim2.fromOffset(12, 0), UDim2.new(1, -24, 1, 0)

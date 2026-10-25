@@ -36,11 +36,15 @@ local function hubLayout(name, theme, ballSeries, ballTitle)
   -- the centre of the front row's edge, and yaw turns the display to face the middle (+X).
   -- Each row of 5 is about 35 studs wide. Items show RunwayAssets.DisplayItems.<item id> when
   -- that model exists, otherwise a placeholder. Bats stand upright, so theirs are taller.
+  -- stairSide puts a staircase up to the top row beside one end (1 = the display's local +X end,
+  -- here toward the spawn; -1 = toward the back), on the outer ends so the gap between the two
+  -- displays stays clear. The flights reach about 12 (balls) and 15 (bats) studs past the ends.
   displays = {
    {id = "BallDisplay", category = "Ball", series = ballSeries, title = ballTitle, subtitle = "Earn more Cash per hit",
-    position = Vector3.new(-36, 0, 86), yaw = math.pi / 2, perRow = 5},
+    position = Vector3.new(-36, 0, 86), yaw = math.pi / 2, perRow = 5, stairSide = 1},
    {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
-    position = Vector3.new(-36, 0, 126), yaw = math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6},
+    position = Vector3.new(-36, 0, 126), yaw = math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6,
+    stairSide = -1},
   },
   -- HubDecor marks these: the World's event piece in the middle of the plaza (kept flat so it
   -- never hides the portal), and the pad of the World portal (WorldPortal), facing the spawn
@@ -69,6 +73,10 @@ local Worlds = {
    -- scoreboard (HubDecor "HomeField").
    offset = Vector3.zero, arrival = arrival(Vector3.zero), nextWorldId = "world_2",
    hub = world1Hub,
+   -- The World's card in the Worlds menu (WorldTravelClient): image is a picture of the World's
+   -- hub (an uploaded Studio capture, cropped to the card's 3.4:1 shape); without one, a
+   -- painted scene in the sky and ground colours is shown instead.
+   preview = {image = "rbxassetid://123256532508164", sky = Color3.fromRGB(110, 196, 255), ground = Color3.fromRGB(86, 176, 78)},
    runoutDistance = 2000,
    -- A giant time portal stands at the endpoint (RunwayDecor); a ball that reaches it is pulled
    -- in, completing the World, and the batter is pulled through to the next World (PortalJourney).
@@ -125,6 +133,7 @@ local Worlds = {
    -- clock tower and monuments from the eras ahead (HubDecor "TimeTravel"). World 2 sells its own ball series (EquipmentConfig Ball series "world_2"); bats are
    -- the same in every World.
    hub = hubLayout("World2Hub", "TimeTravel", "world_2", "TIME TRAVEL BALLS"),
+   preview = {image = "rbxassetid://97442980907113", sky = Color3.fromRGB(150, 120, 235), ground = Color3.fromRGB(104, 88, 166)},
    runoutDistance = 2000,
    -- The same portal ends World 2 and pulls the batter through to World 3.
    endPortal = {height = 360},
@@ -185,6 +194,7 @@ local Worlds = {
    -- stage, a beacon tower and the skyline of the future on the berm (HubDecor "Future").
    offset = Vector3.new(16000, 0, 0), arrival = arrival(Vector3.new(16000, 0, 0)),
    hub = hubLayout("World3Hub", "Future", "world_3", "FUTURE BALLS"),
+   preview = {image = "rbxassetid://135986912788694", sky = Color3.fromRGB(150, 220, 255), ground = Color3.fromRGB(226, 234, 244)},
    runoutDistance = 2000,
    -- The last World for now. Its portal completes it as usual, then plays a temporary finale
    -- (PortalJourneyClient) instead of a trip. To add World 4: give World 3 a nextWorldId and

@@ -251,10 +251,12 @@ return function(sources)
  state.Level = 500
  fresh:SetAttribute("Level",500)
  check(Data.GetProgression(fresh).Level == 3, "copies and display attributes cannot grant levels")
+ -- Level stops at the cap; the rest of the Power stays (1,000,050 minus the 28,000 for Levels 3-9).
  check(Data.GrantPower(fresh, 1000000, "Test") and Data.GetProgression(fresh).Level == 10
-  and Data.GetProgression(fresh).Power == 0, "cap enforced and overflow discarded")
+  and Data.GetProgression(fresh).Power == 972050, "cap enforced; Power past it is kept")
  local ok, capped = Data.GrantPower(fresh, 20, "Test")
- check(ok and capped.powerGranted == 0 and Data.CanRebirth(fresh), "no Power banked at cap and eligibility exposed")
+ check(ok and capped.powerGranted == 20 and Data.GetProgression(fresh).Power == 972070 and Data.GetProgression(fresh).Level == 10
+  and Data.CanRebirth(fresh), "Power keeps building at the cap and Rebirth eligibility is exposed")
  fresh:SetAttribute("HitActive",true)
  check(not Data.TryRebirth(fresh), "active hit cannot Rebirth")
  fresh:SetAttribute("HitActive",false)
@@ -391,12 +393,30 @@ return function(sources)
  local fallback=join(32)
  check(fallback:GetAttribute("OfflineTrainingGround")=="basic_training" and fallback:GetAttribute("OfflinePowerEarned")==150,"removed selection ignored; offline uses the best usable ground")
  check(fallback:GetAttribute("Level")==2 and fallback:GetAttribute("Power")==53 and fallback.leaderstats.Cash.Value==777,"offline progression preserves Cash")
+ -- Welcome Back's 3x offer: the receipt adds the login's offline reward twice more, once.
+ local decisions = Enum.ProductPurchaseDecision
+ local tripleReceipt = {PlayerId=32, PurchaseId="triple-1", ProductId=555, CurrencySpent=9, CurrencyType=Enum.CurrencyType.Robux}
+ check(fallback:GetAttribute("OfflineTripleAvailable")==true,"an offline reward below the cap offers the 3x purchase")
+ check(Data.ClaimOfflineTriple(fallback,tripleReceipt)==decisions.PurchaseGranted and Data.GetProgression(fallback).Level==2
+  and Data.GetProgression(fallback).Power==353 and fallback:GetAttribute("OfflineTripleAvailable")==false,
+  "3x adds the 150 offline Power twice more (with the Bat and Rebirth multipliers) and withdraws the offer")
+ check(saved.Player_32.RobuxSpent==9 and saved.Player_32.RobuxPurchases.Receipts[1]=="triple-1" and saved.Player_32.Power==353,
+  "a paid 3x is saved straight away with its Robux")
+ check(Data.ClaimOfflineTriple(fallback,tripleReceipt)==decisions.PurchaseGranted and Data.GetProgression(fallback).Power==353,
+  "a repeated receipt is acknowledged without granting again")
+ check(Data.ClaimOfflineTriple(fallback,{PlayerId=32,PurchaseId="triple-2",ProductId=555,CurrencySpent=9})==decisions.NotProcessedYet
+  and Data.GetProgression(fallback).Power==353,"a second purchase in the same login has no offer to fill")
+ check(Data.ClaimOfflineTriple(fallback,{PlayerId=99,PurchaseId="triple-3",ProductId=555,CurrencySpent=9})==decisions.NotProcessedYet
+  and Data.ClaimOfflineTriple(failed,{PlayerId=6,PurchaseId="triple-4",ProductId=555,CurrencySpent=9})==decisions.NotProcessedYet,
+  "another player's receipt or a failed load is not granted")
+ check(trainee:GetAttribute("OfflineTripleAvailable")==false,"no offline reward, no 3x offer")
  saved.Player_33={SchemaVersion=4,Cash=999,Power=41,Level=2,Rebirths=1,LastLogoutTime=1}
  local legacy=join(33)
  check(legacy:GetAttribute("Power")==41 and legacy:GetAttribute("Level")==2 and legacy:GetAttribute("OfflinePowerEarned")==0,"migration preserves progression without fabricated offline time")
  saved.Player_34={SchemaVersion=5,Cash=500,Power=0,Level=10,Rebirths=0,SelectedTrainingGround="fake",LastLogoutTime=1}
  local atCap=join(34)
- check(atCap:GetAttribute("Power")==0 and atCap:GetAttribute("Level")==10 and atCap:GetAttribute("OfflinePowerEarned")==0,"offline cap overflow discarded")
+ check(atCap:GetAttribute("Level")==10 and atCap:GetAttribute("OfflinePowerEarned")>0
+  and atCap:GetAttribute("Power")==atCap:GetAttribute("OfflinePowerEarned"),"offline Power keeps building at the cap")
  check(not Data.CanUseTrainingGround(failed,"basic_training"),"failed loads cannot train")
  -- Paid grounds: Roblox pass ownership is read at login (before the offline grant) and on
  -- the server's purchase event; lookups that fail grant nothing.
@@ -561,7 +581,8 @@ return function(sources)
  offlineBase=Training.GetOfflineReward(100,100000,"enchanted_grove")
  simulated=Progression.Normalize({Rebirths=2,Level=1,Power=0},false)
  Progression.Advance(simulated,offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths))
- check(simulated.Level==30 and simulated.Power==0,"capped offline duration can reach cap but never exceed it")
+ -- 1,080,000 Power: 855,500 takes Levels 1-29 to the cap of 30, and the rest is kept.
+ check(simulated.Level==30 and simulated.Power==224500,"capped offline duration reaches the cap and keeps the rest")
  check(Data.GetBestTrainingGround(trainee).id=="enchanted_grove" and Data.GetBestTrainingGround(fallback).id=="basic_training"
   and not Data.CanUseTrainingGround(fallback,"dragons_lair"),"players have independent access")
  -- Two complete Rebirth cycles use the same public server operations as gameplay.
@@ -735,7 +756,7 @@ return function(sources)
     local rateState = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
     Progression.Advance(rateState, base * multiplier)
     check(rateState.Level <= Progression.GetLevelCap(rebirths)
-     and (rateState.Level < rateState.LevelCap or rateState.Power == 0), "offline multiplier respects cap " .. label .. "/" .. duration)
+     and (rateState.Level == rateState.LevelCap or rateState.Power < Progression.PowerRequiredForNextLevel(rateState.Level)), "offline multiplier respects cap " .. label .. "/" .. duration)
    end
   end
  end
@@ -775,7 +796,7 @@ return function(sources)
  saved.Player_220 = {SchemaVersion=5, Cash=100, Rebirths=2, Level=29,
   Power=Progression.PowerRequiredForNextLevel(29)-1, SelectedTrainingGround="expert_training", LastLogoutTime=now-12}
  local offlineCap = join(220)
- check(Data.GetProgression(offlineCap).Level == 30 and Data.GetProgression(offlineCap).Power == 0
+ check(Data.GetProgression(offlineCap).Level == 30 and Data.GetProgression(offlineCap).Power == offlineCap:GetAttribute("OfflinePowerEarned") - 1
   and Data.CanRebirth(offlineCap), "offline login reaches cap and permits explicit Rebirth without automatic reset")
  check(Data.GetProgression(offlineCap).Rebirths == 2, "offline cap never automatically Rebirths")
  local oneBelow = Progression.Normalize({Rebirths=0, Level=9,
