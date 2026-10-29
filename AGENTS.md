@@ -389,6 +389,8 @@ Use that skill as a design foundation, not as a reason to make every screen iden
 
 The game's own visual identity is the Inventory's style, which every screen follows (`UICommon`): the rounded FredokaOne font with heavy dark outlines, blue rounded windows with a faint checker and a title riding over the top edge, a red rounded close button, rounded dark blue cards, and chunky studded buttons (green go, grey done, red locked, blue neutral). Preserve it.
 
+World-space UI in the hubs (item labels, Training Ground labels, the portal sign, leaderboards, the batter's box label) shows only near the local camera: register new world-space guis with `WorldUIConfig.Register(gui, range)` rather than setting `MaxDistance` by hand.
+
 Do not copy another game's proprietary assets, branding, or exact UI layout.
 
 ## Persistence

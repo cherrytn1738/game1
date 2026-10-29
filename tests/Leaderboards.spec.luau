@@ -51,10 +51,15 @@ return function(sources)
     if name == "Players" then return players end
     if name == "DataStoreService" then return dataStores end
     if name == "RunService" then return {IsStudio = function() return studio end} end
+    if name == "ReplicatedStorage" then return {WaitForChild = function(_, child) return child end} end
     error("Unexpected service " .. name)
    end,
    BindToClose = function() end,
   },
+  require = function(module)
+   assert(module == "WorldUIConfig", "Unexpected require " .. tostring(module))
+   return {Register = function() end}
+  end,
   os = {clock = function() return now end, time = os.time},
   task = {wait = function(seconds) now += seconds or 0 end, spawn = function() end},
   warn = function() end,

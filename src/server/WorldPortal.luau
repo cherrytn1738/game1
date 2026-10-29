@@ -7,6 +7,7 @@
 -- (WorldTravelClient), and travel itself stays the server-checked World Travel request.
 -- Parts with Spin/Pulse attributes are animated on each client (TrainingStadiumClient).
 local ServerStorage = game:GetService("ServerStorage")
+local WorldUI = require(game:GetService("ReplicatedStorage"):WaitForChild("WorldUIConfig"))
 
 local Portal = {}
 
@@ -159,7 +160,7 @@ function Portal.Build(hub, frame, pad, modelName)
  prepare(anchor)
  anchor.Parent = portal
  local gui = Instance.new("BillboardGui")
- gui.Name, gui.Size, gui.MaxDistance, gui.LightInfluence = "Sign", UDim2.fromScale(30, 10), 400, 0
+ gui.Name, gui.Size, gui.LightInfluence = "Sign", UDim2.fromScale(30, 10), 0
  gui.Parent = anchor
  local function text(content, y, height, color)
   local label = Instance.new("TextLabel")
@@ -174,6 +175,7 @@ function Portal.Build(hub, frame, pad, modelName)
  text("WORLDS", 0, 0.45, GOLD)
  text("TRAVEL PORTAL", 0.42, 0.28, Color3.fromRGB(255, 255, 255))
  text("Step in to choose a World", 0.72, 0.2, SWIRL)
+ WorldUI.Register(gui, "Portal")
 
  portal.Parent = hub
  return portal

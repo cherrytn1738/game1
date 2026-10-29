@@ -1,5 +1,7 @@
 -- Training Ground and hub presentation on this client only, in every World's hub:
 --  * each cage's lock sign shows the Rebirths still needed or the Robux pass price
+--  * a label floats over each cage's door with its name, whether this player may use it and
+--    its Power multiplier (shown only near the camera, WorldUIClient)
 --  * parts tagged by the server (Spin, SpinPivot, Bob, Sway, Pulse attributes) in fantasy
 --    cages, hub scenery and World portals are animated
 --  * a cage's Tint* attributes grade the view while the camera is inside it
@@ -10,6 +12,13 @@ local Storage = game:GetService("ReplicatedStorage")
 local Player = Players.LocalPlayer
 local Config = require(Storage:WaitForChild("TrainingConfig"))
 local Worlds = require(Storage:WaitForChild("WorldConfig"))
+local WorldUI = require(Storage:WaitForChild("WorldUIConfig"))
+local UI = require(script.Parent:WaitForChild("UICommon"))
+
+local LABEL_SIZE = UDim2.fromScale(14, 7) -- studs
+-- Every label floats at the same height, just above a standard cage's roof: from the sign over
+-- the door (Cage.doorHeight + 1.8 up) to 1.5 studs over Cage.height, plus half the label.
+local LABEL_OFFSET = Vector3.new(0, Config.Cage.height + 1.5 + LABEL_SIZE.Y.Scale / 2 - (Config.Cage.doorHeight + 1.8), 0)
 
 local hubs, groundFolders = {}, {}
 for _, world in Worlds.Worlds do
@@ -55,14 +64,41 @@ local function lockText(ground)
  return "🔒 " .. ground.requiredRebirths .. " REBIRTHS"
 end
 
+local function line(gui, name, order, height, color)
+ local label = UI.Label(gui, name, "", 40, color)
+ label.Size, label.LayoutOrder = UDim2.fromScale(1, height), order
+ label.TextXAlignment, label.TextScaled = Enum.TextXAlignment.Center, true
+ return label
+end
+
+-- The floating label over a cage's door (made once per streamed-in cage). Themed cages and
+-- their door decorations rise above the standard roof, so it draws on top of the scenery
+-- (WorldUIClient keeps only the nearby ones showing).
+local function groundLabel(entrance, ground)
+ local gui = entrance:FindFirstChild("GroundLabel")
+ if gui then return gui end
+ gui = Instance.new("BillboardGui")
+ gui.Name, gui.Size, gui.StudsOffsetWorldSpace = "GroundLabel", LABEL_SIZE, LABEL_OFFSET
+ gui.AlwaysOnTop, gui.LightInfluence, gui.ResetOnSpawn = true, 0, false
+ local layout = Instance.new("UIListLayout")
+ layout.SortOrder, layout.HorizontalAlignment = Enum.SortOrder.LayoutOrder, Enum.HorizontalAlignment.Center
+ layout.VerticalAlignment, layout.Parent = Enum.VerticalAlignment.Bottom, gui
+ line(gui, "GroundName", 1, .34, UI.Colors.Text).Text = string.upper(ground.displayName)
+ line(gui, "Status", 2, .28, UI.Colors.Text)
+ line(gui, "Boost", 3, .38, UI.Colors.Gold).Text = "×" .. ground.powerMultiplier .. " POWER"
+ gui.Parent = entrance
+ WorldUI.Register(gui, "Training")
+ return gui
+end
+
 local function apply()
  pending = false
  for _, grounds in groundFolders do
   for _, ground in Config.Grounds do
    local stadium = grounds:FindFirstChild(ground.id)
+   local text = lockText(ground)
    local sign = stadium and stadium:FindFirstChild("LockSign", true)
    if sign then
-    local text = lockText(ground)
     sign.Transparency = text and 0 or 1
     for _, gui in sign:GetChildren() do
      if gui:IsA("SurfaceGui") then
@@ -70,6 +106,12 @@ local function apply()
       gui.Label.Text = text or ""
      end
     end
+   end
+   local entrance = stadium and stadium:FindFirstChild("EntranceSign", true)
+   if entrance then
+    local status = groundLabel(entrance, ground).Status
+    status.Text = text or "UNLOCKED"
+    status.TextColor3 = text and UI.Colors.Error or UI.Showcase.Value
    end
   end
  end

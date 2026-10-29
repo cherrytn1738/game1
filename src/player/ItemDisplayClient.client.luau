@@ -11,11 +11,11 @@ local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Remote = ReplicatedStorage:WaitForChild("EquipmentUpgrade")
 local UI = require(script.Parent:WaitForChild("UICommon"))
+local WorldUI = require(ReplicatedStorage:WaitForChild("WorldUIConfig"))
 
 local PEDESTAL_TAG = "ItemPedestal" -- matches ItemDisplay.PedestalTag
 local LABEL_SIZE = UDim2.fromScale(6, 3.2) -- studs; fits the 6.4-stud pedestal spacing
 local TITLE_SIZE = UDim2.fromScale(22, 5.2)
-local LABEL_DISTANCE = 120
 local SPIN_SPEED = math.rad(45) -- per second
 local BOB_HEIGHT, BOB_SPEED = 0.25, 1.6
 
@@ -25,7 +25,7 @@ local cash
 local function billboard(adornee, name, size)
  local gui = Instance.new("BillboardGui")
  gui.Name, gui.Size, gui.Adornee = name, size, adornee
- gui.LightInfluence, gui.MaxDistance, gui.ResetOnSpawn = 0, LABEL_DISTANCE, false
+ gui.LightInfluence, gui.ResetOnSpawn = 0, false
  gui.Parent = adornee
  local layout = Instance.new("UIListLayout")
  layout.SortOrder, layout.HorizontalAlignment = Enum.SortOrder.LayoutOrder, Enum.HorizontalAlignment.Center
@@ -143,6 +143,7 @@ local function bindTitle(display)
  local gui = billboard(attachment, "TitleLabel", TITLE_SIZE)
  line(gui, "Title", 1, .66, UI.Colors.Gold).Text = display:GetAttribute("Title") or ""
  line(gui, "Subtitle", 2, .34, UI.Colors.Text).Text = display:GetAttribute("Subtitle") or ""
+ WorldUI.Register(gui, "DisplayTitle")
 end
 
 local function bind(pedestal)
@@ -161,6 +162,7 @@ local function bind(pedestal)
   price = line(gui, "Price", 4, .24, UI.Colors.Gold),
  }
  labels.name.Text, labels.boost.Text = item.displayName, boostText(item)
+ WorldUI.Register(gui, "ItemDisplay")
  local entry = {item = item, labels = labels, prompt = prompt, model = model,
   base = model:GetPivot(), phase = item.order * 1.3}
  bound[pedestal] = entry

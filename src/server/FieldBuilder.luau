@@ -2,6 +2,7 @@
 local Field = require(game:GetService("ReplicatedStorage"):WaitForChild("FieldConfig"))
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
+local WorldUI = require(game.ReplicatedStorage:WaitForChild("WorldUIConfig"))
 local RunwayDecor = require(script.Parent:WaitForChild("RunwayDecor"))
 local TrainingStadium = require(script.Parent:WaitForChild("TrainingStadium"))
 local ItemDisplay = require(script.Parent:WaitForChild("ItemDisplay"))
@@ -354,6 +355,10 @@ function Builder.Build()
   end
   area:SetAttribute("WorldId", world.id)
   area.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+  -- The Studio-built "STEP HERE TO BAT" label draws on top of everything, so it is only
+  -- shown near the batter's box (BattingTimingServer still owns its Enabled).
+  local entryLabel = area.BatterPosition:FindFirstChild("EntryLabel")
+  if entryLabel then WorldUI.Register(entryLabel, "Interaction") end
   buildField(world)
   buildHub(world, area)
   dressTee(area)

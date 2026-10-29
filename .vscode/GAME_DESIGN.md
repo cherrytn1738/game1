@@ -348,6 +348,15 @@ Juice is a consumable item that grants a temporary, server-timed bonus. The arch
 - **Display:** clients read `OwnedJuices` and `ActiveJuices` folder attributes on the player. The HUD multiplier includes active Power juice. The Training rate preview does not yet.
 - **Size:** `UI.SizeScale` (currently 0.75) shrinks the HUD groups, quick menu, notifications, and the Training status box, each around its own anchor (`UI.Shrink`). Windows use their own larger `UI.MenuScale` (see Scaling) and are capped at 680×550 before scaling. The quick menu never drops below 0.45, so phones stay readable and tappable. The HUD's bottom clearance for the Roblox hotbar and touch controls is not scaled.
 
+### World-space UI distance
+
+Floating and surface UI in the hubs shows only while the local camera is near it (measured from the camera, so batting and cinematic views see what is near them), so the hubs never fill with distant labels. Builders register each gui with `WorldUIConfig.Register(gui, range)`; `WorldUIClient` checks distances about 7 times a second in one loop, shows a gui inside its range, hides it only 10% past it (no flicker on the edge), and fades over 0.2 s. A hidden gui is culled through `MaxDistance`, so whoever owns its `Enabled` keeps it. Ranges (`WorldUIConfig.Ranges`, studs):
+- Ball/Bat pedestal labels 65, the batter's box "STEP HERE TO BAT" 80, Training Ground labels 75 (about three cages at once down the row), the BALLS/BATS titles 140, the portal's WORLDS sign 200, the leaderboards 240 (readable from anywhere in the plaza).
+- Each Training Ground has a floating label over its door, all at one height just above a standard cage's roof and drawn on top of the scenery (themed cages rise higher): its name, UNLOCKED (green) or what it still needs (red: Rebirths or the Robux pass), and its Power multiplier (gold).
+- Left as they were: runway section titles and distance markers, the cage banners and lock signs painted on the cages, and the hub's World signs and scoreboard (environmental signage).
+
+Visibility is presentation only: prompts, buying, Training access and travel never depend on it.
+
 ### Training teleport
 
 The quick menu's Training tile sends an intent-only `TrainingTeleport` request (a RemoteEvent the server creates at runtime). `BattingTimingServer`:

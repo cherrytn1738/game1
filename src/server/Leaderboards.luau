@@ -12,6 +12,7 @@
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
+local WorldUI = require(game:GetService("ReplicatedStorage"):WaitForChild("WorldUIConfig"))
 
 local Leaderboards = {}
 
@@ -269,7 +270,7 @@ local function buildBoard(parent, stat, cframe)
  local gui = Instance.new("SurfaceGui")
  gui.Name, gui.Face = "Screen", Enum.NormalId.Front
  gui.SizingMode, gui.PixelsPerStud = Enum.SurfaceGuiSizingMode.PixelsPerStud, PIXELS_PER_STUD
- gui.LightInfluence, gui.MaxDistance = 0, 220
+ gui.LightInfluence = 0
  gui.Parent = board
  local width, height = BOARD_SIZE.X * PIXELS_PER_STUD, BOARD_SIZE.Y * PIXELS_PER_STUD
  label(gui, "Title", definition.title, FONT, 40, definition.color, UDim2.fromOffset(0, 10), UDim2.new(1, 0, 0, 48))
@@ -300,6 +301,7 @@ local function buildBoard(parent, stat, cframe)
   UDim2.fromOffset(0, height - 34), UDim2.new(1, 0, 0, 24))
  screens[stat] = screens[stat] or {}
  table.insert(screens[stat], {rows = rows, status = status})
+ WorldUI.Register(gui, "Leaderboard")
  model.Parent = parent
  return model
 end
