@@ -56,12 +56,17 @@ GameAudio.Cues = {
  -- Training Power gain: plays every couple of seconds, so it is barely there. PSE "Synth
  -- Tone Multi Pitch Short Waa Tone Swell": a short smooth blip.
  PowerTick = {"rbxassetid://9126086045", 0.09, "UI", vary = 0.03, eq = {0, 0, -4}, cooldown = 0.5},
- -- APM Music "Magical (f)": a sparkling rising figure, cut to its opening flourish (~0.8 s) and
- -- kept a little under the other payoffs, so frequent Level Ups stay short and light.
- LevelUp = {"rbxassetid://1841173505", 0.65, "UI", fadeAt = 0.55, fadeSeconds = 0.25, cooldown = 0.3},
- -- Max Level: the same Level Up figure crowned by a bright bell, so it is related but
- -- unmistakable. PSE "Synth Sparkle Tone High Pitch Bell Tone Burst" (bell 0.3 s in).
- MaxLevel = {"rbxassetid://1841173505", 0.7, "UI", fadeAt = 0.7, fadeSeconds = 0.3, cooldown = 0.5, follow = {"MaxLevelBell", 0.3}},
+ -- Level Up (~0.6 s): a quick rising synth swell straight into a bright ping, heard as one
+ -- electronic "rise -> hit". PSE "Synth Tone High Pitch Short Waa Tone Swell UI 2" (peaks 0.11 s
+ -- in) -> "Synth Sparkle Tone High Pitch Tone Burst Ping 1" (struck at the swell's peak, eased
+ -- out). Louder than Cash, Equip and UI confirms; under the bat crack, Rebirth and World Unlock.
+ LevelUp = {"rbxassetid://9126085527", 0.4, "UI", cooldown = 0.3, follow = {"LevelUpHit", 0.09}},
+ LevelUpHit = {"rbxassetid://9126075967", 1, "UI", eq = {0, 0, -2}, fadeAt = 0.5, fadeSeconds = 0.15},
+ -- Max Level: the same rise, a stronger ping, then a resonant bell ringing on (PSE "Synth Sparkle
+ -- Tone High Pitch Bell Tone Burst", bell 0.3 s into the file): the same family, plainly more
+ -- important, still well under Rebirth.
+ MaxLevel = {"rbxassetid://9126085527", 0.45, "UI", cooldown = 0.5, follow = {"MaxLevelHit", 0.09}},
+ MaxLevelHit = {"rbxassetid://9126075967", 1.25, "UI", eq = {1, 0, -2}, fadeAt = 0.6, fadeSeconds = 0.2, follow = {"MaxLevelBell", 0.1}},
  MaxLevelBell = {"rbxassetid://9126072453", 0.55, "UI", startAt = 0.28, eq = {0, 0, -4}},
  -- Rebirth: a triumphant brass fanfare straight away (APM Music "Triumphant Fanfare", 5.3 s,
  -- eased out after ~4.5 s), with a magic burst sparkling over its opening (PSE "Magic Burst 1")
