@@ -10,9 +10,10 @@ local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local Progression = require(game.ReplicatedStorage:WaitForChild("ProgressionConfig"))
 local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 local Juice = require(game.ReplicatedStorage:WaitForChild("JuiceConfig"))
+local Tutorial = require(game.ReplicatedStorage:WaitForChild("TutorialConfig"))
 
 local STORE_NAME = "PlayerProgression"
-local SCHEMA_VERSION = 9
+local SCHEMA_VERSION = 10
 local AUTOSAVE_SECONDS = 60
 local IMPORTANT_SAVE_SECONDS = 5 -- Rebirth joins the existing serialized save loop.
 local LEASE_SECONDS = 180
@@ -63,6 +64,7 @@ end
 -- Only a missing record means NEW. A malformed record/version fails closed.
 local function validate(record)
  if record ~= nil and typeof(record) ~= "table" then return nil, "invalid record" end
+ local isNew = record == nil
  record = record or {}
  local version = record.SchemaVersion
  if version ~= nil and (typeof(version) ~= "number" or version % 1 ~= 0
@@ -130,6 +132,10 @@ local function validate(record)
    if world.nextWorldId then data.UnlockedWorlds[world.nextWorldId] = true end
   end
  end
+ -- Schema 10 adds the new-player tutorial (TutorialCompleted, and while unfinished TutorialStep
+ -- and TutorialProgress). A new record starts it; a save from before it, or with malformed
+ -- fields, skips it when it already shows play (TutorialConfig.HasProgressed).
+ Tutorial.ToSave(Tutorial.FromSave(data, isNew), data)
  return data, nil, repairs
 end
 
@@ -144,7 +150,7 @@ local function update(session, transform, deadline)
  for attempt = 1, MAX_ATTEMPTS do
   if os.clock() >= deadline then break end
   local ok, result = pcall(function()
-   local store = DataStoreService:GetDataStore(STORE_NAME)
+   local store = DataStoreService:GetDataStore(session.storeName or STORE_NAME)
    return store:UpdateAsync(session.key, function(record)
     if os.clock() >= deadline then return nil end
     return transform(record)
@@ -193,6 +199,38 @@ local function grantProgression(state, baseAmount, source, ballId, boost)
  return true, {powerGranted = amount, oldLevel = oldLevel, newLevel = state.Level, source = source}
 end
 
+local function scheduleImportantSave(session)
+ session.importantSavePending = true
+ session.nextSave = math.min(session.nextSave, os.clock() + IMPORTANT_SAVE_SECONDS)
+end
+
+-- New-player tutorial (TutorialConfig). It moves only on this server's own events: granted
+-- Power, batting Cash, purchases, Level and Rebirths; there is no client request to move it.
+-- Clients read the TutorialStep / TutorialProgress attributes; a step change is saved soon.
+local function publishTutorial(player, session)
+ player:SetAttribute("TutorialStep", session.tutorial.step)
+ player:SetAttribute("TutorialProgress", session.tutorial.progress)
+end
+
+local function updateTutorial(player, session, kind, amount)
+ local tutorial = session.tutorial
+ if not tutorial or Tutorial.IsComplete(tutorial) then return end
+ local counted = kind ~= nil and Tutorial.Credit(tutorial, kind, amount)
+ local state = session.progression
+ -- Studio playtest grants (OwnAllBalls) don't count as buying the tutorial's Ball.
+ local ownsBall = session.owned.Ball[Tutorial.BallId] == true and not session.studioOwned.Ball[Tutorial.BallId]
+ local moved = Tutorial.Advance(tutorial, {level = state.Level, levelCap = state.LevelCap,
+  rebirths = state.Rebirths, ownsBall = ownsBall})
+ if moved then scheduleImportantSave(session) end
+ if counted or moved then publishTutorial(player, session) end
+end
+
+-- Batting Cash, reported by BallLauncher after it pays a hit (for the tutorial's Cash step).
+function PlayerData.RecordBattingCash(player, amount)
+ if not PlayerData.IsReady(player) then return end
+ updateTutorial(player, sessions[player], "Cash", amount)
+end
+
 function PlayerData.GrantPower(player, baseAmount, source, hitBallId)
  if not PlayerData.IsReady(player) then return false, "Player data is not ready." end
  -- The optional ID is a server-created hit snapshot, never a client multiplier.
@@ -202,7 +240,10 @@ function PlayerData.GrantPower(player, baseAmount, source, hitBallId)
  local state = session.progression
  local boost = Juice.GetMultiplier(session.juices.active, "Power")
  local ok, result = grantProgression(state, baseAmount, source, ballId, boost)
- if ok then publishProgression(player, state) end
+ if ok then
+  publishProgression(player, state)
+  updateTutorial(player, session, "Power", result.powerGranted)
+ end
  return ok, result
 end
 
@@ -221,11 +262,6 @@ local function publishJuices(player, session)
   end
   for id, value in entry[2] do folder:SetAttribute(id, math.ceil(value)) end
  end
-end
-
-local function scheduleImportantSave(session)
- session.importantSavePending = true
- session.nextSave = math.min(session.nextSave, os.clock() + IMPORTANT_SAVE_SECONDS)
 end
 
 -- Combined multiplier of the player's active juices for one effect ("Power" or "Cash").
@@ -440,6 +476,7 @@ function PlayerData.TryRebirth(player)
  session.importantSavePending = true
  session.nextSave = math.min(session.nextSave, os.clock() + IMPORTANT_SAVE_SECONDS)
  publishProgression(player, state)
+ updateTutorial(player, session)
  return true, string.format("REBIRTH COMPLETE\nRebirths: %d | Rebirth Power: %dx | Level Cap: %d",
   state.Rebirths, Progression.GetPowerMultiplier(state.Rebirths), state.LevelCap)
 end
@@ -492,6 +529,7 @@ function PlayerData.PurchaseNextEquipment(player, category, purchaseToken)
  player[definition.ownedField]:SetAttribute(item.id, true)
  player:SetAttribute("Equipped" .. category, item.id)
  player:SetAttribute("EquipmentPurchaseToken_" .. offerKey, session.purchaseTokens[offerKey])
+ updateTutorial(player, session)
  return true, "Purchased and equipped " .. item.displayName .. "!"
 end
 
@@ -548,6 +586,7 @@ local function snapshot(player)
  data.TimePlayed = timePlayed(session)
  data.RobuxSpent = session.robux.spent
  data.RobuxPurchases = {Passes = table.clone(session.robux.passes), Receipts = table.clone(session.robux.receipts)}
+ Tutorial.ToSave(session.tutorial, data)
  data.UnlockedWorlds, data.CompletedWorlds = {}, {}
  for _, world in Worlds.Worlds do
   -- Studio playtest unlocks are never saved; a real completion re-derives its unlock on load.
@@ -580,6 +619,8 @@ local function save(player, session, release)
   end
   local updated = table.clone(current)
   updated.OwnedTees, updated.EquippedTee, updated.SelectedTrainingGround = nil, nil, nil
+  -- A finished tutorial keeps no step or count (the snapshot leaves them out).
+  updated.TutorialStep, updated.TutorialProgress = nil, nil
   for field, value in data do updated[field] = value end
   -- Autosave is also a crash checkpoint; normal exit uses the actual close time.
   updated.LastLogoutTime = release and session.logoutTime or os.time()
@@ -596,7 +637,7 @@ local function save(player, session, release)
   if not release then session.expiresAt = record.Session.ExpiresAt end
   print(string.format("[PlayerData] SAVED %d (%s), Cash=%d",
    player.UserId, release and "leave/shutdown" or "autosave", data.Cash))
-  if savedListener then task.spawn(savedListener, player.UserId, data, release == true) end
+  if savedListener and not session.fresh then task.spawn(savedListener, player.UserId, data, release == true) end
  elseif rejection then
   fail(player, session, rejection)
  else
@@ -656,6 +697,13 @@ local function loadPlayer(player)
   id = HttpService:GenerateGUID(false), key = "Player_" .. player.UserId,
   loading = true, loaded = false, expiresAt = 0,
  }
+ -- In Studio only, the Workspace attribute StudioFreshSave plays as a brand-new player (to
+ -- test the tutorial): a throwaway record in a Studio-only store, so the real save and the
+ -- leaderboards are never touched, and the OwnAllBalls / UnlockAllWorlds playtest grants are skipped.
+ if RunService:IsStudio() and workspace:GetAttribute("StudioFreshSave") == true then
+  session.fresh, session.storeName = true, "Studio_FreshPlayers"
+  session.key = "Fresh_" .. player.UserId .. "_" .. os.time()
+ end
  sessions[player] = session
  player:SetAttribute("DataLoaded", false)
  player:SetAttribute("DataLoadState", "Loading")
@@ -741,7 +789,7 @@ local function loadPlayer(player)
  session.studioOwned, session.loadedEquipped = {}, {}
  -- In Studio only, the Workspace attribute OwnAllBalls owns every Ball for playtests. These
  -- grants last for the session and are never saved (snapshot skips them).
- local grantAllBalls = RunService:IsStudio() and workspace:GetAttribute("OwnAllBalls") == true
+ local grantAllBalls = RunService:IsStudio() and workspace:GetAttribute("OwnAllBalls") == true and not session.fresh
  for _, category in CATEGORIES do
   local field = "Equipped" .. category
   local ownedField = Equipment.Categories[category].ownedField
@@ -775,7 +823,7 @@ local function loadPlayer(player)
  -- In Studio only, the Workspace attribute UnlockAllWorlds opens every World for playtests.
  -- These unlocks last for the session and are never saved (snapshot skips them).
  session.studioWorlds = {}
- if RunService:IsStudio() and workspace:GetAttribute("UnlockAllWorlds") == true then
+ if RunService:IsStudio() and workspace:GetAttribute("UnlockAllWorlds") == true and not session.fresh then
   for _, world in Worlds.Worlds do
    if not record.UnlockedWorlds[world.id] then
     session.studioWorlds[world.id] = true
@@ -786,6 +834,10 @@ local function loadPlayer(player)
  stats.Parent = player
  session.loaded = true
  session.nextSave = os.clock() + AUTOSAVE_SECONDS + math.random(0, 10)
+ -- Resume the tutorial where the save left it, moving past anything already done.
+ session.tutorial = Tutorial.FromSave(record, false)
+ updateTutorial(player, session)
+ publishTutorial(player, session)
  for _, repair in repairs or {} do
   warn("[PlayerData] " .. player.UserId .. ": replaced obsolete/invalid " .. repair .. " with starting equipment")
  end

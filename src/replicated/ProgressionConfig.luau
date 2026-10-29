@@ -3,8 +3,14 @@ local Progression = {
  StartingPower = 0,
  StartingLevel = 1,
  StartingRebirths = 0,
- BaseLevelCap = 10,
+ -- The first Rebirth is at Level 20 (the new-player tutorial ends with it).
+ BaseLevelCap = 20,
  LevelsPerRebirth = 10,
+ -- The early band (Levels below EarlyLevels) is quick: EarlyRequirementPerLevel * Level + 1
+ -- Power (10, 19, 28, ...), so a new player reaches Level 20 in about a minute of Training.
+ -- From EarlyLevels on, PowerRequirementBase * Level^2.
+ EarlyLevels = 20,
+ EarlyRequirementPerLevel = 9,
  PowerRequirementBase = 100,
  HitPowerReward = 2,
  BaseLaunchSpeed = 55,
@@ -26,6 +32,7 @@ function Progression.GetLevelCap(rebirths)
 end
 
 function Progression.PowerRequiredForNextLevel(level)
+ if level < Progression.EarlyLevels then return Progression.EarlyRequirementPerLevel * level + 1 end
  return Progression.PowerRequirementBase * level * level
 end
 

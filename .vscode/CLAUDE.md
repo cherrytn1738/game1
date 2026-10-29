@@ -147,13 +147,15 @@ Current progression formula:
 
 Power required for next level:
 
-`100 × Level²`
+`9 × Level + 1` below Level 20 (the quick early band: 10, 19, 28, ...), then `100 × Level²`
 
 Power requirements are consumed as the player levels.
 
 Level Cap:
 
-`10 + 10 × Rebirths`
+`20 + 10 × Rebirths` (the first Rebirth is at Level 20, the end of the tutorial)
+
+New players run a four-step tutorial (`TutorialConfig`): get 30 Power, earn $2 from batting, buy the Sandlot Ball, reach Level 20 and Rebirth. The server advances and saves it from its own events only (no client request moves it); clients draw the banner, ground arrows (`GuideArrows`) and menu spotlight (`Spotlight`). Older saves that already show play skip it. See GAME_DESIGN.md "New-Player Tutorial".
 
 Power gain multiplier:
 
@@ -512,7 +514,7 @@ Existing safety principles include:
 
 Preserve these protections.
 
-Current schema is Schema 9 (Schema 6 removed Tee equipment; Schema 7 added Juice: OwnedJuices and ActiveJuices; Schema 8 retired SelectedTrainingGround; Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards).
+Current schema is Schema 10 (Schema 6 removed Tee equipment; Schema 7 added Juice: OwnedJuices and ActiveJuices; Schema 8 retired SelectedTrainingGround; Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards; Schema 10 added the tutorial: TutorialCompleted, TutorialStep, TutorialProgress).
 
 The global leaderboards (World 1's hub) read OrderedDataStores that mirror saved values; PlayerData stays the source of truth (`Leaderboards.luau`).
 

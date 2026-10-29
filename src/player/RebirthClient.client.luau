@@ -2,7 +2,6 @@
 local Player = game.Players.LocalPlayer
 local Storage = game:GetService("ReplicatedStorage")
 local Progression = require(Storage:WaitForChild("ProgressionConfig"))
-local Equipment = require(Storage:WaitForChild("EquipmentConfig"))
 local Training = require(Storage:WaitForChild("TrainingConfig"))
 local GameAudio = require(Storage:WaitForChild("GameAudio"))
 local Remote = Storage:WaitForChild("RebirthRequest")
@@ -85,7 +84,7 @@ requirementText.TextXAlignment = Enum.TextXAlignment.Center
 local _, reset = card("Reset",4,"RESET")
 reset.Text = "Level returns to " .. Progression.StartingLevel .. ". Power returns to " .. Progression.StartingPower .. "."
 local _, keep = card("Keep",5,"KEEP")
-keep.Text = "Cash, owned and equipped equipment, world unlocks, your valid Training Ground selection, and other progression."
+keep.Text = "Cash, owned and equipped Bats and Balls, World unlocks, and other progression."
 local _, gain = card("Gain",6,"GAIN")
 
 local feedback = UI.Label(panel,"Feedback","",14,UI.Colors.Muted)
@@ -132,11 +131,11 @@ local function refresh()
  local count = Player:GetAttribute("Rebirths") or Progression.StartingRebirths
  local level = Player:GetAttribute("Level") or Progression.StartingLevel
  local cap = Player:GetAttribute("LevelCap") or Progression.GetLevelCap(count)
- local ballMultiplier = Equipment.Get("Ball", Player:GetAttribute("EquippedBall")).powerGainMultiplier
  local nextCount = math.min(count + 1,Progression.MaxRebirths)
  beforeTier.Text, afterTier.Text = "REBIRTH " .. UI.Number(count), "REBIRTH " .. UI.Number(nextCount)
- beforeValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(count)*ballMultiplier,2) .. " POWER"
- afterValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(nextCount)*ballMultiplier,2) .. " POWER"
+ -- The Rebirth Power multiplier on its own (Balls multiply Power separately).
+ beforeValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(count)) .. " POWER"
+ afterValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(nextCount)) .. " POWER"
  beforeCap.Text, afterCap.Text = "LEVEL CAP " .. UI.Number(cap), "LEVEL CAP " .. UI.Number(Progression.GetLevelCap(nextCount))
  setLevelBar(level / math.max(cap, 1), "LEVEL " .. UI.Number(level) .. " / " .. UI.Number(cap))
  requirementText.Text = level >= cap and "REQUIREMENT MET: LEVEL " .. UI.Number(cap) or "REQUIREMENT: REACH LEVEL " .. UI.Number(cap)

@@ -189,8 +189,8 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 
 ### Power / Level
 
-- Power requirements currently scale as `100 * Level^2`.
-- Level Cap currently scales as `10 + 10 * Rebirths`.
+- Power requirements currently scale as `9 * Level + 1` below Level 20 (the quick early band: 10, 19, 28, ...) and `100 * Level^2` from Level 20 on.
+- Level Cap currently scales as `20 + 10 * Rebirths` (the first Rebirth is at Level 20).
 - Rebirth Power multiplier currently scales as `Rebirths + 1`.
 - These are implementation/balance values, not immutable design decisions.
 - Level is the sole long-term determinant of batting distance.
@@ -359,6 +359,17 @@ Training practice visuals do not:
 
 Training stops cleanly on Leave, death, travel, disconnect, or other valid cleanup.
 
+## New-Player Tutorial
+
+A new save runs a four-step tutorial in World 1 (`TutorialConfig`), then never again:
+
+1. Get 30 Power (any granted Power counts; arrows lead to Basic Training).
+2. Earn $2 Cash from batting (Cash earned, so spending never takes progress back; arrows lead to the tee).
+3. Buy the Sandlot Ball (the first Ball upgrade, $2, 3x Power; arrows lead to its pedestal, where the Shop opens with the Ball spotlit).
+4. Reach Level 20 and Rebirth (the Rebirth menu opens with its buttons spotlit); the server's successful Rebirth completes it.
+
+The server (`PlayerData`) owns, saves and advances it from its own events only: granted Power, batting Cash (`RecordBattingCash`), purchases, Level and Rebirths. There is no client request that moves it; clients only draw the banner, arrows (`GuideArrows`) and spotlight (`Spotlight`) from the `TutorialStep` / `TutorialProgress` attributes. Saves from before Schema 10, or with malformed tutorial fields, skip it when they already show play (any Rebirth, Level, Power, Cash, bought equipment or later World). In Studio, the Workspace attribute `StudioFreshSave` plays as a brand-new player on a throwaway Studio-only record (to test it).
+
 ## Offline Training
 
 Offline Power:
@@ -440,7 +451,7 @@ Preserve existing protections:
 - validation/sanitization
 - bounded retry behavior
 
-Current confirmed schema is Schema 9 (Schema 6 removed Tee equipment, Schema 7 added Juice, Schema 8 retired the saved Training Ground selection, Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards).
+Current confirmed schema is Schema 10 (Schema 6 removed Tee equipment, Schema 7 added Juice, Schema 8 retired the saved Training Ground selection, Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards, Schema 10 added the new-player tutorial: TutorialCompleted, and while unfinished TutorialStep and TutorialProgress).
 
 The global leaderboards' OrderedDataStores are mirrors of saved values, written from successful saves; PlayerData remains canonical.
 

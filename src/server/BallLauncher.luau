@@ -206,6 +206,7 @@ local function launch(station, hit)
     player.leaderstats.Cash.Value += cashEarned
     player:SetAttribute("LastBatCashEarned", cashEarned)
     player:SetAttribute("LastBatCashSwingId", result.swingId)
+    PlayerData.RecordBattingCash(player, cashEarned)
     local granted, powerResult = PlayerData.GrantPower(player, Progression.HitPowerReward, "CompletedHit", result.ballId)
     final.powerEarned = granted and powerResult.powerGranted or 0
     player:SetAttribute("LastBatPowerEarned", final.powerEarned)

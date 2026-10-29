@@ -74,6 +74,10 @@ GameAudio.Cues = {
  WorldUnlock = {"rbxassetid://9043809359", 0.85, "UI", duck = "Sting", duckSeconds = 3.5},
  -- PSE "Magic Twirling Small High Pitch Spinning Chime": soft sparkle, top end tamed.
  OfflineReward = {"rbxassetid://9125644323", 0.6, "UI", eq = {0, 0, -6}},
+ -- Tutorial: a tutorial objective done (the Confirm ding, a touch brighter and louder), and the
+ -- whole tutorial done (the Offline Reward chime, after the Rebirth fanfare's opening).
+ TutorialStep = {"rbxassetid://9119834602", 0.45, "UI", speed = 1.1, eq = {0, 0, -3}, cooldown = 0.5},
+ TutorialComplete = {"rbxassetid://9125644323", 0.6, "UI", eq = {0, 0, -6}},
 
  -- Rewards, shop, travel ---------------------------------------------------------------------
  -- "Ka-ching" (~0.4 s): a register snap (the "ka", PSE "Cash Register 1"), then a bright

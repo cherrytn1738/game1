@@ -298,6 +298,30 @@ The beginning of the game should leave substantial visible room for future power
 
 Level 1 should produce a short hit far below the World 1 endpoint.
 
+## New-Player Tutorial
+
+A new save starts a four-step tutorial in World 1 that shows the whole loop in about a minute and a half. It runs once: a completed tutorial never shows again.
+
+| Step | Objective (banner) | Done when (server) | Guidance | Target | Measured (Studio, walking at 16) |
+|---|---|---|---|---|---|
+| 1 | GET 30 POWER (n/30) | 30 Power granted (any source) | arrows to Basic Training | ~15 s | 7 s (4 s walk + 2 practice hits at +20) |
+| 2 | EARN $2 FROM BATTING ($n/$2) | $2 of batting Cash earned | arrows to the tee | 15-20 s | 9 s (one hit) |
+| 3 | BUY THE SANDLOT BALL ($2 for x3 POWER) | the Sandlot Ball owned (buying equips it) | arrows to its pedestal; the Shop opens there with the Balls tab, then PURCHASE, spotlit | 10-15 s | ~9 s (6 s walk + two clicks) |
+| 4 | REACH LEVEL 20 (n/20), then REBIRTH NOW! | Level 20 (the Level Cap), then a successful Rebirth | "Train to gain Power"; arrows to Basic Training only after 20 s without Power; then the Rebirth menu opens (or the HUD's Rebirth tile is ringed while Training) with REBIRTH, then CONFIRM, spotlit | 45-60 s | 65 s (8 s walk + 57 s Training from Level 3) |
+| | TUTORIAL COMPLETE! | | the banner fades after 5 s | 1.5-2 min | about 1.6 min |
+
+- **Values:** `TutorialConfig` (30 Power, $2, the main Ball series' second ball, Basic Training, World 1; Level 20 is `Progression.GetLevelCap(0)`). The Ball's price and multiplier come from `EquipmentConfig`.
+- **Balance it relies on:** Basic Training grants +20 Power per practice hit at the start; Levels below 20 need `9 * Level + 1` Power (1,729 from Level 1 to 20, about a minute of Training with the Sandlot Ball's 3x); the first Level Cap is 20.
+- **Known mismatch:** an early real hit pays about $70-470 (1 Cash per stud), not $1, so Step 2 completes on the first hit; Steps 1-2 run faster than their targets. Left for the balance pass.
+- **Server authority:** `PlayerData` owns the state (session `tutorial`), moves it only from its own events (granted Power, `RecordBattingCash` from `BallLauncher`, purchases, Level, Rebirths; a Rebirth from any step completes it), publishes `TutorialStep` / `TutorialProgress`, and saves a step change soon (the important-save path). There is no client request that moves it. Progress counts what was earned, so spending Cash never takes it back.
+- **Persistence (Schema 10):** `TutorialCompleted`, and while unfinished `TutorialStep` and `TutorialProgress` (a finished save keeps no step or count). Rejoining resumes the saved step and count, moving past anything already done.
+- **Existing players:** a save from before Schema 10, or with malformed tutorial fields, skips the tutorial when it already shows play (any Rebirth, Level above 1, Power, Cash, bought equipment or a World beyond World 1) and starts it otherwise. An out-of-range count resets to 0.
+- **Arrows (`GuideArrows`):** chunky white chevrons with a dark outline every 5 studs along the route from the player (through a cage's door when the goal is inside it), rippling forward, plus a big chevron bobbing over the destination. Client-only parts (no collisions, shadows or replication), pooled, one RenderStepped connection while shown. They show only while walking in World 1's hub with no menu open, hide while Training / batting, during death and outside World 1, and come back on respawn.
+- **Spotlight (`Spotlight`, tutorial-only):** four dark frames around the real target (its AbsolutePosition / AbsoluteSize, re-measured every frame, so resizing and scrolling keep it aligned), a pulsing gold ring and a short caption (below a wide target, beside a small one). The target's list scrolls it into view. The menu's other buttons are non-interactive meanwhile, except its close button, so closing the menu always removes the spotlight and restores the world guidance. Outside a menu it is only a ring (the HUD's Rebirth tile).
+- **Banner:** top centre below Roblox's top bar, gold FredokaOne with heavy outlines; it steps aside while a menu is open (the spotlight caption carries the instruction there) and slides under a notification while one shows.
+- **Sound:** `TutorialStep` (a soft ding on each new objective) and `TutorialComplete` (a chime after the Rebirth fanfare's opening); progress ticks are silent.
+- **Studio testing:** the Workspace attribute `StudioFreshSave` plays as a brand-new player on a throwaway record in a Studio-only store (`Studio_FreshPlayers`), ignoring `OwnAllBalls` / `UnlockAllWorlds`, and never touches the real save or the leaderboards.
+
 ## UI Presentation (Inventory style)
 
 Every screen follows the Inventory's chunky cartoon style, built on the Check-UI foundation (`.agents/skills/check-ui-clean-roblox/`). `UICommon` implements it behind the same API, so clients keep their gameplay wiring; the Worlds and Inventory menus use its `UI.ShowcaseMenu` variant (both blue).
@@ -657,14 +681,14 @@ Training rate previews use the same whole-Power arithmetic divided by the tick i
 
 `ProgressionConfig` owns the placeholder formulas. Schema 4 extends the existing
 `PlayerProgression` store with Power, Level, Rebirths, and LevelCap. Older saves
-receive 0 Power, Level 1, 0 Rebirths, and cap 10 without converting equipment.
+receive 0 Power, Level 1, 0 Rebirths, and the first Level Cap (20) without converting equipment.
 Cash, ownership, equipped selections, worlds, and unknown saved fields are preserved.
 Malformed new fields are repaired; LevelCap is derived, never trusted from a save.
 
-- Power is progress toward the next Level. Requirement = `100 * Level^2`.
+- Power is progress toward the next Level. Requirement = `9 * Level + 1` below Level 20 (the quick early band the tutorial runs through: 10, 19, 28, ...; 1,729 Power from Level 1 to 20), then `100 * Level^2`.
 - Requirements are consumed on advancement; one grant can advance multiple Levels.
 - At the cap, Level stops but Power keeps building (no grant is discarded) up to the technical `MaxPower` limit; a Rebirth resets it to 0 with the Level.
-- Level cap = `10 + 10 * Rebirths`; Power gain multiplier = `Rebirths + 1`.
+- Level cap = `20 + 10 * Rebirths` (the first Rebirth is at Level 20); Power gain multiplier = `Rebirths + 1`.
 - A valid finalized field hit grants base 2 Power, once, through server-only
   `PlayerData.GrantPower(player, baseAmount, source)`. Active training uses this API; offline grants use the same private grant path inside the atomic load transaction.
 - Speed = `55 + 15 * (Level - 1)` studs/second, with fixed 38-degree loft.
@@ -815,7 +839,7 @@ Schema 5 added SelectedTrainingGround and LastLogoutTime to PlayerProgression.
 Schema 8 retires SelectedTrainingGround: grounds are physical, so nothing is
 selected or saved, and the field is dropped on load and save. Existing profiles keep Cash, Power, Level,
 Rebirths, equipment, juices and worlds. Schema 9 adds TimePlayed, RobuxSpent and
-RobuxPurchases (see Leaderboard stats). Old schemas and missing, zero, malformed, or
+RobuxPurchases (see Leaderboard stats). Schema 10 adds the tutorial fields (see New-Player Tutorial). Old schemas and missing, zero, malformed, or
 future timestamps grant no historical offline Power.
 
 Offline base Power = floor(min(elapsed seconds, 8 hours) * best usable ground's

@@ -62,12 +62,12 @@ return function(sources)
  local tool=object()
  tool.Parent=player.Character
  tool:SetAttribute("BattingSession",1)
- local grants,delayed={},{}
+ local grants,delayed,cashReports={},{},{}
  local juiceCash = 1
  local completionMessage = nil
  local modules={EquipmentConfig=Equipment,ProgressionConfig=Progression,FieldConfig=Field,WorldConfig=Worlds,SwingConfig=Swing,
   WorldProgress={Complete=function() return completionMessage end},
-  PlayerData={IsReady=function() return true end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,ballId)
+  PlayerData={IsReady=function() return true end,RecordBattingCash=function(_,amount) table.insert(cashReports,amount) end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,ballId)
    table.insert(grants,{base=base,source=source,ballId=ballId})
    return true,{powerGranted=Progression.GetPowerGrant(base,1,Equipment.Get("Ball",ballId).powerGainMultiplier)}
   end}}
@@ -109,6 +109,7 @@ return function(sources)
    heartbeat:Fire(Field.StopHoldSeconds+.01)
    check(result.distanceResult.distanceStuds==100,"equipment does not change measured distance")
    check(player.leaderstats.Cash.Value-cash==math.floor(100*bat.cashMultiplier),"Cash uses only the Bat and field multiplier (never the Ball)")
+   check(cashReports[#cashReports]==player.leaderstats.Cash.Value-cash,"the paid Cash is reported once for the tutorial")
    check(#grants==count+1 and grants[#grants].ballId==ballItem.id and grants[#grants].source=="CompletedHit",
     "completed hit grants Power once with the accepted Ball snapshot")
    check(result.distanceResult.powerEarned==math.floor(2*ballItem.powerGainMultiplier*2),"hit Power includes the Ball and Rebirth exactly once, never the Bat (whole Power)")

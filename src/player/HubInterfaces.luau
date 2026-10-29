@@ -13,6 +13,11 @@ function Interfaces.IsOpen()
  return currentMenu ~= nil
 end
 
+-- The open menu's name ("Shop", "Rebirth", ...), or nil.
+function Interfaces.Current()
+ return currentMenu
+end
+
 function Interfaces.CanOpen()
  local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
  return player:GetAttribute("DataLoaded") == true and humanoid ~= nil and humanoid.Health > 0
