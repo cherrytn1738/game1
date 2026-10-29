@@ -67,9 +67,9 @@ return function(sources)
  local completionMessage = nil
  local modules={EquipmentConfig=Equipment,ProgressionConfig=Progression,FieldConfig=Field,WorldConfig=Worlds,SwingConfig=Swing,
   WorldProgress={Complete=function() return completionMessage end},
-  PlayerData={IsReady=function() return true end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,batId)
-   table.insert(grants,{base=base,source=source,batId=batId})
-   return true,{powerGranted=Progression.GetPowerGrant(base,1,Equipment.Get("Bat",batId).powerGainMultiplier)}
+  PlayerData={IsReady=function() return true end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,ballId)
+   table.insert(grants,{base=base,source=source,ballId=ballId})
+   return true,{powerGranted=Progression.GetPowerGrant(base,1,Equipment.Get("Ball",ballId).powerGainMultiplier)}
   end}}
  local storage={WaitForChild=function(_,name) return name end,BattingTiming={FireClient=function() end}}
  local services={Workspace=workspaceFake,RunService={Heartbeat=heartbeat,IsStudio=function() return true end},Players=players,ReplicatedStorage=storage}
@@ -91,7 +91,7 @@ return function(sources)
  local velocity
  for _,bat in Equipment.GetItems("Bat") do
   for _,ballItem in Equipment.GetItems("Ball") do
-   local result={worldId=world.id,session=1,swingId=passed+1,launchLevel=5,batId=bat.id,ballRewardMultiplier=ballItem.rewardMultiplier}
+   local result={worldId=world.id,session=1,swingId=passed+1,launchLevel=5,ballId=ballItem.id,batCashMultiplier=bat.cashMultiplier}
    check(Launcher.TryLaunch(player,result,tool),"valid hit accepted")
    check(not Launcher.TryLaunch(player,table.clone(result),tool),"busy station cannot accept another hit")
    local callback=table.remove(delayed,1)
@@ -101,25 +101,26 @@ return function(sources)
    check((ball.AssemblyLinearVelocity-velocity).Magnitude<.00001,"all Bat/Ball combinations produce identical Level-based velocity")
    check(result.launchSpeed==115 and result.launchAngleDegrees==38,"launch strength and loft remain Level-based")
    -- Change the display selection after acceptance; the reward must use the snapshot.
+   player:SetAttribute("EquippedBall",ballItem.id=="baseball" and "practice_ball" or "baseball")
    player:SetAttribute("EquippedBat",bat.id=="wood_bat" and "amethyst_bat" or "wood_bat")
    ball.CFrame=CFrame.new(0,.5,-100)
    ball.AssemblyLinearVelocity,ball.AssemblyAngularVelocity=Vector3.zero,Vector3.zero
    local count,cash=#grants,player.leaderstats.Cash.Value
    heartbeat:Fire(Field.StopHoldSeconds+.01)
    check(result.distanceResult.distanceStuds==100,"equipment does not change measured distance")
-   check(player.leaderstats.Cash.Value-cash==math.floor(100*ballItem.rewardMultiplier),"Cash uses only Ball and field multiplier")
-   check(#grants==count+1 and grants[#grants].batId==bat.id and grants[#grants].source=="CompletedHit",
-    "completed hit grants Power once with accepted Bat snapshot")
-   check(result.distanceResult.powerEarned==math.floor(2*bat.powerGainMultiplier*2),"hit reward includes Bat and Rebirth exactly once (whole Power)")
+   check(player.leaderstats.Cash.Value-cash==math.floor(100*bat.cashMultiplier),"Cash uses only the Bat and field multiplier (never the Ball)")
+   check(#grants==count+1 and grants[#grants].ballId==ballItem.id and grants[#grants].source=="CompletedHit",
+    "completed hit grants Power once with the accepted Ball snapshot")
+   check(result.distanceResult.powerEarned==math.floor(2*ballItem.powerGainMultiplier*2),"hit Power includes the Ball and Rebirth exactly once, never the Bat (whole Power)")
    heartbeat:Fire(10)
    Launcher.CancelPlayer(player)
-   check(#grants==count+1 and player.leaderstats.Cash.Value-cash==math.floor(100*ballItem.rewardMultiplier),"reset and extra samples never duplicate rewards")
+   check(#grants==count+1 and player.leaderstats.Cash.Value-cash==math.floor(100*bat.cashMultiplier),"reset and extra samples never duplicate rewards")
    check(ball:GetAttribute("BallState")=="Ready" and not Launcher.IsBusy(world.id),"hit resets cleanly")
   end
  end
  -- An active Cash juice multiplies the hit's Cash reward (and only Cash).
  juiceCash = 2
- local juiced={worldId=world.id,session=1,swingId=700,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ local juiced={worldId=world.id,session=1,swingId=700,launchLevel=5,ballId="baseball",batCashMultiplier=1}
  check(Launcher.TryLaunch(player,juiced,tool),"juiced hit accepted")
  local juicedLaunch=table.remove(delayed,1)
  juicedLaunch.fn(table.unpack(juicedLaunch.args,1,juicedLaunch.args.n))
@@ -130,15 +131,32 @@ return function(sources)
  check(player.leaderstats.Cash.Value-cashBefore==200 and juiced.distanceResult.distanceStuds==100,"Cash juice doubles Cash without changing distance")
  Launcher.CancelPlayer(player)
  juiceCash = 1
+ -- Worked Cash formula: distance (Cash per stud) x Bat x section, rounded down once. A 2.5x
+ -- Bat landing in a 1.35x section; swapping the Ball (a Power item) changes nothing.
+ local tierDistance=100
+ while Field.GetRewardSection(tierDistance,world).rewardMultiplier~=1.35 do tierDistance+=50 end
+ for index,ballId in {"baseball","supernova_ball"} do
+  local hit={worldId=world.id,session=1,swingId=710+index,launchLevel=5,ballId=ballId,batCashMultiplier=Equipment.Get("Bat","amethyst_bat").cashMultiplier}
+  check(Launcher.TryLaunch(player,hit,tool),"formula hit accepted")
+  local launch=table.remove(delayed,1)
+  launch.fn(table.unpack(launch.args,1,launch.args.n))
+  balls[world.id].CFrame=CFrame.new(0,.5,-tierDistance)
+  balls[world.id].AssemblyLinearVelocity,balls[world.id].AssemblyAngularVelocity=Vector3.zero,Vector3.zero
+  local before=player.leaderstats.Cash.Value
+  heartbeat:Fire(Field.StopHoldSeconds+.01)
+  check(player.leaderstats.Cash.Value-before==math.floor(tierDistance*2.5*1.35),
+   "Cash = distance x Bat 2.5 x section 1.35 with the " .. ballId .. " (the Ball never changes Cash)")
+  Launcher.CancelPlayer(player)
+ end
  -- A Legendary Hit only waits longer: the same launch, distance and Cash follow.
- local normalHit={worldId=world.id,session=1,swingId=750,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ local normalHit={worldId=world.id,session=1,swingId=750,launchLevel=5,ballId="baseball",batCashMultiplier=1}
  check(Launcher.TryLaunch(player,normalHit,tool),"normal hit accepted")
  local normalLaunch=table.remove(delayed,1)
  normalLaunch.fn(table.unpack(normalLaunch.args,1,normalLaunch.args.n))
  local normalVelocity=balls[world.id].AssemblyLinearVelocity
  Launcher.CancelPlayer(player)
  forceLegendary=true
- local legendary={worldId=world.id,session=1,swingId=751,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ local legendary={worldId=world.id,session=1,swingId=751,launchLevel=5,ballId="baseball",batCashMultiplier=1}
  check(Launcher.TryLaunch(player,legendary,tool),"legendary hit accepted")
  forceLegendary=false
  local legendaryBall=balls[world.id]
@@ -160,7 +178,7 @@ return function(sources)
  Launcher.CancelPlayer(player)
  -- A Mythic Hit holds longer, launches the same, and its attributes clear on cancel.
  forceMythic=true
- local mythic={worldId=world.id,session=1,swingId=752,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ local mythic={worldId=world.id,session=1,swingId=752,launchLevel=5,ballId="baseball",batCashMultiplier=1}
  check(Launcher.TryLaunch(player,mythic,tool),"mythic hit accepted")
  forceMythic=false
  local mythicLaunch=table.remove(delayed,1)
@@ -176,7 +194,7 @@ return function(sources)
  forceLegendary,forceMythic=true,true
  local kinds={}
  for i=1,2 do
-  check(Launcher.TryLaunch(player,{worldId=world.id,session=1,swingId=760+i,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1},tool),"forced hit accepted")
+  check(Launcher.TryLaunch(player,{worldId=world.id,session=1,swingId=760+i,launchLevel=5,ballId="baseball",batCashMultiplier=1},tool),"forced hit accepted")
   kinds[i]=legendaryBall:GetAttribute("MythicHitUserId") and "Mythic" or legendaryBall:GetAttribute("LegendaryHitUserId") and "Legendary"
   table.remove(delayed,1)
   Launcher.CancelPlayer(player)
@@ -185,7 +203,7 @@ return function(sources)
  forceLegendary,forceMythic=false,false
  -- Shipped config: 2x is disabled, so requests are rejected and no speed state is published.
  check(not Field.FlightSpeedUpEnabled,"2x ball flight ships disabled")
- local disabled={worldId=world.id,session=1,swingId=800,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ local disabled={worldId=world.id,session=1,swingId=800,launchLevel=5,ballId="baseball",batCashMultiplier=1}
  check(Launcher.TryLaunch(player,disabled,tool),"hit accepted while 2x is disabled")
  local disabledLaunch=table.remove(delayed,1)
  disabledLaunch.fn(table.unpack(disabledLaunch.args,1,disabledLaunch.args.n))
@@ -196,7 +214,7 @@ return function(sources)
  Launcher.CancelPlayer(player)
  -- The remaining checks keep the 2x code path tested in case it is re-enabled.
  Field.FlightSpeedUpEnabled=true
- local result={worldId=world.id,session=1,swingId=900,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+ local result={worldId=world.id,session=1,swingId=900,launchLevel=5,ballId="baseball",batCashMultiplier=1}
  check(not Launcher.SpeedUp(player,1),"no hit cannot speed up")
  check(Launcher.TryLaunch(player,result,tool),"speed test hit accepted")
  check(not Launcher.SpeedUp(player,1),"cannot speed up before contact")
@@ -246,7 +264,7 @@ return function(sources)
  Launcher.OnPortalJourney=function(who,from,to) table.insert(journeys,{who=who,from=from,to=to}) end
  player:SetAttribute("WorldUnlocked_"..world.nextWorldId,true)
  local function portalHit(swingId)
-  local hit={worldId=world.id,session=1,swingId=swingId,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+  local hit={worldId=world.id,session=1,swingId=swingId,launchLevel=5,ballId="baseball",batCashMultiplier=1}
   check(Launcher.TryLaunch(player,hit,tool),"portal hit accepted")
   local launchNow=table.remove(delayed,1)
   launchNow.fn(table.unpack(launchNow.args,1,launchNow.args.n))
@@ -283,7 +301,7 @@ return function(sources)
  Launcher.OnGameFinale=function(who,from) table.insert(finales,{who=who,from=from}) end
  player:SetAttribute("CurrentWorldId",last.id)
  local function lastPortalHit(swingId)
-  local hit={worldId=last.id,session=1,swingId=swingId,launchLevel=5,batId="wood_bat",ballRewardMultiplier=1}
+  local hit={worldId=last.id,session=1,swingId=swingId,launchLevel=5,ballId="baseball",batCashMultiplier=1}
   check(Launcher.TryLaunch(player,hit,tool),"last World portal hit accepted")
   local launchNow=table.remove(delayed,1)
   launchNow.fn(table.unpack(launchNow.args,1,launchNow.args.n))

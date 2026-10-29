@@ -40,9 +40,9 @@ local function hubLayout(name, theme, ballSeries, ballTitle)
   -- here toward the spawn; -1 = toward the back), on the outer ends so the gap between the two
   -- displays stays clear. The flights reach about 12 (balls) and 15 (bats) studs past the ends.
   displays = {
-   {id = "BallDisplay", category = "Ball", series = ballSeries, title = ballTitle, subtitle = "Earn more Cash per hit",
+   {id = "BallDisplay", category = "Ball", series = ballSeries, title = ballTitle, subtitle = "Gain more Power",
     position = Vector3.new(-36, 0, 86), yaw = math.pi / 2, perRow = 5, stairSide = 1},
-   {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Gain more Power",
+   {id = "BatDisplay", category = "Bat", title = "BATS", subtitle = "Earn more Cash per hit",
     position = Vector3.new(-36, 0, 126), yaw = math.pi / 2, perRow = 5, itemSize = 3.6, itemHeight = 2.3, labelHeight = 3.6,
     stairSide = -1},
   },

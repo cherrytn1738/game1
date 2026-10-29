@@ -61,8 +61,9 @@ Established design decisions:
 
 - Level alone determines authoritative launch strength.
 - Every valid batting hit launches straight at a configured loft; the old timing mechanic is retired.
-- Bat equipment multiplies Power gained from Training, real hits, and offline Training.
-- Ball equipment multiplies Cash rewards only.
+- Ball equipment multiplies Power gained from Training, real hits, and offline Training (`powerGainMultiplier`).
+- Bat equipment multiplies the Cash a real hit earns, only (`cashMultiplier`).
+- Neither changes launch strength, loft, direction or distance; Training Grounds multiply Training Power only; Rebirths multiply Power gain.
 - Tee is not player equipment; the physical batting tee remains part of the batting station.
 - Training is the primary Power source; real hits give a small Power reward.
 - Offline Training is supported and capped.
@@ -194,11 +195,28 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 - These are implementation/balance values, not immutable design decisions.
 - Level is the sole long-term determinant of batting distance.
 
+### Equipment Roles
+
+- Ball: multiplies Power gain (Training, real hits, offline Training).
+- Bat: multiplies Cash rewards from batting.
+- Level: solely determines hit distance.
+- Training Ground: multiplies Training Power only.
+- Rebirth: multiplies Power gain.
+
+The server derives every multiplier from the authoritative equipped IDs through `EquipmentConfig`; a hit snapshots the Ball ID and Bat Cash multiplier when the swing is accepted.
+
+Formulas (whole Power and Cash are rounded down once, after all bonuses):
+
+- Training Power = ground base Power (base × ground multiplier) × Ball × (Rebirths + 1) × any Power juice
+- Hit Power = `HitPowerReward` × Ball × (Rebirths + 1) × any Power juice (no ground)
+- Offline Power = the best usable ground's capped offline base × Ball × (Rebirths + 1)
+- Hit Cash = distance × Cash per stud × Bat × section multiplier × any Cash juice
+
 ### Bat
 
-Bat equipment increases Power gain.
+Bat equipment increases Cash earned from batting.
 
-Current placeholder multipliers:
+Current placeholder Cash multipliers (the old Power values, carried over until the Bat balance pass):
 
 - Wood: 1.0x
 - Metal: 1.5x
@@ -211,15 +229,28 @@ Current placeholder multipliers:
 - Dragon Bone: 8.0x
 - Celestial: 10.0x
 
-Bat does not affect launch distance.
+Bat does not affect Power gain or launch distance.
 
 ### Ball
 
-Ball equipment increases Cash rewards from batting.
+Ball equipment increases Power gain.
 
-Ball does not affect Power gain or launch distance.
+Ball does not affect Cash or launch distance.
 
-Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball, up to 10x), World 2's ten (Dino Egg to Chrono Orb, 12x-95x placeholders) and World 3's ten (Solar Cell to Singularity Orb, 110x-750x placeholders). A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
+World 1's Balls (intended balance; the Sandlot Ball's $2 is the tutorial's first purchase):
+
+- Baseball: 1x, $0
+- Sandlot Ball: 3x, $2
+- Bubblegum Ball: 5x, $10
+- Crystal Ball: 12x, $40
+- Frost Comet: 30x, $150
+- Inferno Ball: 75x, $500
+- Thunder Ball: 200x, $1,500
+- Galaxy Ball: 500x, $4,500
+- Dragonfire Ball: 1,250x, $14,000
+- Supernova Ball: 3,500x, $40,000
+
+Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball), World 2's ten (Dino Egg to Chrono Orb, 12x-95x placeholders) and World 3's ten (Solar Cell to Singularity Orb, 110x-750x placeholders). World 2 and 3 keep their old Cash numbers as Power multipliers until their balance pass, so they sit below World 1's late balls for now. A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
 
 ### Training Grounds
 
@@ -335,7 +366,7 @@ Offline Power:
 - uses authoritative server timestamps
 - uses the best Training Ground the player can use in any unlocked World (from Rebirths, owned game passes and World unlocks)
 - applies configured offline-rate limits
-- applies Bat Power multiplier
+- applies the saved equipped Ball's Power multiplier
 - applies Rebirth multiplier
 - respects Level Cap behavior
 - grants once per valid login/session

@@ -46,8 +46,8 @@ local function multiplier(value)
 end
 
 local function boostText(item)
- if item.category == "Bat" then return multiplier(item.powerGainMultiplier) .. " POWER" end
- return multiplier(item.rewardMultiplier) .. " CASH"
+ if item.category == "Bat" then return multiplier(item.cashMultiplier) .. " CASH" end
+ return multiplier(item.powerGainMultiplier) .. " POWER"
 end
 
 local function ownership(category)

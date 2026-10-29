@@ -178,7 +178,7 @@ local function launch(station, hit)
   local final = {
    swingId = result.swingId, worldId = world.id, launchLevel = result.launchLevel,
    launchAngleDegrees = result.launchAngleDegrees,
-   launchSpeed = result.launchSpeed, ballRewardMultiplier = result.ballRewardMultiplier,
+   launchSpeed = result.launchSpeed, batCashMultiplier = result.batCashMultiplier,
    distanceStuds = distance, startPosition = origin, finalPosition = lastGroundPosition or origin,
    firstGroundDistanceStuds = firstGroundDistance, farthestDistanceStuds = farthestDistance,
    sectionId = finalSection and finalSection.id, sectionName = finalSection and finalSection.displayName or "No field landing",
@@ -199,14 +199,14 @@ local function launch(station, hit)
     player:SetAttribute("SessionFarthestSectionId", farthestSection.id)
    end
    if finalSection and not result.rewardAwarded then
-    local cashEarned = math.floor(distance * CASH_PER_STUD * result.ballRewardMultiplier * final.sectionMultiplier
+    local cashEarned = math.floor(distance * CASH_PER_STUD * result.batCashMultiplier * final.sectionMultiplier
      * PlayerData.GetJuiceMultiplier(player, "Cash"))
     result.rewardAwarded = true
     result.cashEarned, final.cashEarned = cashEarned, cashEarned
     player.leaderstats.Cash.Value += cashEarned
     player:SetAttribute("LastBatCashEarned", cashEarned)
     player:SetAttribute("LastBatCashSwingId", result.swingId)
-    local granted, powerResult = PlayerData.GrantPower(player, Progression.HitPowerReward, "CompletedHit", result.batId)
+    local granted, powerResult = PlayerData.GrantPower(player, Progression.HitPowerReward, "CompletedHit", result.ballId)
     final.powerEarned = granted and powerResult.powerGranted or 0
     player:SetAttribute("LastBatPowerEarned", final.powerEarned)
     final.worldCompletionMessage = Progress.Complete(player, world, distance)

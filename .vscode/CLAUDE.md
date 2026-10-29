@@ -193,17 +193,28 @@ Tee is no longer player equipment.
 
 The physical batting tee still exists in the world.
 
+### Equipment Roles (established)
+
+- Ball: multiplies Power gain (`powerGainMultiplier`)
+- Bat: multiplies Cash rewards from batting (`cashMultiplier`)
+- Level: solely determines hit distance
+- Training Ground: multiplies Training Power only
+- Rebirth: multiplies Power gain (`Rebirths + 1`)
+
+- Training Power = ground base Power × Ball × (Rebirths + 1) (× Power juice)
+- Hit Power = `HitPowerReward` × Ball × (Rebirths + 1) (× Power juice)
+- Offline Power = best usable ground's capped offline base × saved Ball × (Rebirths + 1)
+- Hit Cash = distance × Cash per stud × Bat × section multiplier (× Cash juice)
+
+A hit snapshots the Ball ID and the Bat's Cash multiplier at swing acceptance.
+
 ### Bat
 
-Bat increases Power gained from:
+Bat increases Cash earned from real completed hits.
 
-- active Training
-- real completed hits
-- offline Training
+Bat does NOT increase Power or hit distance.
 
-Bat does NOT increase hit distance.
-
-Current placeholder multipliers:
+Current placeholder Cash multipliers (the old Power values, carried over):
 
 - Wood: 1.0x
 - Metal: 1.5x
@@ -220,9 +231,15 @@ These are temporary balance values.
 
 ### Ball
 
-Ball increases Cash earned from batting.
+Ball increases Power gained from:
 
-Ball does not increase Power or distance.
+- active Training
+- real completed hits
+- offline Training
+
+Ball does not increase Cash or distance.
+
+World 1's Balls (intended balance): Baseball 1x $0, Sandlot 3x $2 (the tutorial's first purchase), Bubblegum 5x $10, Crystal 12x $40, Frost Comet 30x $150, Inferno 75x $500, Thunder 200x $1,500, Galaxy 500x $4,500, Dragonfire 1,250x $14,000, Supernova 3,500x $40,000. World 2/3 Balls keep their old Cash numbers as Power placeholders until their balance pass.
 
 Equipment ownership and equipped selections persist.
 
@@ -278,7 +295,7 @@ Current design:
 
 - uses the best Training Ground the player can use in any unlocked World
 - applies offline rate multiplier
-- applies equipped Bat multiplier
+- applies the saved equipped Ball multiplier
 - applies Rebirth multiplier
 - respects Level Cap rules
 - uses authoritative server timestamps
@@ -306,7 +323,7 @@ Cash is earned from real completed batting hits.
 
 Cash is used for purchases.
 
-Ball equipment increases Cash rewards.
+Bat equipment increases Cash rewards.
 
 Cash is server-authoritative and persistent.
 
@@ -435,8 +452,8 @@ Server must control or validate:
 - offline Power
 - equipment ownership/equipping
 - purchases/prices
-- Bat Power multiplier
-- Ball Cash multiplier
+- Ball Power multiplier
+- Bat Cash multiplier
 - world unlocks
 - travel eligibility
 - launch strength/direction/angle
@@ -572,8 +589,8 @@ The latest explicitly confirmed completed milestone is:
 
 Milestone 18:
 - Tee removed as player equipment
-- Bat now multiplies Power gain
-- Ball still multiplies Cash gain
+- Bat now multiplies Power gain (later flipped: Balls multiply Power, Bats multiply Cash)
+- Ball still multiplies Cash gain (see above)
 - Level alone determines batting distance
 - 944 automated checks passed
 - Schema 6 persistence active

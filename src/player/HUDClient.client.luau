@@ -220,11 +220,11 @@ local function refresh()
  powerAmount.Text = ready and UI.Compact(power) .. " POWER" or ""
  powerLabel.TextColor3 = UI.Colors.Text
  rebirthLabel.Text = ready and UI.Number(rebirths) or ""
- local bat = Equipment.Get("Bat", Player:GetAttribute("EquippedBat"))
+ local ball = Equipment.Get("Ball", Player:GetAttribute("EquippedBall"))
  -- Includes any active Power juice (display copy of the server timers).
  local activeFolder = Player:FindFirstChild("ActiveJuices")
  local juiceBoost = activeFolder and Juice.GetMultiplier(activeFolder:GetAttributes(), "Power") or 1
- multiplierLabel.Text = ready and "×" .. UI.Number(Progression.GetPowerMultiplier(rebirths) * bat.powerGainMultiplier * juiceBoost, 2) .. " Multiplier" or ""
+ multiplierLabel.Text = ready and "×" .. UI.Number(Progression.GetPowerMultiplier(rebirths) * ball.powerGainMultiplier * juiceBoost, 2) .. " Multiplier" or ""
  powerTrack.Visible = ready
  local fill = ready and (capped and 1 or math.clamp(power / Progression.PowerRequiredForNextLevel(level),0,1)) or 0
  if fill ~= lastFill then
@@ -348,7 +348,7 @@ Player:GetAttributeChangedSignal("HitActive"):Connect(function()
  distanceBall, distanceOrigin, distanceForward = nil,nil,nil
  if Player:GetAttribute("HitActive") then hideCashPopup() end
 end)
-for _, name in {"Power","Level","LevelCap","Rebirths","EquippedBat"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
+for _, name in {"Power","Level","LevelCap","Rebirths","EquippedBall"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
 local lastLevel = Player:GetAttribute("DataLoaded") and Player:GetAttribute("Level") or nil
 local noticePending = false
 Player:GetAttributeChangedSignal("DataLoaded"):Connect(function()

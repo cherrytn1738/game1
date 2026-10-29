@@ -274,13 +274,13 @@ return function(sources)
  check(fresh.leaderstats.Cash.Value == 1700 and Data.OwnsEquipment(fresh,"Bat","metal_bat")
   and fresh:GetAttribute("EquippedBat") == "metal_bat" and fresh:GetAttribute("WorldUnlocked_world_2"), "Rebirth preserves unrelated progression")
  ok, state = Data.GrantPower(fresh, 30, "FutureTraining")
- check(ok and state.powerGranted == 90 and fresh:GetAttribute("Power") == 90, "central Bat and Rebirth multipliers")
+ check(ok and state.powerGranted == 60 and fresh:GetAttribute("Power") == 60, "central Ball and Rebirth multipliers (the bought Bat adds no Power)")
  check(Progression.GetLaunchSpeed(Data.GetProgression(fresh).Level) == Progression.GetLaunchSpeed(1), "Power/Rebirth do not affect same-level launch")
  check(Progression.GetLaunchSpeed(10) > Progression.GetLaunchSpeed(1) * 3, "Level 10 launch substantially stronger")
  leave(fresh)
  fresh = join(20)
  state = Data.GetProgression(fresh)
- check(state.Rebirths == 1 and state.LevelCap == 20 and state.Level == 1 and state.Power == 90, "new progression saves and rejoins")
+ check(state.Rebirths == 1 and state.LevelCap == 20 and state.Level == 1 and state.Power == 60, "new progression saves and rejoins")
  check(fresh.leaderstats.Cash.Value == 1700 and fresh:GetAttribute("EquippedBat") == "metal_bat"
   and fresh:GetAttribute("WorldCompleted_world_1"), "equipment Cash and worlds survive new schema")
  check(returned:GetAttribute("Level") == 1 and returned:GetAttribute("Power") == 0, "legacy saves gain defaults without Bat conversion")
@@ -527,13 +527,36 @@ return function(sources)
  -- World 2's balls are their own series: their own offer, World 2 must be unlocked, then in order.
  local worldTwoBalls = Equipment.GetSeriesItems("Ball", "world_2")
  local aboveTen = true
- for _, ball in worldTwoBalls do aboveTen = aboveTen and ball.rewardMultiplier > 10 and ball.series == "world_2" end
+ for _, ball in worldTwoBalls do aboveTen = aboveTen and ball.powerGainMultiplier > 10 and ball.series == "world_2" end
  check(#worldTwoBalls == 10 and worldTwoBalls[1].id == "dino_egg_ball" and worldTwoBalls[10].id == "chrono_orb" and aboveTen
   and #Equipment.GetSeriesItems("Ball") == 10 and #Equipment.GetItems("Ball") == 30, "World 2 sells ten balls above x10")
  local worldThreeBalls = Equipment.GetSeriesItems("Ball", "world_3")
  local aboveChrono = true
  for _, ball in worldThreeBalls do
-  aboveChrono = aboveChrono and ball.rewardMultiplier > 95 and ball.series == "world_3" and ball.price > 2000000000
+  aboveChrono = aboveChrono and ball.powerGainMultiplier > 95 and ball.series == "world_3" and ball.price > 2000000000
+ end
+ -- Equipment roles: every Ball carries only a Power multiplier, every Bat only a Cash one.
+ for _, ball in Equipment.GetItems("Ball") do
+  check(type(ball.powerGainMultiplier) == "number" and ball.powerGainMultiplier >= 1 and ball.cashMultiplier == nil
+   and ball.rewardMultiplier == nil, ball.id .. " is a Power multiplier only")
+ end
+ for _, bat in Equipment.GetItems("Bat") do
+  check(type(bat.cashMultiplier) == "number" and bat.cashMultiplier >= 1 and bat.powerGainMultiplier == nil
+   and bat.rewardMultiplier == nil, bat.id .. " is a Cash multiplier only")
+ end
+ -- World 1's balls, exactly (the Sandlot Ball's $2 is the tutorial's first purchase).
+ local worldOneTable = {{"baseball", 1, 0}, {"practice_ball", 3, 2}, {"bubblegum_ball", 5, 10}, {"crystal_ball", 12, 40},
+  {"frost_comet", 30, 150}, {"inferno_ball", 75, 500}, {"thunder_ball", 200, 1500}, {"galaxy_ball", 500, 4500},
+  {"dragonfire_ball", 1250, 14000}, {"supernova_ball", 3500, 40000}}
+ for index, row in worldOneTable do
+  local ball = Equipment.GetSeriesItems("Ball")[index]
+  check(ball.id == row[1] and ball.powerGainMultiplier == row[2] and ball.price == row[3],
+   string.format("World 1 ball %d is %s at %dx Power for $%d", index, row[1], row[2], row[3]))
+ end
+ -- The old Bat Power values carried over unchanged as Cash multipliers.
+ for id, value in {wood_bat = 1, metal_bat = 1.5, jungle_bat = 2, amethyst_bat = 2.5, candy_cane_bat = 3.2,
+  frostbite_bat = 4, magma_bat = 5, lightning_bat = 6.5, dragon_bone_bat = 8, celestial_bat = 10} do
+  check(Equipment.Get("Bat", id).cashMultiplier == value, id .. " keeps " .. value .. "x, now Cash")
  end
  check(#worldThreeBalls == 10 and worldThreeBalls[1].id == "solar_cell_ball" and worldThreeBalls[10].id == "singularity_orb" and aboveChrono
   and Equipment.GetSeriesInfo("Ball", "world_3").requiredWorld == "world_3" and worldThreeBalls[10].price < 9000000000000,
@@ -618,7 +641,8 @@ return function(sources)
   check(best.id == "caveman_camp" and (Data.CanUseTrainingGround(cyclist, "enchanted_grove") ~= nil) == (rebirths + 1 >= 2),
    "the second ground opens at two Rebirths; the best ground spans unlocked Worlds")
   local granted, tick = Data.GrantPower(cyclist, best.basePower, "ActiveTraining")
-  check(granted and tick.powerGranted == best.basePower * 1.5 * Progression.GetPowerMultiplier(rebirths + 1), "ground, Bat and Rebirth multipliers compose")
+  check(granted and tick.powerGranted == best.basePower * Equipment.Get("Ball", cyclist:GetAttribute("EquippedBall")).powerGainMultiplier
+   * Progression.GetPowerMultiplier(rebirths + 1), "ground, Ball and Rebirth multipliers compose")
  end
  leave(cyclist)
  local cycleRecord = saved.Player_100
@@ -899,8 +923,10 @@ return function(sources)
  local migratedCash=migrated.leaderstats.Cash.Value
  remote.OnServerEvent:Fire(migrated,"Purchase","Tee","fake")
  remote.OnServerEvent:Fire(migrated,"Equip","Tee","basic_tee")
- remote.OnServerEvent:Fire(migrated,"Equip","Bat",{powerGainMultiplier=100000})
- check(migrated.leaderstats.Cash.Value==migratedCash and migrated:GetAttribute("EquippedBat")=="metal_bat",
+ remote.OnServerEvent:Fire(migrated,"Equip","Bat",{cashMultiplier=100000})
+ remote.OnServerEvent:Fire(migrated,"Equip","Ball",{powerGainMultiplier=100000})
+ check(migrated.leaderstats.Cash.Value==migratedCash and migrated:GetAttribute("EquippedBat")=="metal_bat"
+  and migrated:GetAttribute("EquippedBall")=="practice_ball",
   "removed category and fake multiplier remote inputs do not change equipment or Cash")
  leave(migrated)
  check(saved.Player_300.OwnedTees==nil and saved.Player_300.EquippedTee==nil
@@ -910,40 +936,50 @@ return function(sources)
  check(migrated:GetAttribute("EquippedBat")=="metal_bat" and migrated:GetAttribute("EquippedBall")=="practice_ball"
   and Data.OwnsEquipment(migrated,"Bat","wood_bat"), "schema 6 rejoin preserves Bat/Ball equipment")
 
+ -- The equipped Ball multiplies every Power source (offline, Training, hits); the Bat never does.
  local fixtureId=400
- for _,entry in {{id="wood_bat",gain=1},{id="metal_bat",gain=1.5},{id="jungle_bat",gain=2},{id="amethyst_bat",gain=2.5}} do
+ for _,entry in {{id="baseball",gain=1},{id="practice_ball",gain=3},{id="bubblegum_ball",gain=5},{id="crystal_ball",gain=12}} do
   for rebirths=0,2 do
    fixtureId+=1
    local key="Player_"..fixtureId
    saved[key]={SchemaVersion=5,Cash=5000,Power=0,Level=1,Rebirths=rebirths,
-    OwnedBats={wood_bat=true,[entry.id]=true},EquippedBat=entry.id,
+    OwnedBalls={baseball=true,[entry.id]=true},EquippedBall=entry.id,
+    OwnedBats={wood_bat=true,celestial_bat=true},EquippedBat="celestial_bat",
     SelectedTrainingGround="basic_training",LastLogoutTime=math.floor(now)-12}
    local fixture=join(fixtureId)
    check(fixture:GetAttribute("OfflinePowerEarned")==30*Training.GetBestGround(rebirths).powerMultiplier*entry.gain*(rebirths+1),
-    "offline bonus uses saved Bat and Rebirth exactly once")
+    "offline bonus uses the saved Ball and Rebirth exactly once (never the Bat)")
    local trainingOk,tick=Data.GrantPower(fixture,20,"ActiveTraining")
-   check(trainingOk and tick.powerGranted==20*entry.gain*(rebirths+1), "active Training composes Bat and Rebirth")
+   check(trainingOk and tick.powerGranted==20*entry.gain*(rebirths+1), "active Training composes Ball and Rebirth")
    local hitOk,hit=Data.GrantPower(fixture,2,"CompletedHit",entry.id)
-   check(hitOk and hit.powerGranted==2*entry.gain*(rebirths+1), "hit snapshot composes Bat and Rebirth")
-   check(Data.PurchaseNextEquipment(fixture,"Ball",fixture:GetAttribute("EquipmentPurchaseToken_Ball")),
-    "Ball purchase still works")
-   local _,afterBall=Data.GrantPower(fixture,2,"CompletedHit",entry.id)
-   check(afterBall.powerGranted==hit.powerGranted,"Ball reward bonus does not affect Power")
+   check(hitOk and hit.powerGranted==2*entry.gain*(rebirths+1), "hit snapshot composes Ball and Rebirth")
+   check(Data.EquipEquipment(fixture,"Bat","wood_bat"),"Bat switch")
+   local _,afterBat=Data.GrantPower(fixture,20,"ActiveTraining")
+   check(afterBat.powerGranted==tick.powerGranted,"the Bat does not affect Training Power")
+   local _,hitAfterBat=Data.GrantPower(fixture,2,"CompletedHit",entry.id)
+   check(hitAfterBat.powerGranted==hit.powerGranted,"the Bat does not affect hit Power")
    fixture:SetAttribute("TrainingActive",true)
-   check(not Data.EquipEquipment(fixture,"Bat","wood_bat"),"Bat switch blocked during Training")
+   check(not Data.EquipEquipment(fixture,"Ball","baseball"),"Ball switch blocked during Training")
    fixture:SetAttribute("TrainingActive",false)
    fixture:SetAttribute("HitActive",true)
-   check(not Data.EquipEquipment(fixture,"Bat","wood_bat"),"Bat switch blocked during flight")
+   check(not Data.EquipEquipment(fixture,"Ball","baseball"),"Ball switch blocked during flight")
    fixture:SetAttribute("HitActive",false)
-   check(Data.EquipEquipment(fixture,"Bat","wood_bat"),"owned Bat switches after activity")
+   check(Data.EquipEquipment(fixture,"Ball","baseball"),"owned Ball switches after activity")
    local _,olderHit=Data.GrantPower(fixture,2,"CompletedHit",entry.id)
    check(olderHit.powerGranted==hit.powerGranted,"accepted hit snapshot survives later equipment selection")
    local _,newTick=Data.GrantPower(fixture,20,"ActiveTraining")
-   check(newTick.powerGranted==20*(rebirths+1),"next Training uses newly equipped Bat")
-   check(not Data.GrantPower(fixture,20,"ActiveTraining",1000),"a number cannot supply a Bat bonus")
+   check(newTick.powerGranted==20*(rebirths+1),"next Training uses the newly equipped Ball")
+   check(not Data.GrantPower(fixture,20,"ActiveTraining",1000),"a number cannot supply a Ball bonus")
   end
  end
- check(not Data.GrantPower(migrated,20,"CompletedHit","amethyst_bat"),"unowned snapshot rejected")
+ check(not Data.GrantPower(migrated,20,"CompletedHit","crystal_ball"),"unowned snapshot rejected")
+ check(not Data.GrantPower(migrated,20,"CompletedHit","metal_bat"),"a Bat cannot stand in for the Ball snapshot")
+ -- Worked formulas. Training: base 5, Ball 3x (Sandlot), Rebirth 2x (1 Rebirth), ground 5x is
+ -- folded into the ground's base Power: 5 x 5 x 3 x 2 = 150.
+ check(Progression.GetPowerGrant(5 * 5, 1, Equipment.Get("Ball", "practice_ball").powerGainMultiplier) == 150,
+  "Training: base x ground x Ball x Rebirth")
+ -- Real hit: HitPowerReward x Ball x Rebirth, no ground.
+ check(Progression.GetPowerGrant(Progression.HitPowerReward, 1, 3) == Progression.HitPowerReward * 3 * 2, "hit: base x Ball x Rebirth")
  check(Progression.GetPowerGrant(3,1,1.5)==9 and Progression.GetPowerGrant(1,0,1.5)==1,
   "whole Power rounds only after composing bonuses")
  -- Juice (Schema 7): server-granted consumables with online-only timers.

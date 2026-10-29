@@ -57,27 +57,42 @@ death, respawning, and world changes close these interfaces. Equipment changes w
 hit has finished and the player has left batting mode. Worlds without a physical hub retain
 on-screen access to the same interfaces.
 
-There are two player equipment categories:
+There are two player equipment categories.
+
+### Equipment Roles
+
+An established architecture decision (it replaced the earlier Bat = Power, Ball = Cash split):
+
+- **Ball:** multiplies Power gain (`powerGainMultiplier`).
+- **Bat:** multiplies Cash rewards from batting (`cashMultiplier`).
+- **Level:** solely determines hit distance. Neither Ball nor Bat changes launch speed, loft, direction or distance.
+- **Training Ground:** multiplies Training Power only.
+- **Rebirth:** multiplies Power gain (`Rebirths + 1`).
+
+The server derives every multiplier from the authoritative equipped IDs through `EquipmentConfig`; clients never supply one. Whole Power and Cash are rounded down once, after every bonus:
+
+- **Training Power** = ground base Power (base × ground multiplier) × Ball × (Rebirths + 1) × any Power juice.
+- **Hit Power** = `HitPowerReward` × Ball × (Rebirths + 1) × any Power juice. No ground multiplier, so Training stays the best Power source.
+- **Offline Power** = the best usable ground's capped offline base × the saved equipped Ball × (Rebirths + 1).
+- **Hit Cash** = distance × Cash per stud × Bat × section multiplier × any Cash juice.
+
+A hit snapshots the Ball ID and the Bat's Cash multiplier when the swing is accepted, so swapping equipment mid-flight (which is blocked anyway) cannot change that hit's rewards.
 
 ### Bat
 
-Bats remain owned, purchasable, equippable, and persistent. They do not affect launch strength or distance.
-
-Each configured Bat increases Power gain from active Training, real hits, and offline Training. Its `powerGainMultiplier` stacks with Rebirth; it never changes Cash, launch speed, loft, or direction. Multiplier values are placeholder balance.
+Bats remain owned, purchasable, equippable, and persistent. Each Bat's `cashMultiplier` multiplies the Cash a real hit earns; it never changes Power, launch speed, loft, or direction. The values are the old Power numbers carried over, placeholder balance until the Bat pass.
 
 ### Ball
 
-Balls primarily increase rewards earned from distance.
-
-The equipped Ball multiplies Cash rewards only. It does not affect launch strength or Power grants.
+Balls are the Power progression equipment. The equipped Ball's `powerGainMultiplier` multiplies Power from active Training, real hits, and offline Training, and stacks with Rebirth. It never changes Cash or launch strength.
 
 The physical batting tee remains part of each station. It is not purchasable, owned, or equipped by players.
 
 ### Bat lineup, models and swing effects
 
-Ten Bats, cooler as the price rises (Power multipliers stack with Rebirth; placeholder balance):
+Ten Bats, cooler as the price rises (Cash multipliers; placeholder balance carried over from their old Power values):
 
-| Bat (id) | Price | Power | Swing trail / contact burst |
+| Bat (id) | Price | Cash | Swing trail / contact burst |
 |---|---|---|---|
 | Wood Bat (wood_bat) | Free | ×1 | none |
 | Metal Bat (metal_bat) | 300 | ×1.5 | faint white swoosh |
@@ -100,26 +115,26 @@ The Alloy and Carbon Bats were removed (cleared from the developer's save; other
 
 ### Ball lineup, models and flight effects
 
-Ten Balls, cooler as the price rises (prices and multipliers are placeholder balance):
+Ten Balls, cooler as the price rises (Power multipliers, intended balance; the Sandlot Ball's $2 is the tutorial's first purchase):
 
-| Ball (id) | Price | Cash | Flight |
+| Ball (id) | Price | Power | Flight |
 |---|---|---|---|
 | Baseball (baseball) | Free | ×1 | a clean white streak of cut air |
-| Sandlot Ball (practice_ball) | 250 | ×1.3 | dusty streak in a smoky dirt trail, dirt puffs, falling clods |
-| Bubblegum Ball (bubblegum_ball) | 800 | ×1.7 | twisted pink-and-white candy ribbon, bubbles, falling sprinkles |
-| Crystal Ball (crystal_ball) | 1,800 | ×2.2 | prismatic sparkle ribbon, three crystal shards in orbit, glitter |
-| Frost Comet (frost_comet) | 5,000 | ×2.8 | long glowing comet tail in frost mist, snow, falling ice shards |
-| Inferno Ball (inferno_ball) | 12,000 | ×3.5 | roaring fire ribbon over black smoke, flames, embers |
-| Thunder Ball (thunder_ball) | 30,000 | ×4.5 | crackling electric streak, lightning bolts arcing off the ball, sparks |
-| Galaxy Ball (galaxy_ball) | 75,000 | ×6 | three spiralling star streams through a shifting nebula, orbiting stars |
-| Dragonfire Ball (dragonfire_ball) | 180,000 | ×8 | twin weaving dragon-flame trails, black smoke, fire-breath bursts along the way |
-| Supernova Ball (supernova_ball) | 400,000 | ×10 | rainbow comet with a white-hot core, rainbow sparks in orbit, pulsing shockwaves |
+| Sandlot Ball (practice_ball) | 2 | ×3 | dusty streak in a smoky dirt trail, dirt puffs, falling clods |
+| Bubblegum Ball (bubblegum_ball) | 10 | ×5 | twisted pink-and-white candy ribbon, bubbles, falling sprinkles |
+| Crystal Ball (crystal_ball) | 40 | ×12 | prismatic sparkle ribbon, three crystal shards in orbit, glitter |
+| Frost Comet (frost_comet) | 150 | ×30 | long glowing comet tail in frost mist, snow, falling ice shards |
+| Inferno Ball (inferno_ball) | 500 | ×75 | roaring fire ribbon over black smoke, flames, embers |
+| Thunder Ball (thunder_ball) | 1,500 | ×200 | crackling electric streak, lightning bolts arcing off the ball, sparks |
+| Galaxy Ball (galaxy_ball) | 4,500 | ×500 | three spiralling star streams through a shifting nebula, orbiting stars |
+| Dragonfire Ball (dragonfire_ball) | 14,000 | ×1,250 | twin weaving dragon-flame trails, black smoke, fire-breath bursts along the way |
+| Supernova Ball (supernova_ball) | 40,000 | ×3,500 | rainbow comet with a white-hot core, rainbow sparks in orbit, pulsing shockwaves |
 
 The All-Star and Championship Balls were removed (their IDs were also cleared from the developer's save; other saves drop them on load).
 
-**World 2 (Time Travel) balls** are a second purchase series in the same Ball category (`EquipmentConfig` Ball `series`, id `world_2`), one ball per era of World 2. They are bought in their own order, starting from the Dino Egg, and need World 2 unlocked but none of World 1's balls. World 1 balls stay owned and equippable everywhere. Prices and multipliers are placeholders, all above ×10:
+**World 2 (Time Travel) balls** are a second purchase series in the same Ball category (`EquipmentConfig` Ball `series`, id `world_2`), one ball per era of World 2. They are bought in their own order, starting from the Dino Egg, and need World 2 unlocked but none of World 1's balls. World 1 balls stay owned and equippable everywhere. Prices and multipliers are placeholders (their old Cash numbers carried over as Power, so below World 1's late balls until the World 2 balance pass), all above ×10:
 
-| Ball (id) | Price | Cash | Flight |
+| Ball (id) | Price | Power | Flight |
 |---|---|---|---|
 | Dino Egg (dino_egg_ball) | 1,000,000 | ×12 | swaying jungle trail shedding leaves and eggshell, spores |
 | Stone Ball (stone_ball) | 2,500,000 | ×15 | thick dust trail, pebbles in orbit, rock chunks breaking off |
@@ -137,9 +152,9 @@ The All-Star and Championship Balls were removed (their IDs were also cleared fr
 - **Models:** `tools/blender/balls_world2.py` builds them like `balls.py` and exports `assets/models/BallsWorld2.fbx`, to be split into `DisplayItems` the same way. Until then, each shows as a plain sphere in its `appearance` colour.
 - **Effects:** each has its own flight layers like World 1's balls (see Flight layers above).
 
-**World 3 (Future World) balls** are the third series (`series` id `world_3`), one ball per World 3 runway section, sold the same way from World 3's "FUTURE BALLS" display and the Equipment menu. They need World 3 unlocked and none of the other series. Prices carry on from the Chrono Orb and stay far below `PlayerData`'s 9 trillion Cash cap; prices and multipliers are placeholders:
+**World 3 (Future World) balls** are the third series (`series` id `world_3`), one ball per World 3 runway section, sold the same way from World 3's "FUTURE BALLS" display and the Equipment menu. They need World 3 unlocked and none of the other series. Prices carry on from the Chrono Orb and stay far below `PlayerData`'s 9 trillion Cash cap; prices and multipliers are placeholders (old Cash numbers carried over as Power until the World 3 balance pass):
 
-| Ball (id) | Price | Cash | Flight |
+| Ball (id) | Price | Power | Flight |
 |---|---|---|---|
 | Solar Cell (solar_cell_ball) | 2,500,000,000 | ×110 | warm sunbeam streak in glowing segments, sun glints, rings of sunlight |
 | Hover Ball (hover_ball) | 3,500,000,000 | ×135 | twin thin cyan thruster contrails, hover rings rippling out |
@@ -164,7 +179,7 @@ The All-Star and Championship Balls were removed (their IDs were also cleared fr
 
 ### Item displays
 
-Every World's hub has a physical **Ball Display** (that World's ball series) and **Bat Display** side by side on the right side of the hub as seen from the spawn, facing the middle, as one shopping zone (`WorldConfig` `hub.displays`, from the shared hub layout; built by `ItemDisplay.luau`; front edge hub x -36, centred at z 86 and 126). Each is a dark slate stepped stage with red trim and a backdrop wall, with the title ("BALLS" / "Earn more Cash per hit") above it. There is one pedestal per item of its series in `EquipmentConfig` order, `perRow` (5) per row (6.4-stud spacing, so a row is about 35 studs wide); further rows step back and up. Adding a Ball to the config adds a pedestal, and another category can get its own display with one more `displays` entry.
+Every World's hub has a physical **Ball Display** (that World's ball series) and **Bat Display** side by side on the right side of the hub as seen from the spawn, facing the middle, as one shopping zone (`WorldConfig` `hub.displays`, from the shared hub layout; built by `ItemDisplay.luau`; front edge hub x -36, centred at z 86 and 126). Each is a dark slate stepped stage with red trim and a backdrop wall, with the title ("BALLS" / "Gain more Power"; the Bat Display's reads "BATS" / "Earn more Cash per hit"); each pedestal label shows the item's multiplier as "×N POWER" (Balls) or "×N CASH" (Bats) above it. There is one pedestal per item of its series in `EquipmentConfig` order, `perRow` (5) per row (6.4-stud spacing, so a row is about 35 studs wide); further rows step back and up. Adding a Ball to the config adds a pedestal, and another category can get its own display with one more `displays` entry.
 
 - **Item models:** each pedestal shows `ServerStorage.RunwayAssets.DisplayItems.<item id>` when that model exists, scaled to 2 studs and spun about its centre. Without one, it shows a placeholder ball in the item's `appearance` colour with two red seams. To show a designed ball, put its model in `DisplayItems` named by its item ID (for example `practice_ball`).
 - **Labels (client):** a floating label per pedestal shows this player's status (EQUIPPED cyan, OWNED white, FOR SALE gold, LOCKED red), the name, the boost (×1.3 CASH) and the price (red when unaffordable). Items spin and bob locally (`ItemDisplayClient`).
@@ -371,7 +386,7 @@ With no ground named (the quick menu tile), it picks the best usable ground acro
 
 UICommon owns Check-UI presentation inspired by the four navigation tiles: rounded cyan faces, dark outlines, inset highlights, translucent navy shells, recessed state-colored cards, and outlined GothamBlack typography. Equipment uses a pink accent, Rebirth purple, Worlds cyan, Training gold, and Welcome Back blue. Shared controls have centered hover/press motion and menus have a brief opening pop. Existing client controllers and HubInterfaces still own the same gameplay intents. Only one hub modal is shown at a time; activity, travel, and character cleanup close menus and release the single local blur.
 
-The HUD shows icon-based Cash/Rebirth counters, current world, and a blue studded Level/Power bar with Level Cap and Bat × Rebirth gain. Power fill changes tween locally. QuickMenu keeps its 2×2 tile design and opens Shop, Rebirth, Training (the Training Grounds selector), and Worlds (the World Travel menu) in every world; the unimplemented Inventory/Rewards stubs are retired. Equipment and Worlds use numbered badges rather than invented preview art. Equipment prices, ownership and action states remain separate and readable. Rebirth has a distinct confirmation view; Cancel sends no gameplay request. Short landscape screens compact the headers and confirmation content, and scrolling keeps actions accessible. Portrait cards stack their actions. Mobile modal actions use 52–54 logical pixel targets with a minimum 0.8 scale. Explicit Swing/Leave buttons invoke the existing Tool and server requests; click/Space still work. Touch movement and the hotbar are restored after menus/activities. No progression or reward calculation moved to the client.
+The HUD shows icon-based Cash/Rebirth counters, current world, and a blue studded Level/Power bar with Level Cap and Ball × Rebirth Power gain. Power fill changes tween locally. QuickMenu keeps its 2×2 tile design and opens Shop, Rebirth, Training (the Training Grounds selector), and Worlds (the World Travel menu) in every world; the unimplemented Inventory/Rewards stubs are retired. Equipment and Worlds use numbered badges rather than invented preview art. Equipment prices, ownership and action states remain separate and readable. Rebirth has a distinct confirmation view; Cancel sends no gameplay request. Short landscape screens compact the headers and confirmation content, and scrolling keeps actions accessible. Portrait cards stack their actions. Mobile modal actions use 52–54 logical pixel targets with a minimum 0.8 scale. Explicit Swing/Leave buttons invoke the existing Tool and server requests; click/Space still work. Touch movement and the hotbar are restored after menus/activities. No progression or reward calculation moved to the client.
 
 Offline gains are already granted by the server. CONTINUE only dismisses the once-per-login presentation; the Power icon and rotating sunburst are cosmetic. Hit results separate distance, Cash and Power and expire after six seconds. Shared notifications replace the current notice and suppress immediate duplicates. Icons reuse already approved image references; the CheckUIIcons registry was not installed in this place. The Worlds globe is made from UI geometry. This presentation pass adds no new systems, monetization controls or environment changes.
 
@@ -634,9 +649,9 @@ When enabled, the batter can press **2×** during their own hit to watch the bal
 
 Active categories are Bat and Ball only. Schema 6 reuses PlayerProgression and removes OwnedTees/EquippedTee during load and save. Cash, Power, Levels, Rebirths, Bat/Ball ownership and selections, grounds, worlds, and valid offline metadata remain intact. Older schema rules still apply; no progression is wiped or converted into refunds.
 
-PlayerData owns the Power grant pipeline. Active Training resolves the server-equipped Bat. Offline grants resolve the normalized saved Bat in the atomic login transaction. Real hits snapshot the Bat ID at acceptance and use it for their once-only reward: `floor(base hit Power * Bat multiplier * Rebirth multiplier)`. Equipment remains locked throughout Training and active hits. Clients send equipment intent, never bonuses or rewards.
+PlayerData owns the Power grant pipeline. Since the equipment role flip (see Equipment Roles above) it resolves the Ball, not the Bat: active Training uses the server-equipped Ball, offline grants the normalized saved Ball in the atomic login transaction, and real hits the Ball ID snapshotted at acceptance for their once-only reward: `floor(base hit Power * Ball multiplier * Rebirth multiplier)`. The hit also snapshots the Bat's Cash multiplier for its Cash. Equipment remains locked throughout Training and active hits. Clients send equipment intent, never bonuses or rewards.
 
-Training rate previews use the same whole-Power arithmetic divided by the tick interval. HUD and Rebirth previews show the combined Bat/Rebirth multiplier. Ball Cash rewards and Level-based launch calculations are unchanged.
+Training rate previews use the same whole-Power arithmetic divided by the tick interval. HUD and Rebirth previews show the combined Ball/Rebirth multiplier. Bat Cash rewards and Level-based launch calculations are unchanged by Power.
 
 ## Power, Level, and Rebirth (Milestone 15A)
 
@@ -804,7 +819,7 @@ RobuxPurchases (see Leaderboard stats). Old schemas and missing, zero, malformed
 future timestamps grant no historical offline Power.
 
 Offline base Power = floor(min(elapsed seconds, 8 hours) * best usable ground's
-base Power / interval * 0.25). The best usable ground is the highest-rate ground the player can use in any unlocked World, from Rebirths, owned passes and the saved World unlocks, checked at login. The same server grant path multiplies that base by the saved, ownership-validated Bat multiplier and Rebirth multiplier, floors the result to whole Power, and applies cap rules. These are placeholder balance values. Offline earning does not
+base Power / interval * 0.25). The best usable ground is the highest-rate ground the player can use in any unlocked World, from Rebirths, owned passes and the saved World unlocks, checked at login. The same server grant path multiplies that base by the saved, ownership-validated Ball multiplier and Rebirth multiplier, floors the result to whole Power, and applies cap rules. These are placeholder balance values. Offline earning does not
 require leaving while actively training.
 
 The login UpdateAsync commits the reward, consumes LastLogoutTime, and claims the
@@ -817,7 +832,7 @@ login conservatively has no new offline timestamp to use.
 **Welcome Back screen and the 3x offer.** The screen (`TrainingClient`, standard window) has a clock in its title (`UI.ClockIcon`: a white face with a blue rim, hour marks and hands, and the Power bolt over its edge), "You trained while you were offline:", the Power earned in full ("+1,486,600 POWER") under a glowing bolt, the ground and time trained, and two buttons:
 - **Claim!** (green) closes the screen; the reward was already added at login.
 - **3x** (rainbow, with the tripled amount and a Robux price tag) buys the offline reward twice more, 3x in all (`TrainingConfig.OfflineTriple`: a developer product, `productId` 0 and `robuxPrice` nil until it is created and priced, while the tag reads SOON and a tap explains it is coming soon). It shows whenever this login had an offline reward, at the Level Cap too (`OfflineTripleAvailable`, set by the server).
-- **Server authority:** the client only opens Roblox's purchase prompt. Roblox sends the receipt to `ProductServer` (the game's one `ProcessReceipt` handler), which calls `PlayerData.ClaimOfflineTriple`: it adds this login's offline base reward x2 through the normal grant path, with the Bat that earned it, under the usual Level Cap rules; records the receipt (RobuxSpent, never twice: a repeated receipt is acknowledged without granting again); withdraws the offer; and saves straight away before telling Roblox the purchase was granted. The offer is once per login. A receipt with no offer to fill (a second purchase in the same login, or the player not in the server) is left for Roblox to retry later, such as at their next login with an offline reward. The window then shows the tripled total.
+- **Server authority:** the client only opens Roblox's purchase prompt. Roblox sends the receipt to `ProductServer` (the game's one `ProcessReceipt` handler), which calls `PlayerData.ClaimOfflineTriple`: it adds this login's offline base reward x2 through the normal grant path, with the Ball that earned it, under the usual Level Cap rules; records the receipt (RobuxSpent, never twice: a repeated receipt is acknowledged without granting again); withdraws the offer; and saves straight away before telling Roblox the purchase was granted. The offer is once per login. A receipt with no offer to fill (a second purchase in the same login, or the player not in the server) is left for Roblox to retry later, such as at their next login with an offline reward. The window then shows the tripled total.
 
 TrainingRequest accepts only Buy(id), which shows the pass prompt, or Exit(session). TrainingTeleport accepts an
 optional ground id; anything the player cannot use falls back to their best ground. No remote starts

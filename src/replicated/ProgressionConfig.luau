@@ -34,9 +34,11 @@ function Progression.GetPowerMultiplier(rebirths)
 end
 
 -- Integer Power is rounded once after every bonus; shared with rate previews.
--- boostMultiplier is the active Juice Power bonus (1 when none or not applicable).
-function Progression.GetPowerGrant(baseAmount, rebirths, batMultiplier, boostMultiplier)
- return math.floor(baseAmount * batMultiplier * Progression.GetPowerMultiplier(rebirths) * (boostMultiplier or 1))
+-- baseAmount already includes any Training Ground multiplier; ballMultiplier is the equipped
+-- Ball's powerGainMultiplier; boostMultiplier is the active Juice Power bonus (1 when none or
+-- not applicable).
+function Progression.GetPowerGrant(baseAmount, rebirths, ballMultiplier, boostMultiplier)
+ return math.floor(baseAmount * ballMultiplier * Progression.GetPowerMultiplier(rebirths) * (boostMultiplier or 1))
 end
 
 function Progression.GetLaunchSpeed(level)

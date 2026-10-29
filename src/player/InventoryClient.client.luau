@@ -25,8 +25,8 @@ local TABS = {
 }
 -- Where each category's published models are (ItemDisplay.PublishItemModels).
 local MODEL_FOLDERS = {Bat = "BatModels", Ball = "BallModels"}
--- The multiplier's icon: Bats multiply Power, Balls multiply Cash.
-local VALUE_ICONS = {Bat = UI.Icons.Power, Ball = UI.Icons.Cash, Power = UI.Icons.Power, Cash = UI.Icons.Cash}
+-- The multiplier's icon: Balls multiply Power, Bats multiply Cash.
+local VALUE_ICONS = {Bat = UI.Icons.Cash, Ball = UI.Icons.Power, Power = UI.Icons.Power, Cash = UI.Icons.Cash}
 
 local _, panel, show, window = UI.ShowcaseMenu("InventoryGui", "My Bats", Interfaces.CloseAll,
  {maxWidth = 900, maxHeight = 620, boxLeft = TAB_OVERHANG, theme = "Blue"})
@@ -264,7 +264,7 @@ local function buildEquipment(category)
   if folderValue(definition.ownedField, item.id) == true then
    ownedCount += 1
    local equipped = item.id == equippedId
-   local value = category == "Bat" and item.powerGainMultiplier or item.rewardMultiplier
+   local value = category == "Bat" and item.cashMultiplier or item.powerGainMultiplier
    card(item.order, item.id, function(parent) return itemPicture(parent, category, item) end, VALUE_ICONS[category],
     multiplier(value), nil, equipped, function()
      if equipped then return end

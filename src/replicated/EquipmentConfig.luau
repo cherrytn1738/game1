@@ -1,5 +1,8 @@
 -- Stable IDs are persisted; prices, stats, and primitive appearances are configured here.
 -- Add an item and link the previous item through nextId to extend a progression.
+-- Roles: a Ball's powerGainMultiplier multiplies Power gained (Training, real hits, offline
+-- Training); a Bat's cashMultiplier multiplies the Cash a real hit earns. Neither changes
+-- launch strength or distance, which come from Level alone.
 -- Fallback Bat colours for the three parts of the plain bat (body, grip, knob).
 local function batLook(body, grip, bodyMaterial)
  return {BatBody = {color = body, material = bodyMaterial}, BatGrip = {color = grip, material = Enum.Material.SmoothPlastic},
@@ -14,14 +17,14 @@ local Equipment = {
    items = {
     wood_bat = {
      id = "wood_bat", displayName = "Wood Bat", price = 0,
-     powerGainMultiplier = 1, -- Placeholder Power gain balance.
+     cashMultiplier = 1, -- Placeholder Cash balance (the old Power values, carried over).
      nextId = "metal_bat",
      modelPath = "StarterPack.Bat",
      appearance = {BatBody = {color = Color3.fromRGB(160, 110, 60), material = Enum.Material.Wood}, BatGrip = {color = Color3.fromRGB(160, 110, 60), material = Enum.Material.Wood}, BatKnob = {color = Color3.fromRGB(160, 110, 60), material = Enum.Material.Wood}},
     },
     metal_bat = {
      id = "metal_bat", displayName = "Metal Bat", price = 300,
-     powerGainMultiplier = 1.5, -- Placeholder Power gain balance.
+     cashMultiplier = 1.5,
      nextId = "jungle_bat",
      modelPath = "StarterPack.Bat",
      appearance = {BatBody = {color = Color3.fromRGB(195, 205, 220), material = Enum.Material.Metal}, BatGrip = {color = Color3.fromRGB(35, 40, 50), material = Enum.Material.SmoothPlastic}, BatKnob = {color = Color3.fromRGB(35, 40, 50), material = Enum.Material.SmoothPlastic}},
@@ -30,49 +33,49 @@ local Equipment = {
     -- fallback colours on the bat in hand.
     jungle_bat = {
      id = "jungle_bat", displayName = "Jungle Bat", price = 900,
-     powerGainMultiplier = 2, nextId = "amethyst_bat",
+     cashMultiplier = 2, nextId = "amethyst_bat",
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(190, 170, 90), Color3.fromRGB(120, 85, 45), Enum.Material.Wood),
     },
     amethyst_bat = {
      id = "amethyst_bat", displayName = "Amethyst Bat", price = 2000,
-     powerGainMultiplier = 2.5, nextId = "candy_cane_bat",
+     cashMultiplier = 2.5, nextId = "candy_cane_bat",
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(160, 90, 235), Color3.fromRGB(200, 205, 215), Enum.Material.Glass),
     },
     candy_cane_bat = {
      id = "candy_cane_bat", displayName = "Candy Cane Bat", price = 6000,
-     powerGainMultiplier = 3.2, nextId = "frostbite_bat",
+     cashMultiplier = 3.2, nextId = "frostbite_bat",
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(245, 245, 245), Color3.fromRGB(210, 35, 45), Enum.Material.SmoothPlastic),
     },
     frostbite_bat = {
      id = "frostbite_bat", displayName = "Frostbite Bat", price = 15000,
-     powerGainMultiplier = 4, nextId = "magma_bat",
+     cashMultiplier = 4, nextId = "magma_bat",
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(150, 215, 255), Color3.fromRGB(230, 245, 255), Enum.Material.Ice),
     },
     magma_bat = {
      id = "magma_bat", displayName = "Magma Bat", price = 40000,
-     powerGainMultiplier = 5, nextId = "lightning_bat",
+     cashMultiplier = 5, nextId = "lightning_bat",
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(40, 30, 30), Color3.fromRGB(255, 110, 25), Enum.Material.Basalt),
     },
     lightning_bat = {
      id = "lightning_bat", displayName = "Lightning Bat", price = 100000,
-     powerGainMultiplier = 6.5, nextId = "dragon_bone_bat",
+     cashMultiplier = 6.5, nextId = "dragon_bone_bat",
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(95, 45, 165), Color3.fromRGB(255, 235, 70), Enum.Material.SmoothPlastic),
     },
     dragon_bone_bat = {
      id = "dragon_bone_bat", displayName = "Dragon Bone Bat", price = 250000,
-     powerGainMultiplier = 8, nextId = "celestial_bat",
+     cashMultiplier = 8, nextId = "celestial_bat",
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(230, 220, 190), Color3.fromRGB(120, 20, 20), Enum.Material.SmoothPlastic),
     },
     celestial_bat = {
      id = "celestial_bat", displayName = "Celestial Bat", price = 600000,
-     powerGainMultiplier = 10,
+     cashMultiplier = 10,
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(25, 18, 70), Color3.fromRGB(255, 205, 80), Enum.Material.SmoothPlastic),
     },
@@ -88,130 +91,134 @@ local Equipment = {
     {id = "world_3", startingId = "solar_cell_ball", requiredWorld = "world_3"},
    },
    items = {
+    -- World 1's series: intended Power balance. The Sandlot Ball's $2 is the tutorial's first
+    -- purchase (two early hits earn it).
     baseball = {
      id = "baseball", displayName = "Baseball", price = 0,
-     rewardMultiplier = 1,
+     powerGainMultiplier = 1,
      nextId = "practice_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(255, 255, 255), material = Enum.Material.Plastic},
     },
     practice_ball = {
-     id = "practice_ball", displayName = "Sandlot Ball", price = 250,
-     rewardMultiplier = 1.3,
+     id = "practice_ball", displayName = "Sandlot Ball", price = 2,
+     powerGainMultiplier = 3,
      nextId = "bubblegum_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(210, 175, 125), material = Enum.Material.SmoothPlastic},
     },
     -- Glossy pink candy shell with sprinkles (placeholder colour until its model is designed).
     bubblegum_ball = {
-     id = "bubblegum_ball", displayName = "Bubblegum Ball", price = 800,
-     rewardMultiplier = 1.7,
+     id = "bubblegum_ball", displayName = "Bubblegum Ball", price = 10,
+     powerGainMultiplier = 5,
      nextId = "crystal_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(255, 120, 190), material = Enum.Material.SmoothPlastic},
     },
     -- Faceted purple amethyst with silver stitches.
     crystal_ball = {
-     id = "crystal_ball", displayName = "Crystal Ball", price = 1800,
-     rewardMultiplier = 2.2,
+     id = "crystal_ball", displayName = "Crystal Ball", price = 40,
+     powerGainMultiplier = 12,
      nextId = "frost_comet",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(160, 90, 235), material = Enum.Material.Glass},
     },
     frost_comet = {
-     id = "frost_comet", displayName = "Frost Comet", price = 5000,
-     rewardMultiplier = 2.8, nextId = "inferno_ball",
+     id = "frost_comet", displayName = "Frost Comet", price = 150,
+     powerGainMultiplier = 30, nextId = "inferno_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(150, 215, 255), material = Enum.Material.SmoothPlastic},
     },
     inferno_ball = {
-     id = "inferno_ball", displayName = "Inferno Ball", price = 12000,
-     rewardMultiplier = 3.5, nextId = "thunder_ball",
+     id = "inferno_ball", displayName = "Inferno Ball", price = 500,
+     powerGainMultiplier = 75, nextId = "thunder_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(40, 30, 30), material = Enum.Material.SmoothPlastic},
     },
     thunder_ball = {
-     id = "thunder_ball", displayName = "Thunder Ball", price = 30000,
-     rewardMultiplier = 4.5, nextId = "galaxy_ball",
+     id = "thunder_ball", displayName = "Thunder Ball", price = 1500,
+     powerGainMultiplier = 200, nextId = "galaxy_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(95, 45, 165), material = Enum.Material.SmoothPlastic},
     },
     galaxy_ball = {
-     id = "galaxy_ball", displayName = "Galaxy Ball", price = 75000,
-     rewardMultiplier = 6, nextId = "dragonfire_ball",
+     id = "galaxy_ball", displayName = "Galaxy Ball", price = 4500,
+     powerGainMultiplier = 500, nextId = "dragonfire_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(25, 18, 70), material = Enum.Material.SmoothPlastic},
     },
     dragonfire_ball = {
-     id = "dragonfire_ball", displayName = "Dragonfire Ball", price = 180000,
-     rewardMultiplier = 8, nextId = "supernova_ball",
+     id = "dragonfire_ball", displayName = "Dragonfire Ball", price = 14000,
+     powerGainMultiplier = 1250, nextId = "supernova_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(130, 20, 20), material = Enum.Material.SmoothPlastic},
     },
     supernova_ball = {
-     id = "supernova_ball", displayName = "Supernova Ball", price = 400000,
-     rewardMultiplier = 10,
+     id = "supernova_ball", displayName = "Supernova Ball", price = 40000,
+     powerGainMultiplier = 3500,
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(255, 240, 190), material = Enum.Material.SmoothPlastic},
     },
-    -- World 2 (Time Travel) series, one ball per era (see series below). Placeholder balance.
+    -- World 2 (Time Travel) series, one ball per era (see series below). Placeholder balance:
+    -- these (and World 3's) are the old Cash multipliers carried over as Power multipliers,
+    -- so they sit below World 1's late balls until the World 2/3 balance pass.
     dino_egg_ball = {
      id = "dino_egg_ball", displayName = "Dino Egg", price = 1000000,
-     rewardMultiplier = 12, nextId = "stone_ball",
+     powerGainMultiplier = 12, nextId = "stone_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(240, 230, 200), material = Enum.Material.SmoothPlastic},
     },
     stone_ball = {
      id = "stone_ball", displayName = "Stone Ball", price = 2500000,
-     rewardMultiplier = 15, nextId = "scarab_ball",
+     powerGainMultiplier = 15, nextId = "scarab_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(140, 136, 130), material = Enum.Material.Slate},
     },
     scarab_ball = {
      id = "scarab_ball", displayName = "Scarab Ball", price = 6000000,
-     rewardMultiplier = 19, nextId = "laurel_ball",
+     powerGainMultiplier = 19, nextId = "laurel_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(40, 70, 170), material = Enum.Material.SmoothPlastic},
     },
     laurel_ball = {
      id = "laurel_ball", displayName = "Olympian Laurel", price = 14000000,
-     rewardMultiplier = 24, nextId = "viking_rune_ball",
+     powerGainMultiplier = 24, nextId = "viking_rune_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(242, 240, 232), material = Enum.Material.Marble},
     },
     viking_rune_ball = {
      id = "viking_rune_ball", displayName = "Viking Rune", price = 32000000,
-     rewardMultiplier = 30, nextId = "samurai_ball",
+     powerGainMultiplier = 30, nextId = "samurai_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(60, 62, 70), material = Enum.Material.Metal},
     },
     samurai_ball = {
      id = "samurai_ball", displayName = "Samurai Ball", price = 75000000,
-     rewardMultiplier = 38, nextId = "knight_ball",
+     powerGainMultiplier = 38, nextId = "knight_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(196, 32, 36), material = Enum.Material.SmoothPlastic},
     },
     knight_ball = {
      id = "knight_ball", displayName = "Knight's Ball", price = 170000000,
-     rewardMultiplier = 48, nextId = "sheriff_star_ball",
+     powerGainMultiplier = 48, nextId = "sheriff_star_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(200, 206, 216), material = Enum.Material.Metal},
     },
     sheriff_star_ball = {
      id = "sheriff_star_ball", displayName = "Sheriff Star", price = 400000000,
-     rewardMultiplier = 60, nextId = "clockwork_ball",
+     powerGainMultiplier = 60, nextId = "clockwork_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(196, 150, 96), material = Enum.Material.Leather},
     },
     clockwork_ball = {
      id = "clockwork_ball", displayName = "Clockwork Ball", price = 900000000,
-     rewardMultiplier = 75, nextId = "chrono_orb",
+     powerGainMultiplier = 75, nextId = "chrono_orb",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(222, 170, 76), material = Enum.Material.Metal},
     },
     chrono_orb = {
      id = "chrono_orb", displayName = "Chrono Orb", price = 2000000000,
-     rewardMultiplier = 95,
+     powerGainMultiplier = 95,
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(90, 230, 255), material = Enum.Material.Neon},
     },
@@ -219,61 +226,61 @@ local Equipment = {
     -- carry on from the Chrono Orb and stay far below PlayerData's Cash cap.
     solar_cell_ball = {
      id = "solar_cell_ball", displayName = "Solar Cell", price = 2500000000,
-     rewardMultiplier = 110, nextId = "hover_ball",
+     powerGainMultiplier = 110, nextId = "hover_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(255, 196, 64), material = Enum.Material.Foil},
     },
     hover_ball = {
      id = "hover_ball", displayName = "Hover Ball", price = 3500000000,
-     rewardMultiplier = 135, nextId = "hologram_ball",
+     powerGainMultiplier = 135, nextId = "hologram_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(200, 208, 220), material = Enum.Material.Metal},
     },
     hologram_ball = {
      id = "hologram_ball", displayName = "Hologram Ball", price = 5000000000,
-     rewardMultiplier = 165, nextId = "robo_core_ball",
+     powerGainMultiplier = 165, nextId = "robo_core_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(110, 220, 255), material = Enum.Material.Glass},
     },
     robo_core_ball = {
      id = "robo_core_ball", displayName = "Robo Core", price = 7500000000,
-     rewardMultiplier = 200, nextId = "bio_seed_ball",
+     powerGainMultiplier = 200, nextId = "bio_seed_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(150, 158, 170), material = Enum.Material.Metal},
     },
     bio_seed_ball = {
      id = "bio_seed_ball", displayName = "Bio Seed", price = 11000000000,
-     rewardMultiplier = 250, nextId = "pixel_ball",
+     powerGainMultiplier = 250, nextId = "pixel_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(150, 240, 170), material = Enum.Material.Glass},
     },
     pixel_ball = {
      id = "pixel_ball", displayName = "Pixel Ball", price = 16000000000,
-     rewardMultiplier = 310, nextId = "rocket_ball",
+     powerGainMultiplier = 310, nextId = "rocket_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(80, 255, 170), material = Enum.Material.SmoothPlastic},
     },
     rocket_ball = {
      id = "rocket_ball", displayName = "Rocket Ball", price = 25000000000,
-     rewardMultiplier = 390, nextId = "moon_rock_ball",
+     powerGainMultiplier = 390, nextId = "moon_rock_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(245, 245, 250), material = Enum.Material.SmoothPlastic},
     },
     moon_rock_ball = {
      id = "moon_rock_ball", displayName = "Moon Rock", price = 38000000000,
-     rewardMultiplier = 480, nextId = "red_planet_ball",
+     powerGainMultiplier = 480, nextId = "red_planet_ball",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(160, 160, 168), material = Enum.Material.Slate},
     },
     red_planet_ball = {
      id = "red_planet_ball", displayName = "Red Planet", price = 56000000000,
-     rewardMultiplier = 600, nextId = "singularity_orb",
+     powerGainMultiplier = 600, nextId = "singularity_orb",
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(196, 86, 48), material = Enum.Material.Sand},
     },
     singularity_orb = {
      id = "singularity_orb", displayName = "Singularity Orb", price = 85000000000,
-     rewardMultiplier = 750,
+     powerGainMultiplier = 750,
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(20, 16, 30), material = Enum.Material.Neon},
     },
@@ -302,10 +309,12 @@ for _, category in Equipment.CategoryOrder do
    assert(item and item.id == id and not byId[id], "Invalid or repeated equipment ID: " .. id)
    assert(type(item.price) == "number" and item.price >= 0 and item.price < math.huge
     and item.price % 1 == 0, "Invalid equipment price: " .. id)
-   if category == "Bat" then
-    assert(type(item.powerGainMultiplier) == "number" and item.powerGainMultiplier >= 1
-     and item.powerGainMultiplier < math.huge, "Invalid Bat Power multiplier: " .. id)
-   end
+   -- Each category carries only its own role's multiplier (Bat: Cash, Ball: Power).
+   local field, other = "cashMultiplier", "powerGainMultiplier"
+   if category == "Ball" then field, other = "powerGainMultiplier", "cashMultiplier" end
+   assert(type(item[field]) == "number" and item[field] >= 1 and item[field] < math.huge,
+    "Invalid " .. category .. " " .. field .. ": " .. id)
+   assert(item[other] == nil and item.rewardMultiplier == nil, "Wrong multiplier field on " .. category .. ": " .. id)
    item.category, item.order, item.series = category, #items + 1, series.id
    byId[id] = item
    table.insert(items, item)

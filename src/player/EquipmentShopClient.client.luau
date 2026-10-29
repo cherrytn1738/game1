@@ -21,8 +21,8 @@ local pending, requestVersion = false, 0
 local cash
 
 local function effect(category, item)
- if category == "Ball" then return string.format("%.2fx Cash rewards", item.rewardMultiplier) end
- return string.format("%.2fx Power gain", item.powerGainMultiplier)
+ if category == "Ball" then return "Power: " .. UI.Number(item.powerGainMultiplier, 2):gsub("%.?0+$", "") .. "x" end
+ return "Cash: " .. UI.Number(item.cashMultiplier, 2):gsub("%.?0+$", "") .. "x"
 end
 
 local function layoutRows()

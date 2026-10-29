@@ -132,11 +132,11 @@ local function refresh()
  local count = Player:GetAttribute("Rebirths") or Progression.StartingRebirths
  local level = Player:GetAttribute("Level") or Progression.StartingLevel
  local cap = Player:GetAttribute("LevelCap") or Progression.GetLevelCap(count)
- local batMultiplier = Equipment.Get("Bat", Player:GetAttribute("EquippedBat")).powerGainMultiplier
+ local ballMultiplier = Equipment.Get("Ball", Player:GetAttribute("EquippedBall")).powerGainMultiplier
  local nextCount = math.min(count + 1,Progression.MaxRebirths)
  beforeTier.Text, afterTier.Text = "REBIRTH " .. UI.Number(count), "REBIRTH " .. UI.Number(nextCount)
- beforeValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(count)*batMultiplier,2) .. " POWER"
- afterValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(nextCount)*batMultiplier,2) .. " POWER"
+ beforeValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(count)*ballMultiplier,2) .. " POWER"
+ afterValue.Text = "x" .. UI.Number(Progression.GetPowerMultiplier(nextCount)*ballMultiplier,2) .. " POWER"
  beforeCap.Text, afterCap.Text = "LEVEL CAP " .. UI.Number(cap), "LEVEL CAP " .. UI.Number(Progression.GetLevelCap(nextCount))
  setLevelBar(level / math.max(cap, 1), "LEVEL " .. UI.Number(level) .. " / " .. UI.Number(cap))
  requirementText.Text = level >= cap and "REQUIREMENT MET: LEVEL " .. UI.Number(cap) or "REQUIREMENT: REACH LEVEL " .. UI.Number(cap)
@@ -199,7 +199,7 @@ Interfaces.Register("Rebirth",function(open)
  show(open)
  refresh()
 end)
-for _, attribute in {"DataLoaded","EquippedBat","Level","LevelCap","Rebirths","TrainingActive","BattingActive","HitActive","WorldTraveling","CurrentWorldId"} do
+for _, attribute in {"DataLoaded","EquippedBall","Level","LevelCap","Rebirths","TrainingActive","BattingActive","HitActive","WorldTraveling","CurrentWorldId"} do
  Player:GetAttributeChangedSignal(attribute):Connect(function()
   confirming = false
   refresh()

@@ -371,14 +371,15 @@ Remote.OnServerEvent:Connect(function(player, session, action)
 	state.nextSwingTime = now + Swing.Duration
 	player:SetAttribute("BatNextSwingTime", state.nextSwingTime)
 	state.swingId += 1
-	-- Snapshot the server's Level, Bat ID, and Ball reward effect at swing acceptance.
+	-- Snapshot the server's Level, Ball ID (its Power bonus) and Bat Cash bonus at swing
+	-- acceptance, so swapping equipment mid-flight cannot change this hit's rewards.
 	local result = {
 		swingId = state.swingId,
   worldId = state.worldId,
 		session = state.session,
   launchLevel = launchLevel,
-  batId = player:GetAttribute("EquippedBat"),
-  ballRewardMultiplier = Equipment.Get("Ball", player:GetAttribute("EquippedBall")).rewardMultiplier,
+  ballId = player:GetAttribute("EquippedBall"),
+  batCashMultiplier = Equipment.Get("Bat", player:GetAttribute("EquippedBat")).cashMultiplier,
 		evaluatedAt = now,
 	}
 	result.contact = BallLauncher.TryLaunch(player, result, tool)
