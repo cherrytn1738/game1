@@ -149,7 +149,7 @@ end
 
 function UI.Compact(value)
  if math.abs(value) < 10000 then return UI.Number(value) end
- for _, unit in {{1e12, "T"}, {1e9, "B"}, {1e6, "M"}, {1e3, "K"}} do
+ for _, unit in {{1e15, "Qa"}, {1e12, "T"}, {1e9, "B"}, {1e6, "M"}, {1e3, "K"}} do
   if math.abs(value) >= unit[1] then return string.format("%.1f", value / unit[1]):gsub("%.0$", "") .. unit[2] end
  end
  return UI.Number(value)

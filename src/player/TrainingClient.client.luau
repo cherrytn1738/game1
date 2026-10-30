@@ -85,7 +85,8 @@ local function powerPerHit()
  local ball = Equipment.Get("Ball", Player:GetAttribute("EquippedBall"))
  local active = Player:FindFirstChild("ActiveJuices")
  local boost = active and Juice.GetMultiplier(active:GetAttributes(), "Power") or 1
- return Progression.GetPowerGrant(ground.basePower, Player:GetAttribute("Rebirths") or 0, ball and ball.powerGainMultiplier or 1, boost)
+ local base = Progression.GetTrainingBase(Player:GetAttribute("Level") or 1) * ground.powerMultiplier
+ return Progression.GetPowerGrant(base, Player:GetAttribute("Rebirths") or 0, ball and ball.powerGainMultiplier or 1, boost)
 end
 local function powerPopup(amount)
  local popup = Instance.new("CanvasGroup")
@@ -186,6 +187,7 @@ function refresh()
  local rebirths = Player:GetAttribute("Rebirths") or 0
  local ball = Equipment.Get("Ball", Player:GetAttribute("EquippedBall"))
  local ballMultiplier = ball and ball.powerGainMultiplier or 1
+ local trainingBase = Progression.GetTrainingBase(Player:GetAttribute("Level") or 1)
  local trainingAt = Player:GetAttribute("TrainingActive") and Player:GetAttribute("TrainingGround")
  for _, ground in Config.Grounds do
   local row = rows[ground.id]
@@ -195,7 +197,7 @@ function refresh()
   local home = Worlds.Get(ground.worlds[1])
   local inReach = reachable(ground)
   row.rate.Text = "x" .. UI.Number(ground.powerMultiplier) .. " POWER  |  "
-   .. UI.Number(Progression.GetPowerGrant(ground.basePower, rebirths, ballMultiplier)/ground.interval,1) .. " Power / second"
+   .. UI.Number(Progression.GetPowerGrant(trainingBase * ground.powerMultiplier, rebirths, ballMultiplier)/ground.interval,1) .. " Power / second"
   row.status.Text = whereText(ground) .. " | " .. (trainingAt == ground.id and "Training here now"
    or open and (paid and "Pass owned" or "Unlocked")
    or not inReach and "Locked | Unlock " .. home.displayName .. " first"
@@ -228,8 +230,8 @@ Player.CharacterRemoving:Connect(stopPresentation)
 
 -- Welcome Back: a clock in the title, "You trained while you were offline:", the Power earned
 -- under a glowing bolt, and two choices: Claim! (the reward already added at login) or a rainbow
--- 3x button that buys the reward twice more for Robux (the server grants it from the receipt;
--- see PlayerData.ClaimOfflineTriple). Without an offer only Claim! shows.
+-- 3x button that buys the reward twice more for Robux, up to the rest of the run (the server
+-- grants it from the receipt; see PlayerData.ClaimOfflineTriple). Without an offer only Claim! shows.
 local offlineGui, offlinePanel, showOffline = UI.Menu("OfflineTrainingGui","Welcome Back!","You trained while you were offline:",Interfaces.CloseAll)
 local titleIcon = offlinePanel:FindFirstChild("TitleIcon")
 if titleIcon then
@@ -287,11 +289,11 @@ tripleButton.Activated:Connect(function()
  end
  MarketplaceService:PromptProductPurchase(Player, triple.productId)
 end)
--- Bought: the server adds the extra Power and withdraws the offer. Show the tripled total.
+-- Bought: the server adds the extra Power, sets the new total and withdraws the offer. Show it.
 local offlineEarned = 0
 Player:GetAttributeChangedSignal("OfflineTripleAvailable"):Connect(function()
  if Player:GetAttribute("OfflineTripleAvailable") == false and offlineEarned > 0 and offlineGui.Scrim.Visible then
-  offlineAmount.Text = "+" .. UI.Number(offlineEarned * triple.multiplier) .. " POWER"
+  offlineAmount.Text = "+" .. UI.Number(Player:GetAttribute("OfflineTriplePower") or offlineEarned) .. " POWER"
   GameAudio.Play("OfflineReward")
  end
  layoutOfflineButtons()
@@ -317,7 +319,8 @@ local function offlineNotice()
   local capped = newLevel and newLevel >= Player:GetAttribute("LevelCap")
   offlineEarned = amount
   offlineAmount.Text = "+" .. UI.Number(amount) .. " POWER"
-  tripleButton.Text = "+" .. UI.Number(amount * triple.multiplier)
+  -- The server's total with the 3x: the run cap can hold it below three times the reward.
+  tripleButton.Text = "+" .. UI.Number(Player:GetAttribute("OfflineTriplePower") or amount)
   offlineMessage = (ground and ground.displayName or "Training")
    .. " | " .. math.floor(seconds/3600) .. "h " .. math.floor(seconds%3600/60) .. "m trained"
 

@@ -368,6 +368,9 @@ Remote.OnServerEvent:Connect(function(player, session, action)
  -- (e.g. to reach a World's end portal); the saved Level is untouched. Live servers ignore it.
  local studioLevel = RunService:IsStudio() and workspace:GetAttribute("StudioLaunchLevel")
  local launchLevel = type(studioLevel) == "number" and math.floor(studioLevel) >= 1 and math.floor(studioLevel) or progression.Level
+ -- StudioLaunchSpeed launches at exactly that speed instead (to measure hit distances for
+ -- tools/balance); also Studio only.
+ local studioSpeed = RunService:IsStudio() and workspace:GetAttribute("StudioLaunchSpeed")
 	state.nextSwingTime = now + Swing.Duration
 	player:SetAttribute("BatNextSwingTime", state.nextSwingTime)
 	state.swingId += 1
@@ -380,6 +383,7 @@ Remote.OnServerEvent:Connect(function(player, session, action)
   launchLevel = launchLevel,
   ballId = player:GetAttribute("EquippedBall"),
   batCashMultiplier = Equipment.Get("Bat", player:GetAttribute("EquippedBat")).cashMultiplier,
+  launchSpeedOverride = type(studioSpeed) == "number" and studioSpeed > 0 and studioSpeed or nil,
 		evaluatedAt = now,
 	}
 	result.contact = BallLauncher.TryLaunch(player, result, tool)

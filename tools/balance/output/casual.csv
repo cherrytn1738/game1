@@ -1,0 +1,15 @@
+day,rebirths,level,world,ball,bat,play_minutes
+1,5,111,world_1,thunder_ball,candy_cane_bat,30
+2,7,153,world_2,supernova_ball,frostbite_bat,60
+3,9,194,world_2,laurel_ball,magma_bat,90
+4,11,221,world_2,knight_ball,magma_bat,120
+5,12,249,world_2,sheriff_star_ball,lightning_bat,150
+6,14,1,world_3,hover_ball,lightning_bat,180
+7,15,299,world_3,robo_core_ball,lightning_bat,210
+8,16,317,world_3,bio_seed_ball,dragon_bone_bat,240
+9,17,335,world_3,pixel_ball,dragon_bone_bat,270
+10,18,352,world_3,rocket_ball,dragon_bone_bat,300
+11,19,367,world_3,moon_rock_ball,dragon_bone_bat,330
+12,20,366,world_3,red_planet_ball,dragon_bone_bat,360
+13,21,347,world_3,red_planet_ball,dragon_bone_bat,390
+14,21,436,world_3,singularity_orb,dragon_bone_bat,420

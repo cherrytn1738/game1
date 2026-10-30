@@ -9,7 +9,6 @@ local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local PlayerData = require(script.Parent:WaitForChild("PlayerData"))
 local Progress = require(script.Parent:WaitForChild("WorldProgress"))
 
-local CASH_PER_STUD = 1
 local FLIGHT_SPEEDUP = 2
 -- The giant portal at a runway's end (WorldConfig endPortal, built by RunwayDecor): a ball that
 -- reaches the endpoint is pulled into its opening over this long, spiralling in, and the hit
@@ -110,7 +109,7 @@ local function launch(station, hit)
  if flat.Magnitude < 0.01 then warn("HitDirection must be separated from the tee.") cleanup(station, hit) return end
  local forward = flat.Unit
  result.launchAngleDegrees = Progression.LaunchAngleDegrees
- result.launchSpeed = Progression.GetLaunchSpeed(result.launchLevel)
+ result.launchSpeed = result.launchSpeedOverride or Progression.GetLaunchSpeed(result.launchLevel)
  local loft = math.rad(result.launchAngleDegrees)
  ball.CFrame = originFrame
  ball.Anchored = false
@@ -199,15 +198,17 @@ local function launch(station, hit)
     player:SetAttribute("SessionFarthestSectionId", farthestSection.id)
    end
    if finalSection and not result.rewardAwarded then
-    local cashEarned = math.floor(distance * CASH_PER_STUD * result.batCashMultiplier * final.sectionMultiplier
-     * PlayerData.GetJuiceMultiplier(player, "Cash"))
+    local cashEarned = Progression.GetHitCash(distance, world.cashMultiplier, final.sectionMultiplier,
+     result.batCashMultiplier, PlayerData.GetJuiceMultiplier(player, "Cash"))
     result.rewardAwarded = true
     result.cashEarned, final.cashEarned = cashEarned, cashEarned
     player.leaderstats.Cash.Value += cashEarned
     player:SetAttribute("LastBatCashEarned", cashEarned)
     player:SetAttribute("LastBatCashSwingId", result.swingId)
     PlayerData.RecordBattingCash(player, cashEarned)
-    local granted, powerResult = PlayerData.GrantPower(player, Progression.HitPowerReward, "CompletedHit", result.ballId)
+    -- Batting Power: for the seconds the ball was in play, at the hit's Level (ProgressionConfig).
+    local hitPower = Progression.GetHitPowerBase(result.launchLevel, final.flightSeconds)
+    local granted, powerResult = PlayerData.GrantPower(player, hitPower, "CompletedHit", result.ballId)
     final.powerEarned = granted and powerResult.powerGranted or 0
     player:SetAttribute("LastBatPowerEarned", final.powerEarned)
     final.worldCompletionMessage = Progress.Complete(player, world, distance)

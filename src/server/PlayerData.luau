@@ -185,7 +185,8 @@ end
 -- Single grant path, also used on the private save snapshot during atomic login.
 -- The equipped Ball (ballId) multiplies the Power; the Bat never does.
 -- boost is the active Juice Power multiplier (online grants only; offline passes none).
-local function grantProgression(state, baseAmount, source, ballId, boost)
+-- limit (offline only) caps the whole Power granted, after every multiplier.
+local function grantProgression(state, baseAmount, source, ballId, boost, limit)
  if not Progression.IsInteger(baseAmount, 0, Progression.MaxBaseGrant)
   or type(source) ~= "string" or #source == 0 or #source > 64 then
   return false, "Invalid Power grant."
@@ -195,6 +196,7 @@ local function grantProgression(state, baseAmount, source, ballId, boost)
  local oldLevel = state.Level
  -- Granted at the Level Cap too: Power keeps building there until a Rebirth.
  local amount = Progression.GetPowerGrant(baseAmount, state.Rebirths, ball.powerGainMultiplier, boost)
+ if limit then amount = math.min(amount, limit) end
  Progression.Advance(state, amount)
  return true, {powerGranted = amount, oldLevel = oldLevel, newLevel = state.Level, source = source}
 end
@@ -650,11 +652,12 @@ end
 
 -- Welcome Back's 3x offer, from the developer product's receipt (ProductServer): adds this
 -- login's offline Training reward twice more (3x in all) through the normal grant path, with the
--- Ball that earned it, under the usual Level Cap rules. Once per login. Returns Roblox's
--- ProductPurchaseDecision:
+-- Ball that earned it, up to the offer's limit (the rest of the run the player had at login) and
+-- never past the Level Cap now. Once per login. Returns Roblox's ProductPurchaseDecision:
 --   PurchaseGranted  granted now (and saved straight away), or this receipt was already granted
---   NotProcessedYet  the player's data isn't ready or there is no offer to fill; Roblox retries
---                    the receipt later (such as at their next login with an offline reward)
+--   NotProcessedYet  the player's data isn't ready, there is no offer to fill, or the player is
+--                    already at the Level Cap (nothing to fill); Roblox retries the receipt later
+--                    (such as at their next login with an offline reward)
 function PlayerData.ClaimOfflineTriple(player, receipt)
  local decision = Enum.ProductPurchaseDecision
  if not PlayerData.IsReady(player) or not validReceipt(player, receipt) then return decision.NotProcessedYet end
@@ -662,10 +665,13 @@ function PlayerData.ClaimOfflineTriple(player, receipt)
  if table.find(session.robux.receipts, receipt.PurchaseId) then return decision.PurchaseGranted end
  local offer = session.offlineTriple
  if not offer then return decision.NotProcessedYet end
+ local limit = math.min(offer.limit, Progression.GetPowerToLevelCap(session.progression))
+ if limit <= 0 then return decision.NotProcessedYet end
  local extra = offer.baseAmount * (Training.OfflineTriple.multiplier - 1)
- local granted = grantProgression(session.progression, extra, "OfflineTriple", offer.ballId)
+ local granted, result = grantProgression(session.progression, extra, "OfflineTriple", offer.ballId, nil, limit)
  if not granted then return decision.NotProcessedYet end
  session.offlineTriple = nil
+ player:SetAttribute("OfflineTriplePower", offer.power + result.powerGranted)
  player:SetAttribute("OfflineTripleAvailable", false)
  publishProgression(player, session.progression)
  PlayerData.RecordRobuxReceipt(player, receipt)
@@ -709,7 +715,7 @@ local function loadPlayer(player)
  player:SetAttribute("DataLoadState", "Loading")
  local rejection, repairs
  local newRecord = false
- local offlineResult, offlineSeconds, offlineGround, offlineBase, offlineBall
+ local offlineResult, offlineSeconds, offlineGround, offlineBase, offlineBall, offlineTripleExtra
  -- Pass ownership is needed before the atomic login: offline Training uses the best
  -- ground the player can use, including paid ones.
  local passes = fetchTrainingPasses(player)
@@ -735,13 +741,19 @@ local function loadPlayer(player)
   newRecord = current == nil or (owns(current, session) and newRecord)
   if not owns(current, session) then
    offlineGround = Training.GetBestGround(data.Rebirths, passes, data.UnlockedWorlds).id
-   local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), offlineGround)
    local progression = Progression.Normalize(data, false)
-   local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBall)
+   -- Offline Training uses the Training base of the Level the player logged out at, and fills at
+   -- most part of the Power still needed for the Level Cap (TrainingConfig.OfflineRunShare).
+   local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), offlineGround,
+    Progression.GetTrainingBase(progression.Level))
+   local remaining = Progression.GetPowerToLevelCap(progression)
+   local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBall, nil,
+    Training.GetOfflinePowerLimit(remaining))
    if not granted then rejection = "invalid offline reward configuration" return nil end
    for field, value in progression do data[field] = value end
    offlineResult, offlineSeconds = result, seconds
    offlineBase, offlineBall = baseAmount, data.EquippedBall
+   offlineTripleExtra = Training.GetOfflineTripleExtra(result.powerGranted, remaining)
   end
   -- Reward and timestamp consumption commit WITH the session claim. A response-loss
   -- retry sees our session ID and cannot apply the reward a second time.
@@ -766,16 +778,20 @@ local function loadPlayer(player)
  session.timePlayed, session.playClock = record.TimePlayed, os.clock()
  session.robux = {spent = record.RobuxSpent, passes = table.clone(record.RobuxPurchases.Passes),
   receipts = table.clone(record.RobuxPurchases.Receipts)}
- player:SetAttribute("OfflinePowerEarned", offlineResult and offlineResult.powerGranted or 0)
+ local offlinePower = offlineResult and offlineResult.powerGranted or 0
+ player:SetAttribute("OfflinePowerEarned", offlinePower)
  player:SetAttribute("OfflineSeconds", offlineSeconds or 0)
  player:SetAttribute("OfflineTrainingGround",
   offlineGround or Training.GetBestGround(session.progression.Rebirths, passes, record.UnlockedWorlds).id)
  player:SetAttribute("OfflineOldLevel", offlineResult and offlineResult.oldLevel or session.progression.Level)
  player:SetAttribute("OfflineNewLevel", offlineResult and offlineResult.newLevel or session.progression.Level)
  -- Welcome Back's 3x offer (ClaimOfflineTriple): this login's offline reward, for adding it
- -- twice more. Offered whenever there was a reward (Power keeps building at the Level Cap).
- local tripleEligible = offlineBase ~= nil and offlineBase > 0
- session.offlineTriple = tripleEligible and {baseAmount = offlineBase, ballId = offlineBall} or nil
+ -- twice more, up to limit (the rest of the run at login). Offered whenever there was a reward
+ -- (at the Level Cap there is none). OfflineTriplePower is the total with the 3x, for its button.
+ local tripleEligible = offlinePower > 0 and offlineTripleExtra ~= nil and offlineTripleExtra > 0
+ session.offlineTriple = tripleEligible and {baseAmount = offlineBase, ballId = offlineBall,
+  limit = offlineTripleExtra, power = offlinePower} or nil
+ player:SetAttribute("OfflineTriplePower", offlinePower + (tripleEligible and offlineTripleExtra or 0))
  player:SetAttribute("OfflineTripleAvailable", tripleEligible)
  publishProgression(player, session.progression)
  -- Publish the complete authoritative runtime state only after a successful claim.

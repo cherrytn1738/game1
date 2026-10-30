@@ -19,7 +19,10 @@ return function(sources)
   return {Name=name,AbsoluteSize=Vector2.new(720,550),Activated=signal(),GetPropertyChangedSignal=function() return signal() end,
    FindFirstChild=find,Visual={FindFirstChildOfClass=function() return {} end},Scrim={Visible=false}}
  end
- local attributes = {DataLoaded=true,Rebirths=1,Level=4,LevelCap=20,Power=0,OfflineSeconds=0,WorldUnlocked_world_1=true}
+ -- The login's offline result (read once, as the client starts): 8 hours held by the run cap, and
+ -- a 3x offer the run cap holds below three times the reward.
+ local attributes = {DataLoaded=true,Rebirths=1,Level=4,LevelCap=20,Power=0,WorldUnlocked_world_1=true,
+  OfflineSeconds=8*3600,OfflinePowerEarned=8740,OfflineTriplePower=17481,OfflineTripleAvailable=true}
  local changed = {}
  local player = {CharacterAdded=signal(),CharacterRemoving=signal()}
  function player:GetAttribute(name) return attributes[name] end
@@ -33,11 +36,14 @@ return function(sources)
   self:GetAttributeChangedSignal(name):Fire()
  end
  player.Character={FindFirstChildOfClass=function() return {Health=100} end}
- local buttons,requests,labels,teleports={},{},{},{}
+ local buttons,requests,labels,teleports,menus={},{},{},{},{}
  local UI={Colors={},Icons={},Showcase={},Number=tostring,Compact=tostring,Notify=function() end,CardState=function() end}
  function UI.Badge() return object("Badge") end
  function UI.Icon() return object("Icon") end
- function UI.Menu() return object("Menu"),object("Panel"),function() end end
+ function UI.Menu(name)
+  menus[name]=object("Menu")
+  return menus[name],object("Panel"),function() end
+ end
  function UI.Scroll(_,name) return object(name) end
  function UI.Surface(_,name) return object(name) end
  function UI.Hero() return object("Hero") end
@@ -51,6 +57,7 @@ return function(sources)
  function UI.Button(parent,name)
   local button=object(name)
   buttons[parent.Name]=button
+  buttons[parent.Name .. "." .. name]=button
   return button
  end
  function UI.SetButton(button,text,enabled)
@@ -86,13 +93,17 @@ return function(sources)
  local client=compile(sources.TrainingClient)
  setfenv(client,environment)
  client()
- check(labels["basic_training.Rate"].Text == "x1 POWER  |  20 Power / second", "starting Ball stacks with Rebirth in rate preview")
+ -- Level 4's Training base is 9 a practice hit (every 2 s); one Rebirth doubles it.
+ check(labels["basic_training.Rate"].Text == "x1 POWER  |  9 Power / second", "starting Ball stacks with Rebirth in rate preview")
  player:SetAttribute("EquippedBall","practice_ball")
- check(labels["basic_training.Rate"].Text == "x1 POWER  |  60 Power / second", "equipping a Ball updates effective Training rate")
+ check(labels["basic_training.Rate"].Text == "x1 POWER  |  27 Power / second", "equipping a Ball updates effective Training rate")
  player:SetAttribute("EquippedBat","amethyst_bat")
- check(labels["basic_training.Rate"].Text == "x1 POWER  |  60 Power / second", "the Bat does not alter Training preview")
+ check(labels["basic_training.Rate"].Text == "x1 POWER  |  27 Power / second", "the Bat does not alter Training preview")
  player:SetAttribute("EquippedBall","bubblegum_ball")
- check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  500 Power / second", "ground, Ball and Rebirth compose once in preview")
+ check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  225 Power / second", "ground, Ball and Rebirth compose once in preview")
+ player:SetAttribute("Level",20)
+ check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  825 Power / second", "the preview follows the Level's Training base")
+ player:SetAttribute("Level",4)
  check(buttons.basic_training.Active and buttons.basic_training.Text == "GO","unlocked ground offers a teleport")
  check(not buttons.enchanted_grove.Active and buttons.enchanted_grove.Text == "REQUIRES 2 REBIRTHS","locked Rebirth ground stays disabled")
  check(not buttons.dragons_lair.Active and buttons.dragons_lair.Text == "COMING SOON","paid ground without a pass id cannot be bought")
@@ -139,5 +150,19 @@ return function(sources)
  check(buttons.time_machine_lab.Active and buttons.time_machine_lab.Text == "GO","the shared pass opens both of its grounds")
  player:SetAttribute("Rebirths",2)
  check(buttons.enchanted_grove.Active and buttons.enchanted_grove.Text == "GO","Rebirth unlock refreshes the menu")
+ -- Welcome Back: the 3x button shows the server's total with the 3x, not three times the reward,
+ -- and after the claim the window shows the total the server really added.
+ check(labels["Summary.Power"].Text == "+8740 POWER" and buttons["Panel.Triple"].Text == "+17481",
+  "the 3x button shows the server's capped total, not three times the reward")
+ menus.OfflineTrainingGui.Scrim.Visible=true
+ player:SetAttribute("OfflineTriplePower",14481)
+ player:SetAttribute("OfflineTripleAvailable",false)
+ check(labels["Summary.Power"].Text == "+14481 POWER","after the 3x the window shows the server's new total")
+ -- A return at the Level Cap adds nothing and has no 3x offer, but its notice still shows.
+ attributes.OfflinePowerEarned,attributes.OfflineTriplePower,attributes.OfflineTripleAvailable=0,0,false
+ local again=compile(sources.TrainingClient)
+ setfenv(again,environment)
+ again()
+ check(labels["Summary.Power"].Text == "+0 POWER","a capped return keeps its Welcome Back notice")
  return {passed=passed}
 end

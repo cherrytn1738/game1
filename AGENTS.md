@@ -189,10 +189,12 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 
 ### Power / Level
 
-- Power requirements currently scale as `9 * Level + 1` below Level 20 (the quick early band: 10, 19, 28, ...) and `100 * Level^2` from Level 20 on.
-- Level Cap currently scales as `20 + 10 * Rebirths` (the first Rebirth is at Level 20).
+- Power requirements come in bands (`ProgressionConfig.LevelBands`): `9 * Level + 1` below Level 20 (the quick early band: 10, 19, 28, ...), then one band for each Rebirth's 20 new Levels (580 at Level 20, 12,000 at 40, 67,000 at 60, ...), each Level 1.02x the one before inside its band; bands past the listed ones start 1.8x above the band before.
+- Level Cap currently scales as `20 * (Rebirths + 1)` (20, 40, 60, ...; the first Rebirth is at Level 20).
 - Rebirth Power multiplier currently scales as `Rebirths + 1`.
-- These are implementation/balance values, not immutable design decisions.
+- The Training base (Power per practice hit at Basic Training) grows from 5 at Level 1 to 33 at Level 20, then holds.
+- Launch speed comes from a Level -> speed table built from measured hits (`tools/balance/HitMeasurements`).
+- These are implementation/balance values, not immutable design decisions; `tools/balance` simulates and re-solves them (`.vscode/ECONOMY.md`).
 - Level is the sole long-term determinant of batting distance.
 
 ### Equipment Roles
@@ -205,29 +207,29 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 
 The server derives every multiplier from the authoritative equipped IDs through `EquipmentConfig`; a hit snapshots the Ball ID and Bat Cash multiplier when the swing is accepted.
 
-Formulas (whole Power and Cash are rounded down once, after all bonuses):
+Formulas (whole Power is rounded down once, after all bonuses):
 
-- Training Power = ground base Power (base × ground multiplier) × Ball × (Rebirths + 1) × any Power juice
-- Hit Power = `HitPowerReward` × Ball × (Rebirths + 1) × any Power juice (no ground)
-- Offline Power = the best usable ground's capped offline base × Ball × (Rebirths + 1)
-- Hit Cash = distance × Cash per stud × Bat × section multiplier × any Cash juice
+- Training Power = Training base (by Level) × ground multiplier × Ball × (Rebirths + 1) × any Power juice
+- Hit Power = Training base × 0.37 per second in play (rounded) × Ball × (Rebirths + 1) × any Power juice (no ground; about 50-70% of Basic Training's rate)
+- Offline Power = 25% of the best usable ground's Training rate at the logout Level, for up to 8 hours, × Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (Welcome Back's 3x adds it twice more, up to all of it)
+- Hit Cash = (distance / 80)^1.5 × World Cash multiplier (1, 10, 100) × section multiplier × Bat × any Cash juice, rounded, at least $1
 
 ### Bat
 
 Bat equipment increases Cash earned from batting.
 
-Current placeholder Cash multipliers (the old Power values, carried over until the Bat balance pass):
+Current Cash multipliers and prices (each Bat about 1.5x the one before):
 
-- Wood: 1.0x
-- Metal: 1.5x
-- Jungle: 2.0x
-- Amethyst: 2.5x
-- Candy Cane: 3.2x
-- Frostbite: 4.0x
-- Magma: 5.0x
-- Lightning: 6.5x
-- Dragon Bone: 8.0x
-- Celestial: 10.0x
+- Wood: 1x, $0
+- Metal: 1.5x, $25
+- Jungle: 2x, $120
+- Amethyst: 3x, $600
+- Candy Cane: 4x, $3,000
+- Frostbite: 6x, $15,000
+- Magma: 9x, $300,000
+- Lightning: 13x, $1.5M
+- Dragon Bone: 19x, $25M
+- Celestial: 28x, $120M
 
 Bat does not affect Power gain or launch distance.
 
@@ -250,7 +252,7 @@ World 1's Balls (intended balance; the Sandlot Ball's $2 is the tutorial's first
 - Dragonfire Ball: 1,250x, $14,000
 - Supernova Ball: 3,500x, $40,000
 
-Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball), World 2's ten (Dino Egg to Chrono Orb, 12x-95x placeholders) and World 3's ten (Solar Cell to Singularity Orb, 110x-750x placeholders). World 2 and 3 keep their old Cash numbers as Power multipliers until their balance pass, so they sit below World 1's late balls for now. A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
+Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball), World 2's ten (Dino Egg to Chrono Orb, 5,000x-200,000x for $150K-$2.2M) and World 3's ten (Solar Cell to Singularity Orb, 300,000x-11,000,000x for $10M-$108M). Every ball beats the one before it and every ball of an earlier series (about 1.5x a step from World 2 on). A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
 
 ### Training Grounds
 
@@ -379,6 +381,7 @@ Offline Power:
 - applies configured offline-rate limits
 - applies the saved equipped Ball's Power multiplier
 - applies Rebirth multiplier
+- fills at most half the Power still needed for the Level Cap per return (the Welcome Back 3x up to all of it), so offline never finishes a run by itself
 - respects Level Cap behavior
 - grants once per valid login/session
 
@@ -485,13 +488,13 @@ Relevant files include:
 - `WORLDS.md` - world progression and unlock rules
 - `README.md` - repository/project overview
 - `CLAUDE.md` - Claude-specific current project context when present
+- `ECONOMY.md` - progression and economy balance: formulas, targets, tables and `tools/balance` simulator results
 - `CURRENT_STATE.md` - optional current development snapshot when present
 
 Other documentation may be added later when justified, such as:
 
 - `ARCHITECTURE.md`
 - `SYSTEMS.md`
-- `ECONOMY.md`
 - `SECURITY.md`
 - `ROADMAP.md`
 - `DECISIONS.md`

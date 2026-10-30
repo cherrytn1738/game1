@@ -69,18 +69,18 @@ An established architecture decision (it replaced the earlier Bat = Power, Ball 
 - **Training Ground:** multiplies Training Power only.
 - **Rebirth:** multiplies Power gain (`Rebirths + 1`).
 
-The server derives every multiplier from the authoritative equipped IDs through `EquipmentConfig`; clients never supply one. Whole Power and Cash are rounded down once, after every bonus:
+The server derives every multiplier from the authoritative equipped IDs through `EquipmentConfig`; clients never supply one. Whole Power is rounded down once, after every bonus (formulas in `ProgressionConfig`; tuning in `.vscode/ECONOMY.md`):
 
-- **Training Power** = ground base Power (base × ground multiplier) × Ball × (Rebirths + 1) × any Power juice.
-- **Hit Power** = `HitPowerReward` × Ball × (Rebirths + 1) × any Power juice. No ground multiplier, so Training stays the best Power source.
-- **Offline Power** = the best usable ground's capped offline base × the saved equipped Ball × (Rebirths + 1).
-- **Hit Cash** = distance × Cash per stud × Bat × section multiplier × any Cash juice.
+- **Training Power** = the Training base at the player's Level (5 at Level 1 up to 33 from Level 20) × ground multiplier × Ball × (Rebirths + 1) × any Power juice.
+- **Hit Power** = the Training base × `HitPowerPerSecond` (0.37) × seconds the ball was in play, rounded, × Ball × (Rebirths + 1) × any Power juice. No ground multiplier: counting the time between hits, batting earns about 50-70% of Basic Training's Power, so Training stays the best Power source.
+- **Offline Power** = 25% of the best usable ground's Training rate at the logout Level (up to 8 hours) × the saved equipped Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (the run cap, below).
+- **Hit Cash** = (distance / 80)^1.5 × the World's `cashMultiplier` (1, 10, 100) × section multiplier × Bat × any Cash juice, rounded, at least $1 (about $1 for an early hit).
 
 A hit snapshots the Ball ID and the Bat's Cash multiplier when the swing is accepted, so swapping equipment mid-flight (which is blocked anyway) cannot change that hit's rewards.
 
 ### Bat
 
-Bats remain owned, purchasable, equippable, and persistent. Each Bat's `cashMultiplier` multiplies the Cash a real hit earns; it never changes Power, launch speed, loft, or direction. The values are the old Power numbers carried over, placeholder balance until the Bat pass.
+Bats remain owned, purchasable, equippable, and persistent. Each Bat's `cashMultiplier` multiplies the Cash a real hit earns; it never changes Power, launch speed, loft, or direction. Each Bat earns about 1.5x the Cash of the one before.
 
 ### Ball
 
@@ -90,20 +90,20 @@ The physical batting tee remains part of each station. It is not purchasable, ow
 
 ### Bat lineup, models and swing effects
 
-Ten Bats, cooler as the price rises (Cash multipliers; placeholder balance carried over from their old Power values):
+Ten Bats, cooler as the price rises (Cash multipliers, tuned with `tools/balance`):
 
 | Bat (id) | Price | Cash | Swing trail / contact burst |
 |---|---|---|---|
 | Wood Bat (wood_bat) | Free | ×1 | none |
-| Metal Bat (metal_bat) | 300 | ×1.5 | faint white swoosh |
-| Jungle Bat (jungle_bat) | 900 | ×2 | green swoosh / leaves |
-| Amethyst Bat (amethyst_bat) | 2,000 | ×2.5 | purple swoosh / gem sparkle |
-| Candy Cane Bat (candy_cane_bat) | 6,000 | ×3.2 | pink-and-white swirl / sprinkles |
-| Frostbite Bat (frostbite_bat) | 15,000 | ×4 | icy trail / frost ring |
-| Magma Bat (magma_bat) | 40,000 | ×5 | fire trail / fire burst |
-| Lightning Bat (lightning_bat) | 100,000 | ×6.5 | flickering trail / lightning zap |
-| Dragon Bone Bat (dragon_bone_bat) | 250,000 | ×8 | flame trail / fire burst |
-| Celestial Bat (celestial_bat) | 600,000 | ×10 | rainbow trail / starburst and shockwave |
+| Metal Bat (metal_bat) | 25 | ×1.5 | faint white swoosh |
+| Jungle Bat (jungle_bat) | 120 | ×2 | green swoosh / leaves |
+| Amethyst Bat (amethyst_bat) | 600 | ×3 | purple swoosh / gem sparkle |
+| Candy Cane Bat (candy_cane_bat) | 3,000 | ×4 | pink-and-white swirl / sprinkles |
+| Frostbite Bat (frostbite_bat) | 15,000 | ×6 | icy trail / frost ring |
+| Magma Bat (magma_bat) | 300,000 | ×9 | fire trail / fire burst |
+| Lightning Bat (lightning_bat) | 1,500,000 | ×13 | flickering trail / lightning zap |
+| Dragon Bone Bat (dragon_bone_bat) | 25,000,000 | ×19 | flame trail / fire burst |
+| Celestial Bat (celestial_bat) | 120,000,000 | ×28 | rainbow trail / starburst and shockwave |
 
 The Alloy and Carbon Bats were removed (cleared from the developer's save; other saves drop them on load).
 
@@ -132,40 +132,40 @@ Ten Balls, cooler as the price rises (Power multipliers, intended balance; the S
 
 The All-Star and Championship Balls were removed (their IDs were also cleared from the developer's save; other saves drop them on load).
 
-**World 2 (Time Travel) balls** are a second purchase series in the same Ball category (`EquipmentConfig` Ball `series`, id `world_2`), one ball per era of World 2. They are bought in their own order, starting from the Dino Egg, and need World 2 unlocked but none of World 1's balls. World 1 balls stay owned and equippable everywhere. Prices and multipliers are placeholders (their old Cash numbers carried over as Power, so below World 1's late balls until the World 2 balance pass), all above ×10:
+**World 2 (Time Travel) balls** are a second purchase series in the same Ball category (`EquipmentConfig` Ball `series`, id `world_2`), one ball per era of World 2. They are bought in their own order, starting from the Dino Egg, and need World 2 unlocked but none of World 1's balls. World 1 balls stay owned and equippable everywhere. Every one beats the Supernova Ball, each about 1.5x the one before, priced for World 2's Cash (×10):
 
 | Ball (id) | Price | Power | Flight |
 |---|---|---|---|
-| Dino Egg (dino_egg_ball) | 1,000,000 | ×12 | swaying jungle trail shedding leaves and eggshell, spores |
-| Stone Ball (stone_ball) | 2,500,000 | ×15 | thick dust trail, pebbles in orbit, rock chunks breaking off |
-| Scarab Ball (scarab_ball) | 6,000,000 | ×19 | gold and lapis spiral through a sand stream, golden scarabs in orbit |
-| Olympian Laurel (laurel_ball) | 14,000,000 | ×24 | white-gold streak shedding golden laurel leaves, victory rings rippling behind |
-| Viking Rune (viking_rune_ball) | 32,000,000 | ×30 | glowing rune stones in orbit, icy flickering trail, frost mist, rune lightning |
-| Samurai Ball (samurai_ball) | 75,000,000 | ×38 | two crossing katana-slash ribbons, red silk trail, a storm of cherry petals |
-| Knight's Ball (knight_ball) | 170,000,000 | ×48 | gleaming steel streak with a fluttering red plume banner, sparks, glints |
-| Sheriff Star (sheriff_star_ball) | 400,000,000 | ×60 | dusty frontier trail, gold stars circling like a spinning badge |
-| Clockwork Ball (clockwork_ball) | 900,000,000 | ×75 | brass and cyan strands winding round it, spinning gears in orbit, steam, a ticking ring |
-| Chrono Orb (chrono_orb) | 2,000,000,000 | ×95 | ghostly echoes left behind, a swirling time vortex, colour-shifting strands, time ripples |
+| Dino Egg (dino_egg_ball) | 150,000 | ×5,000 | swaying jungle trail shedding leaves and eggshell, spores |
+| Stone Ball (stone_ball) | 200,000 | ×7,500 | thick dust trail, pebbles in orbit, rock chunks breaking off |
+| Scarab Ball (scarab_ball) | 270,000 | ×11,000 | gold and lapis spiral through a sand stream, golden scarabs in orbit |
+| Olympian Laurel (laurel_ball) | 365,000 | ×17,000 | white-gold streak shedding golden laurel leaves, victory rings rippling behind |
+| Viking Rune (viking_rune_ball) | 490,000 | ×25,000 | glowing rune stones in orbit, icy flickering trail, frost mist, rune lightning |
+| Samurai Ball (samurai_ball) | 660,000 | ×38,000 | two crossing katana-slash ribbons, red silk trail, a storm of cherry petals |
+| Knight's Ball (knight_ball) | 890,000 | ×57,000 | gleaming steel streak with a fluttering red plume banner, sparks, glints |
+| Sheriff Star (sheriff_star_ball) | 1,200,000 | ×85,000 | dusty frontier trail, gold stars circling like a spinning badge |
+| Clockwork Ball (clockwork_ball) | 1,600,000 | ×130,000 | brass and cyan strands winding round it, spinning gears in orbit, steam, a ticking ring |
+| Chrono Orb (chrono_orb) | 2,200,000 | ×200,000 | ghostly echoes left behind, a swirling time vortex, colour-shifting strands, time ripples |
 
 - **Offers:** each series has its own server-issued purchase token (`EquipmentPurchaseToken_Ball` for World 1's, `EquipmentPurchaseToken_Ball_world_2` for World 2's, `EquipmentPurchaseToken_Ball_world_3` for World 3's). The server finds the series from the token, checks the World unlock, then sells that series' next ball.
 - **Where they're sold:** World 2's ball display (`hub.displays` entry with `series = "world_2"`) and the Equipment menu, where locked cards say "Locked · Unlock World 2". World 1's ball display shows only World 1's series.
 - **Models:** `tools/blender/balls_world2.py` builds them like `balls.py` and exports `assets/models/BallsWorld2.fbx`, to be split into `DisplayItems` the same way. Until then, each shows as a plain sphere in its `appearance` colour.
 - **Effects:** each has its own flight layers like World 1's balls (see Flight layers above).
 
-**World 3 (Future World) balls** are the third series (`series` id `world_3`), one ball per World 3 runway section, sold the same way from World 3's "FUTURE BALLS" display and the Equipment menu. They need World 3 unlocked and none of the other series. Prices carry on from the Chrono Orb and stay far below `PlayerData`'s 9 trillion Cash cap; prices and multipliers are placeholders (old Cash numbers carried over as Power until the World 3 balance pass):
+**World 3 (Future World) balls** are the third series (`series` id `world_3`), one ball per World 3 runway section, sold the same way from World 3's "FUTURE BALLS" display and the Equipment menu. They need World 3 unlocked and none of the other series. Every one beats the Chrono Orb, each about 1.5x the one before, priced for World 3's Cash (×100) and far below `PlayerData`'s 9 trillion Cash cap:
 
 | Ball (id) | Price | Power | Flight |
 |---|---|---|---|
-| Solar Cell (solar_cell_ball) | 2,500,000,000 | ×110 | warm sunbeam streak in glowing segments, sun glints, rings of sunlight |
-| Hover Ball (hover_ball) | 3,500,000,000 | ×135 | twin thin cyan thruster contrails, hover rings rippling out |
-| Hologram Ball (hologram_ball) | 5,000,000,000 | ×165 | glitchy blue afterimages, a flickering scan-line ribbon, hologram sparks |
-| Robo Core (robo_core_ball) | 7,500,000,000 | ×200 | steel streak with a red laser core, sparks, nuts and bolts shaken loose |
-| Bio Seed (bio_seed_ball) | 11,000,000,000 | ×250 | curling vine-green trail, a glowing tendril, drifting spores, falling leaves |
-| Pixel Ball (pixel_ball) | 16,000,000,000 | ×310 | trail of square arcade pixels, a stepped rainbow ribbon |
-| Rocket Ball (rocket_ball) | 25,000,000,000 | ×390 | roaring flame exhaust, fire streak and a billowing smoke trail |
-| Moon Rock (moon_rock_ball) | 38,000,000,000 | ×480 | floating moon dust hanging behind it, pale moonlight, little moon rocks in orbit |
-| Red Planet (red_planet_ball) | 56,000,000,000 | ×600 | billowing red dust plume, rust-orange ribbon, two tiny moons in orbit |
-| Singularity Orb (singularity_orb) | 85,000,000,000 | ×750 | purple vortex wake, accretion ribbons whirling round it, warping rings, bright motes |
+| Solar Cell (solar_cell_ball) | 10,000,000 | ×300,000 | warm sunbeam streak in glowing segments, sun glints, rings of sunlight |
+| Hover Ball (hover_ball) | 13,000,000 | ×450,000 | twin thin cyan thruster contrails, hover rings rippling out |
+| Hologram Ball (hologram_ball) | 17,000,000 | ×675,000 | glitchy blue afterimages, a flickering scan-line ribbon, hologram sparks |
+| Robo Core (robo_core_ball) | 22,000,000 | ×1,000,000 | steel streak with a red laser core, sparks, nuts and bolts shaken loose |
+| Bio Seed (bio_seed_ball) | 29,000,000 | ×1,500,000 | curling vine-green trail, a glowing tendril, drifting spores, falling leaves |
+| Pixel Ball (pixel_ball) | 38,000,000 | ×2,250,000 | trail of square arcade pixels, a stepped rainbow ribbon |
+| Rocket Ball (rocket_ball) | 49,000,000 | ×3,400,000 | roaring flame exhaust, fire streak and a billowing smoke trail |
+| Moon Rock (moon_rock_ball) | 64,000,000 | ×5,000,000 | floating moon dust hanging behind it, pale moonlight, little moon rocks in orbit |
+| Red Planet (red_planet_ball) | 83,000,000 | ×7,500,000 | billowing red dust plume, rust-orange ribbon, two tiny moons in orbit |
+| Singularity Orb (singularity_orb) | 108,000,000 | ×11,000,000 | purple vortex wake, accretion ribbons whirling round it, warping rings, bright motes |
 
 - **Models:** `tools/blender/balls_world3.py` (reusing the World 1 and 2 ball helpers) exports `assets/models/BallsWorld3.fbx`, split into `DisplayItems` the same way.
 
@@ -302,17 +302,16 @@ Level 1 should produce a short hit far below the World 1 endpoint.
 
 A new save starts a four-step tutorial in World 1 that shows the whole loop in about a minute and a half. It runs once: a completed tutorial never shows again.
 
-| Step | Objective (banner) | Done when (server) | Guidance | Target | Measured (Studio, walking at 16) |
+| Step | Objective (banner) | Done when (server) | Guidance | Target | Measured (Studio, balance pass) |
 |---|---|---|---|---|---|
-| 1 | GET 30 POWER (n/30) | 30 Power granted (any source) | arrows to Basic Training | ~15 s | 7 s (4 s walk + 2 practice hits at +20) |
-| 2 | EARN $2 FROM BATTING ($n/$2) | $2 of batting Cash earned | arrows to the tee | 15-20 s | 9 s (one hit) |
+| 1 | GET 30 POWER (n/30) | 30 Power granted (any source) | arrows to Basic Training | ~15 s | ~15 s (4 s walk + 6 practice hits at +5/+6: 11.1 s on the plate) |
+| 2 | EARN $2 FROM BATTING ($n/$2) | $2 of batting Cash earned | arrows to the tee | 15-20 s | ~14 s (5 s walk + two hits at $1, 3.5 s each) |
 | 3 | BUY THE SANDLOT BALL ($2 for x3 POWER) | the Sandlot Ball owned (buying equips it) | arrows to its pedestal; the Shop opens there with the Balls tab, then PURCHASE, spotlit | 10-15 s | ~9 s (6 s walk + two clicks) |
-| 4 | REACH LEVEL 20 (n/20), then REBIRTH NOW! | Level 20 (the Level Cap), then a successful Rebirth | "Train to gain Power"; arrows to Basic Training only after 20 s without Power; then the Rebirth menu opens (or the HUD's Rebirth tile is ringed while Training) with REBIRTH, then CONFIRM, spotlit | 45-60 s | 65 s (8 s walk + 57 s Training from Level 3) |
-| | TUTORIAL COMPLETE! | | the banner fades after 5 s | 1.5-2 min | about 1.6 min |
+| 4 | REACH LEVEL 20 (n/20), then REBIRTH NOW! | Level 20 (the Level Cap), then a successful Rebirth | "Train to gain Power"; arrows to Basic Training only after 20 s without Power; then the Rebirth menu opens (or the HUD's Rebirth tile is ringed while Training) with REBIRTH, then CONFIRM, spotlit | 45-60 s | ~59 s (8 s walk + 51 s Training from Level 3) |
+| | TUTORIAL COMPLETE! | | the banner fades after 5 s | 1.5-2 min | about 1.75 min |
 
 - **Values:** `TutorialConfig` (30 Power, $2, the main Ball series' second ball, Basic Training, World 1; Level 20 is `Progression.GetLevelCap(0)`). The Ball's price and multiplier come from `EquipmentConfig`.
-- **Balance it relies on:** Basic Training grants +20 Power per practice hit at the start; Levels below 20 need `9 * Level + 1` Power (1,729 from Level 1 to 20, about a minute of Training with the Sandlot Ball's 3x); the first Level Cap is 20.
-- **Known mismatch:** an early real hit pays about $70-470 (1 Cash per stud), not $1, so Step 2 completes on the first hit; Steps 1-2 run faster than their targets. Left for the balance pass.
+- **Balance it relies on:** the Training base is +5 Power per practice hit at Level 1 and grows with Level (33 by Level 20); Levels below 20 need `9 * Level + 1` Power (1,729 from Level 1 to 20, under a minute of Training with the Sandlot Ball's 3x); an early hit pays $1 (`ProgressionConfig.GetHitCash`); the first Level Cap is 20. `tools/balance` checks these timings (`.vscode/ECONOMY.md`).
 - **Server authority:** `PlayerData` owns the state (session `tutorial`), moves it only from its own events (granted Power, `RecordBattingCash` from `BallLauncher`, purchases, Level, Rebirths; a Rebirth from any step completes it), publishes `TutorialStep` / `TutorialProgress`, and saves a step change soon (the important-save path). There is no client request that moves it. Progress counts what was earned, so spending Cash never takes it back.
 - **Persistence (Schema 10):** `TutorialCompleted`, and while unfinished `TutorialStep` and `TutorialProgress` (a finished save keeps no step or count). Rejoining resumes the saved step and count, moving past anything already done.
 - **Existing players:** a save from before Schema 10, or with malformed tutorial fields, skips the tutorial when it already shows play (any Rebirth, Level above 1, Power, Cash, bought equipment or a World beyond World 1) and starts it otherwise. An out-of-range count resets to 0.
@@ -679,21 +678,22 @@ Training rate previews use the same whole-Power arithmetic divided by the tick i
 
 ## Power, Level, and Rebirth (Milestone 15A)
 
-`ProgressionConfig` owns the placeholder formulas. Schema 4 extends the existing
+`ProgressionConfig` owns the formulas and their tuning (`tools/balance`, `.vscode/ECONOMY.md`). Schema 4 extends the existing
 `PlayerProgression` store with Power, Level, Rebirths, and LevelCap. Older saves
 receive 0 Power, Level 1, 0 Rebirths, and the first Level Cap (20) without converting equipment.
 Cash, ownership, equipped selections, worlds, and unknown saved fields are preserved.
 Malformed new fields are repaired; LevelCap is derived, never trusted from a save.
 
-- Power is progress toward the next Level. Requirement = `9 * Level + 1` below Level 20 (the quick early band the tutorial runs through: 10, 19, 28, ...; 1,729 Power from Level 1 to 20), then `100 * Level^2`.
+- Power is progress toward the next Level, in bands (`LevelBands`): `9 * Level + 1` below Level 20 (the quick early band the tutorial runs through: 10, 19, 28, ...; 1,729 Power from Level 1 to 20), then one band for each Rebirth's 20 new Levels (580 at Level 20, 12,000 at 40, 67,000 at 60, ... up to 22 trillion at 400), each Level 1.02x the one before inside its band. Past the listed bands each new band starts 1.8x above the one before. Requirements never drop at a band breakpoint.
 - Requirements are consumed on advancement; one grant can advance multiple Levels.
-- At the cap, Level stops but Power keeps building (no grant is discarded) up to the technical `MaxPower` limit; a Rebirth resets it to 0 with the Level.
-- Level cap = `20 + 10 * Rebirths` (the first Rebirth is at Level 20); Power gain multiplier = `Rebirths + 1`.
-- A valid finalized field hit grants base 2 Power, once, through server-only
-  `PlayerData.GrantPower(player, baseAmount, source)`. Active training uses this API; offline grants use the same private grant path inside the atomic load transaction.
-- Speed = `55 + 15 * (Level - 1)` studs/second, with fixed 38-degree loft.
+- At the cap, Level stops but Power keeps building (no grant is discarded) up to the technical `MaxPower` limit (9 quadrillion, below 2^53 so it stays an exact integer); a Rebirth resets it to 0 with the Level.
+- Level cap = `20 * (Rebirths + 1)` (20, 40, 60, ...; the first Rebirth is at Level 20); Power gain multiplier = `Rebirths + 1`.
+- Training base Power per practice hit = `5 + 1.5 * (Level - 1)` rounded down up to Level 20 (5, 6, 8, ... 33), then 33.
+- A valid finalized field hit grants Power once, through server-only
+  `PlayerData.GrantPower(player, baseAmount, source)`: the Training base × `HitPowerPerSecond` (0.37) × the seconds the ball was in play, rounded. Active training uses this API; offline grants use the same private grant path inside the atomic load transaction.
+- Speed comes from `LaunchSpeedTable` ({Level, speed} points, linear between them and flat after the last), with fixed 38-degree loft.
   Level is snapshotted at swing acceptance; Power, Rebirths, Bat, and Ball
-  do not modify launch speed. Physics still determines actual final distance.
+  do not modify launch speed. Physics still determines actual final distance; the table is built from measured hits (`tools/balance/HitMeasurements`).
 - `PlayerData.CanRebirth(player)` checks eligibility. `TryRebirth(player)` also
   rejects active training/batting/hits, dead characters, and world travel, increments Rebirths, resets Level/Power, derives
   the new cap, revalidates the selected ground, and preserves all other progression.
@@ -727,7 +727,7 @@ Each Training Ground is its own batting cage, with its own plate and one occupan
 - Cages are turned a quarter turn so their doors face the middle and their machine ends point outward. The spawn is 30 studs behind each World's tee, facing into the hub.
 - The physical Shop, World Travel and Rebirth stations and the Training Grounds board are removed for now. Their settings are commented in `WorldConfig`; FieldBuilder deletes any unconfigured station left in the place.
 
-| # | Ground ID | World | Unlock | Power multiplier (× 20 Power per 2 s) |
+| # | Ground ID | World | Unlock | Power multiplier (× the Training base per 2 s) |
 | --- | --- | --- | --- | --- |
 | 1 | basic_training | 1 | start | 1× |
 | 2 | enchanted_grove | 1 | 2 Rebirths | 5× |
@@ -746,7 +746,7 @@ Each Training Ground is its own batting cage, with its own plate and one occupan
 | 15 | quantum_lab | 3 | Cosmic Rift's 500 Robux pass | 120× |
 | 16 | dragons_lair | every World | 1000 Robux game pass | 30× (most expensive) |
 
-World 2's and World 3's requirements and multipliers are placeholders that continue on from the World before, for the later balance pass. As in the earlier Worlds, the paid ground in World 3 is set below its top Rebirth ground.
+The balance pass kept every ground's requirement and multiplier: each free ground trains faster than every free ground before it, World after World, and the Rebirth gates (7, 12 and 18 Rebirths reach World 1's, World 2's and World 3's ends) line up with them. As in the earlier Worlds, the paid ground in World 3 is set below its top Rebirth ground; paid grounds stay optional.
 
 **Access:**
 - A ground can only be used once a World it stands in is unlocked (the server-set `WorldUnlocked_<id>` attributes). World 1 cages stay usable after reaching World 2.
@@ -846,6 +846,8 @@ Offline base Power = floor(min(elapsed seconds, 8 hours) * best usable ground's
 base Power / interval * 0.25). The best usable ground is the highest-rate ground the player can use in any unlocked World, from Rebirths, owned passes and the saved World unlocks, checked at login. The same server grant path multiplies that base by the saved, ownership-validated Ball multiplier and Rebirth multiplier, floors the result to whole Power, and applies cap rules. These are placeholder balance values. Offline earning does not
 require leaving while actively training.
 
+**Run cap.** One return grants at most half the Power the player still needs to reach their Level Cap, measured at login (`TrainingConfig.OfflineRunShare` 0.5, `ProgressionConfig.GetPowerToLevelCap`), so offline Training helps but never finishes a run by itself: a normal return never reaches the Level Cap, repeated returns take half of what is left each time, and a return at the cap adds nothing (Training Power still banks there). Active Training stays the best Power source.
+
 The login UpdateAsync commits the reward, consumes LastLogoutTime, and claims the
 session atomically. A lost-response retry recognizes its own session and does not
 grant again. There is no client offline-claim operation. Normal exit records the
@@ -855,8 +857,8 @@ login conservatively has no new offline timestamp to use.
 
 **Welcome Back screen and the 3x offer.** The screen (`TrainingClient`, standard window) has a clock in its title (`UI.ClockIcon`: a white face with a blue rim, hour marks and hands, and the Power bolt over its edge), "You trained while you were offline:", the Power earned in full ("+1,486,600 POWER") under a glowing bolt, the ground and time trained, and two buttons:
 - **Claim!** (green) closes the screen; the reward was already added at login.
-- **3x** (rainbow, with the tripled amount and a Robux price tag) buys the offline reward twice more, 3x in all (`TrainingConfig.OfflineTriple`: a developer product, `productId` 0 and `robuxPrice` nil until it is created and priced, while the tag reads SOON and a tap explains it is coming soon). It shows whenever this login had an offline reward, at the Level Cap too (`OfflineTripleAvailable`, set by the server).
-- **Server authority:** the client only opens Roblox's purchase prompt. Roblox sends the receipt to `ProductServer` (the game's one `ProcessReceipt` handler), which calls `PlayerData.ClaimOfflineTriple`: it adds this login's offline base reward x2 through the normal grant path, with the Ball that earned it, under the usual Level Cap rules; records the receipt (RobuxSpent, never twice: a repeated receipt is acknowledged without granting again); withdraws the offer; and saves straight away before telling Roblox the purchase was granted. The offer is once per login. A receipt with no offer to fill (a second purchase in the same login, or the player not in the server) is left for Roblox to retry later, such as at their next login with an offline reward. The window then shows the tripled total.
+- **3x** (rainbow, with the total it brings and a Robux price tag) buys the offline reward twice more, 3x in all, up to all the Power the player needed for the Level Cap at login (`TrainingConfig.OfflineTriple`, `runShare` 1: it can finish the run, never pass it; a developer product, `productId` 0 and `robuxPrice` nil until it is created and priced, while the tag reads SOON and a tap explains it is coming soon). It shows whenever this login had an offline reward, so not at the Level Cap (`OfflineTripleAvailable`, set by the server); its amount is the server's total with the 3x (`OfflineTriplePower`).
+- **Server authority:** the client only opens Roblox's purchase prompt. Roblox sends the receipt to `ProductServer` (the game's one `ProcessReceipt` handler), which calls `PlayerData.ClaimOfflineTriple`: it adds this login's offline base reward x2 through the normal grant path, with the Ball that earned it, up to the offer's limit (the rest of the run at login) and never past the Level Cap now (if the player has already trained to the cap there is nothing to fill, so the receipt is left for Roblox to retry; a retry after the Rebirth, or at a later login with an offline reward, fills it); records the receipt (RobuxSpent, never twice: a repeated receipt is acknowledged without granting again); withdraws the offer; and saves straight away before telling Roblox the purchase was granted. The offer is once per login. A receipt with no offer to fill (a second purchase in the same login, or the player not in the server) is left for Roblox to retry later, such as at their next login with an offline reward. The window then shows the new total (`OfflineTriplePower`).
 
 TrainingRequest accepts only Buy(id), which shows the pass prompt, or Exit(session). TrainingTeleport accepts an
 optional ground id; anything the player cannot use falls back to their best ground. No remote starts

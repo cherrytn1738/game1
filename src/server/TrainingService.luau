@@ -4,6 +4,7 @@ local Marketplace = game:GetService("MarketplaceService")
 local Data = require(script.Parent.PlayerData)
 local Worlds = require(game.ReplicatedStorage.WorldConfig)
 local Training = require(game.ReplicatedStorage.TrainingConfig)
+local Progression = require(game.ReplicatedStorage.ProgressionConfig)
 local Service = {}
 -- Every World hub has its own row of grounds (Dragon's Lair stands in each), so a station is
 -- one plate in one hub: {ground, plate, worldId}. Each plate has at most one occupant.
@@ -168,7 +169,10 @@ function Service.Start()
     -- One grant per hit; hits missed during a stall are skipped (no burst/catch-up rewards).
     repeat state.nextTick += state.ground.interval until state.nextTick > now
     -- Granted at the Level Cap too (Power keeps building there until a Rebirth).
-    local granted, result = Data.GrantPower(player,state.ground.basePower,"ActiveTraining")
+    -- The Training base grows with Level (ProgressionConfig.GetTrainingBase), times the ground.
+    local progression = Data.GetProgression(player)
+    local base = Progression.GetTrainingBase(progression and progression.Level or 1) * state.ground.powerMultiplier
+    local granted, result = Data.GrantPower(player,base,"ActiveTraining")
     -- Display copies of the grant; the tick count makes repeats visible.
     if granted and result.powerGranted > 0 then
      player:SetAttribute("TrainingPowerGained", result.powerGranted)

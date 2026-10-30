@@ -99,23 +99,28 @@ return function(sources)
    local ball=balls[world.id]
    velocity=velocity or ball.AssemblyLinearVelocity
    check((ball.AssemblyLinearVelocity-velocity).Magnitude<.00001,"all Bat/Ball combinations produce identical Level-based velocity")
-   check(result.launchSpeed==115 and result.launchAngleDegrees==38,"launch strength and loft remain Level-based")
+   check(result.launchSpeed==Progression.GetLaunchSpeed(5) and result.launchAngleDegrees==38,"launch strength and loft remain Level-based")
    -- Change the display selection after acceptance; the reward must use the snapshot.
    player:SetAttribute("EquippedBall",ballItem.id=="baseball" and "practice_ball" or "baseball")
    player:SetAttribute("EquippedBat",bat.id=="wood_bat" and "amethyst_bat" or "wood_bat")
    ball.CFrame=CFrame.new(0,.5,-100)
    ball.AssemblyLinearVelocity,ball.AssemblyAngularVelocity=Vector3.zero,Vector3.zero
    local count,cash=#grants,player.leaderstats.Cash.Value
+   -- Ten seconds in play: the hit's Power follows its time (Training base x HitPowerPerSecond).
+   testTime += 10
    heartbeat:Fire(Field.StopHoldSeconds+.01)
+   local expectedCash=Progression.GetHitCash(100,world.cashMultiplier,1,bat.cashMultiplier)
    check(result.distanceResult.distanceStuds==100,"equipment does not change measured distance")
-   check(player.leaderstats.Cash.Value-cash==math.floor(100*bat.cashMultiplier),"Cash uses only the Bat and field multiplier (never the Ball)")
+   check(player.leaderstats.Cash.Value-cash==expectedCash,"Cash uses only the Bat and field multiplier (never the Ball)")
    check(cashReports[#cashReports]==player.leaderstats.Cash.Value-cash,"the paid Cash is reported once for the tutorial")
-   check(#grants==count+1 and grants[#grants].ballId==ballItem.id and grants[#grants].source=="CompletedHit",
-    "completed hit grants Power once with the accepted Ball snapshot")
-   check(result.distanceResult.powerEarned==math.floor(2*ballItem.powerGainMultiplier*2),"hit Power includes the Ball and Rebirth exactly once, never the Bat (whole Power)")
+   check(#grants==count+1 and grants[#grants].ballId==ballItem.id and grants[#grants].source=="CompletedHit"
+    and grants[#grants].base==Progression.GetHitPowerBase(5,10),
+    "completed hit grants Power once with the accepted Ball snapshot, from its time in play")
+   check(result.distanceResult.powerEarned==Progression.GetPowerGrant(Progression.GetHitPowerBase(5,10),1,ballItem.powerGainMultiplier),
+    "hit Power includes the Ball and Rebirth exactly once, never the Bat (whole Power)")
    heartbeat:Fire(10)
    Launcher.CancelPlayer(player)
-   check(#grants==count+1 and player.leaderstats.Cash.Value-cash==math.floor(100*bat.cashMultiplier),"reset and extra samples never duplicate rewards")
+   check(#grants==count+1 and player.leaderstats.Cash.Value-cash==expectedCash,"reset and extra samples never duplicate rewards")
    check(ball:GetAttribute("BallState")=="Ready" and not Launcher.IsBusy(world.id),"hit resets cleanly")
   end
  end
@@ -129,11 +134,13 @@ return function(sources)
  balls[world.id].AssemblyLinearVelocity,balls[world.id].AssemblyAngularVelocity=Vector3.zero,Vector3.zero
  local cashBefore=player.leaderstats.Cash.Value
  heartbeat:Fire(Field.StopHoldSeconds+.01)
- check(player.leaderstats.Cash.Value-cashBefore==200 and juiced.distanceResult.distanceStuds==100,"Cash juice doubles Cash without changing distance")
+ check(player.leaderstats.Cash.Value-cashBefore==Progression.GetHitCash(100,world.cashMultiplier,1,1,2)
+  and Progression.GetHitCash(100,world.cashMultiplier,1,1,2)>Progression.GetHitCash(100,world.cashMultiplier,1,1)
+  and juiced.distanceResult.distanceStuds==100,"Cash juice doubles Cash (before rounding) without changing distance")
  Launcher.CancelPlayer(player)
  juiceCash = 1
- -- Worked Cash formula: distance (Cash per stud) x Bat x section, rounded down once. A 2.5x
- -- Bat landing in a 1.35x section; swapping the Ball (a Power item) changes nothing.
+ -- Worked Cash formula: (distance / 80)^1.5 x World x section x Bat, rounded once. A 3x Bat
+ -- landing in a 1.35x section; swapping the Ball (a Power item) changes nothing.
  local tierDistance=100
  while Field.GetRewardSection(tierDistance,world).rewardMultiplier~=1.35 do tierDistance+=50 end
  for index,ballId in {"baseball","supernova_ball"} do
@@ -145,8 +152,9 @@ return function(sources)
   balls[world.id].AssemblyLinearVelocity,balls[world.id].AssemblyAngularVelocity=Vector3.zero,Vector3.zero
   local before=player.leaderstats.Cash.Value
   heartbeat:Fire(Field.StopHoldSeconds+.01)
-  check(player.leaderstats.Cash.Value-before==math.floor(tierDistance*2.5*1.35),
-   "Cash = distance x Bat 2.5 x section 1.35 with the " .. ballId .. " (the Ball never changes Cash)")
+  local expected=math.floor((tierDistance/80)^1.5*world.cashMultiplier*1.35*3+.5)
+  check(Equipment.Get("Bat","amethyst_bat").cashMultiplier==3 and player.leaderstats.Cash.Value-before==expected,
+   "Cash = (distance / 80)^1.5 x section 1.35 x Bat 3 with the " .. ballId .. " (the Ball never changes Cash)")
   Launcher.CancelPlayer(player)
  end
  -- A Legendary Hit only waits longer: the same launch, distance and Cash follow.
@@ -167,13 +175,14 @@ return function(sources)
   "legendary hit is published on the ball")
  check(legendaryBall:GetAttribute("BallState")=="Reserved","ball waits on the tee during the hold")
  legendaryLaunch.fn(table.unpack(legendaryLaunch.args,1,legendaryLaunch.args.n))
- check((legendaryBall.AssemblyLinearVelocity-normalVelocity).Magnitude<.00001 and legendary.launchSpeed==115,
+ check((legendaryBall.AssemblyLinearVelocity-normalVelocity).Magnitude<.00001 and legendary.launchSpeed==Progression.GetLaunchSpeed(5),
   "legendary hit launches exactly like a normal one")
  legendaryBall.CFrame=CFrame.new(0,.5,-100)
  legendaryBall.AssemblyLinearVelocity,legendaryBall.AssemblyAngularVelocity=Vector3.zero,Vector3.zero
  local legendaryCash=player.leaderstats.Cash.Value
  heartbeat:Fire(Field.StopHoldSeconds+.01)
- check(player.leaderstats.Cash.Value-legendaryCash==100 and legendary.distanceResult.distanceStuds==100,"legendary hit rewards are unchanged")
+ check(player.leaderstats.Cash.Value-legendaryCash==Progression.GetHitCash(100,world.cashMultiplier,1,1)
+  and legendary.distanceResult.distanceStuds==100,"legendary hit rewards are unchanged")
  check(legendaryBall:GetAttribute("LegendaryHitUserId")==nil and legendaryBall:GetAttribute("LegendaryLaunchAt")==nil,
   "ball reset clears the legendary attributes")
  Launcher.CancelPlayer(player)
@@ -240,15 +249,16 @@ return function(sources)
  check((ball.AssemblyLinearVelocity-normalVelocity*2).Magnitude<.00001 and player:GetAttribute("BallFlightSpeed")==2,
   "rejected requests never compound or restore velocity")
  check(math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*((2*Field.HitTimeScale)^2-1))<.0001,"rejected requests leave the 2x gravity unchanged")
- check(result.launchSpeed==115,"speedup does not change Level launch strength")
+ check(result.launchSpeed==Progression.GetLaunchSpeed(5),"speedup does not change Level launch strength")
  ball.CFrame=CFrame.new(0,.5,-100)
  ball.AssemblyLinearVelocity,ball.AssemblyAngularVelocity=Vector3.zero,Vector3.zero
  local cash=player.leaderstats.Cash.Value
  heartbeat:Fire(Field.StopHoldSeconds/2+.01)
  check(result.distanceResult and result.distanceResult.distanceStuds==100,"scaled stop timer finalizes real position")
- check(player.leaderstats.Cash.Value==cash+100,"speedup does not multiply Cash")
+ local plainCash=Progression.GetHitCash(100,world.cashMultiplier,1,1)
+ check(player.leaderstats.Cash.Value==cash+plainCash,"speedup does not multiply Cash")
  heartbeat:Fire(10)
- check(player.leaderstats.Cash.Value==cash+100,"accelerated hit awards only once")
+ check(player.leaderstats.Cash.Value==cash+plainCash,"accelerated hit awards only once")
  check(player:GetAttribute("BallFlightSpeed")==nil and ball:GetAttribute("BallState")=="Ready","reset clears speed state")
  check(Launcher.TryLaunch(player,table.clone(result),tool),"next hit can start")
  callback=table.remove(delayed,1)

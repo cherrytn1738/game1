@@ -145,15 +145,19 @@ Persistent progression includes:
 
 Current progression formula:
 
-Power required for next level:
+Power required for next level, in bands (`ProgressionConfig.LevelBands`):
 
-`9 × Level + 1` below Level 20 (the quick early band: 10, 19, 28, ...), then `100 × Level²`
+`9 × Level + 1` below Level 20 (the quick early band: 10, 19, 28, ...), then one band for each Rebirth's 20 new Levels (580 at Level 20, 12,000 at 40, 67,000 at 60, ..., each Level 1.02× the one before inside its band). The bands are solved by `tools/balance` for the provisional MEDIUM pace (see `.vscode/ECONOMY.md`).
 
 Power requirements are consumed as the player levels.
 
 Level Cap:
 
-`20 + 10 × Rebirths` (the first Rebirth is at Level 20, the end of the tutorial)
+`20 × (Rebirths + 1)`: 20, 40, 60, ... (the first Rebirth is at Level 20, the end of the tutorial)
+
+Training base (Power per practice hit at Basic Training, before multipliers): 5 at Level 1, rising 1.5 a Level to 33 at Level 20, then flat.
+
+Launch speed: a Level → speed table (`ProgressionConfig.LaunchSpeedTable`) built from measured hits (`tools/balance/HitMeasurements`).
 
 New players run a four-step tutorial (`TutorialConfig`): get 30 Power, earn $2 from batting, buy the Sandlot Ball, reach Level 20 and Rebirth. The server advances and saves it from its own events only (no client request moves it); clients draw the banner, ground arrows (`GuideArrows`) and menu spotlight (`Spotlight`). Older saves that already show play skip it. See GAME_DESIGN.md "New-Player Tutorial".
 
@@ -203,10 +207,10 @@ The physical batting tee still exists in the world.
 - Training Ground: multiplies Training Power only
 - Rebirth: multiplies Power gain (`Rebirths + 1`)
 
-- Training Power = ground base Power × Ball × (Rebirths + 1) (× Power juice)
-- Hit Power = `HitPowerReward` × Ball × (Rebirths + 1) (× Power juice)
-- Offline Power = best usable ground's capped offline base × saved Ball × (Rebirths + 1)
-- Hit Cash = distance × Cash per stud × Bat × section multiplier (× Cash juice)
+- Training Power = Training base (by Level) × ground multiplier × Ball × (Rebirths + 1) (× Power juice)
+- Hit Power = Training base × `HitPowerPerSecond` (0.37) × seconds in play, rounded, × Ball × (Rebirths + 1) (× Power juice); no ground
+- Offline Power = 25% of the best usable ground's rate at the logout Level (8 h cap) × saved Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (Welcome Back's 3x: twice more, up to all of it)
+- Hit Cash = (distance / 80)^1.5 × World `cashMultiplier` (1, 10, 100) × section multiplier × Bat (× Cash juice), rounded, at least $1
 
 A hit snapshots the Ball ID and the Bat's Cash multiplier at swing acceptance.
 
@@ -216,20 +220,9 @@ Bat increases Cash earned from real completed hits.
 
 Bat does NOT increase Power or hit distance.
 
-Current placeholder Cash multipliers (the old Power values, carried over):
+Current Cash multipliers and prices: Wood 1x $0, Metal 1.5x $25, Jungle 2x $120, Amethyst 3x $600, Candy Cane 4x $3,000, Frostbite 6x $15,000, Magma 9x $300,000, Lightning 13x $1.5M, Dragon Bone 19x $25M, Celestial 28x $120M.
 
-- Wood: 1.0x
-- Metal: 1.5x
-- Jungle: 2.0x
-- Amethyst: 2.5x
-- Candy Cane: 3.2x
-- Frostbite: 4.0x
-- Magma: 5.0x
-- Lightning: 6.5x
-- Dragon Bone: 8.0x
-- Celestial: 10.0x
-
-These are temporary balance values.
+These are balance values from `tools/balance` and may change.
 
 ### Ball
 
@@ -241,7 +234,7 @@ Ball increases Power gained from:
 
 Ball does not increase Cash or distance.
 
-World 1's Balls (intended balance): Baseball 1x $0, Sandlot 3x $2 (the tutorial's first purchase), Bubblegum 5x $10, Crystal 12x $40, Frost Comet 30x $150, Inferno 75x $500, Thunder 200x $1,500, Galaxy 500x $4,500, Dragonfire 1,250x $14,000, Supernova 3,500x $40,000. World 2/3 Balls keep their old Cash numbers as Power placeholders until their balance pass.
+World 1's Balls (intended balance): Baseball 1x $0, Sandlot 3x $2 (the tutorial's first purchase), Bubblegum 5x $10, Crystal 12x $40, Frost Comet 30x $150, Inferno 75x $500, Thunder 200x $1,500, Galaxy 500x $4,500, Dragonfire 1,250x $14,000, Supernova 3,500x $40,000. World 2's run 5,000x-200,000x ($150K-$2.2M) and World 3's 300,000x-11,000,000x ($10M-$108M); every ball beats the one before and every earlier series.
 
 Equipment ownership and equipped selections persist.
 
@@ -276,7 +269,7 @@ Training practice balls:
 
 Each Training Ground is a separate physical cage (developer decision, superseding the old single logical stadium). There is no saved selection: the plate you stand on is the ground you train at.
 
-Current Grounds (Power multiplier on 20 Power every ~2 seconds; `TrainingConfig.Hubs` lists each World's row):
+Current Grounds (Power multiplier on the Training base, one practice hit every ~2 seconds; `TrainingConfig.Hubs` lists each World's row):
 
 - World 1: Basic Training (start, 1x), Enchanted Grove (2 Rebirths, 5x), Sunken Atlantis (4 Rebirths, 10x), Sky Temple (6 Rebirths, 20x), Cosmic Rift (500 Robux game pass, 10x)
 - World 2 (placeholder values): Caveman Camp (free once World 2 is unlocked, 25x), Pharaoh's Tomb (8 Rebirths, 35x), Gladiator Colosseum (10 Rebirths, 50x), Samurai Dojo (12 Rebirths, 70x), Time Machine Lab (Cosmic Rift's pass, 35x)
@@ -299,6 +292,7 @@ Current design:
 - applies offline rate multiplier
 - applies the saved equipped Ball multiplier
 - applies Rebirth multiplier
+- fills at most half the Power still needed for the Level Cap per return, so offline never finishes a run by itself
 - respects Level Cap rules
 - uses authoritative server timestamps
 - grants once per valid session
@@ -310,6 +304,10 @@ Current offline rate:
 Current maximum offline duration:
 
 8 hours
+
+Current run cap:
+
+half the Power left to the Level Cap per return (`OfflineRunShare`); Welcome Back's 3x claim adds the reward twice more, up to all of it, never past the cap
 
 These are balance values and may change later.
 

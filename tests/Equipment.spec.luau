@@ -186,12 +186,13 @@ return function(sources)
  check(not Data.EquipEquipment(a, "Bat", "wood_bat"), "equip blocked after exiting during flight")
  a:SetAttribute("HitActive", false)
  check(Data.PurchaseNextEquipment(a, "Bat", offer), "valid purchase")
- check(a.leaderstats.Cash.Value == 3000 and a:GetAttribute("EquippedBat") == "amethyst_bat", "price and auto-equip")
+ local afterAmethyst = 5000 - Equipment.Get("Bat", "amethyst_bat").price
+ check(a.leaderstats.Cash.Value == afterAmethyst and a:GetAttribute("EquippedBat") == "amethyst_bat", "price and auto-equip")
  check(Data.OwnsEquipment(a, "Bat", "jungle_bat"), "previous equipment retained")
- check(not Data.PurchaseNextEquipment(a, "Bat", offer) and a.leaderstats.Cash.Value == 3000, "duplicate charged once")
+ check(not Data.PurchaseNextEquipment(a, "Bat", offer) and a.leaderstats.Cash.Value == afterAmethyst, "duplicate charged once")
  check(Data.EquipEquipment(a, "Bat", "wood_bat"), "older owned item equips")
  check(Data.GetNextEquipment(a, "Bat") == Equipment.GetNext("Bat", "amethyst_bat"), "older equip cannot regress progression")
- check(Data.EquipEquipment(a, "Bat", "wood_bat") and a.leaderstats.Cash.Value == 3000, "repeat equip is free")
+ check(Data.EquipEquipment(a, "Bat", "wood_bat") and a.leaderstats.Cash.Value == afterAmethyst, "repeat equip is free")
  check(not Data.PurchaseNextEquipment(b, "Bat", b:GetAttribute("EquipmentPurchaseToken_Bat")), "insufficient Cash")
 
  -- Exercise the real remote handler with malformed/spam requests and two players.
@@ -202,7 +203,8 @@ return function(sources)
  remote.OnServerEvent:Fire(b, "Purchase", "Bat", bOffer)
  now += 1
  remote.OnServerEvent:Fire(b, "Purchase", "Bat", bOffer)
- check(b.leaderstats.Cash.Value == 1700 and b:GetAttribute("EquippedBat") == "metal_bat", "spam/replay cannot skip next item")
+ local afterMetal = 2000 - Equipment.Get("Bat", "metal_bat").price
+ check(b.leaderstats.Cash.Value == afterMetal and b:GetAttribute("EquippedBat") == "metal_bat", "spam/replay cannot skip next item")
  check(not Data.OwnsEquipment(b, "Bat", "jungle_bat"), "replay never grants next equipment")
  remote.OnServerEvent:Fire(a, "Equip", "Bat", "jungle_bat")
  check(a:GetAttribute("EquippedBat") == "jungle_bat", "other player has independent cooldown/state")
@@ -211,14 +213,14 @@ return function(sources)
  remote.OnServerEvent:Fire(b, {}, {}, {})
  remote.OnServerEvent:Fire(b, "Purchase", "Bat", {price = 0})
  remote.OnServerEvent:Fire(b, "Purchase", "Bat", "amethyst_bat")
- check(b:GetAttribute("EquippedBat") == "metal_bat" and b.leaderstats.Cash.Value == 1700, "forged request inputs rejected")
+ check(b:GetAttribute("EquippedBat") == "metal_bat" and b.leaderstats.Cash.Value == afterMetal, "forged request inputs rejected")
  check(Data.EquipEquipment(a, "Bat", "wood_bat"), "select old item before saving")
  leave(a)
  check(saved.Player_1.SchemaVersion == 10 and saved.Player_1.Session == nil, "version 10 save and lease release")
  check(saved.Player_1.OwnedBats.amethyst_bat and saved.Player_1.EquippedBat == "wood_bat", "ownership and selection saved separately")
  check(saved.Player_1.OtherProgress == 42 and saved.Player_1.UnlockedWorlds.world_2, "other progression preserved")
  local returned = join(1)
- check(returned.leaderstats.Cash.Value == 3000 and Data.OwnsEquipment(returned, "Bat", "amethyst_bat")
+ check(returned.leaderstats.Cash.Value == afterAmethyst and Data.OwnsEquipment(returned, "Bat", "amethyst_bat")
   and returned:GetAttribute("EquippedBat") == "wood_bat", "rejoin restores purchased ownership and older selection")
 
  saved.Player_3 = {SchemaVersion = 3, Cash = 100, EquippedBat = "amethyst_bat", OwnedBats = {wood_bat = true},
@@ -246,11 +248,12 @@ return function(sources)
  check(state.Power == 0 and state.Level == 1 and state.Rebirths == 0 and state.LevelCap == 20, "progression defaults (first Level Cap 20)")
  check(not Data.CanRebirth(fresh) and not Data.TryRebirth(fresh), "early Rebirth rejected")
  check(Progression.PowerRequiredForNextLevel(3) > Progression.PowerRequiredForNextLevel(2), "requirements increase")
- -- The early band: 9 x Level + 1 below Level 20 (10, 19, 28, ...), then 100 x Level^2.
+ -- The early band: 9 x Level + 1 below Level 20 (10, 19, 28, ...); from Level 20, one band per
+ -- Rebirth (ProgressionConfig.LevelBands).
  check(Progression.PowerRequiredForNextLevel(1) == 10 and Progression.PowerRequiredForNextLevel(2) == 19
   and Progression.PowerRequiredForNextLevel(3) == 28 and Progression.PowerRequiredForNextLevel(19) == 172
-  and Progression.PowerRequiredForNextLevel(20) == 40000 and Progression.PowerRequiredForNextLevel(30) == 90000,
-  "early Levels need 9 x Level + 1 Power; Level 20 on keeps 100 x Level^2")
+  and Progression.PowerRequiredForNextLevel(20) == 580 and Progression.PowerRequiredForNextLevel(40) == 12000,
+  "early Levels need 9 x Level + 1 Power; Levels 20 and 40 start their bands")
  check(Data.GrantPower(fresh, 5, "Test") and fresh:GetAttribute("Power") == 5, "partial Power grant")
  -- 60 Power in all: Levels 1-3 take 10 + 19 + 28 = 57, leaving 3 at Level 4.
  check(Data.GrantPower(fresh, 55, "Test") and fresh:GetAttribute("Level") == 4
@@ -280,19 +283,20 @@ return function(sources)
  fresh:SetAttribute("WorldCompleted_world_1",true)
  check(Data.TryRebirth(fresh), "eligible Rebirth succeeds")
  state = Data.GetProgression(fresh)
- check(state.Rebirths == 1 and state.Level == 1 and state.Power == 0 and state.LevelCap == 30, "Rebirth resets and cap grows")
+ check(state.Rebirths == 1 and state.Level == 1 and state.Power == 0 and state.LevelCap == 40, "Rebirth resets and cap grows")
  check(not Data.TryRebirth(fresh), "duplicate Rebirth rejected")
- check(fresh.leaderstats.Cash.Value == 1700 and Data.OwnsEquipment(fresh,"Bat","metal_bat")
+ local afterBat = 2000 - Equipment.Get("Bat", "metal_bat").price
+ check(fresh.leaderstats.Cash.Value == afterBat and Data.OwnsEquipment(fresh,"Bat","metal_bat")
   and fresh:GetAttribute("EquippedBat") == "metal_bat" and fresh:GetAttribute("WorldUnlocked_world_2"), "Rebirth preserves unrelated progression")
  ok, state = Data.GrantPower(fresh, 4, "FutureTraining")
  check(ok and state.powerGranted == 8 and fresh:GetAttribute("Power") == 8, "central Ball and Rebirth multipliers (the bought Bat adds no Power)")
  check(Progression.GetLaunchSpeed(Data.GetProgression(fresh).Level) == Progression.GetLaunchSpeed(1), "Power/Rebirth do not affect same-level launch")
- check(Progression.GetLaunchSpeed(10) > Progression.GetLaunchSpeed(1) * 3, "Level 10 launch substantially stronger")
+ check(Progression.GetLaunchSpeed(10) > Progression.GetLaunchSpeed(1), "a higher Level launches faster")
  leave(fresh)
  fresh = join(20)
  state = Data.GetProgression(fresh)
- check(state.Rebirths == 1 and state.LevelCap == 30 and state.Level == 1 and state.Power == 8, "new progression saves and rejoins")
- check(fresh.leaderstats.Cash.Value == 1700 and fresh:GetAttribute("EquippedBat") == "metal_bat"
+ check(state.Rebirths == 1 and state.LevelCap == 40 and state.Level == 1 and state.Power == 8, "new progression saves and rejoins")
+ check(fresh.leaderstats.Cash.Value == afterBat and fresh:GetAttribute("EquippedBat") == "metal_bat"
   and fresh:GetAttribute("WorldCompleted_world_1"), "equipment Cash and worlds survive new schema")
  check(returned:GetAttribute("Level") == 1 and returned:GetAttribute("Power") == 0, "legacy saves gain defaults without Bat conversion")
  saved.Player_21 = {SchemaVersion = 4, Cash = 765, Power = -4, Level = 999, Rebirths = -5, LevelCap = 999999}
@@ -315,7 +319,7 @@ return function(sources)
  -- grants use the best usable ground inside the atomic login transaction.
  local multipliers = {}
  for _, entry in Training.Grounds do table.insert(multipliers, entry.powerMultiplier) end
- check(table.concat(multipliers, ",") == "1,5,10,20,10,25,35,50,70,35,90,120,160,210,120,30" and Training.Get("dragons_lair").basePower == 600,
+ check(table.concat(multipliers, ",") == "1,5,10,20,10,25,35,50,70,35,90,120,160,210,120,30",
   "ground multipliers on the first ground's Power")
  check(Training.Get("sky_temple").requiredRebirths == 6 and Training.IsPaid(Training.Get("cosmic_rift"))
   and not Training.IsUnlocked("cosmic_rift", 1000), "Rebirth and paid ground requirements")
@@ -374,9 +378,9 @@ return function(sources)
  trainee:SetAttribute("TrainingActive",true)
  check(not Data.EquipEquipment(trainee,"Bat","wood_bat"),"training blocks equipment changes")
  local ground=Training.Get("enchanted_grove")
- local ok, gain=Data.GrantPower(trainee,ground.basePower,"ActiveTraining")
- -- 300 Power from Level 1: Levels 1-7 take 259, leaving 41 at Level 8.
- check(ok and gain.powerGranted==300 and trainee:GetAttribute("Level")==8 and trainee:GetAttribute("Power")==41,
+ local ok, gain=Data.GrantPower(trainee,Progression.GetTrainingBase(1)*ground.powerMultiplier,"ActiveTraining")
+ -- 5 x 5 x 3 (two Rebirths) = 75 Power from Level 1: Levels 1-3 take 57, leaving 18 at Level 4.
+ check(ok and gain.powerGranted==75 and trainee:GetAttribute("Level")==4 and trainee:GetAttribute("Power")==18,
   "active training uses central multiplier/advancement")
  trainee:SetAttribute("TrainingActive",false)
  leave(trainee)
@@ -384,45 +388,62 @@ return function(sources)
  trainee=join(30)
  check(trainee:GetAttribute("OfflineTrainingGround")=="enchanted_grove" and trainee:GetAttribute("OfflinePowerEarned")==0,"rejoin with zero offline duration")
  local nowStamp=100000
- local amount, seconds=Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training")
- check(amount==150 and seconds==60,"short offline duration")
- amount,seconds=Training.GetOfflineReward(nowStamp-3600,nowStamp,"enchanted_grove")
- check(amount==45000 and seconds==3600,"ground offline rate")
- amount,seconds=Training.GetOfflineReward(1,nowStamp,"basic_training")
- check(seconds==Training.MaximumOfflineSeconds and amount==72000,"offline cap enforced")
+ -- Offline: 25% of the ground's Training rate at the player's Level (5 Power a hit at Level 1).
+ local levelOneBase=Progression.GetTrainingBase(1)
+ local amount, seconds=Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training",levelOneBase)
+ check(amount==37 and seconds==60,"short offline duration")
+ amount,seconds=Training.GetOfflineReward(nowStamp-3600,nowStamp,"enchanted_grove",levelOneBase)
+ check(amount==11250 and seconds==3600,"ground offline rate")
+ amount,seconds=Training.GetOfflineReward(1,nowStamp,"basic_training",levelOneBase)
+ check(seconds==Training.MaximumOfflineSeconds and amount==18000,"offline cap enforced")
+ check(Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training",Progression.GetTrainingBase(20))==247,"offline rate follows the Training base")
  for _, timestamp in {0,-1,"bad",math.huge,0/0,1.5,nowStamp+10} do
-  check(Training.GetOfflineReward(timestamp,nowStamp,"basic_training")==0,"malformed or future timestamp cannot award")
+  check(Training.GetOfflineReward(timestamp,nowStamp,"basic_training",levelOneBase)==0,"malformed or future timestamp cannot award")
  end
- check(Training.GetOfflineReward(nil,nowStamp,"basic_training")==0,"missing timestamp cannot award")
+ check(Training.GetOfflineReward(nil,nowStamp,"basic_training",levelOneBase)==0,"missing timestamp cannot award")
+ for _, base in {-1,0/0,math.huge,"5"} do
+  check(Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training",base)==0,"malformed Training base cannot award")
+ end
+ -- The run cap: a return fills at most half the Power still needed for the Level Cap; the 3x adds
+ -- the reward twice more, up to all of it.
+ check(Progression.GetPowerToLevelCap(Progression.Normalize({},false))==1729
+  and Progression.GetPowerToLevelCap({Level=19,Power=100,LevelCap=20})==72
+  and Progression.GetPowerToLevelCap({Level=20,Power=5,LevelCap=20})==0,"Power left to the Level Cap")
+ check(Training.GetOfflinePowerLimit(1729)==864 and Training.GetOfflinePowerLimit(1)==0 and Training.GetOfflinePowerLimit(0)==0,
+  "a return fills at most half the run left")
+ check(Training.GetOfflineTripleExtra(37,1729)==74 and Training.GetOfflineTripleExtra(600,1729)==1129
+  and Training.GetOfflineTripleExtra(864,1729)==865 and Training.GetOfflineTripleExtra(0,1729)==0,
+  "the 3x adds the reward twice more, up to the whole run left")
  saved.Player_31={SchemaVersion=5,Cash=321,Power=0,Level=1,Rebirths=2,LevelCap=30,SelectedTrainingGround="advanced_training",LastLogoutTime=math.floor(now)-10,OtherProgress=123}
  loseResponse.Player_31=true
  local offline=join(31)
- -- 375 Power from Level 1: Levels 1-8 take 332, leaving 43 at Level 9.
- check(offline:GetAttribute("OfflinePowerEarned")==375 and offline:GetAttribute("Level")==9
-  and offline:GetAttribute("Power")==43,"offline grant once despite committed response loss")
+ -- Ten seconds at Enchanted Grove: 31 x 3 (two Rebirths) = 93 Power from Level 1: Levels 1-3
+ -- take 57, leaving 36 at Level 4.
+ check(offline:GetAttribute("OfflinePowerEarned")==93 and offline:GetAttribute("Level")==4
+  and offline:GetAttribute("Power")==36,"offline grant once despite committed response loss")
  check(saved.Player_31.LastLogoutTime==nil and saved.Player_31.OtherProgress==123 and saved.Player_31.SelectedTrainingGround==nil,"timestamp consumed atomically, unknown fields preserved, retired selection dropped")
  check(offline.leaderstats.Cash.Value==321 and offline:GetAttribute("OfflineTrainingGround")=="enchanted_grove","best usable ground used, not the old saved selection")
  players.PlayerAdded:Fire(offline)
- check(offline:GetAttribute("Power")==43,"same session cannot reprocess offline reward")
+ check(offline:GetAttribute("Power")==36,"same session cannot reprocess offline reward")
  saved.Player_32={SchemaVersion=5,Cash=777,Power=3,Level=1,Rebirths=0,SelectedTrainingGround="expert_training",LastLogoutTime=math.floor(now)-60}
  local fallback=join(32)
- check(fallback:GetAttribute("OfflineTrainingGround")=="basic_training" and fallback:GetAttribute("OfflinePowerEarned")==150,"removed selection ignored; offline uses the best usable ground")
- -- 3 + 150 = 153 Power from Level 1: Levels 1-5 take 140, leaving 13 at Level 6.
- check(fallback:GetAttribute("Level")==6 and fallback:GetAttribute("Power")==13 and fallback.leaderstats.Cash.Value==777,"offline progression preserves Cash")
+ check(fallback:GetAttribute("OfflineTrainingGround")=="basic_training" and fallback:GetAttribute("OfflinePowerEarned")==37,"removed selection ignored; offline uses the best usable ground")
+ -- A minute at Basic Training: 37 Power. 3 + 37 = 40 Power from Level 1: Levels 1-2 take 29, leaving 11 at Level 3.
+ check(fallback:GetAttribute("Level")==3 and fallback:GetAttribute("Power")==11 and fallback.leaderstats.Cash.Value==777,"offline progression preserves Cash")
  -- Welcome Back's 3x offer: the receipt adds the login's offline reward twice more, once.
  local decisions = Enum.ProductPurchaseDecision
  local tripleReceipt = {PlayerId=32, PurchaseId="triple-1", ProductId=555, CurrencySpent=9, CurrencyType=Enum.CurrencyType.Robux}
  check(fallback:GetAttribute("OfflineTripleAvailable")==true,"an offline reward below the cap offers the 3x purchase")
- -- 153 + 300 = 453 Power from Level 1: Levels 1-9 take 414, leaving 39 at Level 10.
- check(Data.ClaimOfflineTriple(fallback,tripleReceipt)==decisions.PurchaseGranted and Data.GetProgression(fallback).Level==10
-  and Data.GetProgression(fallback).Power==39 and fallback:GetAttribute("OfflineTripleAvailable")==false,
-  "3x adds the 150 offline Power twice more (with the Ball and Rebirth multipliers) and withdraws the offer")
- check(saved.Player_32.RobuxSpent==9 and saved.Player_32.RobuxPurchases.Receipts[1]=="triple-1" and saved.Player_32.Power==39,
+ -- 40 + 74 = 114 Power from Level 1: Levels 1-4 take 94, leaving 20 at Level 5.
+ check(Data.ClaimOfflineTriple(fallback,tripleReceipt)==decisions.PurchaseGranted and Data.GetProgression(fallback).Level==5
+  and Data.GetProgression(fallback).Power==20 and fallback:GetAttribute("OfflineTripleAvailable")==false,
+  "3x adds the 37 offline Power twice more (with the Ball and Rebirth multipliers) and withdraws the offer")
+ check(saved.Player_32.RobuxSpent==9 and saved.Player_32.RobuxPurchases.Receipts[1]=="triple-1" and saved.Player_32.Power==20,
   "a paid 3x is saved straight away with its Robux")
- check(Data.ClaimOfflineTriple(fallback,tripleReceipt)==decisions.PurchaseGranted and Data.GetProgression(fallback).Power==39,
+ check(Data.ClaimOfflineTriple(fallback,tripleReceipt)==decisions.PurchaseGranted and Data.GetProgression(fallback).Power==20,
   "a repeated receipt is acknowledged without granting again")
  check(Data.ClaimOfflineTriple(fallback,{PlayerId=32,PurchaseId="triple-2",ProductId=555,CurrencySpent=9})==decisions.NotProcessedYet
-  and Data.GetProgression(fallback).Power==39,"a second purchase in the same login has no offer to fill")
+  and Data.GetProgression(fallback).Power==20,"a second purchase in the same login has no offer to fill")
  check(Data.ClaimOfflineTriple(fallback,{PlayerId=99,PurchaseId="triple-3",ProductId=555,CurrencySpent=9})==decisions.NotProcessedYet
   and Data.ClaimOfflineTriple(failed,{PlayerId=6,PurchaseId="triple-4",ProductId=555,CurrencySpent=9})==decisions.NotProcessedYet,
   "another player's receipt or a failed load is not granted")
@@ -433,15 +454,17 @@ return function(sources)
  check(legacy:GetAttribute("Power")==22 and legacy:GetAttribute("Level")==3 and legacy:GetAttribute("OfflinePowerEarned")==0,"migration preserves progression without fabricated offline time")
  saved.Player_34={SchemaVersion=5,Cash=500,Power=0,Level=20,Rebirths=0,SelectedTrainingGround="fake",LastLogoutTime=1}
  local atCap=join(34)
- check(atCap:GetAttribute("Level")==20 and atCap:GetAttribute("OfflinePowerEarned")>0
-  and atCap:GetAttribute("Power")==atCap:GetAttribute("OfflinePowerEarned"),"offline Power keeps building at the cap")
+ check(atCap:GetAttribute("OfflineSeconds")>0 and atCap:GetAttribute("Level")==20 and atCap:GetAttribute("OfflinePowerEarned")==0
+  and atCap:GetAttribute("Power")==0 and atCap:GetAttribute("OfflineTripleAvailable")==false,"at the Level Cap offline adds nothing and offers no 3x")
+ check(Data.GrantPower(atCap,10,"ActiveTraining") and atCap:GetAttribute("Level")==20 and atCap:GetAttribute("Power")==10,
+  "Training Power still banks at the cap")
  check(not Data.CanUseTrainingGround(failed,"basic_training"),"failed loads cannot train")
  -- Paid grounds: Roblox pass ownership is read at login (before the offline grant) and on
  -- the server's purchase event; lookups that fail grant nothing.
  ownedPasses["35:111"] = true
  saved.Player_35={SchemaVersion=7,Cash=1,Power=0,Level=1,Rebirths=0,LastLogoutTime=math.floor(now)-12}
  local passHolder=join(35)
- check(passHolder:GetAttribute("OfflineTrainingGround")=="cosmic_rift" and passHolder:GetAttribute("OfflinePowerEarned")==300,"offline uses an owned paid ground with no Rebirths")
+ check(passHolder:GetAttribute("OfflineTrainingGround")=="cosmic_rift" and passHolder:GetAttribute("OfflinePowerEarned")==75,"offline uses an owned paid ground with no Rebirths")
  check(Data.CanUseTrainingGround(passHolder,"cosmic_rift") and passHolder:GetAttribute("TrainingPass_cosmic_rift")==true
   and not Data.CanUseTrainingGround(passHolder,"dragons_lair"),"owned pass opens only its ground")
  check(passHolder:GetAttribute("TrainingPass_time_machine_lab")==nil and not Data.CanUseTrainingGround(passHolder,"time_machine_lab"),
@@ -543,15 +566,29 @@ return function(sources)
  studioMode = false
  workspace:SetAttribute("UnlockAllWorlds", nil)
  -- World 2's balls are their own series: their own offer, World 2 must be unlocked, then in order.
+ local worldOneBalls = Equipment.GetSeriesItems("Ball")
  local worldTwoBalls = Equipment.GetSeriesItems("Ball", "world_2")
- local aboveTen = true
- for _, ball in worldTwoBalls do aboveTen = aboveTen and ball.powerGainMultiplier > 10 and ball.series == "world_2" end
- check(#worldTwoBalls == 10 and worldTwoBalls[1].id == "dino_egg_ball" and worldTwoBalls[10].id == "chrono_orb" and aboveTen
-  and #Equipment.GetSeriesItems("Ball") == 10 and #Equipment.GetItems("Ball") == 30, "World 2 sells ten balls above x10")
+ local supernova = worldOneBalls[#worldOneBalls]
+ local aboveWorldOne = true
+ for _, ball in worldTwoBalls do
+  aboveWorldOne = aboveWorldOne and ball.powerGainMultiplier > supernova.powerGainMultiplier and ball.price > supernova.price
+   and ball.series == "world_2"
+ end
+ check(#worldTwoBalls == 10 and worldTwoBalls[1].id == "dino_egg_ball" and worldTwoBalls[10].id == "chrono_orb" and aboveWorldOne
+  and #worldOneBalls == 10 and #Equipment.GetItems("Ball") == 30, "World 2 sells ten balls above World 1's best")
  local worldThreeBalls = Equipment.GetSeriesItems("Ball", "world_3")
+ local chrono = worldTwoBalls[#worldTwoBalls]
  local aboveChrono = true
  for _, ball in worldThreeBalls do
-  aboveChrono = aboveChrono and ball.powerGainMultiplier > 95 and ball.series == "world_3" and ball.price > 2000000000
+  aboveChrono = aboveChrono and ball.powerGainMultiplier > chrono.powerGainMultiplier and ball.price > chrono.price
+   and ball.series == "world_3"
+ end
+ -- Each series rises in Power and price, so later Balls are always upgrades.
+ for _, series in {worldOneBalls, worldTwoBalls, worldThreeBalls} do
+  for index = 2, #series do
+   check(series[index].powerGainMultiplier > series[index - 1].powerGainMultiplier and series[index].price > series[index - 1].price,
+    series[index].id .. " beats " .. series[index - 1].id .. " and costs more")
+  end
  end
  -- Equipment roles: every Ball carries only a Power multiplier, every Bat only a Cash one.
  for _, ball in Equipment.GetItems("Ball") do
@@ -571,10 +608,15 @@ return function(sources)
   check(ball.id == row[1] and ball.powerGainMultiplier == row[2] and ball.price == row[3],
    string.format("World 1 ball %d is %s at %dx Power for $%d", index, row[1], row[2], row[3]))
  end
- -- The old Bat Power values carried over unchanged as Cash multipliers.
- for id, value in {wood_bat = 1, metal_bat = 1.5, jungle_bat = 2, amethyst_bat = 2.5, candy_cane_bat = 3.2,
-  frostbite_bat = 4, magma_bat = 5, lightning_bat = 6.5, dragon_bone_bat = 8, celestial_bat = 10} do
-  check(Equipment.Get("Bat", id).cashMultiplier == value, id .. " keeps " .. value .. "x, now Cash")
+ -- Bats, in order: each earns more Cash than the one before and costs more.
+ local bats = Equipment.GetItems("Bat")
+ local batOrder = {}
+ for _, bat in bats do table.insert(batOrder, bat.id .. "=" .. bat.cashMultiplier) end
+ check(table.concat(batOrder, ",") == "wood_bat=1,metal_bat=1.5,jungle_bat=2,amethyst_bat=3,candy_cane_bat=4,"
+  .. "frostbite_bat=6,magma_bat=9,lightning_bat=13,dragon_bone_bat=19,celestial_bat=28", "Bat Cash multipliers in order")
+ for index = 2, #bats do
+  check(bats[index].cashMultiplier > bats[index - 1].cashMultiplier and bats[index].price > bats[index - 1].price,
+   bats[index].id .. " beats " .. bats[index - 1].id .. " and costs more")
  end
  check(#worldThreeBalls == 10 and worldThreeBalls[1].id == "solar_cell_ball" and worldThreeBalls[10].id == "singularity_orb" and aboveChrono
   and Equipment.GetSeriesInfo("Ball", "world_3").requiredWorld == "world_3" and worldThreeBalls[10].price < 9000000000000,
@@ -586,7 +628,7 @@ return function(sources)
  check(not Data.PurchaseNextEquipment(shopper,"Ball",worldTwoOffer) and shopper.leaderstats.Cash.Value==5000000,"World 2's balls need World 2 unlocked")
  shopper:SetAttribute("WorldUnlocked_world_2",true)
  check(Data.PurchaseNextEquipment(shopper,"Ball",worldTwoOffer) and Data.OwnsEquipment(shopper,"Ball","dino_egg_ball")
-  and shopper:GetAttribute("EquippedBall")=="dino_egg_ball" and shopper.leaderstats.Cash.Value==4000000
+  and shopper:GetAttribute("EquippedBall")=="dino_egg_ball" and shopper.leaderstats.Cash.Value==5000000-Equipment.Get("Ball","dino_egg_ball").price
   and not Data.OwnsEquipment(shopper,"Ball","practice_ball"),"World 2's first ball needs none of World 1's")
  check(not Data.PurchaseNextEquipment(shopper,"Ball",worldTwoOffer),"a used World 2 offer cannot buy again")
  check(Data.GetNextEquipment(shopper,"Ball","world_2").id=="stone_ball" and Data.GetNextEquipment(shopper,"Ball").id=="practice_ball","each series moves on separately")
@@ -605,7 +647,8 @@ return function(sources)
   "World 3's balls need World 3 unlocked")
  futureShopper:SetAttribute("WorldUnlocked_world_3",true)
  check(Data.PurchaseNextEquipment(futureShopper,"Ball",worldThreeOffer) and Data.OwnsEquipment(futureShopper,"Ball","solar_cell_ball")
-  and futureShopper.leaderstats.Cash.Value==500000000 and Data.GetNextEquipment(futureShopper,"Ball","world_3").id=="hover_ball",
+  and futureShopper.leaderstats.Cash.Value==3000000000-Equipment.Get("Ball","solar_cell_ball").price
+  and Data.GetNextEquipment(futureShopper,"Ball","world_3").id=="hover_ball",
   "World 3's first ball is bought from its own series")
  leave(futureShopper)
  check(saved.Player_41.OwnedBalls.solar_cell_ball==true,"World 3 balls save with the rest")
@@ -614,17 +657,20 @@ return function(sources)
  saved.Player_36={SchemaVersion=7,Cash=1,Power=0,Level=1,Rebirths=0,LastLogoutTime=math.floor(now)-12}
  local lookupOutage=join(36)
  check(Data.IsReady(lookupOutage) and not Data.CanUseTrainingGround(lookupOutage,"cosmic_rift")
-  and lookupOutage:GetAttribute("OfflinePowerEarned")==30,"pass lookup outage loads safely with Rebirth grounds only")
- -- Four minutes at Basic Training: 600 Power. Levels 1-10 take 505, leaving 95 at Level 11.
- local offlineBase=Training.GetOfflineReward(100,340,"basic_training")
+  and lookupOutage:GetAttribute("OfflinePowerEarned")==7,"pass lookup outage loads safely with Rebirth grounds only")
+ -- Four minutes at Basic Training: 150 Power, under the run cap. Levels 1-5 take 140, leaving 10 at Level 6.
+ local offlineBase=Training.GetOfflineReward(100,340,"basic_training",levelOneBase)
  local simulated=Progression.Normalize({},false)
- Progression.Advance(simulated,offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths))
- check(offlineBase==600 and simulated.Level==11 and simulated.Power==95,"minutes offline advance multiple levels")
- offlineBase=Training.GetOfflineReward(100,100000,"basic_training")
+ Progression.Advance(simulated,math.min(offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths),
+  Training.GetOfflinePowerLimit(Progression.GetPowerToLevelCap(simulated))))
+ check(offlineBase==150 and simulated.Level==6 and simulated.Power==10,"minutes offline advance multiple levels")
+ offlineBase=Training.GetOfflineReward(100,100000,"basic_training",levelOneBase)
  simulated=Progression.Normalize({Rebirths=0,Level=1,Power=0},false)
- Progression.Advance(simulated,offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths))
- -- 72,000 Power (the 8-hour cap): 1,729 takes Levels 1-19 to the cap of 20, and the rest is kept.
- check(simulated.Level==20 and simulated.Power==70271,"capped offline duration reaches the cap and keeps the rest")
+ Progression.Advance(simulated,math.min(offlineBase*Progression.GetPowerMultiplier(simulated.Rebirths),
+  Training.GetOfflinePowerLimit(Progression.GetPowerToLevelCap(simulated))))
+ -- 18,000 Power for 8 hours, held to half the 1,729 the run needs: 864 takes Levels 1-13 (832),
+ -- leaving 32 at Level 14.
+ check(offlineBase==18000 and simulated.Level==14 and simulated.Power==32,"the 8-hour reward is held to half the run left")
  check(Data.GetBestTrainingGround(trainee).id=="enchanted_grove" and Data.GetBestTrainingGround(fallback).id=="basic_training"
   and not Data.CanUseTrainingGround(fallback,"dragons_lair"),"players have independent access")
  -- Two complete Rebirth cycles use the same public server operations as gameplay.
@@ -659,13 +705,14 @@ return function(sources)
   local best = Data.GetBestTrainingGround(cyclist)
   check(best.id == "caveman_camp" and (Data.CanUseTrainingGround(cyclist, "enchanted_grove") ~= nil) == (rebirths + 1 >= 2),
    "the second ground opens at two Rebirths; the best ground spans unlocked Worlds")
-  local granted, tick = Data.GrantPower(cyclist, best.basePower, "ActiveTraining")
-  check(granted and tick.powerGranted == best.basePower * Equipment.Get("Ball", cyclist:GetAttribute("EquippedBall")).powerGainMultiplier
+  local base = Progression.GetTrainingBase(1) * best.powerMultiplier
+  local granted, tick = Data.GrantPower(cyclist, base, "ActiveTraining")
+  check(granted and tick.powerGranted == base * Equipment.Get("Ball", cyclist:GetAttribute("EquippedBall")).powerGainMultiplier
    * Progression.GetPowerMultiplier(rebirths + 1), "ground, Ball and Rebirth multipliers compose")
  end
  leave(cyclist)
  local cycleRecord = saved.Player_100
- check(cycleRecord.Rebirths == 2 and cycleRecord.LevelCap == 40 and cycleRecord.SelectedTrainingGround == nil, "two Rebirths saved without a ground selection")
+ check(cycleRecord.Rebirths == 2 and cycleRecord.LevelCap == 60 and cycleRecord.SelectedTrainingGround == nil, "two Rebirths saved without a ground selection")
  check(cycleRecord.LastLogoutTime == math.floor(now) and cycleRecord.Session == nil, "Rebirth save retains offline lifecycle and releases lease")
  cyclist = join(100)
  check(Data.GetProgression(cyclist).Rebirths == 2 and Data.GetBestTrainingGround(cyclist).id == "caveman_camp"
@@ -773,7 +820,7 @@ return function(sources)
  check(saved.Player_116.Rebirths == 1 and saved.Player_116.Level == 1
   and saved.Player_116.Power == 0 and saved.Player_116.Session == nil, "Rebirth close save survives committed response loss exactly once")
  durable = join(116)
- check(Data.GetProgression(durable).Rebirths == 1 and Data.GetProgression(durable).LevelCap == 30, "saved Rebirth is restored after response loss")
+ check(Data.GetProgression(durable).Rebirths == 1 and Data.GetProgression(durable).LevelCap == 40, "saved Rebirth is restored after response loss")
  saved.Player_117 = {SchemaVersion=5, Cash=9, Rebirths=Progression.MaxRebirths,
   Level=Progression.GetLevelCap(Progression.MaxRebirths), LevelCap=1, Power=0}
  local maximum = join(117)
@@ -790,16 +837,22 @@ return function(sources)
    check(Training.IsUnlocked(trainingGround.id, rebirths) == (not paid and rebirths >= trainingGround.requiredRebirths
     and Training.IsReachable(trainingGround, nil)), "central ground eligibility " .. label)
    check(Training.CanUse(trainingGround.id, rebirths, nil) == Training.IsUnlocked(trainingGround.id, rebirths), "no pass means Rebirth grounds only " .. label)
-   check(trainingGround.basePower == Training.BasePowerPerTick * trainingGround.powerMultiplier, "ground base Power from multiplier " .. label)
    for _, duration in {12, 3*60*60, Training.MaximumOfflineSeconds, Training.MaximumOfflineSeconds+60*60} do
-    local base, seconds = Training.GetOfflineReward(nowStamp-duration, nowStamp, trainingGround.id)
+    local trainingBase = Progression.GetTrainingBase(Progression.GetLevelCap(rebirths))
+    local base, seconds = Training.GetOfflineReward(nowStamp-duration, nowStamp, trainingGround.id, trainingBase)
     local eligibleSeconds = math.min(duration, Training.MaximumOfflineSeconds)
-    local expectedBase = math.floor(eligibleSeconds * trainingGround.basePower / trainingGround.interval * Training.OfflinePowerRateMultiplier)
+    local expectedBase = math.floor(eligibleSeconds * trainingBase * trainingGround.powerMultiplier / trainingGround.interval * Training.OfflinePowerRateMultiplier)
     check(base == expectedBase and seconds == eligibleSeconds, "offline duration boundary " .. label .. "/" .. duration)
     local rateState = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
-    Progression.Advance(rateState, base * multiplier)
-    check(rateState.Level <= Progression.GetLevelCap(rebirths)
-     and (rateState.Level == rateState.LevelCap or rateState.Power < Progression.PowerRequiredForNextLevel(rateState.Level)), "offline multiplier respects cap " .. label .. "/" .. duration)
+    local remaining = Progression.GetPowerToLevelCap(rateState)
+    local power = math.min(base * multiplier, Training.GetOfflinePowerLimit(remaining))
+    Progression.Advance(rateState, power)
+    check(power <= remaining * Training.OfflineRunShare and rateState.Level < rateState.LevelCap
+     and rateState.Power < Progression.PowerRequiredForNextLevel(rateState.Level), "a return fills at most half the run " .. label .. "/" .. duration)
+    local extra = Training.GetOfflineTripleExtra(power, remaining)
+    Progression.Advance(rateState, extra)
+    check(power + extra <= remaining and (rateState.Level < rateState.LevelCap or rateState.Power == 0),
+     "the 3x never passes the cap " .. label .. "/" .. duration)
    end
   end
  end
@@ -819,7 +872,8 @@ return function(sources)
    local fixture = join(fixtureId)
    -- These saves have World 2 unlocked, so World 2's grounds count too.
    local best = Training.GetBestGround(rebirths, nil, bothWorlds)
-   local baseOffline = math.floor(12 * best.basePower / best.interval * Training.OfflinePowerRateMultiplier)
+   local levelOneGround = Progression.GetTrainingBase(1) * best.powerMultiplier
+   local baseOffline = math.floor(12 * levelOneGround / best.interval * Training.OfflinePowerRateMultiplier)
    local expected = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
    Progression.Advance(expected, baseOffline * Progression.GetPowerMultiplier(rebirths))
    local actual = Data.GetProgression(fixture)
@@ -828,21 +882,54 @@ return function(sources)
     and actual.Level == expected.Level and actual.Power == expected.Power, "actual offline login uses the best ground, whatever was saved")
    check(not Data.CanUseTrainingGround(fixture, trainingGround.id) == not Training.IsUnlocked(trainingGround.id, rebirths, bothWorlds)
     and actual.LevelCap == Progression.GetLevelCap(rebirths), "actual login access and repaired saved caps")
-   local granted, tick = Data.GrantPower(fixture, best.basePower, "ActiveTraining")
-   check(granted and tick.powerGranted == best.basePower * Progression.GetPowerMultiplier(rebirths), "actual active grant ground/Rebirth cross-product")
+   local granted, tick = Data.GrantPower(fixture, levelOneGround, "ActiveTraining")
+   check(granted and tick.powerGranted == levelOneGround * Progression.GetPowerMultiplier(rebirths), "actual active grant ground/Rebirth cross-product")
    leave(fixture)
    check(saved[key].Cash == 456 and saved[key].OtherProgress == 73 and saved[key].UnlockedWorlds.world_2
     and saved[key].CompletedWorlds.world_1 and saved[key].SelectedTrainingGround == nil, "offline and active grants preserve unrelated fields")
   end
  end
 
- local capTwo = Progression.GetLevelCap(2)
- saved.Player_220 = {SchemaVersion=5, Cash=100, Rebirths=2, Level=capTwo - 1,
-  Power=Progression.PowerRequiredForNextLevel(capTwo - 1)-1, SelectedTrainingGround="expert_training", LastLogoutTime=now-12}
- local offlineCap = join(220)
- check(Data.GetProgression(offlineCap).Level == capTwo and Data.GetProgression(offlineCap).Power == offlineCap:GetAttribute("OfflinePowerEarned") - 1
-  and Data.CanRebirth(offlineCap), "offline login reaches cap and permits explicit Rebirth without automatic reset")
- check(Data.GetProgression(offlineCap).Rebirths == 2, "offline cap never automatically Rebirths")
+ -- Offline never finishes a run: 8 hours a Level short of the second cap fill half the Power
+ -- left; the 3x fills the rest exactly, and the Rebirth stays the player's choice.
+ do
+  local capTwo = Progression.GetLevelCap(2)
+  local left = Progression.PowerRequiredForNextLevel(capTwo - 1)
+  local half = Training.GetOfflinePowerLimit(left)
+  for id = 220, 222 do
+   saved["Player_" .. id] = {SchemaVersion=5, Cash=100, Rebirths=2, Level=capTwo - 1, Power=0,
+    SelectedTrainingGround="expert_training", LastLogoutTime=math.floor(now)-Training.MaximumOfflineSeconds}
+  end
+  local offlineCap = join(220)
+  check(offlineCap:GetAttribute("OfflineSeconds") == Training.MaximumOfflineSeconds and offlineCap:GetAttribute("OfflinePowerEarned") == half
+   and Data.GetProgression(offlineCap).Level == capTwo - 1 and Data.GetProgression(offlineCap).Power == half
+   and not Data.CanRebirth(offlineCap), "an 8-hour return stops at half the run left")
+  check(offlineCap:GetAttribute("OfflineTripleAvailable") == true and offlineCap:GetAttribute("OfflineTriplePower") == left,
+   "the 3x offer shows the whole run left")
+  check(Data.ClaimOfflineTriple(offlineCap, {PlayerId=220, PurchaseId="triple-220", ProductId=555, CurrencySpent=9}) == decisions.PurchaseGranted
+   and Data.GetProgression(offlineCap).Level == capTwo and Data.GetProgression(offlineCap).Power == 0
+   and Data.CanRebirth(offlineCap) and offlineCap:GetAttribute("OfflineTriplePower") == left, "the 3x fills the run exactly to the Level Cap")
+  check(Data.GetProgression(offlineCap).Rebirths == 2, "offline cap never automatically Rebirths")
+  -- Training between the login and the 3x: the claim stops at the Level Cap, and at the cap it
+  -- waits for Roblox to retry rather than take Robux for nothing.
+  local partway, capped = join(221), join(222)
+  check(Data.GrantPower(partway, 1000, "ActiveTraining") and not Data.CanRebirth(partway)
+   and Data.GrantPower(capped, 3000, "ActiveTraining") and Data.CanRebirth(capped), "training after the login")
+  check(Data.ClaimOfflineTriple(partway, {PlayerId=221, PurchaseId="triple-221", ProductId=555, CurrencySpent=9}) == decisions.PurchaseGranted
+   and Data.GetProgression(partway).Level == capTwo and Data.GetProgression(partway).Power == 0
+   and partway:GetAttribute("OfflineTriplePower") == half + (left - half - 3000), "the 3x stops at the Level Cap")
+  local banked = Data.GetProgression(capped).Power
+  local receipt = {PlayerId=222, PurchaseId="triple-222", ProductId=555, CurrencySpent=9}
+  check(Data.ClaimOfflineTriple(capped, receipt) == decisions.NotProcessedYet and Data.GetProgression(capped).Power == banked
+   and capped:GetAttribute("OfflineTripleAvailable") == true and saved.Player_222.RobuxSpent ~= 9, "at the cap the 3x waits instead of granting nothing")
+  check(Data.TryRebirth(capped), "explicit Rebirth with the 3x still waiting")
+  local expected = Progression.Normalize({Rebirths=3, Level=1, Power=0}, false)
+  Progression.Advance(expected, left - half)
+  check(Data.ClaimOfflineTriple(capped, receipt) == decisions.PurchaseGranted and Data.GetProgression(capped).Level == expected.Level
+   and Data.GetProgression(capped).Power == expected.Power and capped:GetAttribute("OfflineTripleAvailable") == false,
+   "a retried 3x after the Rebirth adds the offer's Power, no more")
+  for _, player in {offlineCap, partway, capped} do leave(player) end
+ end
  local oneBelow = Progression.Normalize({Rebirths=0, Level=Progression.BaseLevelCap - 1,
   Power=Progression.PowerRequiredForNextLevel(Progression.BaseLevelCap - 1)-1}, false)
  Progression.Advance(oneBelow, 1)
@@ -861,7 +948,7 @@ return function(sources)
   local progress = Data.GetProgression(migration)
   check(migration.leaderstats.Cash.Value == 1234 and Data.OwnsEquipment(migration,"Bat","metal_bat")
    and migration:GetAttribute("EquippedBat") == "metal_bat" and migration:GetAttribute("WorldUnlocked_world_2"), "each old schema preserves economy/equipment/worlds")
-  check(progress.Rebirths == (version < 4 and 0 or 1) and progress.LevelCap == (version < 4 and 20 or 30)
+  check(progress.Rebirths == (version < 4 and 0 or 1) and progress.LevelCap == (version < 4 and 20 or 40)
    and migration:GetAttribute("OfflinePowerEarned") == 0, "each old schema defaults progression only when needed and fabricates no offline time")
  end
  -- Three sessions combine every persistent field through real public data operations.
@@ -967,7 +1054,8 @@ return function(sources)
     OwnedBats={wood_bat=true,celestial_bat=true},EquippedBat="celestial_bat",
     SelectedTrainingGround="basic_training",LastLogoutTime=math.floor(now)-12}
    local fixture=join(fixtureId)
-   check(fixture:GetAttribute("OfflinePowerEarned")==30*Training.GetBestGround(rebirths).powerMultiplier*entry.gain*(rebirths+1),
+   local offlineBase=Training.GetOfflineReward(1,13,Training.GetBestGround(rebirths).id,Progression.GetTrainingBase(1))
+   check(fixture:GetAttribute("OfflinePowerEarned")==Progression.GetPowerGrant(offlineBase,rebirths,entry.gain),
     "offline bonus uses the saved Ball and Rebirth exactly once (never the Bat)")
    local trainingOk,tick=Data.GrantPower(fixture,20,"ActiveTraining")
    check(trainingOk and tick.powerGranted==20*entry.gain*(rebirths+1), "active Training composes Ball and Rebirth")
@@ -998,10 +1086,54 @@ return function(sources)
  -- folded into the ground's base Power: 5 x 5 x 3 x 2 = 150.
  check(Progression.GetPowerGrant(5 * 5, 1, Equipment.Get("Ball", "practice_ball").powerGainMultiplier) == 150,
   "Training: base x ground x Ball x Rebirth")
- -- Real hit: HitPowerReward x Ball x Rebirth, no ground.
- check(Progression.GetPowerGrant(Progression.HitPowerReward, 1, 3) == Progression.HitPowerReward * 3 * 2, "hit: base x Ball x Rebirth")
+ -- Real hit: the Training base x HitPowerPerSecond for each second in play (rounded), then
+ -- Ball x Rebirth, no ground. Level 20 for 10 seconds: 33 x 0.37 x 10 = 122.1 -> 122.
+ local hitBase = Progression.GetHitPowerBase(20, 10)
+ check(hitBase == 122 and Progression.GetPowerGrant(hitBase, 1, 3) == 122 * 3 * 2, "hit: base x Ball x Rebirth")
+ check(Progression.GetHitPowerBase(1, -5) == 0, "a hit with no time in play earns no Power")
  check(Progression.GetPowerGrant(3,1,1.5)==9 and Progression.GetPowerGrant(1,0,1.5)==1,
   "whole Power rounds only after composing bonuses")
+ -- Balance shapes (tools/balance tunes the numbers; these keep the relationships).
+ local previousRequirement, requirementsRise = 0, true
+ for level = 1, 600 do
+  local required = Progression.PowerRequiredForNextLevel(level)
+  requirementsRise = requirementsRise and required > previousRequirement
+  previousRequirement = required
+ end
+ check(requirementsRise, "every Level needs more Power than the one before, across band breakpoints")
+ check(Progression.GetLevelCap(0) == 20 and Progression.GetLevelCap(1) == 40 and Progression.GetLevelCap(5) == 120,
+  "Level Cap is 20 x (Rebirths + 1)")
+ check(Progression.GetTrainingBase(1) == 5 and Progression.GetTrainingBase(2) == 6 and Progression.GetTrainingBase(20) == 33
+  and Progression.GetTrainingBase(400) == 33, "the Training base grows to Level 20, then holds")
+ local speedTable, speedSteps = Progression.LaunchSpeedTable, Progression.LaunchSpeedSteps
+ local speedRises = true
+ for level = 2, speedTable[#speedTable][1] do
+  speedRises = speedRises and Progression.GetLaunchSpeed(level) > Progression.GetLaunchSpeed(level - 1)
+ end
+ local stepsInOrder = speedSteps[1][1] == speedTable[#speedTable][1] + 1
+ for index = 2, #speedSteps do
+  stepsInOrder = stepsInOrder and speedSteps[index][1] > speedSteps[index - 1][1]
+   and Progression.GetLaunchSpeed(speedSteps[index][1] - 1) == speedSteps[index - 1][2]
+   and Progression.GetLaunchSpeed(speedSteps[index][1]) == speedSteps[index][2]
+ end
+ check(speedRises and stepsInOrder and Progression.GetLaunchSpeed(10000) == speedSteps[#speedSteps][2],
+  "launch speed rises through the table, then steps through measured speeds and holds after the last")
+ check(Progression.GetHitCash(81, 1, 1, 1) == 1 and Progression.GetHitCash(95, 1, 1, 1) == 1 and Progression.GetHitCash(0, 1, 1, 1) == 1,
+  "early hits pay $1, so the tutorial's $2 takes two hits")
+ check(Progression.GetHitCash(4000, 1, 1, 1) > Progression.GetHitCash(2000, 1, 1, 1)
+  and Progression.GetHitCash(5000, Worlds.Get("world_2").cashMultiplier, 1, 1) > Progression.GetHitCash(5000, 1, 1, 1)
+  and Progression.GetHitCash(5000, 1, 1, 2) > Progression.GetHitCash(5000, 1, 1, 1), "Cash rises with distance, World and Bat")
+ local lastFreeMultiplier, freeGroundsRise = 0, true
+ for _, hub in Training.Hubs do
+  for _, id in hub.grounds do
+   local ground = Training.Get(id)
+   if not Training.IsPaid(ground) then
+    freeGroundsRise = freeGroundsRise and ground.powerMultiplier > lastFreeMultiplier
+    lastFreeMultiplier = ground.powerMultiplier
+   end
+  end
+ end
+ check(freeGroundsRise, "each free ground trains faster than every free ground before it, World after World")
  -- Juice (Schema 7): server-granted consumables with online-only timers.
  local juicer = join(400)
  check(juicer.OwnedJuices and juicer.ActiveJuices and next(juicer.OwnedJuices:GetAttributes()) == nil, "new players start with no juice")

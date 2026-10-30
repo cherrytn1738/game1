@@ -2,7 +2,7 @@
 -- a World's hub (Hubs below). Rebirth grounds unlock by Rebirth count; paid grounds are Roblox
 -- game passes (gamePassId 0 = not created yet, so the ground cannot be bought or used). A
 -- ground can only be used once a World it stands in is unlocked.
---   powerMultiplier: Power per tick = BasePowerPerTick * powerMultiplier
+--   powerMultiplier: Power per practice hit = Training base (ProgressionConfig, by Level) x powerMultiplier
 --   sharesPass: a paid ground opened by another ground's game pass (no pass of its own)
 --   theme: the cage template in ServerStorage.RunwayAssets (fantasy cages are styled by
 --     TrainingCageStyles), turf/lane colors and materials, banner color, and for the standard
@@ -13,7 +13,6 @@ local M = Enum.Material
 local CAGE_WIDTH_SCALE = 0.75
 local Training = {
  DefaultGround = "basic_training",
- BasePowerPerTick = 20,
  Grounds = {
   -- World 1 (Home Field)
   {id = "basic_training", displayName = "Basic Training", requiredRebirths = 0, powerMultiplier = 1, interval = 2,
@@ -128,11 +127,16 @@ local Training = {
  OfflineTrainingEnabled = true,
  MaximumOfflineSeconds = 8 * 60 * 60,
  OfflinePowerRateMultiplier = 0.25,
+ -- One return's offline Power is at most this share of the Power the player still needs for their
+ -- Level Cap, so offline Training helps but never finishes a run by itself.
+ OfflineRunShare = 0.5,
  OfflineNoticeMinimumSeconds = 60,
  -- Welcome Back's "3x" offer: a Robux developer product that adds the offline reward twice more
- -- (multiplier 3 in all), once per login. productId 0 = not created yet (the button shows SOON);
- -- robuxPrice is the price shown on the button (nil until decided).
- OfflineTriple = {productId = 0, robuxPrice = nil, multiplier = 3},
+ -- (multiplier 3 in all), once per login, up to runShare of the Power the player needed for their
+ -- Level Cap at login (all of it: the 3x can finish the run but never go past the cap).
+ -- productId 0 = not created yet (the button shows SOON); robuxPrice is the price shown on the
+ -- button (nil until decided).
+ OfflineTriple = {productId = 0, robuxPrice = nil, multiplier = 3, runShare = 1},
  PlateSize = Vector3.new(5, 0.1, 5),
  PitchOffset = Vector3.new(3, 3, -24),
  ContactOffset = Vector3.new(3, 3, 0),
@@ -166,7 +170,6 @@ end
 Training.PassGrounds = {}
 for index, ground in Training.Grounds do
  ground.order = index
- ground.basePower = Training.BasePowerPerTick * ground.powerMultiplier
  ground.worlds = {}
  for _, hub in Training.Hubs do
   if table.find(hub.grounds, ground.id) then table.insert(ground.worlds, hub.world) end
@@ -243,21 +246,38 @@ end
 function Training.GetBestGround(rebirths, passes, worlds)
  local best = Training.Get(Training.DefaultGround)
  for _, ground in Training.Grounds do
-  if Training.CanUse(ground.id, rebirths, passes, worlds) and ground.basePower / ground.interval > best.basePower / best.interval then
+  if Training.CanUse(ground.id, rebirths, passes, worlds) and ground.powerMultiplier / ground.interval > best.powerMultiplier / best.interval then
    best = ground
   end
  end
  return best
 end
 
-function Training.GetOfflineReward(timestamp, now, groundId)
+-- Offline base Power for the time away (before Ball and Rebirth, and before the run cap below):
+-- trainingBase is the Training base at the Level the player logged out at
+-- (ProgressionConfig.GetTrainingBase).
+function Training.GetOfflineReward(timestamp, now, groundId, trainingBase)
  local ground = Training.Get(groundId)
  if not Training.OfflineTrainingEnabled or not ground or type(timestamp) ~= "number"
-  or timestamp ~= timestamp or timestamp <= 0 or timestamp % 1 ~= 0 or timestamp > now then
+  or timestamp ~= timestamp or timestamp <= 0 or timestamp % 1 ~= 0 or timestamp > now
+  or type(trainingBase) ~= "number" or trainingBase ~= trainingBase or trainingBase < 0 or trainingBase == math.huge then
   return 0, 0
  end
  local seconds = math.min(now - timestamp, Training.MaximumOfflineSeconds)
- return math.floor(seconds * ground.basePower / ground.interval * Training.OfflinePowerRateMultiplier), seconds
+ return math.floor(seconds * trainingBase * ground.powerMultiplier / ground.interval * Training.OfflinePowerRateMultiplier), seconds
+end
+
+-- The run cap, on whole Power after every multiplier. remaining is the Power the player needed for
+-- their Level Cap at login (ProgressionConfig.GetPowerToLevelCap); a login grants at most this.
+function Training.GetOfflinePowerLimit(remaining)
+ return math.floor(remaining * Training.OfflineRunShare)
+end
+
+-- What Welcome Back's 3x claim adds to a login's offline Power: that Power twice more, up to
+-- OfflineTriple.runShare of remaining in all.
+function Training.GetOfflineTripleExtra(power, remaining)
+ local triple = Training.OfflineTriple
+ return math.max(0, math.min(power * (triple.multiplier - 1), math.floor(remaining * triple.runShare) - power))
 end
 
 return Training
