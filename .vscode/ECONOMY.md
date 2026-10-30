@@ -25,12 +25,12 @@ Power by Rebirths + 1, and **Level alone** sets the launch (and so the distance)
   first). Past Level 419 each band starts 1.8× above the one before.
 - **Level Cap:** `20 × (Rebirths + 1)`: 20, 40, 60, ... Power keeps banking at the cap until the
   Rebirth, which resets Level and Power.
-- **Training base:** Power per practice hit at Basic Training: `5 + 1.5 × (Level − 1)` rounded
-  down up to Level 20 (5, 6, 8, 9, 11, ... 33), then 33. One practice hit every 2 s.
+- **Training base:** Power per practice hit at Basic Training: 5 at every Level (Level never
+  scales Power gain). One practice hit every 2 s.
 - **Training Power** = Training base × ground × Ball × (Rebirths + 1) × Power juice.
 - **Hit Power** = Training base × 0.37 × seconds in play (rounded) × Ball × (Rebirths + 1) × Power
   juice. No ground.
-- **Offline Power** = 25% of the best usable ground's Training rate at the logout Level, for up to
+- **Offline Power** = 25% of the best usable ground's Training rate (no Level term), for up to
   8 hours, × the saved Ball × (Rebirths + 1), held to half the Power still needed for the Level
   Cap (the run cap). Welcome Back's 3x product adds it twice more, up to all of it.
 - **Hit Cash** = `(distance / 80)^1.5` × World (1, 10, 100) × section (1, 1.15, 1.35) × Bat ×
@@ -103,27 +103,27 @@ Enchanted Grove (5x), the Crystal Ball (12x) and two Rebirths, about 18× run 1'
 
 ## Training Grounds
 
-Unchanged by this pass (multipliers and gates already rise in order). Power a practice hit from
-Level 20 on, before Ball and Rebirth:
+Unchanged by this pass (multipliers and gates already rise in order). Power a practice hit at any
+Level, before Ball and Rebirth:
 
 | Ground | World | Unlock | × | Power a hit |
 |---|---|---|---:|---:|
-| Basic Training | 1 | start | 1 | 33 |
-| Enchanted Grove | 1 | 2 Rebirths | 5 | 165 |
-| Sunken Atlantis | 1 | 4 Rebirths | 10 | 330 |
-| Sky Temple | 1 | 6 Rebirths | 20 | 660 |
-| Cosmic Rift | 1 | 500 R$ pass | 10 | 330 |
-| Caveman Camp | 2 | World 2 | 25 | 825 |
-| Pharaoh's Tomb | 2 | 8 Rebirths | 35 | 1,155 |
-| Gladiator Colosseum | 2 | 10 Rebirths | 50 | 1,650 |
-| Samurai Dojo | 2 | 12 Rebirths | 70 | 2,310 |
-| Time Machine Lab | 2 | Cosmic Rift's pass | 35 | 1,155 |
-| Solar Rooftop | 3 | World 3 | 90 | 2,970 |
-| Robo Factory | 3 | 14 Rebirths | 120 | 3,960 |
-| Biodome Lab | 3 | 16 Rebirths | 160 | 5,280 |
-| Lunar Base | 3 | 18 Rebirths | 210 | 6,930 |
-| Quantum Lab | 3 | Cosmic Rift's pass | 120 | 3,960 |
-| Dragon's Lair | every | 1000 R$ pass | 30 | 990 |
+| Basic Training | 1 | start | 1 | 5 |
+| Enchanted Grove | 1 | 2 Rebirths | 5 | 25 |
+| Sunken Atlantis | 1 | 4 Rebirths | 10 | 50 |
+| Sky Temple | 1 | 6 Rebirths | 20 | 100 |
+| Cosmic Rift | 1 | 500 R$ pass | 10 | 50 |
+| Caveman Camp | 2 | World 2 | 25 | 125 |
+| Pharaoh's Tomb | 2 | 8 Rebirths | 35 | 175 |
+| Gladiator Colosseum | 2 | 10 Rebirths | 50 | 250 |
+| Samurai Dojo | 2 | 12 Rebirths | 70 | 350 |
+| Time Machine Lab | 2 | Cosmic Rift's pass | 35 | 175 |
+| Solar Rooftop | 3 | World 3 | 90 | 450 |
+| Robo Factory | 3 | 14 Rebirths | 120 | 600 |
+| Biodome Lab | 3 | 16 Rebirths | 160 | 800 |
+| Lunar Base | 3 | 18 Rebirths | 210 | 1,050 |
+| Quantum Lab | 3 | Cosmic Rift's pass | 120 | 600 |
+| Dragon's Lair | every | 1000 R$ pass | 30 | 150 |
 
 Free-to-play never needs a paid ground. Game-pass ids stay 0 until the passes are created.
 
@@ -244,6 +244,8 @@ The Supernova, Clockwork and Chrono cost 1-2 hits because they are bought just a
 World raises Cash ×10; everything else costs 3-58 hits, rising slowly through the game.
 
 ## Results: progression (active player, MEDIUM)
+
+> These results predate the flat Training base; see "Decisions to review" for the rerun.
 
 | Milestone | Time | Rebirth / Level |
 |---|---|---|
@@ -373,8 +375,10 @@ anywhere, so speeds that are not in rising order are invisible; only the distanc
 ## Decisions to review
 
 - **MEDIUM pace** (finale ~5h 50m for an active player) is provisional; FAST and LONG are ready.
-- **The Training base grows with Level** (5 → 33). A flat base cannot give both a ~15 s first step
-  (6 hits at +5) and a ~1 minute climb to Level 20.
+- **The Training base is flat** (5 at every Level, since 2026-10-30). The Level bands and the
+  results in this file were solved for a base growing 5 → 33, so they predate it. Rerun with the
+  flat base: Level 20 climb ~233 s (target 45-60 s), first Rebirth 4m 35s, Training-only Level
+  1 → 40 17.7 min (target ~3 min), World 2 2h 31m, World 3 6h 27m, finale 12h 42m. Re-solve the bands.
 - **After the finale** nothing new is bought and bands keep growing 1.8×, so runs double (75,
   130, 226 min). Requirements reach `MaxPower` (9 quadrillion) around Level 600 (Rebirth ~29).
 - **Training-only stalls** after about Rebirth 4: Balls cost Cash and only batting earns it.

@@ -1,8 +1,9 @@
 -- Presentation for the physical item displays built by ItemDisplay: a floating label per
 -- pedestal (status, name, boost, price) and a title over each stage, prompt text that
--- matches this player's ownership, and slowly spinning items. Triggering a prompt only
--- requests the purchase/equip; the server validates it through the same EquipmentUpgrade
--- remote as the Equipment menu (whose listener shows the result as a notification).
+-- matches this player's ownership, and slowly spinning items. The displays are the only place
+-- Bats and Balls are bought. Triggering a prompt only requests the purchase/equip; the server
+-- validates it through the EquipmentUpgrade remote, and this script shows every result from
+-- that remote (also the Inventory's equips) as a notification.
 local Player = game.Players.LocalPlayer
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
@@ -10,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local Worlds = require(ReplicatedStorage:WaitForChild("WorldConfig"))
 local Remote = ReplicatedStorage:WaitForChild("EquipmentUpgrade")
+local GameAudio = require(ReplicatedStorage:WaitForChild("GameAudio"))
 local UI = require(script.Parent:WaitForChild("UICommon"))
 local WorldUI = require(ReplicatedStorage:WaitForChild("WorldUIConfig"))
 
@@ -192,14 +194,39 @@ RunService.RenderStepped:Connect(function()
  end
 end)
 
+Remote.OnClientEvent:Connect(function(success, message)
+ UI.Notify(success and message or "Action unavailable. Check your Cash and equipment, then try again.",
+  success and "success" or "error")
+end)
+
+-- Purchase and Equip sounds come from the server-replicated results, so they play wherever the
+-- action started (a display, the Inventory). A purchase also equips the item; that plays only
+-- the purchase sound.
+local lastPurchaseAt = 0
+local EQUIP_AFTER_PURCHASE_SECONDS = 0.5
+GameAudio.Preload({"Purchase", "Equip"})
+
 Player:GetAttributeChangedSignal("DataLoaded"):Connect(refresh)
 task.spawn(function()
  while Player:GetAttribute("DataLoaded") ~= true do Player:GetAttributeChangedSignal("DataLoaded"):Wait() end
  cash = Player:WaitForChild("leaderstats"):WaitForChild("Cash")
  cash:GetPropertyChangedSignal("Value"):Connect(refresh)
  for _, category in Equipment.CategoryOrder do
-  Player:WaitForChild(Equipment.Categories[category].ownedField).AttributeChanged:Connect(refresh)
+  local owned = Player:WaitForChild(Equipment.Categories[category].ownedField)
+  owned.AttributeChanged:Connect(refresh)
+  owned.AttributeChanged:Connect(function(id)
+   if owned:GetAttribute(id) == true then
+    lastPurchaseAt = os.clock()
+    GameAudio.Play("Purchase")
+   end
+  end)
   Player:GetAttributeChangedSignal("Equipped" .. category):Connect(refresh)
+  Player:GetAttributeChangedSignal("Equipped" .. category):Connect(function()
+   -- Deferred so a purchase's ownership change (sent with it) is seen first.
+   task.defer(function()
+    if os.clock() - lastPurchaseAt > EQUIP_AFTER_PURCHASE_SECONDS then GameAudio.Play("Equip") end
+   end)
+  end)
  end
  for _, world in Worlds.Worlds do
   Player:GetAttributeChangedSignal("WorldUnlocked_" .. world.id):Connect(refresh)

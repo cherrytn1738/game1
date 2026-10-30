@@ -18,6 +18,28 @@ function Interfaces.Current()
  return currentMenu
 end
 
+-- The new-player tutorial keeps the HUD focused: until the server says it is complete (the
+-- TutorialStep attribute; also before the save has loaded, so nothing flashes up first), the
+-- persistent HUD shows only the Level bar and Power. The tutorial's own banner, arrows and
+-- spotlight, the batting / Training controls, feedback, and the menus a step opens (Inventory,
+-- Rebirth) still show; HUD scripts hide everything else, and show it again the moment the step
+-- becomes "Complete" (watch TutorialStep). Returns whether to focus, and the step.
+function Interfaces.TutorialFocus()
+ local step = player:GetAttribute("TutorialStep")
+ return step ~= "Complete", step
+end
+
+-- The quick-menu tiles the tutorial has brought back: Inventory once the tutorial Ball is bought
+-- (to equip it there; it stays for the rest of the tutorial), and Rebirth at the Rebirth step.
+function Interfaces.TutorialTile(name)
+ local step = player:GetAttribute("TutorialStep")
+ if name == "Inventory" then
+  return step == "ReachLevel" or step == "Rebirth"
+   or step == "BuyBall" and player:GetAttribute("TutorialBoughtBall") == true
+ end
+ return name == "Rebirth" and step == "Rebirth"
+end
+
 function Interfaces.CanOpen()
  local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
  return player:GetAttribute("DataLoaded") == true and humanoid ~= nil and humanoid.Health > 0

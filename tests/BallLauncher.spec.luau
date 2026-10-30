@@ -67,8 +67,8 @@ return function(sources)
  local completionMessage = nil
  local modules={EquipmentConfig=Equipment,ProgressionConfig=Progression,FieldConfig=Field,WorldConfig=Worlds,SwingConfig=Swing,
   WorldProgress={Complete=function() return completionMessage end},
-  PlayerData={IsReady=function() return true end,RecordBattingCash=function(_,amount) table.insert(cashReports,amount) end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,ballId)
-   table.insert(grants,{base=base,source=source,ballId=ballId})
+  PlayerData={IsReady=function() return true end,RecordBattingCash=function(_,amount) table.insert(cashReports,amount) end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,ballId,boost)
+   table.insert(grants,{base=base,source=source,ballId=ballId,boost=boost})
    return true,{powerGranted=Progression.GetPowerGrant(base,1,Equipment.Get("Ball",ballId).powerGainMultiplier)}
   end}}
  local storage={WaitForChild=function(_,name) return name end,BattingTiming={FireClient=function() end}}
@@ -114,9 +114,9 @@ return function(sources)
    check(player.leaderstats.Cash.Value-cash==expectedCash,"Cash uses only the Bat and field multiplier (never the Ball)")
    check(cashReports[#cashReports]==player.leaderstats.Cash.Value-cash,"the paid Cash is reported once for the tutorial")
    check(#grants==count+1 and grants[#grants].ballId==ballItem.id and grants[#grants].source=="CompletedHit"
-    and grants[#grants].base==Progression.GetHitPowerBase(5,10),
+    and grants[#grants].base==Progression.GetHitPowerBase(10),
     "completed hit grants Power once with the accepted Ball snapshot, from its time in play")
-   check(result.distanceResult.powerEarned==Progression.GetPowerGrant(Progression.GetHitPowerBase(5,10),1,ballItem.powerGainMultiplier),
+   check(result.distanceResult.powerEarned==Progression.GetPowerGrant(Progression.GetHitPowerBase(10),1,ballItem.powerGainMultiplier),
     "hit Power includes the Ball and Rebirth exactly once, never the Bat (whole Power)")
    heartbeat:Fire(10)
    Launcher.CancelPlayer(player)
@@ -124,21 +124,35 @@ return function(sources)
    check(ball:GetAttribute("BallState")=="Ready" and not Launcher.IsBusy(world.id),"hit resets cleanly")
   end
  end
- -- An active Cash juice multiplies the hit's Cash reward (and only Cash).
- juiceCash = 2
- local juiced={worldId=world.id,session=1,swingId=700,launchLevel=5,ballId="baseball",batCashMultiplier=1}
- check(Launcher.TryLaunch(player,juiced,tool),"juiced hit accepted")
- local juicedLaunch=table.remove(delayed,1)
- juicedLaunch.fn(table.unpack(juicedLaunch.args,1,juicedLaunch.args.n))
- balls[world.id].CFrame=CFrame.new(0,.5,-100)
- balls[world.id].AssemblyLinearVelocity,balls[world.id].AssemblyAngularVelocity=Vector3.zero,Vector3.zero
- local cashBefore=player.leaderstats.Cash.Value
- heartbeat:Fire(Field.StopHoldSeconds+.01)
- check(player.leaderstats.Cash.Value-cashBefore==Progression.GetHitCash(100,world.cashMultiplier,1,1,2)
+ -- Juices count as the swing's snapshot (taken when it was accepted): a Cash Splash and Power
+ -- Punch running at the swing still pay this hit after they end mid-flight (the live juice is
+ -- 1 by then), and one drunk mid-flight (live 2) adds nothing to a hit swung without it.
+ local function juicedHit(swingId, cashJuice, powerJuice, liveCash)
+  local hit={worldId=world.id,session=1,swingId=swingId,launchLevel=5,ballId="baseball",batCashMultiplier=1,
+   cashJuiceMultiplier=cashJuice,powerJuiceMultiplier=powerJuice}
+  check(Launcher.TryLaunch(player,hit,tool),"juiced hit accepted")
+  local launch=table.remove(delayed,1)
+  launch.fn(table.unpack(launch.args,1,launch.args.n))
+  juiceCash = liveCash
+  balls[world.id].CFrame=CFrame.new(0,.5,-100)
+  balls[world.id].AssemblyLinearVelocity,balls[world.id].AssemblyAngularVelocity=Vector3.zero,Vector3.zero
+  local cashBefore=player.leaderstats.Cash.Value
+  heartbeat:Fire(Field.StopHoldSeconds+.01)
+  Launcher.CancelPlayer(player)
+  juiceCash = 1
+  return hit, player.leaderstats.Cash.Value-cashBefore, grants[#grants]
+ end
+ local juiced, juicedCash, juicedGrant = juicedHit(700, 2, 2, 1)
+ check(juicedCash==Progression.GetHitCash(100,world.cashMultiplier,1,1,2)
   and Progression.GetHitCash(100,world.cashMultiplier,1,1,2)>Progression.GetHitCash(100,world.cashMultiplier,1,1)
-  and juiced.distanceResult.distanceStuds==100,"Cash juice doubles Cash (before rounding) without changing distance")
- Launcher.CancelPlayer(player)
- juiceCash = 1
+  and juiced.distanceResult.distanceStuds==100,"Cash Splash at the swing doubles that hit's Cash (before rounding), even if it ends mid-flight, without changing distance")
+ check(juicedGrant.source=="CompletedHit" and juicedGrant.boost==2,"Power Punch at the swing doubles that hit's Power, even if it ends mid-flight")
+ local _, laterCash, laterGrant = juicedHit(701, 1, 1, 2)
+ check(laterCash==Progression.GetHitCash(100,world.cashMultiplier,1,1) and laterGrant.boost==1,
+  "a juice drunk after the swing does not boost that hit")
+ local _, splashCash, splashGrant = juicedHit(702, 2, 1, 2)
+ check(splashCash==Progression.GetHitCash(100,world.cashMultiplier,1,1,2) and splashGrant.boost==1,
+  "Cash Splash alone leaves the hit's Power alone")
  -- Worked Cash formula: (distance / 80)^1.5 x World x section x Bat, rounded once. A 3x Bat
  -- landing in a 1.35x section; swapping the Ball (a Power item) changes nothing.
  local tierDistance=100

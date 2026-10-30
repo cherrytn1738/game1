@@ -2,12 +2,15 @@
 -- Tabs stand down the left of the window; each owned item is a picture card with its multiplier
 -- along the bottom, and the equipped one has a blue frame and a green tick.
 -- Presentation and intent only; the server validates every equip and juice use, and the
--- Equipment menu's listener shows each equip result as a notification.
+-- item displays' listener (ItemDisplayClient) shows each equip result as a notification.
 local Player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local Storage = game:GetService("ReplicatedStorage")
 local Equipment = require(Storage:WaitForChild("EquipmentConfig"))
 local Juice = require(Storage:WaitForChild("JuiceConfig"))
+local JuiceModels = require(Storage:WaitForChild("JuiceModels"))
+local GameAudio = require(Storage:WaitForChild("GameAudio"))
+GameAudio.Preload({"JuiceDrink", "JuiceActivate"})
 local EquipRemote = Storage:WaitForChild("EquipmentUpgrade")
 local UI = require(script.Parent:WaitForChild("UICommon"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
@@ -252,7 +255,7 @@ end
 
 local function clearGrid()
  for _, child in grid:GetChildren() do
-  if child:IsA("GuiButton") then child:Destroy() end
+  if child:IsA("GuiObject") then child:Destroy() end
  end
 end
 
@@ -277,30 +280,88 @@ local function buildEquipment(category)
  emptyLabel.Text = "Buy " .. string.lower(definition.displayName) .. " at the displays in each World!"
 end
 
+-- The juice box model, turned a little so its side shows (JuiceModels builds it facing -Z).
+local function juicePicture(parent, definition)
+ local frame = Instance.new("ViewportFrame")
+ frame.Name, frame.BackgroundTransparency = "Icon", 1
+ frame.Ambient, frame.LightColor, frame.LightDirection = Color3.fromRGB(205, 205, 205), Color3.new(1, 1, 1), Vector3.new(-1, -1.5, 1)
+ local model = JuiceModels.Build(definition)
+ model:PivotTo(CFrame.Angles(0, math.rad(-28), 0))
+ model.Parent = frame
+ local box, size = model:GetBoundingBox()
+ local camera = Instance.new("Camera")
+ camera.FieldOfView = 30
+ local reach = math.max(size.X, size.Y) / 2 / math.tan(math.rad(camera.FieldOfView / 2)) * 1.08 + size.Z / 2
+ camera.CFrame = CFrame.lookAt(box.Position + Vector3.new(0, size.Y * .12, -reach), box.Position)
+ camera.Parent, frame.CurrentCamera = frame, camera
+ frame.Parent = parent
+ return frame
+end
+
+-- Running juices' timer labels, ticked once a second while the Juice tab is open.
+local juiceTimers = {}
 local juiceRemote
+local JUICE_CARD = Vector2.new(300, 160)
+
+-- One juice card: the box, its name, effect and duration, the count owned, the time left while it
+-- runs, and USE (grey with none owned; the server checks the count either way).
+local function juiceCard(definition, owned, expiresAt)
+ local active = Juice.GetRemaining(expiresAt, workspace:GetServerTimeNow()) > 0
+ local frame = Instance.new("Frame")
+ frame.Name, frame.LayoutOrder, frame.BackgroundColor3, frame.BorderSizePixel = definition.id, definition.order, Color3.new(1, 1, 1), 0
+ corner(frame, 12)
+ outline(frame, active and UI.Showcase.Selected or TINT:Lerp(Color3.new(1, 1, 1), .45), active and 5 or 4)
+ UI.Gradient(frame, TINT:Lerp(Color3.new(1, 1, 1), .08), TINT:Lerp(Color3.new(0, 0, 0), .3))
+ frame.Parent = grid
+ local picture = juicePicture(frame, definition)
+ picture.AnchorPoint, picture.Position, picture.Size, picture.ZIndex = Vector2.new(0, .5), UDim2.new(0, 4, .5, 0), UDim2.fromOffset(122, 140), 2
+ local function line(name, text, size, color, y)
+  local label = UI.ShowcaseLabel(frame, name, text, size, color)
+  label.Position, label.Size, label.ZIndex, label.TextScaled = UDim2.fromOffset(128, y), UDim2.new(1, -136, 0, size + 4), 3, true
+  local limit = Instance.new("UITextSizeConstraint")
+  limit.MaxTextSize, limit.Parent = size, label
+  return label
+ end
+ line("Name", definition.displayName, 30, UI.Colors.Text, 10)
+ line("Effect", string.format("%gx %s • %d min", definition.multiplier, Juice.Effects[definition.effect].displayName,
+  definition.durationSeconds / 60), 22, UI.Showcase.Value, 46)
+ line("Owned", "Owned: " .. UI.Number(owned), 22, owned > 0 and UI.Colors.Text or UI.Colors.Locked, 76)
+ if active then
+  -- The time left, across the bottom of the box picture.
+  local timer = line("Timer", "", 22, Color3.fromRGB(255, 220, 90), 0)
+  timer.AnchorPoint, timer.Position, timer.Size = Vector2.new(0, 1), UDim2.new(0, 6, 1, -6), UDim2.fromOffset(118, 26)
+  timer.TextXAlignment, timer.ZIndex = Enum.TextXAlignment.Center, 4
+  table.insert(juiceTimers, {label = timer, expiresAt = expiresAt})
+ end
+ local use = UI.Button(frame, "Use", "USE")
+ use.AnchorPoint, use.Position, use.Size, use.ZIndex = Vector2.new(1, 1), UDim2.new(1, -10, 1, -10), UDim2.fromOffset(104, 44), 3
+ use.TextSize = 24
+ UI.SetButton(use, "USE", owned > 0, true)
+ use.Activated:Connect(function()
+  if owned < 1 or not juiceRemote then return end
+  juiceRemote:FireServer("Use", definition.id)
+ end)
+end
+
+local function tickJuiceTimers()
+ local now = workspace:GetServerTimeNow()
+ for _, timer in juiceTimers do
+  local remaining = Juice.GetRemaining(timer.expiresAt, now)
+  timer.label.Text = remaining > 0 and "ACTIVE " .. formatTime(remaining) or ""
+ end
+end
+
 local function buildJuice()
- local ownedTotal, shown = 0, 0
+ local ownedTotal = 0
+ table.clear(juiceTimers)
  for _, definition in Juice.GetAll() do
   local owned = folderValue("OwnedJuices", definition.id) or 0
-  local remaining = folderValue("ActiveJuices", definition.id) or 0
   ownedTotal += owned
-  if owned > 0 or remaining > 0 then
-   shown += 1
-   card(definition.order, definition.id, function(parent)
-     local icon = UI.Icon(parent, "Icon", JUICE_ICON)
-     icon.ImageColor3 = definition.color or Color3.new(1, 1, 1)
-     return icon
-    end, VALUE_ICONS[definition.effect] or UI.Icons.Power, multiplier(definition.multiplier),
-    remaining > 0 and formatTime(remaining) or ("x" .. owned), remaining > 0,
-    function()
-     if owned < 1 or not juiceRemote then return end
-     juiceRemote:FireServer("Use", definition.id)
-    end)
-  end
+  juiceCard(definition, owned, folderValue("ActiveJuices", definition.id))
  end
+ tickJuiceTimers()
  countLabel.Text = UI.Number(ownedTotal) .. " Juice"
- emptyLabel.Text = "No juice yet!\nJuice gives temporary boosts, like 2x Power for an hour."
- emptyLabel.Visible = shown == 0
+ emptyLabel.Visible = false
 end
 
 local function refresh()
@@ -316,7 +377,9 @@ local function refresh()
  local titleIcon = tabPicture(window.titleIcon, selected)
  titleIcon.Size, titleIcon.Rotation, titleIcon.ZIndex = UDim2.fromScale(1, 1), -15, 6
  clearGrid()
- if selected == "Juice" then buildJuice() else buildEquipment(selected) end
+ -- Juice cards are wider, with their details beside the box.
+ layout.CellSize = selected == "Juice" and UDim2.fromOffset(JUICE_CARD.X, JUICE_CARD.Y) or UDim2.fromOffset(CARD_SIZE, CARD_SIZE)
+ if selected == "Juice" then buildJuice() else table.clear(juiceTimers) buildEquipment(selected) end
 end
 
 for id, tab in tabButtons do
@@ -344,9 +407,17 @@ for _, child in Player:GetChildren() do watch(child) end
 for _, attribute in {"EquippedBat", "EquippedBall"} do Player:GetAttributeChangedSignal(attribute):Connect(refresh) end
 
 task.spawn(function()
+ while true do
+  task.wait(1)
+  if visible and selected == "Juice" then tickJuiceTimers() end
+ end
+end)
+
+task.spawn(function()
  juiceRemote = Storage:WaitForChild("JuiceRequest")
  juiceRemote.OnClientEvent:Connect(function(success, message)
   if type(message) ~= "string" then return end
+  if success then GameAudio.Play("JuiceDrink") end
   UI.Notify(message, success and "success" or "error")
  end)
 end)

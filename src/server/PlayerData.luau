@@ -11,9 +11,10 @@ local Progression = require(game.ReplicatedStorage:WaitForChild("ProgressionConf
 local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 local Juice = require(game.ReplicatedStorage:WaitForChild("JuiceConfig"))
 local Tutorial = require(game.ReplicatedStorage:WaitForChild("TutorialConfig"))
+local Monetization = require(game.ReplicatedStorage:WaitForChild("MonetizationConfig"))
 
 local STORE_NAME = "PlayerProgression"
-local SCHEMA_VERSION = 10
+local SCHEMA_VERSION = 11
 local AUTOSAVE_SECONDS = 60
 local IMPORTANT_SAVE_SECONDS = 5 -- Rebirth joins the existing serialized save loop.
 local LEASE_SECONDS = 180
@@ -24,6 +25,7 @@ local SHUTDOWN_SECONDS = 25
 local MAX_CASH = 9000000000000 -- Safely below the integer precision limit.
 local MAX_COUNTER = 9000000000000 -- the same limit for TimePlayed (seconds) and RobuxSpent
 local MAX_RECEIPTS = 50 -- recent developer product receipts remembered, so none counts twice
+local MAX_RECEIVED_GIFTS = 100 -- recent gifts a player has been given (and their queue), so none applies twice
 local CATEGORIES = Equipment.CategoryOrder
 
 local PlayerData = {}
@@ -59,6 +61,34 @@ local function sanitizeRobuxPurchases(value)
  end
  while #receipts > MAX_RECEIPTS do table.remove(receipts, 1) end
  return {Passes = passes, Receipts = receipts}
+end
+
+-- Gifts (see Gifts below). A delivered gift, as queued in the recipient's GiftInbox: its id (the
+-- buyer's receipt PurchaseId), the gift (MonetizationConfig.GiftProducts id), the Cash fixed for
+-- a Cash pack, and who sent it (UserId, plus their name for the notice). nil when malformed.
+local function sanitizeGiftEntry(entry)
+ if typeof(entry) ~= "table" or type(entry.id) ~= "string" or #entry.id == 0 or #entry.id > 64 then return nil end
+ local gift = Monetization.GetGiftById(entry.gift)
+ if not gift or not validCounter(entry.from) or entry.from < 1 then return nil end
+ if gift.item.cashPack and not (validCash(entry.amount) and entry.amount >= 1) then return nil end
+ local name = type(entry.fromName) == "string" and entry.fromName:sub(1, 40) or ""
+ return {id = entry.id, gift = gift.id, amount = gift.item.cashPack and entry.amount or nil, from = entry.from, fromName = name}
+end
+
+-- The buyer's saved intent for a gift product, set before its prompt opens: who receives it, where
+-- their save is (store and key), the Cash fixed for a Cash pack, when, and whether Roblox has
+-- reported the purchase. nil when malformed.
+local function sanitizeGiftIntent(id, intent)
+ local gift = Monetization.GetGiftById(id)
+ if not gift or typeof(intent) ~= "table" or not validCounter(intent.recipient) or intent.recipient < 1
+  or type(intent.store) ~= "string" or #intent.store == 0 or #intent.store > 64
+  or type(intent.key) ~= "string" or #intent.key == 0 or #intent.key > 64 or not validCounter(intent.at)
+  or (intent.state ~= "prompted" and intent.state ~= "purchased") then
+  return nil
+ end
+ if gift.item.cashPack and not (validCash(intent.amount) and intent.amount >= 1) then return nil end
+ return {recipient = intent.recipient, recipientName = type(intent.recipientName) == "string" and intent.recipientName:sub(1, 40) or "",
+  store = intent.store, key = intent.key, amount = gift.item.cashPack and intent.amount or nil, at = intent.at, state = intent.state}
 end
 
 -- Only a missing record means NEW. A malformed record/version fails closed.
@@ -106,9 +136,9 @@ local function validate(record)
    if Worlds.Get(id) and owned == true then data[field][id] = true end
   end
  end
- -- Schema 7 adds Juice (owned counts and remaining seconds of active juices). Older saves
- -- have none; a malformed field fails closed like other progression.
- local ownedJuices, activeJuices = Juice.Sanitize(data.OwnedJuices, data.ActiveJuices)
+ -- Schema 7 adds Juice (owned counts and the expiry times of active juices). Older saves
+ -- have none; a malformed field fails closed like other progression; expired timers drop.
+ local ownedJuices, activeJuices = Juice.Sanitize(data.OwnedJuices, data.ActiveJuices, os.time())
  if not ownedJuices then return nil, "invalid Juice data" end
  data.OwnedJuices, data.ActiveJuices = ownedJuices, activeJuices
  -- Schema 9 adds, for the global leaderboards, TimePlayed (whole seconds in the game) and
@@ -124,6 +154,49 @@ local function validate(record)
  local purchases = sanitizeRobuxPurchases(data.RobuxPurchases)
  if not purchases then return nil, "invalid RobuxPurchases" end
  data.RobuxPurchases = purchases
+ -- Schema 11 adds StarterPackGranted: whether the Starter Pack's rewards were given (once ever).
+ -- Older saves have not had them; a malformed value fails closed.
+ if data.StarterPackGranted == nil then
+  data.StarterPackGranted = false
+ elseif type(data.StarterPackGranted) ~= "boolean" then
+  return nil, "invalid StarterPackGranted"
+ end
+ -- ...and CashPackQuotes: the Cash each Cash pack pays, fixed when the player last asked to buy it
+ -- (QuoteCashPack). A non-table fails closed; unknown packs and invalid amounts are dropped.
+ if data.CashPackQuotes ~= nil and typeof(data.CashPackQuotes) ~= "table" then return nil, "invalid CashPackQuotes" end
+ local quotes = {}
+ for id, amount in data.CashPackQuotes or {} do
+  if Monetization.GetCashProductById(id) and validCash(amount) and amount >= 1 then quotes[id] = amount end
+ end
+ data.CashPackQuotes = quotes
+ -- ...and the gift fields (see Gifts below): GiftedEntitlements, ReceivedGifts, GiftInbox and
+ -- PendingGifts. A non-table fails closed; invalid entries are dropped.
+ for _, field in {"GiftedEntitlements", "ReceivedGifts", "GiftInbox", "PendingGifts"} do
+  if data[field] ~= nil and typeof(data[field]) ~= "table" then return nil, "invalid " .. field end
+ end
+ local entitlements = {}
+ for id, owned in data.GiftedEntitlements or {} do
+  if Monetization.GiftEntitlements[id] and owned == true then entitlements[id] = true end
+ end
+ data.GiftedEntitlements = entitlements
+ local received = {}
+ for _, id in data.ReceivedGifts or {} do
+  if type(id) == "string" and #id > 0 and #id <= 64 then table.insert(received, id) end
+ end
+ while #received > MAX_RECEIVED_GIFTS do table.remove(received, 1) end
+ data.ReceivedGifts = received
+ local inbox = {}
+ for _, entry in data.GiftInbox or {} do
+  local clean = sanitizeGiftEntry(entry)
+  if clean and #inbox < MAX_RECEIVED_GIFTS then table.insert(inbox, clean) end
+ end
+ data.GiftInbox = inbox
+ local pending = {}
+ for id, intent in data.PendingGifts or {} do
+  local clean = sanitizeGiftIntent(id, intent)
+  if clean then pending[id] = clean end
+ end
+ data.PendingGifts = pending
  data.UnlockedWorlds[Worlds.StartingWorldId] = true
  -- A recorded completion always implies ownership of that world and its next one.
  for _, world in Worlds.Worlds do
@@ -212,6 +285,7 @@ end
 local function publishTutorial(player, session)
  player:SetAttribute("TutorialStep", session.tutorial.step)
  player:SetAttribute("TutorialProgress", session.tutorial.progress)
+ player:SetAttribute("TutorialBoughtBall", session.tutorial.boughtBall == true)
 end
 
 local function updateTutorial(player, session, kind, amount)
@@ -219,11 +293,13 @@ local function updateTutorial(player, session, kind, amount)
  if not tutorial or Tutorial.IsComplete(tutorial) then return end
  local counted = kind ~= nil and Tutorial.Credit(tutorial, kind, amount)
  local state = session.progression
- -- Studio playtest grants (OwnAllBalls) don't count as buying the tutorial's Ball.
- local ownsBall = session.owned.Ball[Tutorial.BallId] == true and not session.studioOwned.Ball[Tutorial.BallId]
+ -- The Ball step needs the tutorial's Ball bought during the tutorial ("BallPurchase", only from
+ -- PurchaseNextEquipment) and equipped (the server's EquippedBall). Only the player's own Rebirth
+ -- ("ManualRebirth", from TryRebirth) counts as the tutorial's Rebirth; a bonus Rebirth (the
+ -- Starter Pack's) does not.
  local moved = Tutorial.Advance(tutorial, {level = state.Level, levelCap = state.LevelCap,
-  rebirths = state.Rebirths, ownsBall = ownsBall})
- if moved then scheduleImportantSave(session) end
+  equippedBall = player:GetAttribute("EquippedBall"), rebirthed = kind == "ManualRebirth"})
+ if moved or (counted and kind == "BallPurchase") then scheduleImportantSave(session) end
  if counted or moved then publishTutorial(player, session) end
 end
 
@@ -233,14 +309,16 @@ function PlayerData.RecordBattingCash(player, amount)
  updateTutorial(player, sessions[player], "Cash", amount)
 end
 
-function PlayerData.GrantPower(player, baseAmount, source, hitBallId)
+function PlayerData.GrantPower(player, baseAmount, source, hitBallId, hitPowerBoost)
  if not PlayerData.IsReady(player) then return false, "Player data is not ready." end
- -- The optional ID is a server-created hit snapshot, never a client multiplier.
+ -- The optional ID and Power juice multiplier are a server-created hit snapshot (taken when the
+ -- swing was accepted), never client values. Without them, the equipped Ball and juices now count.
  local ballId = hitBallId or player:GetAttribute("EquippedBall")
  if not PlayerData.OwnsEquipment(player, "Ball", ballId) then return false, "Invalid equipped Ball." end
  local session = sessions[player]
  local state = session.progression
- local boost = Juice.GetMultiplier(session.juices.active, "Power")
+ local snapshot = type(hitPowerBoost) == "number" and hitPowerBoost >= 1 and hitPowerBoost < math.huge
+ local boost = snapshot and hitPowerBoost or Juice.GetMultiplier(session.juices.active, "Power", os.time())
  local ok, result = grantProgression(state, baseAmount, source, ballId, boost)
  if ok then
   publishProgression(player, state)
@@ -250,8 +328,10 @@ function PlayerData.GrantPower(player, baseAmount, source, hitBallId)
 end
 
 -- Juice ---------------------------------------------------------------------------
--- Display copies for the client: OwnedJuices (id -> count) and ActiveJuices (id ->
--- whole seconds left). Gameplay reads the private session state.
+-- Timers run on real time (os.time), also while the player is offline: session.juices.active
+-- holds each running juice's expiry time, saved as is. Display copies for the client:
+-- OwnedJuices (id -> count) and ActiveJuices (id -> expiry time, to compare with
+-- workspace:GetServerTimeNow()). Gameplay reads the private session state.
 local function publishJuices(player, session)
  for _, entry in {{"OwnedJuices", session.juices.owned}, {"ActiveJuices", session.juices.active}} do
   local folder = player:FindFirstChild(entry[1])
@@ -262,14 +342,24 @@ local function publishJuices(player, session)
   for id in folder:GetAttributes() do
    if entry[2][id] == nil then folder:SetAttribute(id, nil) end
   end
-  for id, value in entry[2] do folder:SetAttribute(id, math.ceil(value)) end
+  for id, value in entry[2] do folder:SetAttribute(id, value) end
  end
 end
 
 -- Combined multiplier of the player's active juices for one effect ("Power" or "Cash").
 function PlayerData.GetJuiceMultiplier(player, effect)
  if not PlayerData.IsReady(player) then return 1 end
- return Juice.GetMultiplier(sessions[player].juices.active, effect)
+ return Juice.GetMultiplier(sessions[player].juices.active, effect, os.time())
+end
+
+-- In Studio only, the Workspace attribute StudioJuiceSeconds makes a drunk juice last that many
+-- seconds instead (to watch one expire). Live servers ignore it.
+local function juiceDuration(definition)
+ local studioSeconds = RunService:IsStudio() and workspace:GetAttribute("StudioJuiceSeconds")
+ if type(studioSeconds) == "number" and studioSeconds >= 1 and studioSeconds <= definition.durationSeconds then
+  return math.floor(studioSeconds)
+ end
+ return definition.durationSeconds
 end
 
 -- Server-only: gives juice (for future rewards, shop items, or codes). Never a client input.
@@ -289,7 +379,9 @@ function PlayerData.GrantJuice(player, id, count, source)
  return true, "+" .. count .. " " .. definition.displayName
 end
 
--- Drinks one juice. Using a juice that is already active adds its duration (capped).
+-- Drinks one juice: it runs for its duration from now, or, if it is already running, that much
+-- longer (the multiplier stays the same; capped at MaxActiveSeconds left). The client only names
+-- the juice; count, duration and multiplier are the server's.
 function PlayerData.UseJuice(player, id)
  if not PlayerData.IsReady(player) then return false, "Your data is not ready. Please wait." end
  local definition = Juice.Get(id)
@@ -297,27 +389,34 @@ function PlayerData.UseJuice(player, id)
  local session = sessions[player]
  local owned = session.juices.owned[id] or 0
  if owned < 1 then return false, "You don't have any " .. definition.displayName .. "." end
- local remaining = session.juices.active[id] or 0
- if remaining + definition.durationSeconds > Juice.MaxActiveSeconds then
+ local now = os.time()
+ local remaining = Juice.GetRemaining(session.juices.active[id], now)
+ local duration = juiceDuration(definition)
+ if remaining + duration > Juice.MaxActiveSeconds then
   return false, definition.displayName .. " is already at its maximum time."
  end
  session.juices.owned[id] = owned > 1 and owned - 1 or nil
- session.juices.active[id] = remaining + definition.durationSeconds
+ session.juices.active[id] = now + remaining + duration
  scheduleImportantSave(session)
  publishJuices(player, session)
- return true, string.format("%s active! %sx %s", definition.displayName,
-  string.format("%g", definition.multiplier), Juice.Effects[definition.effect].description)
+ local name, minutes = string.upper(definition.displayName), math.floor(definition.durationSeconds / 60)
+ if remaining > 0 then return true, string.format("%s +%d MIN", name, minutes) end
+ return true, string.format("%s ACTIVATED!\n%gx %s FOR %d MIN", name, definition.multiplier,
+  string.upper(Juice.Effects[definition.effect].displayName), minutes)
 end
 
--- Counts active juices down. Timers only run while the player is in the game.
-function PlayerData.TickJuices(seconds)
- if type(seconds) ~= "number" or seconds ~= seconds or seconds <= 0 or seconds == math.huge then return end
+-- Ends the juices whose time is up at Unix time now (called every second; no client request).
+function PlayerData.ExpireJuices(now)
  for player, session in sessions do
-  if session.loaded and not session.closing and not session.failed and next(session.juices.active) then
-   for id, remaining in session.juices.active do
-    session.juices.active[id] = remaining - seconds > 0 and remaining - seconds or nil
+  if session.loaded and not session.closing and not session.failed then
+   local expired = false
+   for id, expiresAt in session.juices.active do
+    if expiresAt <= now then
+     session.juices.active[id] = nil
+     expired = true
+    end
    end
-   publishJuices(player, session)
+   if expired then publishJuices(player, session) end
   end
  end
 end
@@ -335,6 +434,17 @@ local function fetchTrainingPasses(player)
   end
  end
  return passes
+end
+
+-- Roblox's passes plus the pass grounds that gifted entitlements stand for (saved
+-- GiftedEntitlements; see Gifts): either one opens the same grounds.
+local function withGifted(passes, entitlements)
+ local usable = table.clone(passes)
+ for id in entitlements or {} do
+  local passGround = Monetization.GiftEntitlements[id]
+  if passGround then usable[passGround] = true end
+ end
+ return usable
 end
 
 local function publishTrainingPasses(player, session)
@@ -385,6 +495,23 @@ function PlayerData.RefreshTrainingPasses(player)
  publishTrainingPasses(player, session)
 end
 
+-- Auto Bat ----------------------------------------------------------------------------
+-- A game pass, checked like the Training Ground passes: at login and on purchase, never saved,
+-- never taken from the client. In Studio only, the Workspace attribute StudioOwnAutoBat owns it
+-- for playtests (before the pass exists). AutoBatOwned is the display copy; ProductServer
+-- turns Auto Bat on (AutoBatEnabled) only for owners.
+local function fetchAutoBat(player)
+ if RunService:IsStudio() and workspace:GetAttribute("StudioOwnAutoBat") == true then return true end
+ local passId = Monetization.AutoBat.gamePassId
+ if passId <= 0 then return false end
+ local ok, owned = pcall(Marketplace.UserOwnsGamePassAsync, Marketplace, player.UserId, passId)
+ return ok and owned == true
+end
+
+function PlayerData.OwnsAutoBat(player)
+ return PlayerData.IsReady(player) and sessions[player].autoBat == true
+end
+
 -- Leaderboard stats ------------------------------------------------------------------
 -- TimePlayed counts whole seconds in the game, from the server's own clock: the saved total
 -- plus this session's time so far (it stops when the player leaves).
@@ -410,6 +537,8 @@ local function gamePassPrice(gamePassId)
  for _, ground in Training.PassGrounds do
   if ground.gamePassId == gamePassId then return ground.robuxPrice end
  end
+ if Monetization.AutoBat.gamePassId == gamePassId then return Monetization.AutoBat.robuxPrice end
+ if Monetization.StarterPack.gamePassId == gamePassId then return Monetization.StarterPack.robuxPrice end
  return nil
 end
 
@@ -478,7 +607,7 @@ function PlayerData.TryRebirth(player)
  session.importantSavePending = true
  session.nextSave = math.min(session.nextSave, os.clock() + IMPORTANT_SAVE_SECONDS)
  publishProgression(player, state)
- updateTutorial(player, session)
+ updateTutorial(player, session, "ManualRebirth")
  return true, string.format("REBIRTH COMPLETE\nRebirths: %d | Rebirth Power: %dx | Level Cap: %d",
   state.Rebirths, Progression.GetPowerMultiplier(state.Rebirths), state.LevelCap)
 end
@@ -529,9 +658,14 @@ function PlayerData.PurchaseNextEquipment(player, category, purchaseToken)
  session.owned[category][item.id] = true
  session.purchaseTokens[offerKey] = HttpService:GenerateGUID(false)
  player[definition.ownedField]:SetAttribute(item.id, true)
- player:SetAttribute("Equipped" .. category, item.id)
+ -- A purchase equips the item, except the tutorial's Ball during the tutorial: its step has the
+ -- player equip it themselves in the Inventory.
+ local tutorialBall = category == "Ball" and item.id == Tutorial.BallId
+ local equipItem = not (tutorialBall and not Tutorial.IsComplete(session.tutorial))
+ if equipItem then player:SetAttribute("Equipped" .. category, item.id) end
  player:SetAttribute("EquipmentPurchaseToken_" .. offerKey, session.purchaseTokens[offerKey])
- updateTutorial(player, session)
+ updateTutorial(player, session, tutorialBall and "BallPurchase" or nil)
+ if not equipItem then return true, "Purchased " .. item.displayName .. "! Equip it in your Inventory." end
  return true, "Purchased and equipped " .. item.displayName .. "!"
 end
 
@@ -543,6 +677,8 @@ function PlayerData.EquipEquipment(player, category, id)
  if not PlayerData.OwnsEquipment(player, category, id) then return false, "You do not own that equipment in this category." end
  local item = Equipment.Get(category, id)
  player:SetAttribute("Equipped" .. category, item.id)
+ -- (Equipping the tutorial's Ball, once bought, completes its step.)
+ updateTutorial(player, sessions[player])
  return true, "Equipped " .. item.displayName .. "."
 end
 
@@ -583,11 +719,23 @@ local function snapshot(player)
   data[field] = id
  end
  data.OwnedJuices = table.clone(session.juices.owned)
+ -- Expiry times, saved as they are: the timers keep running while the player is away.
  data.ActiveJuices = {}
- for id, remaining in session.juices.active do data.ActiveJuices[id] = math.ceil(remaining) end
+ local now = os.time()
+ for id, expiresAt in session.juices.active do
+  if expiresAt > now then data.ActiveJuices[id] = expiresAt end
+ end
  data.TimePlayed = timePlayed(session)
  data.RobuxSpent = session.robux.spent
  data.RobuxPurchases = {Passes = table.clone(session.robux.passes), Receipts = table.clone(session.robux.receipts)}
+ data.StarterPackGranted = session.starterPack.granted
+ data.CashPackQuotes = table.clone(session.cashQuotes)
+ -- GiftInbox is not here: save() keeps what other servers have queued, minus what this session
+ -- has applied (ReceivedGifts).
+ data.GiftedEntitlements = table.clone(session.gifts.entitlements)
+ data.ReceivedGifts = table.clone(session.gifts.received)
+ data.PendingGifts = {}
+ for id, intent in session.gifts.pending do data.PendingGifts[id] = table.clone(intent) end
  Tutorial.ToSave(session.tutorial, data)
  data.UnlockedWorlds, data.CompletedWorlds = {}, {}
  for _, world in Worlds.Worlds do
@@ -600,10 +748,16 @@ local function snapshot(player)
  return data
 end
 
+-- Applies queued gifts to a loaded session (defined with the Gifts below).
+local applyGiftEntries
+
+-- Returns whether the save was written.
 local function save(player, session, release)
- if not session.loaded or session.failed then return end
+ if not session.loaded or session.failed then return false end
  local data = snapshot(player)
- if not data then fail(player, session, "invalid runtime progression; save refused") return end
+ if not data then fail(player, session, "invalid runtime progression; save refused") return false end
+ -- Gifts another server queued since this session loaded (applied once the save is written).
+ local arrivals
  session.saving = true
  -- A Rebirth during this yielding save sets the flag again for a follow-up snapshot.
  local importantSave = session.importantSavePending
@@ -622,8 +776,20 @@ local function save(player, session, release)
   local updated = table.clone(current)
   updated.OwnedTees, updated.EquippedTee, updated.SelectedTrainingGround = nil, nil, nil
   -- A finished tutorial keeps no step or count (the snapshot leaves them out).
-  updated.TutorialStep, updated.TutorialProgress = nil, nil
+  updated.TutorialStep, updated.TutorialProgress, updated.TutorialBoughtBall = nil, nil, nil
   for field, value in data do updated[field] = value end
+  -- The gift queue: gifts this session has applied leave it; any others stay queued and are
+  -- applied after this save (another server may have added them).
+  arrivals = {}
+  local kept = {}
+  for _, entry in typeof(current.GiftInbox) == "table" and current.GiftInbox or {} do
+   local clean = sanitizeGiftEntry(entry)
+   if clean and not table.find(data.ReceivedGifts, clean.id) then
+    table.insert(kept, clean)
+    table.insert(arrivals, clean)
+   end
+  end
+  updated.GiftInbox = kept
   -- Autosave is also a crash checkpoint; normal exit uses the actual close time.
   updated.LastLogoutTime = release and session.logoutTime or os.time()
   updated.LastWriteId = writeId
@@ -640,6 +806,8 @@ local function save(player, session, release)
   print(string.format("[PlayerData] SAVED %d (%s), Cash=%d",
    player.UserId, release and "leave/shutdown" or "autosave", data.Cash))
   if savedListener and not session.fresh then task.spawn(savedListener, player.UserId, data, release == true) end
+  if not release and arrivals and #arrivals > 0 then task.spawn(applyGiftEntries, player, session, arrivals) end
+  return true
  elseif rejection then
   fail(player, session, rejection)
  else
@@ -648,6 +816,7 @@ local function save(player, session, release)
    player.UserId, release and "leave/shutdown" or "autosave", tostring(record)))
   -- An autosave failure may recover next interval while the lease is still safe.
  end
+ return false
 end
 
 -- Welcome Back's 3x offer, from the developer product's receipt (ProductServer): adds this
@@ -680,6 +849,315 @@ function PlayerData.ClaimOfflineTriple(player, receipt)
  while session.saving do task.wait(0.1) end
  save(player, session, false)
  return decision.PurchaseGranted
+end
+
+-- A developer product's receipt (ProductServer, from MonetizationConfig): grants the reward the
+-- server's config names for that product, once per receipt (its PurchaseId joins the saved
+-- receipt list that RobuxSpent uses), never a client value. reward is one of:
+--   {power = n}       exactly n Power (no Ball, Rebirth or juice multiplier) through the normal
+--                     Level path, so Level-ups, the Level Cap (it banks there) and the tutorial follow
+--   {cashPack = id, cashHits = n}  a Cash pack: the Cash fixed for that pack when the player asked to
+--                     buy it (QuoteCashPack), so a delayed or retried receipt pays the same; only with
+--                     no quote, n normal hits for the player now (MonetizationConfig.GetCashPackReward)
+--   {juices = {id = count}}  juices added to the Inventory (not started)
+-- Returns Roblox's ProductPurchaseDecision, and what was granted when this call granted it
+-- ({power}, {cash} or {juices}):
+--   PurchaseGranted  granted now (and saved straight away), or this receipt was already granted
+--   NotProcessedYet  the player's data isn't ready, or the reward is invalid (Roblox retries)
+function PlayerData.ClaimProduct(player, receipt, reward)
+ local decision = Enum.ProductPurchaseDecision
+ if not PlayerData.IsReady(player) or not validReceipt(player, receipt) or type(reward) ~= "table" then
+  return decision.NotProcessedYet
+ end
+ local power, hits, juices = reward.power, reward.cashHits, reward.juices
+ if (power ~= nil and not Progression.IsInteger(power, 1, Progression.MaxBaseGrant))
+  or (hits ~= nil and not Progression.IsInteger(hits, 1, 100000))
+  or (juices ~= nil and type(juices) ~= "table") or (power == nil and hits == nil and juices == nil) then
+  return decision.NotProcessedYet
+ end
+ for id, count in juices or {} do
+  if not Juice.Get(id) or not Progression.IsInteger(count, 1, Juice.MaxOwned) then return decision.NotProcessedYet end
+ end
+ local session = sessions[player]
+ if table.find(session.robux.receipts, receipt.PurchaseId) then return decision.PurchaseGranted end
+ local granted = {}
+ if power then
+  Progression.Advance(session.progression, power)
+  publishProgression(player, session.progression)
+  updateTutorial(player, session, "Power", power)
+  granted.power = power
+ end
+ if hits then
+  local cash = player.leaderstats.Cash
+  local amount = type(reward.cashPack) == "string" and session.cashQuotes[reward.cashPack]
+   or Monetization.GetCashPackReward({hits = hits}, session.progression.Level,
+   player:GetAttribute("CurrentWorldId"), player:GetAttribute("EquippedBat"))
+  amount = math.min(amount, MAX_CASH - cash.Value)
+  cash.Value += amount
+  granted.cash = amount
+ end
+ if juices then
+  -- Added up to the most a player can hold of each.
+  for id, count in juices do
+   session.juices.owned[id] = math.min(Juice.MaxOwned, (session.juices.owned[id] or 0) + count)
+  end
+  publishJuices(player, session)
+  granted.juices = table.clone(juices)
+ end
+ PlayerData.RecordRobuxReceipt(player, receipt)
+ -- Save now, as for the 3x, so a paid reward is on record before Roblox is told it was granted.
+ while session.saving do task.wait(0.1) end
+ save(player, session, false)
+ return decision.PurchaseGranted, granted
+end
+
+-- Fixes what a Cash pack pays before its purchase prompt opens (ProductServer): its hits x one
+-- normal hit for the player now (their Level, current World and equipped Bat, all server state).
+-- Saved with the player, so a receipt that arrives late, is retried or comes after a rejoin pays
+-- this same amount; asking again (the next Buy) replaces it. Returns the amount, or nil.
+function PlayerData.QuoteCashPack(player, productId)
+ local product = Monetization.GetCashProductById(productId)
+ if not product or not PlayerData.IsReady(player) then return nil end
+ local session = sessions[player]
+ local amount = Monetization.GetCashPackReward(product, session.progression.Level,
+  player:GetAttribute("CurrentWorldId"), player:GetAttribute("EquippedBat"))
+ session.cashQuotes[product.id] = math.min(MAX_CASH, amount)
+ scheduleImportantSave(session)
+ return session.cashQuotes[product.id]
+end
+
+-- A Power product's receipt (MonetizationConfig.PowerProducts): exactly powerAmount Power.
+-- Returns the decision and the Power added when this call added it.
+function PlayerData.ClaimPowerProduct(player, receipt, powerAmount)
+ local decision, granted = PlayerData.ClaimProduct(player, receipt, {power = powerAmount})
+ return decision, granted and granted.power
+end
+
+-- Starter Pack ------------------------------------------------------------------------
+-- A game pass (MonetizationConfig.StarterPack). Roblox's ownership record is checked at login and
+-- on purchase, like the other passes; its rewards are given once ever, recorded in the saved
+-- StarterPackGranted. In Studio only, on a StudioFreshSave throwaway record, the Workspace
+-- attribute StudioOwnStarterPack owns it (to test the grant). StarterPackOwned is the display copy.
+local starterPackListener
+function PlayerData.OnStarterPackGranted(callback)
+ starterPackListener = callback
+end
+
+local function fetchStarterPack(player, session)
+ if session.fresh and RunService:IsStudio() and workspace:GetAttribute("StudioOwnStarterPack") == true then return true end
+ local passId = Monetization.StarterPack.gamePassId
+ if passId <= 0 then return false end
+ local ok, owned = pcall(Marketplace.UserOwnsGamePassAsync, Marketplace, player.UserId, passId)
+ return ok and owned == true
+end
+
+-- The pack's rewards into a loaded session (no checks, no save), shared by the pass and by a
+-- gifted Starter Pack: the Catastrophe Bat, a Power Punch, a bonus Rebirth (Rebirths and the
+-- Level Cap rise; Level, Power and everything else stay, and banked Power then levels up; it is
+-- not the tutorial's Rebirth), then its Power through the normal Level path. The flag is set
+-- first, so nothing can give it twice.
+local function giveStarterPack(player, session)
+ local pack = Monetization.StarterPack
+ session.starterPack.granted = true
+ local bat = Equipment.Get("Bat", pack.batId)
+ if bat then
+  session.owned.Bat[bat.id] = true
+  session.studioOwned.Bat[bat.id] = nil
+  local folder = player:FindFirstChild(Equipment.Categories.Bat.ownedField)
+  if folder then folder:SetAttribute(bat.id, true) end
+ end
+ for id, count in pack.juices do
+  session.juices.owned[id] = math.min(Juice.MaxOwned, (session.juices.owned[id] or 0) + count)
+ end
+ publishJuices(player, session)
+ local state = session.progression
+ state.Rebirths = math.min(Progression.MaxRebirths, state.Rebirths + pack.rebirths)
+ state.LevelCap = Progression.GetLevelCap(state.Rebirths)
+ Progression.Advance(state, 0)
+ Progression.Advance(state, pack.power)
+ publishProgression(player, state)
+ updateTutorial(player, session, "Power", pack.power)
+ player:SetAttribute("StarterPackOwned", true)
+end
+
+-- Gives the pack to a player who owns the pass and has not had it, then saves at once.
+local function grantStarterPack(player, session)
+ if not session.starterPack.owned or session.starterPack.granted or not PlayerData.IsReady(player) then return end
+ giveStarterPack(player, session)
+ if starterPackListener then task.spawn(starterPackListener, player) end
+ -- Saved now (this yields), as for the developer products, so the paid rewards are on record.
+ while session.saving do task.wait(0.1) end
+ if sessions[player] == session then save(player, session, false) end
+end
+
+-- Re-checks Roblox (e.g. bought on the website mid-session) and grants the pack if owned. Yields.
+function PlayerData.RefreshStarterPack(player)
+ if not PlayerData.IsReady(player) then return end
+ local session = sessions[player]
+ if not session.starterPack.owned and fetchStarterPack(player, session) then session.starterPack.owned = true end
+ grantStarterPack(player, session)
+end
+
+-- Gifts ---------------------------------------------------------------------------------
+-- A player buys a Shop item for another player in the server (MonetizationConfig.GiftProducts,
+-- always developer products):
+--  1. PrepareGift, before the prompt: checks both players and the item, fixes a Cash pack's
+--     amount from the RECIPIENT's progression, and saves the intent (who receives it, where their
+--     save is) in the buyer's PendingGifts. No prompt opens unless that save is written.
+--  2. The buyer's receipt (ClaimGift): queues the gift in the recipient's saved GiftInbox (an
+--     UpdateAsync on their record, so it works whether they are here, offline or in another
+--     server), keyed by the receipt's PurchaseId; only then is the receipt recorded and granted.
+--  3. The recipient's session applies queued gifts (applyGiftEntries): straight away when they
+--     are here, at their next login, or after an autosave finds ones queued from another server.
+--     Each gift's id joins ReceivedGifts in the same save as its reward, so it applies once.
+-- A gifted Training Ground is a saved entitlement (GiftedEntitlements) that opens the same
+-- grounds as its pass (it joins session.trainingPasses), so every check and OWNED label treats
+-- it like the pass.
+local giftListener
+-- callback(kind, player, info): "Received" for the recipient ({gift, entry}), "Sent" for the
+-- buyer ({gift, recipientName}).
+function PlayerData.OnGift(callback)
+ giftListener = callback
+end
+
+local function hasGiftItem(session, gift)
+ if gift.item.starterPack then return session.starterPack.owned or session.starterPack.granted end
+ if gift.item.entitlement then
+  return session.trainingPasses[Monetization.GiftEntitlements[gift.item.entitlement]] == true
+ end
+ return false
+end
+
+applyGiftEntries = function(player, session, entries)
+ if sessions[player] ~= session or not PlayerData.IsReady(player) then return end
+ local applied = {}
+ for _, entry in entries do
+  local gift = Monetization.GetGiftById(entry.gift)
+  if gift and not table.find(session.gifts.received, entry.id) then
+   table.insert(session.gifts.received, entry.id)
+   while #session.gifts.received > MAX_RECEIVED_GIFTS do table.remove(session.gifts.received, 1) end
+   local item = gift.item
+   if item.starterPack then
+    -- (Never twice: the gift was refused if they had it, and is spent if they got it since.)
+    if not session.starterPack.granted then giveStarterPack(player, session) end
+   elseif item.cashPack then
+    local cash = player.leaderstats.Cash
+    cash.Value += math.min(entry.amount or 0, MAX_CASH - cash.Value)
+   elseif item.juiceProduct then
+    for id, count in Monetization.GetJuiceProductById(item.juiceProduct).juices do
+     session.juices.owned[id] = math.min(Juice.MaxOwned, (session.juices.owned[id] or 0) + count)
+    end
+    publishJuices(player, session)
+   elseif item.entitlement then
+    session.gifts.entitlements[item.entitlement] = true
+    session.trainingPasses[Monetization.GiftEntitlements[item.entitlement]] = true
+    publishTrainingPasses(player, session)
+   end
+   table.insert(applied, {gift = gift, entry = entry})
+  end
+ end
+ if #applied == 0 then return end
+ while session.saving do task.wait(0.1) end
+ save(player, session, false)
+ if giftListener then
+  for _, info in applied do task.spawn(giftListener, "Received", player, info) end
+ end
+end
+
+-- Step 1. Returns true when the prompt may open, or false and a message for the buyer.
+function PlayerData.PrepareGift(buyer, giftId, recipient)
+ local gift = Monetization.GetGiftById(giftId)
+ if not gift then return false, "That can't be gifted." end
+ if gift.developerProductId <= 0 then return false, "Gifting the " .. gift.displayName .. " is coming soon!" end
+ if not PlayerData.IsReady(buyer) then return false, "Your data is not ready. Please wait." end
+ -- (recipient comes from Players:GetPlayerByUserId, so it is a Player or nil.)
+ if not recipient or recipient.Parent ~= Players then return false, "That player is no longer in this server." end
+ if recipient == buyer then return false, "You can't send a gift to yourself." end
+ if not PlayerData.IsReady(recipient) then return false, "That player is still loading. Try again soon." end
+ local session, target = sessions[buyer], sessions[recipient]
+ if hasGiftItem(target, gift) then return false, "THIS PLAYER ALREADY OWNS THE " .. string.upper(gift.displayName) end
+ local existing = session.gifts.pending[gift.id]
+ if existing and existing.state == "purchased" then
+  return false, "Your last " .. gift.displayName .. " gift is still on its way. Try again shortly."
+ end
+ local amount
+ if gift.item.cashPack then
+  amount = math.min(MAX_CASH, Monetization.GetCashPackReward(Monetization.GetCashProductById(gift.item.cashPack),
+   target.progression.Level, recipient:GetAttribute("CurrentWorldId"), recipient:GetAttribute("EquippedBat")))
+ end
+ session.gifts.pending[gift.id] = {recipient = recipient.UserId, recipientName = recipient.DisplayName,
+  store = target.storeName or STORE_NAME, key = target.key, amount = amount, at = os.time(), state = "prompted"}
+ while session.saving do task.wait(0.1) end
+ if not save(buyer, session, false) then
+  session.gifts.pending[gift.id] = existing
+  return false, "The gift couldn't be started. Please try again."
+ end
+ return true
+end
+
+-- Roblox's prompt result for a gift product (the server's PromptProductPurchaseFinished): a
+-- cancelled prompt drops the intent; a bought one keeps it until its receipt is processed.
+function PlayerData.GiftPromptFinished(buyer, gift, purchased)
+ local session = sessions[buyer]
+ local intent = session and session.loaded and session.gifts.pending[gift.id]
+ if not intent then return end
+ if purchased then
+  intent.state = "purchased"
+ elseif intent.state ~= "purchased" then
+  session.gifts.pending[gift.id] = nil
+ end
+ scheduleImportantSave(session)
+end
+
+-- Adds a gift to the recipient's saved queue unless it is already queued or applied there.
+-- Returns whether the gift is now safely on their record.
+local function queueGift(intent, entry)
+ local found = false
+ local ok = update({storeName = intent.store, key = intent.key}, function(current)
+  found = false
+  if typeof(current) ~= "table" then return nil end
+  found = true
+  local inbox = typeof(current.GiftInbox) == "table" and current.GiftInbox or {}
+  if typeof(current.ReceivedGifts) == "table" and table.find(current.ReceivedGifts, entry.id) then return nil end
+  for _, queued in inbox do
+   if typeof(queued) == "table" and queued.id == entry.id then return nil end
+  end
+  local updated = table.clone(current)
+  updated.GiftInbox = table.clone(inbox)
+  table.insert(updated.GiftInbox, entry)
+  return updated
+ end, os.clock() + REQUEST_SECONDS)
+ return ok and found
+end
+
+-- Step 2: a gift product's receipt. Returns Roblox's decision, and the intent when this call
+-- delivered it:
+--   PurchaseGranted  queued for the recipient (and given at once if they are here), or this
+--                    receipt was already handled
+--   NotProcessedYet  the buyer's data isn't ready, no intent was saved for it, or the
+--                    recipient's record couldn't be written (Roblox retries)
+function PlayerData.ClaimGift(buyer, receipt, gift)
+ local decision = Enum.ProductPurchaseDecision
+ if not PlayerData.IsReady(buyer) or not validReceipt(buyer, receipt) or not gift then return decision.NotProcessedYet end
+ local session = sessions[buyer]
+ if table.find(session.robux.receipts, receipt.PurchaseId) then return decision.PurchaseGranted end
+ local intent = session.gifts.pending[gift.id]
+ if not intent then
+  warn("[PlayerData] gift receipt " .. receipt.PurchaseId .. " for " .. gift.id .. " has no saved recipient; left for Roblox to retry")
+  return decision.NotProcessedYet
+ end
+ local entry = {id = receipt.PurchaseId, gift = gift.id, amount = intent.amount, from = buyer.UserId,
+  fromName = buyer.DisplayName}
+ if not queueGift(intent, entry) then return decision.NotProcessedYet end
+ local recipient = Players:GetPlayerByUserId(intent.recipient)
+ local target = recipient and sessions[recipient]
+ if target and target.key == intent.key then applyGiftEntries(recipient, target, {entry}) end
+ if session.gifts.pending[gift.id] == intent then session.gifts.pending[gift.id] = nil end
+ PlayerData.RecordRobuxReceipt(buyer, receipt)
+ while session.saving do task.wait(0.1) end
+ save(buyer, session, false)
+ if giftListener then task.spawn(giftListener, "Sent", buyer, {gift = gift, recipientName = intent.recipientName}) end
+ return decision.PurchaseGranted, intent
 end
 
 local function close(player, session)
@@ -719,6 +1197,8 @@ local function loadPlayer(player)
  -- Pass ownership is needed before the atomic login: offline Training uses the best
  -- ground the player can use, including paid ones.
  local passes = fetchTrainingPasses(player)
+ local autoBat = fetchAutoBat(player)
+ local starterPackOwned = fetchStarterPack(player, session)
  local ok, record = update(session, function(current)
   rejection = nil
   if session.closing or shuttingDown then return nil end
@@ -739,13 +1219,15 @@ local function loadPlayer(player)
   end
   -- Remember NEW across retries of our own successful claim.
   newRecord = current == nil or (owns(current, session) and newRecord)
-  if not owns(current, session) then
-   offlineGround = Training.GetBestGround(data.Rebirths, passes, data.UnlockedWorlds).id
+  -- Offline Training only starts once the tutorial is complete: time away mid-tutorial earns
+  -- nothing (and shows no Welcome Back screen), though its logout time is still used up below.
+  if not owns(current, session) and Tutorial.IsComplete(Tutorial.FromSave(data, false)) then
+   offlineGround = Training.GetBestGround(data.Rebirths, withGifted(passes, data.GiftedEntitlements), data.UnlockedWorlds).id
    local progression = Progression.Normalize(data, false)
-   -- Offline Training uses the Training base of the Level the player logged out at, and fills at
+   -- Offline Training uses the Training base (the same at every Level) at the best ground, and fills at
    -- most part of the Power still needed for the Level Cap (TrainingConfig.OfflineRunShare).
    local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), offlineGround,
-    Progression.GetTrainingBase(progression.Level))
+    Progression.TrainingBase)
    local remaining = Progression.GetPowerToLevelCap(progression)
    local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBall, nil,
     Training.GetOfflinePowerLimit(remaining))
@@ -771,18 +1253,37 @@ local function loadPlayer(player)
  end
  session.expiresAt = record.Session.ExpiresAt
  session.progression = Progression.Normalize(record, false)
- session.trainingPasses = passes
+ -- Training Ground access: Roblox's passes, or the same grounds' gifted entitlements.
+ session.trainingPasses = withGifted(passes, record.GiftedEntitlements)
+ session.gifts = {entitlements = table.clone(record.GiftedEntitlements), received = table.clone(record.ReceivedGifts), pending = {}}
+ for id, intent in record.PendingGifts do session.gifts.pending[id] = table.clone(intent) end
  publishTrainingPasses(player, session)
+ -- Auto Bat always starts off; an owner turns it on (ProductServer).
+ session.autoBat = autoBat
+ player:SetAttribute("AutoBatOwned", autoBat)
+ player:SetAttribute("AutoBatEnabled", false)
  session.juices = {owned = table.clone(record.OwnedJuices), active = table.clone(record.ActiveJuices)}
+ -- In Studio only, on a StudioFreshSave throwaway record, the Workspace attribute
+ -- StudioGrantJuice gives that many of every juice (juices have no other source yet). Real saves
+ -- and live servers never get them.
+ local studioJuice = session.fresh and RunService:IsStudio() and workspace:GetAttribute("StudioGrantJuice")
+ if type(studioJuice) == "number" and studioJuice >= 1 then
+  for _, definition in Juice.GetAll() do
+   session.juices.owned[definition.id] = math.min(Juice.MaxOwned, math.floor(studioJuice))
+  end
+ end
  publishJuices(player, session)
  session.timePlayed, session.playClock = record.TimePlayed, os.clock()
  session.robux = {spent = record.RobuxSpent, passes = table.clone(record.RobuxPurchases.Passes),
   receipts = table.clone(record.RobuxPurchases.Receipts)}
+ session.starterPack = {owned = starterPackOwned, granted = record.StarterPackGranted}
+ session.cashQuotes = table.clone(record.CashPackQuotes)
+ player:SetAttribute("StarterPackOwned", starterPackOwned or record.StarterPackGranted)
  local offlinePower = offlineResult and offlineResult.powerGranted or 0
  player:SetAttribute("OfflinePowerEarned", offlinePower)
  player:SetAttribute("OfflineSeconds", offlineSeconds or 0)
  player:SetAttribute("OfflineTrainingGround",
-  offlineGround or Training.GetBestGround(session.progression.Rebirths, passes, record.UnlockedWorlds).id)
+  offlineGround or Training.GetBestGround(session.progression.Rebirths, session.trainingPasses, record.UnlockedWorlds).id)
  player:SetAttribute("OfflineOldLevel", offlineResult and offlineResult.oldLevel or session.progression.Level)
  player:SetAttribute("OfflineNewLevel", offlineResult and offlineResult.newLevel or session.progression.Level)
  -- Welcome Back's 3x offer (ClaimOfflineTriple): this login's offline reward, for adding it
@@ -804,8 +1305,12 @@ local function loadPlayer(player)
  session.owned, session.purchaseTokens = {}, {}
  session.studioOwned, session.loadedEquipped = {}, {}
  -- In Studio only, the Workspace attribute OwnAllBalls owns every Ball for playtests. These
- -- grants last for the session and are never saved (snapshot skips them).
+ -- grants last for the session and are never saved (snapshot skips them). Never on a
+ -- StudioFreshSave run (a real new player) or while a save's tutorial is running: its Ball step
+ -- is buying the first Ball in order, which owning the rest would make impossible.
+ local tutorialRunning = not Tutorial.IsComplete(Tutorial.FromSave(record, false))
  local grantAllBalls = RunService:IsStudio() and workspace:GetAttribute("OwnAllBalls") == true and not session.fresh
+  and not tutorialRunning
  for _, category in CATEGORIES do
   local field = "Equipped" .. category
   local ownedField = Equipment.Categories[category].ownedField
@@ -865,6 +1370,10 @@ local function loadPlayer(player)
  else
   player:SetAttribute("DataLoadState", "Ready")
   player:SetAttribute("DataLoaded", true)
+  -- An owned Starter Pack whose rewards were never given (bought elsewhere, or a save that
+  -- failed before) is given now, then any gifts queued while the player was away.
+  grantStarterPack(player, session)
+  applyGiftEntries(player, session, record.GiftInbox)
  end
 end
 
@@ -887,6 +1396,14 @@ function PlayerData.Start()
     publishTrainingPasses(player, session)
    end
   end
+  if Monetization.AutoBat.gamePassId > 0 and gamePassId == Monetization.AutoBat.gamePassId then
+   session.autoBat = true
+   player:SetAttribute("AutoBatOwned", true)
+  end
+  if Monetization.StarterPack.gamePassId > 0 and gamePassId == Monetization.StarterPack.gamePassId then
+   session.starterPack.owned = true
+   grantStarterPack(player, session)
+  end
   recordGamePassPurchase(player, session, gamePassId)
  end)
  task.spawn(function()
@@ -904,14 +1421,11 @@ function PlayerData.Start()
    end
   end
  end)
- -- Juice timers tick by real elapsed time, once per second.
+ -- Juices end on their own when their expiry time passes (checked once per second).
  task.spawn(function()
-  local last = os.clock()
   while not shuttingDown do
    task.wait(1)
-   local current = os.clock()
-   PlayerData.TickJuices(current - last)
-   last = current
+   PlayerData.ExpireJuices(os.time())
   end
  end)
  game:BindToClose(function()

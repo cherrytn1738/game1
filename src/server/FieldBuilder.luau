@@ -342,6 +342,42 @@ local function dressTee(area)
  end
 end
 
+-- Presentation copies of the paid grounds' cages for the Shop's previews (streaming keeps other
+-- Worlds' cages off a client): ReplicatedStorage.TrainingGroundModels.<ground id>, each pivoted
+-- at its plate, keeping only visible parts (no prompts, labels, effects, lights, sounds, scripts
+-- or invisible walls), anchored and never touched or queried.
+local PREVIEW_KEEP = {BasePart = true, Model = true, Folder = true, DataModelMesh = true, Decal = true, Texture = true,
+ SurfaceAppearance = true}
+local function publishGroundPreviews()
+ local Storage = game:GetService("ReplicatedStorage")
+ local folder = Storage:FindFirstChild("TrainingGroundModels") or Instance.new("Folder")
+ folder.Name = "TrainingGroundModels"
+ folder:ClearAllChildren()
+ for _, world in Worlds.Worlds do
+  local hub = world.hub and workspace:FindFirstChild(world.hub.name)
+  local grounds = hub and hub:FindFirstChild("TrainingGrounds")
+  for _, stadium in grounds and grounds:GetChildren() or {} do
+   local ground = Training.Get(stadium.Name)
+   local cage, plate = stadium:FindFirstChild("Cage"), stadium:FindFirstChild("TrainingPlate")
+   if ground and Training.IsPaid(ground) and cage and plate and not folder:FindFirstChild(ground.id) then
+    local copy = cage:Clone()
+    for _, descendant in copy:GetDescendants() do
+     local keep = false
+     for className in PREVIEW_KEEP do keep = keep or descendant:IsA(className) end
+     if not keep or (descendant:IsA("BasePart") and descendant.Transparency >= 1) then
+      descendant:Destroy()
+     elseif descendant:IsA("BasePart") then
+      descendant.Anchored, descendant.CanCollide, descendant.CanTouch, descendant.CanQuery = true, false, false, false
+     end
+    end
+    copy.Name, copy.WorldPivot = ground.id, plate.CFrame
+    copy.Parent = folder
+   end
+  end
+ end
+ folder.Parent = Storage
+end
+
 function Builder.Build()
  local template = workspace:WaitForChild(Worlds.Get(Worlds.StartingWorldId).stationName)
  ItemDisplay.PublishItemModels()
@@ -377,5 +413,6 @@ function Builder.Build()
    end
   end
  end
+ publishGroundPreviews()
 end
 return Builder

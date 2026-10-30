@@ -57,11 +57,30 @@ return function(sources)
  local Progression = assert(loadstring(sources.ProgressionConfig))()
  local Training = assert(loadstring(sources.TrainingConfig))()
  local Juice = assert(loadstring(sources.JuiceConfig))()
+ local Field = assert(loadstring(sources.FieldConfig))()
+ -- MonetizationConfig requires the other configs; it gets the spec's copies.
+ local function loadMonetization()
+  local fn = assert(loadstring(sources.MonetizationConfig))
+  local configs = {ProgressionConfig = Progression, WorldConfig = Worlds, FieldConfig = Field, EquipmentConfig = Equipment,
+   TrainingConfig = Training}
+  setfenv(fn, setmetatable({game = {GetService = function() return {WaitForChild = function(_, name) return name end} end},
+   require = function(name) return assert(configs[name], name) end}, {__index = getfenv()}))
+  return fn()
+ end
+ local Monetization = loadMonetization()
  -- Test fixtures: the shipped paid grounds have no game pass created yet (id 0).
  Training.Get("cosmic_rift").gamePassId = 111
  Training.Get("dragons_lair").gamePassId = 222
+ -- ...nor do the Power, Cash and juice products, the Auto Bat pass or the Starter Pack.
+ for index, product in Monetization.PowerProducts do product.developerProductId = 700 + index end
+ for index, product in Monetization.CashProducts do product.developerProductId = 710 + index end
+ for index, product in Monetization.JuiceProducts do product.developerProductId = 720 + index end
+ for index, gift in Monetization.GiftProducts do gift.developerProductId = 730 + index end
+ Monetization.AutoBat.gamePassId = 801
+ Monetization.StarterPack.gamePassId = 802
  local ownedPasses, passFailures = {}, {}
- local marketplace = {PromptGamePassPurchaseFinished = signal(), prompts = {}}
+ local marketplace = {PromptGamePassPurchaseFinished = signal(), PromptProductPurchaseFinished = signal(), prompts = {}}
+ function marketplace:PromptProductPurchase(player, productId) table.insert(self.prompts, {player = player, product = productId}) end
  function marketplace:UserOwnsGamePassAsync(userId, passId)
   if passFailures[userId] then error("simulated pass lookup outage") end
   return ownedPasses[userId .. ":" .. passId] == true
@@ -73,9 +92,6 @@ return function(sources)
   if not passPrices[passId] then error("simulated product info outage") end
   return {PriceInRobux = passPrices[passId]}
  end
- -- Test fixtures: the shipped config defines no juices yet.
- Juice.Define({id = "test_power", displayName = "Test Power Juice", effect = "Power", multiplier = 2, durationSeconds = 60})
- Juice.Define({id = "test_cash", displayName = "Test Cash Juice", effect = "Cash", multiplier = 3, durationSeconds = 30})
  local saved, calls, simulatedFailures = {}, {}, {}
  local loseResponse = {}
  local store = {}
@@ -91,6 +107,10 @@ return function(sources)
  local players = object("Players")
  players.PlayerAdded, players.PlayerRemoving = signal(), signal()
  function players:GetPlayers() return self:GetChildren() end
+ function players:GetPlayerByUserId(id)
+  for _, p in self:GetChildren() do if p.UserId == id then return p end end
+  return nil
+ end
  local now, tokenId = 100, 0
  local shutdown
  local storage = object("ReplicatedStorage")
@@ -104,7 +124,7 @@ return function(sources)
   require = function(name) return ({EquipmentConfig = Equipment, ProgressionConfig = Progression})[name] end}, {__index = getfenv()}))
  local Tutorial = tutorialFn()
  local modules = {EquipmentConfig = Equipment, WorldConfig = Worlds, ProgressionConfig = Progression, TrainingConfig = Training,
-  JuiceConfig = Juice, TutorialConfig = Tutorial}
+  JuiceConfig = Juice, TutorialConfig = Tutorial, MonetizationConfig = Monetization}
  local env = setmetatable({
   game = {
    ReplicatedStorage = storage,
@@ -216,7 +236,7 @@ return function(sources)
  check(b:GetAttribute("EquippedBat") == "metal_bat" and b.leaderstats.Cash.Value == afterMetal, "forged request inputs rejected")
  check(Data.EquipEquipment(a, "Bat", "wood_bat"), "select old item before saving")
  leave(a)
- check(saved.Player_1.SchemaVersion == 10 and saved.Player_1.Session == nil, "version 10 save and lease release")
+ check(saved.Player_1.SchemaVersion == 11 and saved.Player_1.Session == nil, "version 11 save and lease release")
  check(saved.Player_1.OwnedBats.amethyst_bat and saved.Player_1.EquippedBat == "wood_bat", "ownership and selection saved separately")
  check(saved.Player_1.OtherProgress == 42 and saved.Player_1.UnlockedWorlds.world_2, "other progression preserved")
  local returned = join(1)
@@ -378,25 +398,26 @@ return function(sources)
  trainee:SetAttribute("TrainingActive",true)
  check(not Data.EquipEquipment(trainee,"Bat","wood_bat"),"training blocks equipment changes")
  local ground=Training.Get("enchanted_grove")
- local ok, gain=Data.GrantPower(trainee,Progression.GetTrainingBase(1)*ground.powerMultiplier,"ActiveTraining")
+ local ok, gain=Data.GrantPower(trainee,Progression.TrainingBase*ground.powerMultiplier,"ActiveTraining")
  -- 5 x 5 x 3 (two Rebirths) = 75 Power from Level 1: Levels 1-3 take 57, leaving 18 at Level 4.
  check(ok and gain.powerGranted==75 and trainee:GetAttribute("Level")==4 and trainee:GetAttribute("Power")==18,
   "active training uses central multiplier/advancement")
  trainee:SetAttribute("TrainingActive",false)
  leave(trainee)
- check(saved.Player_30.SelectedTrainingGround==nil and saved.Player_30.SchemaVersion==10 and saved.Player_30.LastLogoutTime==math.floor(now),"no ground selection saved; logout saved")
+ check(saved.Player_30.SelectedTrainingGround==nil and saved.Player_30.SchemaVersion==11 and saved.Player_30.LastLogoutTime==math.floor(now),"no ground selection saved; logout saved")
  trainee=join(30)
  check(trainee:GetAttribute("OfflineTrainingGround")=="enchanted_grove" and trainee:GetAttribute("OfflinePowerEarned")==0,"rejoin with zero offline duration")
  local nowStamp=100000
  -- Offline: 25% of the ground's Training rate at the player's Level (5 Power a hit at Level 1).
- local levelOneBase=Progression.GetTrainingBase(1)
+ local levelOneBase=Progression.TrainingBase
  local amount, seconds=Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training",levelOneBase)
  check(amount==37 and seconds==60,"short offline duration")
  amount,seconds=Training.GetOfflineReward(nowStamp-3600,nowStamp,"enchanted_grove",levelOneBase)
  check(amount==11250 and seconds==3600,"ground offline rate")
  amount,seconds=Training.GetOfflineReward(1,nowStamp,"basic_training",levelOneBase)
  check(seconds==Training.MaximumOfflineSeconds and amount==18000,"offline cap enforced")
- check(Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training",Progression.GetTrainingBase(20))==247,"offline rate follows the Training base")
+ check(Progression.GetTrainingBase==nil and Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training",Progression.TrainingBase)==37,
+  "offline Training's rate is the same at every Level (one Training base, no Level scaling)")
  for _, timestamp in {0,-1,"bad",math.huge,0/0,1.5,nowStamp+10} do
   check(Training.GetOfflineReward(timestamp,nowStamp,"basic_training",levelOneBase)==0,"malformed or future timestamp cannot award")
  end
@@ -430,6 +451,15 @@ return function(sources)
  check(fallback:GetAttribute("OfflineTrainingGround")=="basic_training" and fallback:GetAttribute("OfflinePowerEarned")==37,"removed selection ignored; offline uses the best usable ground")
  -- A minute at Basic Training: 37 Power. 3 + 37 = 40 Power from Level 1: Levels 1-2 take 29, leaving 11 at Level 3.
  check(fallback:GetAttribute("Level")==3 and fallback:GetAttribute("Power")==11 and fallback.leaderstats.Cash.Value==777,"offline progression preserves Cash")
+ -- Offline Training waits for the tutorial: a minute away mid-tutorial earns nothing and shows
+ -- no Welcome Back (OfflineSeconds 0), and the logout time is still used up.
+ saved.Player_399={SchemaVersion=11,Cash=0,Power=12,Level=2,Rebirths=0,TutorialCompleted=false,TutorialStep="EarnPower",
+  TutorialProgress=12,LastLogoutTime=math.floor(now)-60}
+ local midTutorial=join(399)
+ check(midTutorial:GetAttribute("TutorialStep")=="EarnPower" and midTutorial:GetAttribute("OfflinePowerEarned")==0
+  and midTutorial:GetAttribute("OfflineSeconds")==0 and midTutorial:GetAttribute("OfflineTripleAvailable")==false
+  and midTutorial:GetAttribute("Power")==12 and midTutorial:GetAttribute("Level")==2,"no offline Training during the tutorial")
+ check(saved.Player_399.LastLogoutTime==nil,"mid-tutorial logout time is used up, so it never pays later")
  -- Welcome Back's 3x offer: the receipt adds the login's offline reward twice more, once.
  local decisions = Enum.ProductPurchaseDecision
  local tripleReceipt = {PlayerId=32, PurchaseId="triple-1", ProductId=555, CurrencySpent=9, CurrencyType=Enum.CurrencyType.Robux}
@@ -562,6 +592,16 @@ return function(sources)
  leave(collector)
  check(saved.Player_40.OwnedBalls.chrono_orb==nil and saved.Player_40.OwnedBalls.practice_ball==true
   and saved.Player_40.EquippedBall=="practice_ball","Studio Ball grants are never saved; the saved equipped Ball stays")
+ -- The Studio switch leaves a save that is still in its tutorial alone (its Ball step is buying
+ -- the first Ball), so that tutorial plays as for a real new player.
+ saved.Player_560={SchemaVersion=11,Cash=10,Level=3,Power=0,Rebirths=0,TutorialCompleted=false,TutorialStep="BuyBall",TutorialProgress=0}
+ local studioLearner=join(560)
+ check(studioLearner:GetAttribute("TutorialStep")=="BuyBall" and not Data.OwnsEquipment(studioLearner,"Ball","practice_ball")
+  and not Data.OwnsEquipment(studioLearner,"Ball","supernova_ball"), "OwnAllBalls is not applied while the tutorial runs")
+ check(Data.PurchaseNextEquipment(studioLearner,"Ball",studioLearner:GetAttribute("EquipmentPurchaseToken_Ball"))
+  and Data.EquipEquipment(studioLearner,"Ball","practice_ball")
+  and studioLearner:GetAttribute("TutorialStep")=="ReachLevel", "so the Sandlot Ball can be bought and equipped, completing the step")
+ leave(studioLearner)
  workspace:SetAttribute("OwnAllBalls", nil)
  studioMode = false
  workspace:SetAttribute("UnlockAllWorlds", nil)
@@ -608,8 +648,9 @@ return function(sources)
   check(ball.id == row[1] and ball.powerGainMultiplier == row[2] and ball.price == row[3],
    string.format("World 1 ball %d is %s at %dx Power for $%d", index, row[1], row[2], row[3]))
  end
- -- Bats, in order: each earns more Cash than the one before and costs more.
- local bats = Equipment.GetItems("Bat")
+ -- Bats for sale, in order: each earns more Cash than the one before and costs more. (The
+ -- exclusive Catastrophe Bat is outside the series; see the Shop tests.)
+ local bats = Equipment.GetSeriesItems("Bat")
  local batOrder = {}
  for _, bat in bats do table.insert(batOrder, bat.id .. "=" .. bat.cashMultiplier) end
  check(table.concat(batOrder, ",") == "wood_bat=1,metal_bat=1.5,jungle_bat=2,amethyst_bat=3,candy_cane_bat=4,"
@@ -678,6 +719,8 @@ return function(sources)
  cyclist.leaderstats.Cash.Value = 8000
  for _, category in Equipment.CategoryOrder do
   check(Data.PurchaseNextEquipment(cyclist, category, cyclist:GetAttribute("EquipmentPurchaseToken_" .. category)), "cycle equipment purchase")
+  -- (A new save is in its tutorial, whose Ball is equipped by hand rather than on purchase.)
+  Data.EquipEquipment(cyclist, category, Equipment.GetItems(category)[2].id)
  end
  cyclist:SetAttribute("WorldUnlocked_world_2", true)
  cyclist:SetAttribute("WorldCompleted_world_1", true)
@@ -705,7 +748,7 @@ return function(sources)
   local best = Data.GetBestTrainingGround(cyclist)
   check(best.id == "caveman_camp" and (Data.CanUseTrainingGround(cyclist, "enchanted_grove") ~= nil) == (rebirths + 1 >= 2),
    "the second ground opens at two Rebirths; the best ground spans unlocked Worlds")
-  local base = Progression.GetTrainingBase(1) * best.powerMultiplier
+  local base = Progression.TrainingBase * best.powerMultiplier
   local granted, tick = Data.GrantPower(cyclist, base, "ActiveTraining")
   check(granted and tick.powerGranted == base * Equipment.Get("Ball", cyclist:GetAttribute("EquippedBall")).powerGainMultiplier
    * Progression.GetPowerMultiplier(rebirths + 1), "ground, Ball and Rebirth multipliers compose")
@@ -838,7 +881,7 @@ return function(sources)
     and Training.IsReachable(trainingGround, nil)), "central ground eligibility " .. label)
    check(Training.CanUse(trainingGround.id, rebirths, nil) == Training.IsUnlocked(trainingGround.id, rebirths), "no pass means Rebirth grounds only " .. label)
    for _, duration in {12, 3*60*60, Training.MaximumOfflineSeconds, Training.MaximumOfflineSeconds+60*60} do
-    local trainingBase = Progression.GetTrainingBase(Progression.GetLevelCap(rebirths))
+    local trainingBase = Progression.TrainingBase
     local base, seconds = Training.GetOfflineReward(nowStamp-duration, nowStamp, trainingGround.id, trainingBase)
     local eligibleSeconds = math.min(duration, Training.MaximumOfflineSeconds)
     local expectedBase = math.floor(eligibleSeconds * trainingBase * trainingGround.powerMultiplier / trainingGround.interval * Training.OfflinePowerRateMultiplier)
@@ -872,7 +915,7 @@ return function(sources)
    local fixture = join(fixtureId)
    -- These saves have World 2 unlocked, so World 2's grounds count too.
    local best = Training.GetBestGround(rebirths, nil, bothWorlds)
-   local levelOneGround = Progression.GetTrainingBase(1) * best.powerMultiplier
+   local levelOneGround = Progression.TrainingBase * best.powerMultiplier
    local baseOffline = math.floor(12 * levelOneGround / best.interval * Training.OfflinePowerRateMultiplier)
    local expected = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
    Progression.Advance(expected, baseOffline * Progression.GetPowerMultiplier(rebirths))
@@ -958,6 +1001,7 @@ return function(sources)
  cyclePlayer.leaderstats.Cash.Value = 10000
  for _, category in Equipment.CategoryOrder do
   check(Data.PurchaseNextEquipment(cyclePlayer, category, cyclePlayer:GetAttribute("EquipmentPurchaseToken_" .. category)), "session A purchases each equipment category")
+  Data.EquipEquipment(cyclePlayer, category, Equipment.GetItems(category)[2].id) -- (the tutorial Ball isn't equipped on purchase)
  end
  check(Data.GrantPower(cyclePlayer, 1000000, "Test") and Data.TryRebirth(cyclePlayer), "session A gains Levels and Rebirth")
  check(Data.GrantPower(cyclePlayer, 123, "Test"), "session A gains post-Rebirth Power")
@@ -1024,7 +1068,7 @@ return function(sources)
  check(not migrated:FindFirstChild("OwnedTees") and migrated:GetAttribute("EquippedTee")==nil
   and migrated:GetAttribute("EquipmentPurchaseToken_Tee")==nil, "no retired runtime state")
  check(saved.Player_300.OwnedTees==nil and saved.Player_300.EquippedTee==nil
-  and saved.Player_300.SchemaVersion==10, "atomic migration discards even malformed Tee fields")
+  and saved.Player_300.SchemaVersion==11, "atomic migration discards even malformed Tee fields")
  check(not Data.PurchaseNextEquipment(migrated,"Tee","fake")
   and not Data.EquipEquipment(migrated,"Tee","basic_tee"), "removed category operations rejected")
  local migratedCash=migrated.leaderstats.Cash.Value
@@ -1054,7 +1098,7 @@ return function(sources)
     OwnedBats={wood_bat=true,celestial_bat=true},EquippedBat="celestial_bat",
     SelectedTrainingGround="basic_training",LastLogoutTime=math.floor(now)-12}
    local fixture=join(fixtureId)
-   local offlineBase=Training.GetOfflineReward(1,13,Training.GetBestGround(rebirths).id,Progression.GetTrainingBase(1))
+   local offlineBase=Training.GetOfflineReward(1,13,Training.GetBestGround(rebirths).id,Progression.TrainingBase)
    check(fixture:GetAttribute("OfflinePowerEarned")==Progression.GetPowerGrant(offlineBase,rebirths,entry.gain),
     "offline bonus uses the saved Ball and Rebirth exactly once (never the Bat)")
    local trainingOk,tick=Data.GrantPower(fixture,20,"ActiveTraining")
@@ -1087,10 +1131,10 @@ return function(sources)
  check(Progression.GetPowerGrant(5 * 5, 1, Equipment.Get("Ball", "practice_ball").powerGainMultiplier) == 150,
   "Training: base x ground x Ball x Rebirth")
  -- Real hit: the Training base x HitPowerPerSecond for each second in play (rounded), then
- -- Ball x Rebirth, no ground. Level 20 for 10 seconds: 33 x 0.37 x 10 = 122.1 -> 122.
- local hitBase = Progression.GetHitPowerBase(20, 10)
- check(hitBase == 122 and Progression.GetPowerGrant(hitBase, 1, 3) == 122 * 3 * 2, "hit: base x Ball x Rebirth")
- check(Progression.GetHitPowerBase(1, -5) == 0, "a hit with no time in play earns no Power")
+ -- Ball x Rebirth, no ground, never the Level. 10 seconds: 5 x 0.37 x 10 = 18.5 -> 19.
+ local hitBase = Progression.GetHitPowerBase(10)
+ check(hitBase == 19 and Progression.GetPowerGrant(hitBase, 1, 3) == 19 * 3 * 2, "hit: base x Ball x Rebirth")
+ check(Progression.GetHitPowerBase(-5) == 0, "a hit with no time in play earns no Power")
  check(Progression.GetPowerGrant(3,1,1.5)==9 and Progression.GetPowerGrant(1,0,1.5)==1,
   "whole Power rounds only after composing bonuses")
  -- Balance shapes (tools/balance tunes the numbers; these keep the relationships).
@@ -1103,8 +1147,28 @@ return function(sources)
  check(requirementsRise, "every Level needs more Power than the one before, across band breakpoints")
  check(Progression.GetLevelCap(0) == 20 and Progression.GetLevelCap(1) == 40 and Progression.GetLevelCap(5) == 120,
   "Level Cap is 20 x (Rebirths + 1)")
- check(Progression.GetTrainingBase(1) == 5 and Progression.GetTrainingBase(2) == 6 and Progression.GetTrainingBase(20) == 33
-  and Progression.GetTrainingBase(400) == 33, "the Training base grows to Level 20, then holds")
+ check(Progression.TrainingBase == 5 and Progression.GetTrainingBase == nil and Progression.TrainingBasePerLevel == nil,
+  "the Training base is one constant, 5 Power a hit, with no Level scaling left")
+ -- A Basic Training hit (the base TrainingService grants) at different Levels, everything else equal.
+ for index, level in {1, 5, 20, 40, 100} do
+  local rebirths = level > 20 and math.ceil(level / 20) - 1 or 0
+  saved["Player_" .. (570 + index)] = {SchemaVersion = 11, Cash = 0, Level = level, Power = 0, Rebirths = rebirths, TutorialCompleted = true}
+  local leveled = join(570 + index)
+  check(leveled:GetAttribute("Level") == level and select(2, Data.GrantPower(leveled, Progression.TrainingBase, "ActiveTraining")).powerGranted
+   == 5 * (rebirths + 1), "Level " .. level .. ": Basic Training gives 5 x (Rebirths + 1), never more for the Level")
+  leave(leveled)
+ end
+ saved.Player_576 = {SchemaVersion = 11, Cash = 0, Level = 40, Power = 0, Rebirths = 0, TutorialCompleted = true,
+  OwnedBalls = {baseball = true, practice_ball = true}, EquippedBall = "practice_ball",
+  OwnedBats = {wood_bat = true, catastrophe_bat = true}, EquippedBat = "catastrophe_bat", OwnedJuices = {power_punch = 1, cash_splash = 1}}
+ local trainer = join(576)
+ local function hit() return select(2, Data.GrantPower(trainer, Progression.TrainingBase, "ActiveTraining")).powerGranted end
+ check(trainer:GetAttribute("Level") == 20 and hit() == 15, "Sandlot Ball: 5 x 3 = 15 (the Catastrophe Bat adds nothing)")
+ check(Data.UseJuice(trainer, "cash_splash") and hit() == 15, "Cash Splash leaves Training Power alone")
+ check(Data.UseJuice(trainer, "power_punch") and hit() == 30, "Power Punch doubles it: 30")
+ check(select(2, Data.GrantPower(trainer, Progression.TrainingBase * 5, "ActiveTraining")).powerGranted == 150,
+  "a 5x ground: 5 x 5 x 3 x 2 = 150")
+ leave(trainer)
  local speedTable, speedSteps = Progression.LaunchSpeedTable, Progression.LaunchSpeedSteps
  local speedRises = true
  for level = 2, speedTable[#speedTable][1] do
@@ -1134,40 +1198,106 @@ return function(sources)
   end
  end
  check(freeGroundsRise, "each free ground trains faster than every free ground before it, World after World")
- -- Juice (Schema 7): server-granted consumables with online-only timers.
+ -- Juice: Power Punch (2x Power) and Cash Splash (2x Cash), 10 minutes each, on real time (the
+ -- saved ActiveJuices are expiry times, so a timer keeps running while the player is away).
+ local shippedJuice = assert(loadstring(sources.JuiceConfig))()
+ local juiceList = {}
+ for _, definition in shippedJuice.GetAll() do
+  table.insert(juiceList, table.concat({definition.id, definition.effect, definition.multiplier, definition.durationSeconds}, ":"))
+ end
+ check(table.concat(juiceList, ",") == "power_punch:Power:2:600,cash_splash:Cash:2:600"
+  and shippedJuice.Get("power_punch").displayName == "Power Punch" and shippedJuice.Get("cash_splash").displayName == "Cash Splash",
+  "exactly two juices: Power Punch (2x Power) and Cash Splash (2x Cash), 600 seconds each, with stable ids")
+ local PUNCH, SPLASH = "power_punch", "cash_splash"
+ local function expiry(p, id) return p.ActiveJuices:GetAttribute(id) end
+ local function owned(p, id) return p.OwnedJuices:GetAttribute(id) end
  local juicer = join(400)
  check(juicer.OwnedJuices and juicer.ActiveJuices and next(juicer.OwnedJuices:GetAttributes()) == nil, "new players start with no juice")
  check(Data.GetJuiceMultiplier(juicer, "Power") == 1 and Data.GetJuiceMultiplier(juicer, "Cash") == 1, "no juice means no bonus")
- check(not Data.UseJuice(juicer, "test_power"), "cannot drink juice you do not own")
- check(not Data.GrantJuice(juicer, "fake_juice", 1, "Test") and not Data.GrantJuice(juicer, "test_power", 0, "Test")
-  and not Data.GrantJuice(juicer, "test_power", 1.5, "Test"), "invalid juice grants rejected")
- check(Data.GrantJuice(juicer, "test_power", 2, "Test") and juicer.OwnedJuices:GetAttribute("test_power") == 2, "server grant adds juice")
- local baseGrant = select(2, Data.GrantPower(juicer, 10, "Test")).powerGranted
- check(Data.UseJuice(juicer, "test_power") and juicer.OwnedJuices:GetAttribute("test_power") == 1
-  and juicer.ActiveJuices:GetAttribute("test_power") == 60, "drinking consumes one and starts its timer")
- check(Data.GetJuiceMultiplier(juicer, "Power") == 2 and Data.GetJuiceMultiplier(juicer, "Cash") == 1, "juice affects only its own effect")
- check(select(2, Data.GrantPower(juicer, 10, "Test")).powerGranted == baseGrant * 2, "Power juice doubles online Power grants")
- check(Data.UseJuice(juicer, "test_power") and juicer.ActiveJuices:GetAttribute("test_power") == 120
-  and juicer.OwnedJuices:GetAttribute("test_power") == nil, "drinking an active juice extends it")
- Data.TickJuices(30)
- check(juicer.ActiveJuices:GetAttribute("test_power") == 90, "timers count down")
+ check(not Data.UseJuice(juicer, PUNCH) and expiry(juicer, PUNCH) == nil, "cannot drink a juice you have none of")
+ check(not Data.UseJuice(juicer, "fake_juice") and not Data.UseJuice(juicer, 5) and not Data.UseJuice(juicer, nil), "unknown juice ids are refused")
+ check(not Data.GrantJuice(juicer, "fake_juice", 1, "Test") and not Data.GrantJuice(juicer, PUNCH, 0, "Test")
+  and not Data.GrantJuice(juicer, PUNCH, 1.5, "Test"), "invalid juice grants rejected")
+ check(Data.GrantJuice(juicer, PUNCH, 3, "Test") and Data.GrantJuice(juicer, SPLASH, 2, "Test")
+  and owned(juicer, PUNCH) == 3 and owned(juicer, SPLASH) == 2, "server grants add juice")
+ local trainingBase = select(2, Data.GrantPower(juicer, 10, "ActiveTraining")).powerGranted
+ local start = math.floor(now)
+ -- The remote passes only the id; any extra values a client sends are ignored.
+ local juiceFn = assert(loadstring(sources.JuiceServer)) setfenv(juiceFn, env) juiceFn()
+ local juiceRemote = storage:FindFirstChild("JuiceRequest")
+ juiceRemote.OnServerEvent:Fire(juicer, "Use", PUNCH, 4, 99999, start + 99999)
+ check(owned(juicer, PUNCH) == 2 and expiry(juicer, PUNCH) == start + 600 and Data.GetJuiceMultiplier(juicer, "Power") == 2,
+  "drinking consumes exactly one and runs 600 s at 2x (client values ignored)")
+ check(juiceRemote.replies[juicer][1] == true and juiceRemote.replies[juicer][2] == "POWER PUNCH ACTIVATED!\n2x POWER FOR 10 MIN",
+  "the player is told it is active")
+ check(Data.GetJuiceMultiplier(juicer, "Cash") == 1, "Power Punch leaves Cash alone")
+ check(select(2, Data.GrantPower(juicer, 10, "ActiveTraining")).powerGranted == trainingBase * 2, "Power Punch doubles Training Power")
+ check(select(2, Data.GrantPower(juicer, 10, "CompletedHit", nil, 1)).powerGranted == trainingBase
+  and select(2, Data.GrantPower(juicer, 10, "CompletedHit", nil, 2)).powerGranted == trainingBase * 2,
+  "a hit's Power uses the juice snapshot from its swing (none, or 2x)")
+ now += 60
+ local extended, extendedMessage = Data.UseJuice(juicer, PUNCH)
+ check(extended and extendedMessage == "POWER PUNCH +10 MIN" and expiry(juicer, PUNCH) == start + 1200
+  and Data.GetJuiceMultiplier(juicer, "Power") == 2 and owned(juicer, PUNCH) == 1,
+  "a second Power Punch adds 10 minutes to the time left and stays 2x (never 4x)")
+ check(Data.UseJuice(juicer, SPLASH) and expiry(juicer, SPLASH) == start + 660 and Data.GetJuiceMultiplier(juicer, "Cash") == 2
+  and Data.GetJuiceMultiplier(juicer, "Power") == 2, "Power Punch and Cash Splash run side by side, each 2x its own gain")
  leave(juicer)
- check(saved.Player_400.SchemaVersion == 10 and saved.Player_400.ActiveJuices.test_power == 90
-  and saved.Player_400.OwnedJuices.test_power == nil, "juice state saves")
- now += 600
+ check(saved.Player_400.ActiveJuices[PUNCH] == start + 1200 and saved.Player_400.ActiveJuices[SPLASH] == start + 660
+  and saved.Player_400.OwnedJuices[PUNCH] == 1 and saved.Player_400.OwnedJuices[SPLASH] == 1,
+  "counts and expiry times save (no extra copy is used up)")
+ -- Three minutes away: the timers kept running.
+ now += 180
  local returning = join(400)
- check(returning.ActiveJuices:GetAttribute("test_power") == 90, "timers pause while offline")
- Data.TickJuices(95)
- check(returning.ActiveJuices:GetAttribute("test_power") == nil and Data.GetJuiceMultiplier(returning, "Power") == 1, "expired juice ends its bonus")
+ check(expiry(returning, PUNCH) - math.floor(now) == 1200 - 240 and expiry(returning, SPLASH) - math.floor(now) == 660 - 240
+  and owned(returning, PUNCH) == 1 and owned(returning, SPLASH) == 1, "rejoining keeps the counts and the real time left")
  leave(returning)
+ -- Long after both ended: they are gone at login.
+ now += 1000
+ returning = join(400)
+ check(expiry(returning, PUNCH) == nil and expiry(returning, SPLASH) == nil and Data.GetJuiceMultiplier(returning, "Power") == 1
+  and next(saved.Player_400.ActiveJuices) == nil, "juices that ended while away are dropped at login (and from the save)")
+ -- A juice ends on its own (the server's expiry sweep); its bonus stops even before the sweep.
+ studioMode = true
+ workspace:SetAttribute("StudioJuiceSeconds", 5)
+ check(Data.UseJuice(returning, PUNCH) and expiry(returning, PUNCH) == math.floor(now) + 5,
+  "in Studio, StudioJuiceSeconds shortens a juice to watch it end")
+ workspace:SetAttribute("StudioJuiceSeconds", nil)
+ studioMode = false
+ now += 5
+ check(Data.GetJuiceMultiplier(returning, "Power") == 1 and expiry(returning, PUNCH) ~= nil, "the bonus stops the moment the time is up")
+ Data.ExpireJuices(math.floor(now))
+ check(expiry(returning, PUNCH) == nil, "the expiry sweep removes the ended juice (no client request)")
+ leave(returning)
+ check(saved.Player_400.ActiveJuices[PUNCH] == nil, "an ended juice is not saved")
  saved.Player_401 = {SchemaVersion = 7, Cash = 5, OwnedJuices = "corrupt"}
  local corrupt = join(401)
  check(not Data.IsReady(corrupt) and saved.Player_401.OwnedJuices == "corrupt", "malformed juice data fails closed")
- saved.Player_402 = {SchemaVersion = 7, Cash = 5, OwnedJuices = {test_cash = 3, removed_juice = 4, test_power = -1}, ActiveJuices = {test_cash = 12.5}}
+ local nowSeconds = math.floor(now)
+ saved.Player_402 = {SchemaVersion = 10, Cash = 5, OwnedJuices = {cash_splash = 3, removed_juice = 4, power_punch = -1},
+  ActiveJuices = {cash_splash = 12.5, removed_juice = nowSeconds + 60, power_punch = "soon"}}
  local cleaned = join(402)
- check(Data.IsReady(cleaned) and cleaned.OwnedJuices:GetAttribute("test_cash") == 3 and cleaned.OwnedJuices:GetAttribute("removed_juice") == nil
-  and cleaned.OwnedJuices:GetAttribute("test_power") == nil and cleaned.ActiveJuices:GetAttribute("test_cash") == nil, "unknown or invalid juice entries are dropped")
+ check(Data.IsReady(cleaned) and owned(cleaned, SPLASH) == 3 and owned(cleaned, "removed_juice") == nil
+  and owned(cleaned, PUNCH) == nil and expiry(cleaned, SPLASH) == nil and expiry(cleaned, "removed_juice") == nil
+  and expiry(cleaned, PUNCH) == nil, "unknown ids, bad counts and malformed timers are dropped")
  leave(cleaned)
+ saved.Player_403 = {SchemaVersion = 10, Cash = 5, ActiveJuices = {power_punch = nowSeconds - 1, cash_splash = nowSeconds + 10 ^ 7}}
+ local stale = join(403)
+ check(Data.IsReady(stale) and expiry(stale, PUNCH) == nil and expiry(stale, SPLASH) == nil,
+  "an expired or impossibly long saved timer is removed")
+ leave(stale)
+ -- A save from before real-time timers held the seconds left: they start again from login.
+ saved.Player_404 = {SchemaVersion = 10, Cash = 5, ActiveJuices = {power_punch = 90}}
+ local legacyJuice = join(404)
+ check(expiry(legacyJuice, PUNCH) == nowSeconds + 90, "an old seconds-left timer carries over")
+ leave(legacyJuice)
+ -- Offline Training never gets Power Punch, even while it runs (a minute at Basic Training: 37).
+ saved.Player_405 = {SchemaVersion = 10, Cash = 0, Level = 1, Power = 3, Rebirths = 0, TutorialCompleted = true,
+  ActiveJuices = {power_punch = nowSeconds + 600}, LastLogoutTime = nowSeconds - 60}
+ local napper = join(405)
+ check(napper:GetAttribute("OfflinePowerEarned") == 37 and Data.GetJuiceMultiplier(napper, "Power") == 2,
+  "Offline Training is not doubled; the juice still runs online")
+ leave(napper)
 
  -- New-player tutorial (Schema 10): moved only by the server's own events, saved, resumable.
  local newbie = join(900)
@@ -1184,18 +1314,54 @@ return function(sources)
  newbie.leaderstats.Cash.Value = 0
  check(step(newbie) == "EarnCash" and select(2, step(newbie)) == 1, "batting Cash counts, and spending it never takes progress back")
  leave(newbie)
- check(saved.Player_900.SchemaVersion == 10 and saved.Player_900.TutorialCompleted == false
+ check(saved.Player_900.SchemaVersion == 11 and saved.Player_900.TutorialCompleted == false
   and saved.Player_900.TutorialStep == "EarnCash" and saved.Player_900.TutorialProgress == 1, "an unfinished tutorial saves its step and count")
  newbie = join(900)
  check(step(newbie) == "EarnCash" and select(2, step(newbie)) == 1, "rejoining resumes the same step and count")
  Data.RecordBattingCash(newbie, 1)
  check(step(newbie) == "BuyBall", "$2 of batting Cash moves on to buying the Ball")
+ -- Client-side changes can't fake owning it: only the server's own data counts.
+ newbie.OwnedBalls:SetAttribute(Tutorial.BallId, true)
+ check(Data.GrantPower(newbie, 1, "ActiveTraining") and step(newbie) == "BuyBall"
+  and not Data.OwnsEquipment(newbie, "Ball", Tutorial.BallId), "a faked Ball does not complete the step")
+ newbie.OwnedBalls:SetAttribute(Tutorial.BallId, nil)
  newbie.leaderstats.Cash.Value = 1000
  check(Data.PurchaseNextEquipment(newbie, "Bat", newbie:GetAttribute("EquipmentPurchaseToken_Bat")) and step(newbie) == "BuyBall",
   "buying a Bat does not complete the Ball step")
- check(Data.PurchaseNextEquipment(newbie, "Ball", newbie:GetAttribute("EquipmentPurchaseToken_Ball"))
-  and newbie:GetAttribute("EquippedBall") == Tutorial.BallId and step(newbie) == "ReachLevel",
-  "buying (and so equipping) the " .. Tutorial.BallId .. " moves on to reaching Level 20")
+ -- In the tutorial, buying its Ball doesn't equip it: the player equips it in the Inventory.
+ local bought, boughtMessage = Data.PurchaseNextEquipment(newbie, "Ball", newbie:GetAttribute("EquipmentPurchaseToken_Ball"))
+ check(bought and Data.OwnsEquipment(newbie, "Ball", Tutorial.BallId) and newbie:GetAttribute("EquippedBall") == "baseball"
+  and step(newbie) == "BuyBall" and newbie:GetAttribute("TutorialBoughtBall") == true
+  and string.find(boughtMessage, "Inventory", 1, true) ~= nil,
+  "buying the " .. Tutorial.BallId .. " leaves it unequipped and the step waiting")
+ check(Data.EquipEquipment(newbie, "Bat", "wood_bat") and step(newbie) == "BuyBall", "equipping something else does not complete it")
+ check(Data.EquipEquipment(newbie, "Ball", Tutorial.BallId) and step(newbie) == "ReachLevel",
+  "equipping it moves on to reaching Level 20")
+ -- The Ball step is always played: owning the Ball is not enough. Bought early in the tutorial,
+ -- it still waits for the Ball to be equipped at step 3.
+ local early = join(561)
+ early.leaderstats.Cash.Value = 5
+ check(step(early) == "EarnPower" and Data.PurchaseNextEquipment(early, "Ball", early:GetAttribute("EquipmentPurchaseToken_Ball"))
+  and step(early) == "EarnPower" and early:GetAttribute("TutorialBoughtBall") == true, "buying the Ball early is remembered")
+ check(Data.EquipEquipment(early, "Ball", "baseball") and step(early) == "EarnPower", "(then swapped back to the Baseball)")
+ leave(early)
+ early = join(561)
+ Data.GrantPower(early, Tutorial.PowerGoal, "ActiveTraining")
+ Data.RecordBattingCash(early, Tutorial.CashGoal)
+ check(step(early) == "BuyBall" and early:GetAttribute("TutorialBoughtBall") == true,
+  "after the Cash step the Ball step shows (owned, not equipped; the purchase survived a rejoin)")
+ check(Data.EquipEquipment(early, "Ball", Tutorial.BallId) and step(early) == "ReachLevel", "equipping it completes the step")
+ leave(early)
+ -- Owning it without buying it in the tutorial never completes the step.
+ saved.Player_562 = {SchemaVersion = 11, Cash = 0, Level = 3, Power = 0, Rebirths = 0, TutorialCompleted = false,
+  TutorialStep = "BuyBall", TutorialProgress = 0, OwnedBalls = {baseball = true, [Tutorial.BallId] = true}, EquippedBall = Tutorial.BallId}
+ local holder = join(562)
+ Data.GrantPower(holder, 1, "ActiveTraining")
+ check(step(holder) == "BuyBall", "owning (even equipping) the Ball without the tutorial purchase does not complete the step")
+ holder:SetAttribute("TutorialBoughtBall", true)
+ Data.GrantPower(holder, 1, "ActiveTraining")
+ check(step(holder) == "BuyBall", "a faked purchase flag (a display attribute) changes nothing")
+ leave(holder)
  check(Equipment.Get("Ball", Tutorial.BallId).price == 2 and Equipment.Get("Ball", Tutorial.BallId).powerGainMultiplier == 3
   and Tutorial.RebirthLevel == 20, "the tutorial's Ball costs $2 for 3x Power, and the first Rebirth is at Level 20")
  Data.GrantPower(newbie, 5000, "ActiveTraining")
@@ -1224,7 +1390,7 @@ return function(sources)
    step = "EarnPower", why = "a malformed step on a fresh save restarts it"},
   [908] = {record = {SchemaVersion = 10, Cash = 0, TutorialCompleted = false, TutorialStep = "EarnPower", TutorialProgress = 99},
    step = "EarnPower", why = "an out-of-range count resets to 0"},
-  [909] = {record = {SchemaVersion = 10, Cash = 0, TutorialCompleted = false, TutorialStep = "BuyBall",
+  [909] = {record = {SchemaVersion = 10, Cash = 0, TutorialCompleted = false, TutorialStep = "BuyBall", TutorialBoughtBall = true,
    OwnedBalls = {baseball = true, [Tutorial.BallId] = true}, EquippedBall = Tutorial.BallId}, step = "ReachLevel",
    why = "a resumed step that is already done moves on at login"},
  } do
@@ -1233,6 +1399,458 @@ return function(sources)
   check(Data.IsReady(p) and step(p) == case.step and (select(2, step(p)) or 0) == 0, case.why)
   leave(p)
  end
+ -- Monetization (MonetizationConfig, ProductServer). The shipped config: three Power products and
+ -- the Auto Bat pass at their intended prices, every id still 0 (so nothing can be prompted).
+ local shipped = loadMonetization()
+ local amounts, prices, names = {}, {}, {}
+ for _, product in shipped.PowerProducts do
+  table.insert(amounts, product.powerAmount)
+  table.insert(prices, product.robuxPrice)
+  check(not names[product.id] and product.developerProductId == 0, "each Power product is named once and has no real id yet")
+  names[product.id] = true
+ end
+ check(#shipped.PowerProducts == 3 and table.concat(amounts, ",") == "10000,100000,1000000" and table.concat(prices, ",") == "11,45,95",
+  "the Power products give 10K, 100K and 1M Power for 11, 45 and 95 Robux")
+ check(shipped.AutoBat.gamePassId == 0 and shipped.AutoBat.robuxPrice == 25 and shipped.GetPowerProduct(0) == nil
+  and shipped.GetPowerProduct(-1) == nil and shipped.GetPowerProduct("701") == nil, "Auto Bat costs 25 Robux; id 0 matches no product")
+ for index, product in Monetization.PowerProducts do
+  check(Monetization.GetPowerProduct(700 + index) == product, "a real developer product id finds its product")
+ end
+ local productFn = assert(loadstring(sources.ProductServer)) setfenv(productFn, env) productFn()
+ local shop = storage:FindFirstChild("Monetization")
+ local robux = Enum.CurrencyType.Robux
+ local function receipt(userId, purchaseId, productIndex)
+  return {PlayerId = userId, PurchaseId = purchaseId, ProductId = 700 + productIndex,
+   CurrencySpent = Monetization.PowerProducts[productIndex].robuxPrice, CurrencyType = robux}
+ end
+ -- Power products add exactly their amount (no Ball or Rebirth multiplier), through the normal
+ -- Level path, once per receipt.
+ saved.Player_310 = {SchemaVersion = 10, Cash = 0, Level = 1, Power = 0, Rebirths = 1, TutorialCompleted = true,
+  OwnedBalls = {baseball = true, practice_ball = true}, EquippedBall = "practice_ball"}
+ local spender = join(310)
+ local expected = Progression.Normalize({Level = 1, Power = 0, Rebirths = 1}, false)
+ Progression.Advance(expected, 10000)
+ local spent = 0
+ for level = 1, expected.Level - 1 do spent += Progression.PowerRequiredForNextLevel(level) end
+ check(marketplace.ProcessReceipt(receipt(310, "power-1", 1)) == decisions.PurchaseGranted
+  and spender:GetAttribute("Level") == expected.Level and spender:GetAttribute("Power") == expected.Power
+  and expected.Level > 2 and spent + expected.Power == 10000, "10K adds exactly 10,000 Power, over several Levels")
+ check(shop.replies[spender] and shop.replies[spender][1] == "PowerGranted" and shop.replies[spender][2] == 10000,
+  "the client is told what was added")
+ check(saved.Player_310.Power == expected.Power and saved.Player_310.RobuxSpent == 11
+  and table.find(saved.Player_310.RobuxPurchases.Receipts, "power-1"), "a Power purchase is saved straight away with its Robux")
+ shop.replies[spender] = nil
+ check(marketplace.ProcessReceipt(receipt(310, "power-1", 1)) == decisions.PurchaseGranted
+  and spender:GetAttribute("Power") == expected.Power and saved.Player_310.RobuxSpent == 11 and shop.replies[spender] == nil,
+  "a repeated receipt is acknowledged without adding Power again")
+ spender:SetAttribute("TrainingActive", true)
+ Progression.Advance(expected, 100000)
+ check(marketplace.ProcessReceipt(receipt(310, "power-2", 2)) == decisions.PurchaseGranted
+  and spender:GetAttribute("Level") == expected.Level and spender:GetAttribute("Power") == expected.Power,
+  "100K adds exactly 100,000 Power, also while Training")
+ spender:SetAttribute("TrainingActive", nil)
+ leave(spender)
+ spender = join(310)
+ check(marketplace.ProcessReceipt(receipt(310, "power-1", 1)) == decisions.PurchaseGranted
+  and spender:GetAttribute("Power") == expected.Power and saved.Player_310.RobuxSpent == 56,
+  "a granted receipt retried after a rejoin adds nothing")
+ leave(spender)
+ -- At the Level Cap the Power banks, as Training's does; no Rebirth happens by itself.
+ saved.Player_311 = {SchemaVersion = 10, Cash = 0, Level = 20, Power = 5, Rebirths = 0, TutorialCompleted = true}
+ local capped = join(311)
+ capped:SetAttribute("BattingActive", true)
+ check(marketplace.ProcessReceipt(receipt(311, "power-3", 3)) == decisions.PurchaseGranted
+  and capped:GetAttribute("Level") == 20 and capped:GetAttribute("Power") == 1000005 and capped:GetAttribute("Rebirths") == 0
+  and Data.CanRebirth(capped), "1M at the Level Cap banks 1,000,000 Power (also while batting) and waits for a Rebirth")
+ capped:SetAttribute("BattingActive", nil)
+ check(marketplace.ProcessReceipt(receipt(999, "power-4", 1)) == decisions.NotProcessedYet,
+  "a buyer who has left is retried by Roblox later")
+ check(marketplace.ProcessReceipt({PlayerId = 311, PurchaseId = "power-5", ProductId = 799, CurrencySpent = 5}) == decisions.NotProcessedYet
+  and capped:GetAttribute("Power") == 1000005, "an unknown product grants nothing")
+ check(Data.ClaimPowerProduct(failed, receipt(6, "power-6", 1), 10000) == decisions.NotProcessedYet
+  and Data.ClaimPowerProduct(capped, receipt(2, "power-7", 1), 10000) == decisions.NotProcessedYet
+  and Data.ClaimPowerProduct(capped, receipt(311, "power-8", 1), -5) == decisions.NotProcessedYet
+  and capped:GetAttribute("Power") == 1000005, "a failed load, another player's receipt or a bad amount grants nothing")
+ leave(capped)
+ -- A tutorial player's purchase is real Power: it completes the Power step and the tutorial goes on.
+ local learner = join(312)
+ check(step(learner) == "EarnPower" and marketplace.ProcessReceipt(receipt(312, "power-9", 1)) == decisions.PurchaseGranted
+  and step(learner) == "EarnCash" and learner:GetAttribute("Level") == 20, "bought Power moves the tutorial on to its Cash step")
+ leave(learner)
+ -- Auto Bat: Roblox pass ownership, checked at login and on purchase; only owners can turn it on.
+ ownedPasses["314:801"] = true
+ local walker, owner = join(313), join(314)
+ check(walker:GetAttribute("AutoBatOwned") == false and owner:GetAttribute("AutoBatOwned") == true
+  and owner:GetAttribute("AutoBatEnabled") == false, "ownership comes from Roblox and Auto Bat starts off")
+ shop.OnServerEvent:Fire(walker, "AutoBat", true)
+ check(walker:GetAttribute("AutoBatEnabled") == false and shop.replies[walker][1] == "AutoBatRefused",
+  "a player without the pass cannot turn it on")
+ shop.OnServerEvent:Fire(owner, "AutoBat", true)
+ check(owner:GetAttribute("AutoBatEnabled") == true and walker:GetAttribute("AutoBatEnabled") == false,
+  "an owner turns it on, for themselves only")
+ now += 0.1
+ shop.OnServerEvent:Fire(owner, "AutoBat", false)
+ check(owner:GetAttribute("AutoBatEnabled") == true, "requests closer than the toggle limit are ignored")
+ now += 0.5
+ for _, bad in {{"AutoBat", "no"}, {"AutoBat"}, {"Power", false}, {nil, false}} do
+  shop.OnServerEvent:Fire(owner, table.unpack(bad))
+ end
+ check(owner:GetAttribute("AutoBatEnabled") == true, "malformed requests change nothing")
+ now += 0.5
+ shop.OnServerEvent:Fire(owner, "AutoBat", false)
+ check(owner:GetAttribute("AutoBatEnabled") == false, "an owner turns it off")
+ marketplace.PromptGamePassPurchaseFinished:Fire(walker, 801, false)
+ check(walker:GetAttribute("AutoBatOwned") == false, "a cancelled purchase grants nothing")
+ marketplace.PromptGamePassPurchaseFinished:Fire(walker, 801, true)
+ now += 0.5
+ shop.OnServerEvent:Fire(walker, "AutoBat", true)
+ check(walker:GetAttribute("AutoBatOwned") == true and walker:GetAttribute("AutoBatEnabled") == true,
+  "buying the pass in the session unlocks it straight away")
+ leave(walker)
+ leave(owner)
+ check(saved.Player_313.RobuxSpent == 25 and saved.Player_313.AutoBatOwned == nil and saved.Player_313.AutoBatEnabled == nil
+  and saved.Player_314.AutoBatOwned == nil, "the pass's Robux is counted (its configured price here) and ownership is never saved")
+ passFailures[315] = true
+ local outage = join(315)
+ check(outage:GetAttribute("AutoBatOwned") == false, "a failed ownership lookup grants nothing")
+ leave(outage)
+ passFailures[315] = nil
+ studioMode = true
+ workspace:SetAttribute("StudioOwnAutoBat", true)
+ local tester = join(316)
+ check(tester:GetAttribute("AutoBatOwned") == true, "in Studio, StudioOwnAutoBat owns the pass for playtests")
+ leave(tester)
+ workspace:SetAttribute("StudioOwnAutoBat", nil)
+ studioMode = false
+ -- When Auto Bat presses Swing: only when a manual swing would be accepted, after the hit settles.
+ local ready = {enabled = true, batting = true, training = false, hitActive = false, exitPending = false, cinematic = false,
+  traveling = false, ballState = "Ready", serverNow = 50, nextSwingTime = 49, settledSeconds = Monetization.AutoBat.settleSeconds}
+ check(Monetization.ShouldAutoSwing(ready), "a settled, ready batter swings")
+ for field, value in {enabled = false, batting = false, training = true, hitActive = true, exitPending = true, cinematic = true,
+  traveling = true, ballState = "InFlight", nextSwingTime = 51, settledSeconds = Monetization.AutoBat.settleSeconds - 0.01} do
+  local state = table.clone(ready)
+  state[field] = value
+  check(not Monetization.ShouldAutoSwing(state), "Auto Bat waits while " .. field .. " = " .. tostring(value))
+ end
+ for _, ballState in {"Reserved", false} do
+  local state = table.clone(ready)
+  state.ballState = ballState or nil
+  check(not Monetization.ShouldAutoSwing(state), "Auto Bat waits until the ball is back on the tee")
+ end
+
+ -- The Shop (Schema 11). The Catastrophe Bat: an exclusive Bat, owned and equipped like the rest,
+ -- in no Cash purchase series, multiplying Cash only.
+ local catBat = Equipment.Get("Bat", "catastrophe_bat")
+ check(catBat and catBat.exclusive and catBat.displayName == "Catastrophe Bat" and catBat.cashMultiplier == 2.5
+  and catBat.powerGainMultiplier == nil and Equipment.GetById("catastrophe_bat") == catBat, "the Catastrophe Bat is a 2.5x Cash Bat")
+ local inSeries = false
+ for _, series in Equipment.GetSeries("Bat") do
+  for _, item in Equipment.GetSeriesItems("Bat", series.id) do inSeries = inSeries or item.id == "catastrophe_bat" end
+ end
+ local everySeriesBat = {}
+ for _, item in Equipment.GetSeriesItems("Bat") do everySeriesBat[item.id] = true end
+ check(not inSeries and Equipment.GetNextPurchase("Bat", everySeriesBat) == nil, "it is never for sale for Cash")
+ local pack = shipped.StarterPack
+ check(pack.gamePassId == 0 and pack.robuxPrice == 39 and pack.power == 10000 and pack.rebirths == 1
+  and pack.juices.power_punch == 1 and pack.juices.cash_splash == nil and pack.batId == "catastrophe_bat",
+  "the Starter Pack: 10K Power, 1 Rebirth, 1 Power Punch and the Catastrophe Bat, 39 Robux, no real id yet")
+ -- Owned at login: given once, all of it, and saved.
+ ownedPasses["520:802"] = true
+ saved.Player_520 = {SchemaVersion = 10, Cash = 50, Level = 5, Power = 3, Rebirths = 0, TutorialCompleted = true}
+ local packer = join(520)
+ local afterPack = Progression.Normalize({Level = 5, Power = 3, Rebirths = 0}, false)
+ afterPack.Rebirths, afterPack.LevelCap = 1, Progression.GetLevelCap(1)
+ Progression.Advance(afterPack, 10000)
+ check(packer:GetAttribute("Rebirths") == 1 and packer:GetAttribute("LevelCap") == Progression.GetLevelCap(1)
+  and packer:GetAttribute("Level") == afterPack.Level and packer:GetAttribute("Power") == afterPack.Power and afterPack.Level > 20,
+  "+1 Rebirth raises the Level Cap without resetting, then 10K Power levels up through it")
+ check(Data.OwnsEquipment(packer, "Bat", "catastrophe_bat") and packer.OwnedBats:GetAttribute("catastrophe_bat") == true
+  and owned(packer, PUNCH) == 1 and owned(packer, SPLASH) == nil and expiry(packer, PUNCH) == nil,
+  "the Catastrophe Bat and one Power Punch (not started) are given")
+ check(packer.leaderstats.Cash.Value == 50 and packer:GetAttribute("StarterPackOwned") == true, "Cash is kept; the Shop shows OWNED")
+ check(saved.Player_520.StarterPackGranted == true and saved.Player_520.Rebirths == 1 and saved.Player_520.OwnedBats.catastrophe_bat == true
+  and saved.Player_520.OwnedJuices.power_punch == 1 and saved.Player_520.SchemaVersion == 11, "the grant is saved straight away")
+ marketplace.PromptGamePassPurchaseFinished:Fire(packer, 802, true)
+ marketplace.PromptGamePassPurchaseFinished:Fire(packer, 802, true)
+ Data.RefreshStarterPack(packer)
+ check(packer:GetAttribute("Rebirths") == 1 and packer:GetAttribute("Power") == afterPack.Power and owned(packer, PUNCH) == 1,
+  "repeated purchase events never give it again")
+ packer.leaderstats.Cash.Value = 1000
+ check(Data.PurchaseNextEquipment(packer, "Bat", packer:GetAttribute("EquipmentPurchaseToken_Bat"))
+  and Data.OwnsEquipment(packer, "Bat", "metal_bat"), "the normal Bat series carries on from the Wood Bat")
+ check(Data.EquipEquipment(packer, "Bat", "catastrophe_bat") and packer:GetAttribute("EquippedBat") == "catastrophe_bat", "the Bat can be equipped")
+ leave(packer)
+ packer = join(520)
+ check(packer:GetAttribute("Rebirths") == 1 and owned(packer, PUNCH) == 1 and Data.OwnsEquipment(packer, "Bat", "catastrophe_bat")
+  and packer:GetAttribute("EquippedBat") == "catastrophe_bat" and packer:GetAttribute("StarterPackOwned") == true,
+  "a rejoin keeps the Bat and never gives the pack again")
+ leave(packer)
+ -- Bought during a session: given at the server's purchase event (Roblox's own result).
+ local buyerLater = join(521)
+ check(buyerLater:GetAttribute("StarterPackOwned") == false and buyerLater:GetAttribute("Rebirths") == 0, "not owned, not given")
+ marketplace.PromptGamePassPurchaseFinished:Fire(buyerLater, 802, false)
+ check(buyerLater:GetAttribute("Rebirths") == 0, "a cancelled purchase gives nothing")
+ marketplace.PromptGamePassPurchaseFinished:Fire(buyerLater, 802, true)
+ check(buyerLater:GetAttribute("Rebirths") == 1 and Data.OwnsEquipment(buyerLater, "Bat", "catastrophe_bat"),
+  "an in-game purchase gives it at once")
+ -- Its bonus Rebirth is not the tutorial's Rebirth: the tutorial carries on (its 10K Power finished
+ -- the Power step) and only the player's own Rebirth at the (now higher) Level Cap completes it.
+ check(step(buyerLater) == "EarnCash" and buyerLater:GetAttribute("LevelCap") == 40, "the Starter Pack does not complete the tutorial")
+ Data.RecordBattingCash(buyerLater, Tutorial.CashGoal)
+ buyerLater.leaderstats.Cash.Value = 10
+ local ballToken = buyerLater:GetAttribute("EquipmentPurchaseToken_Ball")
+ check(Data.PurchaseNextEquipment(buyerLater, "Ball", ballToken) and Data.EquipEquipment(buyerLater, "Ball", Tutorial.BallId)
+  and step(buyerLater) == "ReachLevel", "the Ball step follows as usual")
+ check(not Data.TryRebirth(buyerLater) and step(buyerLater) == "ReachLevel", "no Rebirth below the Level Cap")
+ Data.GrantPower(buyerLater, 1000000, "ActiveTraining")
+ check(buyerLater:GetAttribute("Level") == 40 and step(buyerLater) == "Rebirth", "reaching the Level Cap moves on to the Rebirth step")
+ check(Data.TryRebirth(buyerLater) and step(buyerLater) == Tutorial.Complete and buyerLater:GetAttribute("Rebirths") == 2,
+  "the player's own Rebirth completes the tutorial")
+ leave(buyerLater)
+ check(saved.Player_521.RobuxSpent == 39 and saved.Player_521.StarterPackGranted == true, "its Robux is counted once")
+ saved.Player_522 = {SchemaVersion = 11, Cash = 1, StarterPackGranted = "yes"}
+ local badFlag = join(522)
+ check(not Data.IsReady(badFlag) and saved.Player_522.StarterPackGranted == "yes", "a malformed StarterPackGranted fails closed")
+ -- Cash packs: Cash worth so many normal hits for the player now, from server state only.
+ local tiers = {}
+ for _, product in shipped.CashProducts do table.insert(tiers, table.concat({product.id, product.robuxPrice, product.hits}, ":")) end
+ check(table.concat(tiers, ",") == "CashTiny:25:15,CashSmall:59:50,CashMedium:115:125,CashLarge:229:300",
+  "four Cash packs, 25 / 59 / 115 / 229 Robux, worth 15 / 50 / 125 / 300 hits")
+ local distance30 = Progression.GetExpectedHitDistance(30)
+ local world1 = Worlds.Get("world_1")
+ local perHit = Progression.GetHitCash(distance30, world1.cashMultiplier, Field.GetRewardSection(distance30, world1).rewardMultiplier, 1)
+ check(math.abs(Monetization.GetCashPerHit(30, "world_1", "wood_bat") - perHit) < 1e-9
+  and Monetization.GetCashPerHit(30, "world_2", "wood_bat") > perHit * 5 and Monetization.GetCashPerHit(30, "world_1", "catastrophe_bat")
+  == Progression.GetHitCash(distance30, world1.cashMultiplier, Field.GetRewardSection(distance30, world1).rewardMultiplier, 2.5),
+  "a normal hit's Cash follows the Level, World and Bat")
+ check(Progression.GetExpectedHitDistance(1) == 81 and math.abs(Progression.GetExpectedHitDistance(140) - 3906) < 1e-6
+  and Progression.GetExpectedHitDistance(1000) == 7000 and Progression.GetExpectedHitDistance(70) > Progression.GetExpectedHitDistance(69),
+  "expected hit distances follow the measured hits")
+ saved.Player_523 = {SchemaVersion = 11, Cash = 100, Level = 30, Power = 0, Rebirths = 1, TutorialCompleted = true}
+ local cashBuyer = join(523)
+ cashBuyer:SetAttribute("CurrentWorldId", "world_1")
+ local tiny = Monetization.GetCashPackReward(Monetization.CashProducts[1], 30, "world_1", "wood_bat")
+ check(tiny == math.floor(15 * perHit + 0.5) and marketplace.ProcessReceipt({PlayerId = 523, PurchaseId = "cash-1", ProductId = 711,
+  CurrencySpent = 25, CurrencyType = robux}) == decisions.PurchaseGranted and cashBuyer.leaderstats.Cash.Value == 100 + tiny,
+  "the Tiny pack adds 15 normal hits of Cash")
+ check(shop.replies[cashBuyer][1] == "Granted" and shop.replies[cashBuyer][3].cash == tiny, "the client is told the Cash added")
+ check(marketplace.ProcessReceipt({PlayerId = 523, PurchaseId = "cash-1", ProductId = 711, CurrencySpent = 25, CurrencyType = robux})
+  == decisions.PurchaseGranted and cashBuyer.leaderstats.Cash.Value == 100 + tiny, "a repeated receipt adds nothing")
+ cashBuyer:SetAttribute("CurrentWorldId", "world_2")
+ local medium = Monetization.GetCashPackReward(Monetization.CashProducts[3], 30, "world_2", "wood_bat")
+ check(marketplace.ProcessReceipt({PlayerId = 523, PurchaseId = "cash-2", ProductId = 713, CurrencySpent = 99999, CurrencyType = robux})
+  == decisions.PurchaseGranted and cashBuyer.leaderstats.Cash.Value == 100 + tiny + medium and medium > tiny,
+  "the Medium pack pays for the World the player is in; what the receipt says it cost changes nothing")
+ leave(cashBuyer)
+ check(saved.Player_523.Cash == 100 + tiny + medium and saved.Player_523.RobuxSpent == 25 + 99999, "pack Cash is saved")
+ -- Each purchase pays what was fixed when it began: Buy asks the server, which quotes the pack and
+ -- then prompts; changing Level, World or Bat afterwards, retries and rejoins change nothing.
+ saved.Player_525 = {SchemaVersion = 11, Cash = 100, Level = 30, Power = 0, Rebirths = 1, TutorialCompleted = true}
+ local quoted = join(525)
+ quoted:SetAttribute("CurrentWorldId", "world_1")
+ local promptsBefore = #marketplace.prompts
+ shop.OnServerEvent:Fire(quoted, "BuyCash", "CashTiny")
+ local quote = Monetization.GetCashPackReward(Monetization.CashProducts[1], 30, "world_1", "wood_bat")
+ check(#marketplace.prompts == promptsBefore + 1 and marketplace.prompts[#marketplace.prompts].product == 711
+  and marketplace.prompts[#marketplace.prompts].player == quoted, "Buy quotes the pack and opens the right prompt")
+ shop.OnServerEvent:Fire(quoted, "BuyCash", "CashTiny")
+ shop.OnServerEvent:Fire(quoted, "BuyCash", "FreeCash")
+ check(#marketplace.prompts == promptsBefore + 1, "repeated or unknown Buy requests open no extra prompts")
+ Data.GrantPower(quoted, 100000, "ActiveTraining")
+ quoted:SetAttribute("CurrentWorldId", "world_2")
+ quoted.leaderstats.Cash.Value = 1000
+ Data.PurchaseNextEquipment(quoted, "Bat", quoted:GetAttribute("EquipmentPurchaseToken_Bat"))
+ local cashNow = quoted.leaderstats.Cash.Value
+ check(quoted:GetAttribute("Level") > 30 and quoted:GetAttribute("EquippedBat") == "metal_bat"
+  and Monetization.GetCashPackReward(Monetization.CashProducts[1], quoted:GetAttribute("Level"), "world_2", "metal_bat") > quote * 10,
+  "(the player's Level, World and Bat have all changed since)")
+ local tinyReceipt = {PlayerId = 525, PurchaseId = "quote-1", ProductId = 711, CurrencySpent = 25, CurrencyType = robux}
+ check(marketplace.ProcessReceipt(tinyReceipt) == decisions.PurchaseGranted and quoted.leaderstats.Cash.Value == cashNow + quote,
+  "the receipt pays the quote from when the purchase began")
+ check(marketplace.ProcessReceipt(tinyReceipt) == decisions.PurchaseGranted and quoted.leaderstats.Cash.Value == cashNow + quote,
+  "a retried receipt pays nothing more")
+ leave(quoted)
+ check(saved.Player_525.CashPackQuotes.CashTiny == quote, "the quote is saved with the player")
+ quoted = join(525)
+ quoted:SetAttribute("CurrentWorldId", "world_2")
+ local cashBefore = quoted.leaderstats.Cash.Value
+ check(marketplace.ProcessReceipt({PlayerId = 525, PurchaseId = "quote-2", ProductId = 711, CurrencySpent = 25, CurrencyType = robux})
+  == decisions.PurchaseGranted and quoted.leaderstats.Cash.Value == cashBefore + quote, "a receipt delayed past a rejoin pays the same quote")
+ local small = Monetization.CashProducts[2]
+ local smallNow = Monetization.GetCashPackReward(small, quoted:GetAttribute("Level"), "world_2", quoted:GetAttribute("EquippedBat"))
+ check(marketplace.ProcessReceipt({PlayerId = 525, PurchaseId = "quote-3", ProductId = 712, CurrencySpent = 59, CurrencyType = robux})
+  == decisions.PurchaseGranted and quoted.leaderstats.Cash.Value == cashBefore + quote + smallNow,
+  "each pack has its own quote (one never quoted pays its amount now)")
+ leave(quoted)
+ saved.Player_526 = {SchemaVersion = 11, Cash = 1, CashPackQuotes = {CashTiny = -5, FreeCash = 10, CashLarge = 77}}
+ local cleanQuotes = join(526)
+ leave(cleanQuotes)
+ check(saved.Player_526.CashPackQuotes.CashLarge == 77 and saved.Player_526.CashPackQuotes.CashTiny == nil
+  and saved.Player_526.CashPackQuotes.FreeCash == nil, "invalid saved quotes are dropped")
+ saved.Player_527 = {SchemaVersion = 11, Cash = 1, CashPackQuotes = "lots"}
+ local badQuotes = join(527)
+ check(not Data.IsReady(badQuotes), "a malformed CashPackQuotes fails closed")
+
+ -- Gifts: every Shop item has a gift developer product at the same price; the server saves who
+ -- receives it before the buyer's prompt, and the receipt queues it on the recipient's record.
+ local giftPrices = {}
+ for _, gift in shipped.GiftProducts do table.insert(giftPrices, gift.id .. ":" .. gift.robuxPrice .. ":" .. gift.developerProductId) end
+ check(table.concat(giftPrices, ",") == "GiftStarterPack:39:0,GiftCashTiny:25:0,GiftCashSmall:59:0,GiftCashMedium:115:0,GiftCashLarge:229:0,"
+  .. "GiftBoostBundle:95:0,GiftPowerPunch:39:0,GiftCashSplash:39:0,GiftPremiumTraining:500:0,GiftDragonsLair:1000:0",
+  "ten gift products, each at its item's own price, no real ids yet")
+ check(Monetization.GetGroundGift(Training.Get("cosmic_rift")).id == "GiftPremiumTraining"
+  and Monetization.GetGroundGift(Training.Get("time_machine_lab")).id == "GiftPremiumTraining"
+  and Monetization.GetGroundGift(Training.Get("quantum_lab")).id == "GiftPremiumTraining"
+  and Monetization.GetGroundGift(Training.Get("dragons_lair")).id == "GiftDragonsLair",
+  "the three World premium grounds share one gift (their shared pass); Dragon's Lair has its own")
+ local function giftIndex(id) for index, gift in Monetization.GiftProducts do if gift.id == id then return index end end end
+ local function giftReceipt(buyerId, purchaseId, id)
+  return {PlayerId = buyerId, PurchaseId = purchaseId, ProductId = 730 + giftIndex(id),
+   CurrencySpent = Monetization.GetGiftById(id).robuxPrice, CurrencyType = robux}
+ end
+ local function ask(buyer, id, recipientId)
+  now += 1.1 -- (past the request cooldown)
+  shop.replies[buyer] = nil
+  local before = #marketplace.prompts
+  shop.OnServerEvent:Fire(buyer, "Gift", id, recipientId)
+  return #marketplace.prompts == before + 1 and marketplace.prompts[#marketplace.prompts].player == buyer
+   and marketplace.prompts[#marketplace.prompts].product == 730 + giftIndex(id)
+ end
+ saved.Player_540 = {SchemaVersion = 11, Cash = 1000, Level = 10, Power = 0, Rebirths = 0, TutorialCompleted = true}
+ saved.Player_541 = {SchemaVersion = 11, Cash = 50, Level = 30, Power = 0, Rebirths = 1, TutorialCompleted = true}
+ local giver, friend = join(540), join(541)
+ friend:SetAttribute("CurrentWorldId", "world_1")
+ check(not ask(giver, "GiftPowerPunch", 540) and shop.replies[giver][1] == "GiftRefused", "no gifts to yourself")
+ check(not ask(giver, "GiftPowerPunch", 9999) and shop.replies[giver][1] == "GiftRefused", "no gifts to someone not in the server")
+ check(not ask(giver, "FreeStuff", 541) and not ask(giver, nil, 541), "unknown gifts open nothing")
+ check(ask(giver, "GiftPowerPunch", 541) and saved.Player_540.PendingGifts.GiftPowerPunch.recipient == 541,
+  "a gift saves its recipient on the buyer's record, then opens the buyer's prompt")
+ check(Data.ClaimGift(giver, giftReceipt(540, "gift-1", "GiftPowerPunch"), Monetization.GetGiftById("GiftPowerPunch"))
+  == decisions.PurchaseGranted and owned(friend, PUNCH) == 1 and expiry(friend, PUNCH) == nil and owned(giver, PUNCH) == nil,
+  "the recipient gets one Power Punch (not started); the buyer gets nothing")
+ check(table.find(saved.Player_541.ReceivedGifts, "gift-1") and saved.Player_541.OwnedJuices.power_punch == 1
+  and saved.Player_540.PendingGifts.GiftPowerPunch == nil and saved.Player_540.RobuxSpent == 39,
+  "the gift is saved with the recipient; the buyer's receipt and Robux are recorded")
+ check(marketplace.ProcessReceipt(giftReceipt(540, "gift-1", "GiftPowerPunch")) == decisions.PurchaseGranted
+  and owned(friend, PUNCH) == 1, "a repeated gift receipt gives nothing more")
+ check(marketplace.ProcessReceipt(giftReceipt(540, "gift-2", "GiftCashSplash")) == decisions.NotProcessedYet
+  and owned(friend, SPLASH) == nil, "a gift receipt with no saved recipient is left for Roblox to retry")
+ check(Data.ClaimGift(failed, giftReceipt(6, "gift-3", "GiftPowerPunch"), Monetization.GetGiftById("GiftPowerPunch"))
+  == decisions.NotProcessedYet, "a failed load is never granted")
+ -- A cancelled prompt drops the intent; a bought one blocks a second gift until delivered.
+ check(ask(giver, "GiftCashSplash", 541), "Cash Splash gift asked")
+ marketplace.PromptProductPurchaseFinished:Fire(540, 730 + giftIndex("GiftCashSplash"), false)
+ check(marketplace.ProcessReceipt(giftReceipt(540, "gift-x", "GiftCashSplash")) == decisions.NotProcessedYet,
+  "a cancelled prompt drops the intent")
+ check(ask(giver, "GiftCashSplash", 541), "after a cancel the gift can be asked again")
+ marketplace.PromptProductPurchaseFinished:Fire(540, 730 + giftIndex("GiftCashSplash"), true)
+ check(not ask(giver, "GiftCashSplash", 541) and shop.replies[giver][1] == "GiftRefused", "a bought gift waits for its receipt")
+ check(marketplace.ProcessReceipt(giftReceipt(540, "gift-4", "GiftCashSplash")) == decisions.PurchaseGranted
+  and owned(friend, SPLASH) == 1, "the receipt delivers it")
+ -- Boost Bundle: two of each.
+ check(ask(giver, "GiftBoostBundle", 541) and marketplace.ProcessReceipt(giftReceipt(540, "gift-5", "GiftBoostBundle"))
+  == decisions.PurchaseGranted and owned(friend, PUNCH) == 3 and owned(friend, SPLASH) == 3, "the Boost Bundle gives two of each")
+ -- Cash packs pay what the RECIPIENT's progression was worth when the gift began.
+ local giftQuote = Monetization.GetCashPackReward(Monetization.CashProducts[1], 30, "world_1", "wood_bat")
+ check(ask(giver, "GiftCashTiny", 541) and saved.Player_540.PendingGifts.GiftCashTiny.amount == giftQuote, "the Tiny gift quotes the recipient")
+ Data.GrantPower(friend, 100000, "ActiveTraining")
+ friend:SetAttribute("CurrentWorldId", "world_2")
+ friend.leaderstats.Cash.Value = 1000
+ Data.PurchaseNextEquipment(friend, "Bat", friend:GetAttribute("EquipmentPurchaseToken_Bat"))
+ local friendCash = friend.leaderstats.Cash.Value
+ check(friend:GetAttribute("Level") > 30 and friend:GetAttribute("EquippedBat") == "metal_bat"
+  and marketplace.ProcessReceipt(giftReceipt(540, "gift-6", "GiftCashTiny")) == decisions.PurchaseGranted
+  and friend.leaderstats.Cash.Value == friendCash + giftQuote and giver.leaderstats.Cash.Value == 1000,
+  "later Level, World and Bat changes don't change it; only the recipient is paid")
+ -- Training Grounds: the shared premium entitlement and Dragon's Lair, like their passes.
+ friend:SetAttribute("WorldUnlocked_world_2", true)
+ check(friend:GetAttribute("TrainingPass_cosmic_rift") == false and ask(giver, "GiftPremiumTraining", 541)
+  and marketplace.ProcessReceipt(giftReceipt(540, "gift-7", "GiftPremiumTraining")) == decisions.PurchaseGranted,
+  "premium Training gift delivered")
+ check(friend:GetAttribute("TrainingPass_cosmic_rift") == true and Data.CanUseTrainingGround(friend, "cosmic_rift")
+  and Data.CanUseTrainingGround(friend, "time_machine_lab") and not Data.CanUseTrainingGround(friend, "dragons_lair")
+  and Data.OwnsTrainingPass(friend, "cosmic_rift"), "it opens every ground of the shared pass, exactly like owning the pass")
+ check(not ask(giver, "GiftPremiumTraining", 541) and shop.replies[giver][2] == "THIS PLAYER ALREADY OWNS THE PREMIUM TRAINING GROUND",
+  "an owner can't be gifted it again")
+ check(ask(giver, "GiftDragonsLair", 541) and marketplace.ProcessReceipt(giftReceipt(540, "gift-8", "GiftDragonsLair"))
+  == decisions.PurchaseGranted and Data.CanUseTrainingGround(friend, "dragons_lair") and friend:GetAttribute("TrainingPass_dragons_lair") == true,
+  "the Dragon's Lair gift opens Dragon's Lair")
+ leave(friend)
+ check(saved.Player_541.GiftedEntitlements.premium_training == true and saved.Player_541.GiftedEntitlements.dragons_lair == true
+  and saved.Player_541.TrainingPasses == nil, "gifted entitlements are saved (Roblox pass ownership never is)")
+ friend = join(541)
+ check(Data.CanUseTrainingGround(friend, "dragons_lair") and friend:GetAttribute("TrainingPass_cosmic_rift") == true
+  and owned(friend, PUNCH) == 3, "a rejoin keeps the gifted grounds and gifts")
+ -- A Roblox pass owner can't be gifted that ground either.
+ ownedPasses["542:222"] = true
+ local passOwner = join(542)
+ check(not ask(giver, "GiftDragonsLair", 542), "a Dragon's Lair pass owner can't be gifted it")
+ leave(passOwner)
+ -- Starter Pack: the same grant as the pass; its bonus Rebirth leaves the tutorial running.
+ local newcomer = join(543)
+ check(step(newcomer) == "EarnPower" and ask(giver, "GiftStarterPack", 543)
+  and marketplace.ProcessReceipt(giftReceipt(540, "gift-9", "GiftStarterPack")) == decisions.PurchaseGranted,
+  "a Starter Pack gift delivered")
+ check(newcomer:GetAttribute("Rebirths") == 1 and Data.OwnsEquipment(newcomer, "Bat", "catastrophe_bat") and owned(newcomer, PUNCH) == 1
+  and newcomer:GetAttribute("StarterPackOwned") == true and step(newcomer) == "EarnCash" and saved.Player_543.StarterPackGranted == true,
+  "the whole pack arrives once, and the tutorial carries on")
+ check(not ask(giver, "GiftStarterPack", 543) and shop.replies[giver][2] == "THIS PLAYER ALREADY OWNS THE STARTER PACK",
+  "it can't be gifted twice")
+ leave(newcomer)
+ -- The recipient leaves before the receipt: the gift waits in their saved queue and applies
+ -- once at their next login.
+ local leaver = join(544)
+ check(ask(giver, "GiftPowerPunch", 544), "gift asked")
+ leave(leaver)
+ check(marketplace.ProcessReceipt(giftReceipt(540, "gift-10", "GiftPowerPunch")) == decisions.PurchaseGranted
+  and saved.Player_544.GiftInbox[1].id == "gift-10" and saved.Player_544.GiftInbox[1].from == 540,
+  "a recipient who left gets it queued on their record (the buyer's Robux are safe)")
+ check(marketplace.ProcessReceipt(giftReceipt(540, "gift-10", "GiftPowerPunch")) == decisions.PurchaseGranted
+  and #saved.Player_544.GiftInbox == 1, "a retry queues nothing more")
+ leaver = join(544)
+ check(owned(leaver, PUNCH) == 1 and #saved.Player_544.GiftInbox == 0 and table.find(saved.Player_544.ReceivedGifts, "gift-10"),
+  "it applies at their next login and leaves the queue")
+ leave(leaver)
+ leaver = join(544)
+ check(owned(leaver, PUNCH) == 1, "and never applies again")
+ leave(leaver)
+ leave(giver)
+ saved.Player_545 = {SchemaVersion = 11, Cash = 1, GiftInbox = {{id = "x", gift = "FreeStuff", from = 1}, {id = "y", gift = "GiftPowerPunch", from = 0}},
+  GiftedEntitlements = {premium_training = true, fake_ground = true}, ReceivedGifts = {"a", 5}}
+ local cleanGifts = join(545)
+ check(Data.IsReady(cleanGifts) and owned(cleanGifts, PUNCH) == nil and Data.CanUseTrainingGround(cleanGifts, "cosmic_rift"),
+  "malformed gift entries are dropped; valid entitlements stay")
+ leave(cleanGifts)
+ saved.Player_546 = {SchemaVersion = 11, Cash = 1, GiftInbox = "lots"}
+ check(not Data.IsReady(join(546)), "a malformed gift field fails closed")
+ -- Juice products add juices to the Inventory (never started).
+ local juiceProducts = {}
+ for _, product in shipped.JuiceProducts do
+  table.insert(juiceProducts, table.concat({product.id, product.robuxPrice, product.juices.power_punch or 0, product.juices.cash_splash or 0}, ":"))
+ end
+ check(table.concat(juiceProducts, ",") == "BoostBundle:95:2:2,PowerPunch:39:1:0,CashSplash:39:0:1",
+  "the Boost Bundle (2 + 2, 95 Robux) and one of each juice (39 Robux)")
+ local drinker = join(524)
+ check(marketplace.ProcessReceipt({PlayerId = 524, PurchaseId = "juice-1", ProductId = 722, CurrencySpent = 39, CurrencyType = robux})
+  == decisions.PurchaseGranted and owned(drinker, PUNCH) == 1 and owned(drinker, SPLASH) == nil and expiry(drinker, PUNCH) == nil,
+  "Power Punch adds exactly one, not started")
+ check(marketplace.ProcessReceipt({PlayerId = 524, PurchaseId = "juice-2", ProductId = 723, CurrencySpent = 39, CurrencyType = robux})
+  == decisions.PurchaseGranted and owned(drinker, SPLASH) == 1 and expiry(drinker, SPLASH) == nil, "Cash Splash adds exactly one")
+ check(marketplace.ProcessReceipt({PlayerId = 524, PurchaseId = "juice-3", ProductId = 721, CurrencySpent = 95, CurrencyType = robux})
+  == decisions.PurchaseGranted and owned(drinker, PUNCH) == 3 and owned(drinker, SPLASH) == 3, "the Boost Bundle adds two of each")
+ check(marketplace.ProcessReceipt({PlayerId = 524, PurchaseId = "juice-3", ProductId = 721, CurrencySpent = 95, CurrencyType = robux})
+  == decisions.PurchaseGranted and owned(drinker, PUNCH) == 3 and owned(drinker, SPLASH) == 3, "a repeated receipt adds no juice")
+ leave(drinker)
+ check(saved.Player_524.OwnedJuices.power_punch == 3 and saved.Player_524.OwnedJuices.cash_splash == 3, "bought juices are saved")
+ -- Training Grounds: Dragon's Lair always, plus the premium ground in the player's World, each
+ -- through its existing pass (one shared pass for the three World grounds).
+ for worldId, expected in {world_1 = "cosmic_rift", world_2 = "time_machine_lab", world_3 = "quantum_lab"} do
+  local listed = Monetization.GetShopGrounds(worldId)
+  check(#listed == 2 and listed[1].id == expected and listed[2].id == "dragons_lair", worldId .. " lists " .. expected .. " and Dragon's Lair")
+  check(Training.GetPassGround(listed[1]).id == "cosmic_rift" and Training.GetPassGround(listed[2]).id == "dragons_lair",
+   worldId .. "'s Shop grounds use the existing passes")
+ end
+
  local expiring = join(251)
  expiring.leaderstats.Cash.Value = 1000
  local expiredOffer = expiring:GetAttribute("EquipmentPurchaseToken_Bat")

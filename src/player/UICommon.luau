@@ -35,6 +35,9 @@ UI.Icons = {
  Rebirth = "rbxassetid://17368214873", Shop = "rbxassetid://17368217589",
  Training = "rbxassetid://15403007921", Worlds = "rbxassetid://17368164592",
  Inventory = "rbxassetid://15402958715", Rewards = "rbxassetid://128442519585600",
+ -- Free Creator Store images: "Robux Icon White" (decal 11560341145, tinted where used) and
+ -- "Baseball bat icon" (decal 14583816406).
+ Robux = "rbxassetid://11560341132", Bat = "rbxassetid://14583816373",
 }
 
 local CHECKER = "rbxassetid://385956923"
@@ -410,7 +413,7 @@ end
 -- callers keep laying out content in panel space (content starts below y = 70).
 local TITLE_RISE = 30
 local MENU_ICONS = {
- EquipmentShopGui = UI.Icons.Shop, RebirthGui = UI.Icons.Rebirth, WorldTravelGui = UI.Icons.Worlds,
+ RebirthGui = UI.Icons.Rebirth, WorldTravelGui = UI.Icons.Worlds,
  TrainingGroundGui = UI.Icons.Training, OfflineTrainingGui = UI.Icons.Power, InventoryGui = UI.Icons.Inventory,
 }
 -- The shared modal shell: a dimming scrim, a transparent CanvasGroup panel with a responsive
@@ -789,7 +792,6 @@ local NOTICE_THEMES = {
  unlock = {"WORLD PROGRESS", BUTTON_STATES.Cyan[1]}, error = {"PLEASE TRY AGAIN", BUTTON_STATES.Locked[1]},
  level = {"LEVEL UP!", BUTTON_STATES.Claim[1]}, cap = {"MAX LEVEL REACHED", UI.Colors.Gold},
  offline = {"OFFLINE TRAINING", BUTTON_STATES.Claim[1]}, rebirth = {"REBIRTH COMPLETE", Color3.fromRGB(190, 90, 255)},
- success = {"SUCCESS!", BUTTON_STATES.Claim[1]},
 }
 local notification, noticeText, noticeTitle, noticeBar, noticeVersion = nil, nil, nil, nil, 0
 local noticeIcon, noticeSymbol, noticeTween
@@ -824,6 +826,9 @@ function UI.Notify(message, kind)
    end
   end
  end
+ -- Successes never pop up a notice: the result itself (an equipped item, the new World, Power or
+ -- Cash on the HUD) and its sound are the confirmation.
+ if kind == "success" then return end
  if not notification then
   local gui = UI.Screen("NotificationGui", 40)
   notification = UI.Surface(gui, "Notice", UI.Colors.Panel)
@@ -870,10 +875,10 @@ function UI.Notify(message, kind)
  local theme = NOTICE_THEMES[kind] or {"UPDATE", BUTTON_STATES.Cyan[1]}
  noticeTitle.Text, noticeTitle.TextColor3 = theme[1], theme[2]
  noticeBar.BackgroundColor3 = theme[2]
- noticeIcon.Image = kind == "rebirth" and UI.Icons.Rebirth or kind == "success" and UI.Icons.Shop or UI.Icons.Power
- noticeSymbol.Visible = kind == "error" or kind == "success"
+ noticeIcon.Image = kind == "rebirth" and UI.Icons.Rebirth or UI.Icons.Power
+ noticeSymbol.Visible = kind == "error"
  noticeIcon.Visible = not noticeSymbol.Visible
- noticeSymbol.Text, noticeSymbol.TextColor3 = kind == "error" and "!" or "✓", theme[2]
+ noticeSymbol.Text, noticeSymbol.TextColor3 = "!", theme[2]
  noticeText.Text, notification.Visible = message, true
  resizeNotice()
  if noticeTween then noticeTween:Cancel() end

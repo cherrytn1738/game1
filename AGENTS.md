@@ -192,7 +192,7 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 - Power requirements come in bands (`ProgressionConfig.LevelBands`): `9 * Level + 1` below Level 20 (the quick early band: 10, 19, 28, ...), then one band for each Rebirth's 20 new Levels (580 at Level 20, 12,000 at 40, 67,000 at 60, ...), each Level 1.02x the one before inside its band; bands past the listed ones start 1.8x above the band before.
 - Level Cap currently scales as `20 * (Rebirths + 1)` (20, 40, 60, ...; the first Rebirth is at Level 20).
 - Rebirth Power multiplier currently scales as `Rebirths + 1`.
-- The Training base (Power per practice hit at Basic Training) grows from 5 at Level 1 to 33 at Level 20, then holds.
+- The Training base (Power per practice hit at Basic Training) is 5 at every Level; Level never scales Power gain.
 - Launch speed comes from a Level -> speed table built from measured hits (`tools/balance/HitMeasurements`).
 - These are implementation/balance values, not immutable design decisions; `tools/balance` simulates and re-solves them (`.vscode/ECONOMY.md`).
 - Level is the sole long-term determinant of batting distance.
@@ -209,9 +209,9 @@ The server derives every multiplier from the authoritative equipped IDs through 
 
 Formulas (whole Power is rounded down once, after all bonuses):
 
-- Training Power = Training base (by Level) × ground multiplier × Ball × (Rebirths + 1) × any Power juice
+- Training Power = Training base (5) × ground multiplier × Ball × (Rebirths + 1) × any Power juice
 - Hit Power = Training base × 0.37 per second in play (rounded) × Ball × (Rebirths + 1) × any Power juice (no ground; about 50-70% of Basic Training's rate)
-- Offline Power = 25% of the best usable ground's Training rate at the logout Level, for up to 8 hours, × Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (Welcome Back's 3x adds it twice more, up to all of it)
+- Offline Power = 25% of the best usable ground's Training rate (no Level term), for up to 8 hours, × Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (Welcome Back's 3x adds it twice more, up to all of it)
 - Hit Cash = (distance / 80)^1.5 × World Cash multiplier (1, 10, 100) × section multiplier × Bat × any Cash juice, rounded, at least $1
 
 ### Bat
@@ -230,6 +230,7 @@ Current Cash multipliers and prices (each Bat about 1.5x the one before):
 - Lightning: 13x, $1.5M
 - Dragon Bone: 19x, $25M
 - Celestial: 28x, $120M
+- Catastrophe Bat: 2.5x, exclusive to the Starter Pack (never sold for Cash, outside the series)
 
 Bat does not affect Power gain or launch distance.
 
@@ -367,10 +368,12 @@ A new save runs a four-step tutorial in World 1 (`TutorialConfig`), then never a
 
 1. Get 30 Power (any granted Power counts; arrows lead to Basic Training).
 2. Earn $2 Cash from batting (Cash earned, so spending never takes progress back; arrows lead to the tee).
-3. Buy the Sandlot Ball (the first Ball upgrade, $2, 3x Power; arrows lead to its pedestal, where the Shop opens with the Ball spotlit).
-4. Reach Level 20 and Rebirth (the Rebirth menu opens with its buttons spotlit); the server's successful Rebirth completes it.
+3. Purchase and equip the Sandlot Ball (the first Ball upgrade, $2, 3x Power; arrows lead to its pedestal, whose prompt reads Buy). During the tutorial buying it does not equip it: the Inventory tile then returns to the HUD and the spotlight leads to it, its Balls tab and the Sandlot's card, which equips it. It needs a real purchase recorded by the server (`TutorialBoughtBall`) plus the Ball equipped; owning it alone never completes the step. Studio's `OwnAllBalls` is not applied to fresh saves or while the tutorial runs.
+4. Reach Level 20 and Rebirth (the Rebirth menu opens with its buttons spotlit); the server's successful Rebirth completes it (only the player's own Rebirth; the Starter Pack's bonus Rebirth only raises the Level Cap to reach).
 
 The server (`PlayerData`) owns, saves and advances it from its own events only: granted Power, batting Cash (`RecordBattingCash`), purchases, Level and Rebirths. There is no client request that moves it; clients only draw the banner, arrows (`GuideArrows`) and spotlight (`Spotlight`) from the `TutorialStep` / `TutorialProgress` attributes. Saves from before Schema 10, or with malformed tutorial fields, skip it when they already show play (any Rebirth, Level, Power, Cash, bought equipment or later World). In Studio, the Workspace attribute `StudioFreshSave` plays as a brand-new player on a throwaway Studio-only record (to test it).
+
+While the tutorial runs (and before the save has loaded), the persistent HUD shows only the Level bar and Power (`HubInterfaces.TutorialFocus`, from `TutorialStep`): no quick-menu tiles (except those it brings back, `HubInterfaces.TutorialTile`: Inventory from the Sandlot purchase on, Rebirth at the Rebirth step), counters, Batting shortcut, Auto Bat, Power purchases or juice pills. The tutorial's banner, arrows and spotlight, the batting / Training controls, feedback and the menus a step opens still show. Everything returns the moment the step becomes Complete.
 
 ## Offline Training
 
@@ -384,8 +387,37 @@ Offline Power:
 - fills at most half the Power still needed for the Level Cap per return (the Welcome Back 3x up to all of it), so offline never finishes a run by itself
 - respects Level Cap behavior
 - grants once per valid login/session
+- only once the new-player tutorial is complete: a return mid-tutorial earns nothing and shows no Welcome Back screen (its logout time is still used up)
 
 Never trust client time or client-provided offline duration.
+
+## Juice
+
+Two consumable drinks (`JuiceConfig`, stored in the existing `OwnedJuices` / `ActiveJuices` save fields): Power Punch (`power_punch`, 2x Power: Training and batting) and Cash Splash (`cash_splash`, 2x Cash: batting), 600 seconds each.
+
+- The client only asks to USE one by id; the server checks the count, uses up exactly one and saves its expiry time (Unix `os.time()`), so a timer keeps running while the player is offline and ends on its own.
+- Drinking a running juice adds 600 seconds to it (still 2x, never 4x); the two juices run side by side.
+- Offline Training never gets a juice; a hit's juices are snapshotted when its swing is accepted; Training reads them at each grant.
+- Juices never change launch strength, distance, equipment or the Level Cap.
+- Sold in the Shop (Boost Bundle, Power Punch, Cash Splash) and one comes with the Starter Pack; in Studio, `StudioGrantJuice` (on a `StudioFreshSave` save) and `StudioJuiceSeconds` test them.
+- Juice boxes are built from Parts (`JuiceModels`); running juices show as pills on the right of the HUD (`JuiceHUDClient`).
+
+## Monetization
+
+Sold for Robux (`.vscode/MONETIZATION.md`; ids in `MonetizationConfig` and `TrainingConfig`, 0 until created on the Creator Dashboard, when the button reads SOON):
+
+- Three Power developer products in a row under the Level bar (the Batting button below them): +10K / +100K / +1M Power for 11 / 45 / 95 Robux, added exactly (no multipliers) through the normal Level path (`PlayerData.ClaimPowerProduct`)
+- Auto Bat game pass (25 Robux), a top-centre ON/OFF button: while ON, the Bat client presses the normal Swing whenever a manual swing would be accepted and the last hit has settled; the server checks every swing as usual
+- The Training Ground passes and the Welcome Back 3x product (above)
+- The Shop (HUD Shop tile; `ShopClient`, menu "Store"), one scrolling window:
+  - Starter Pack (game pass, 39 Robux, once): +10K Power, +1 Rebirth (a bonus one: Rebirths and the Level Cap rise, nothing resets), 1 Power Punch and the exclusive Catastrophe Bat; given once ever (saved `StarterPackGranted`)
+  - Cash Packs (developer products, 25 / 59 / 115 / 229 Robux): Cash worth 15 / 50 / 125 / 300 normal hits for the player now (Level, current World, equipped Bat; `MonetizationConfig.GetCashPackReward`)
+  - Boosts (developer products): Boost Bundle (2 Power Punch + 2 Cash Splash, 95 Robux), Power Punch or Cash Splash (39 Robux each), added to the Inventory, never started
+  - Training Grounds: Dragon's Lair always, plus the World's premium ground (Cosmic Rift / Time Machine Lab / Quantum Lab, one shared pass), through the existing passes, each with a 3D preview of its cage (`ReplicatedStorage.TrainingGroundModels`)
+  - Gifts: every Shop item can be bought for another player in the server (Gift button → player picker → confirm) through a gift developer product at the same price (`MonetizationConfig.GiftProducts`). The server saves the recipient (and a Cash pack's amount from the recipient's progression) in the buyer's `PendingGifts` before the prompt; the receipt queues the gift in the recipient's saved `GiftInbox`, applied once (`ReceivedGifts`), even after they leave. A gifted ground is a saved `GiftedEntitlements` entry counted exactly like owning its pass
+- Bats and Balls are bought for Cash only at their hub display pedestals (each pedestal's ProximityPrompt); there is no Cash equipment menu, and the Shop is the game's only shop menu
+
+`ProductServer` is the one `ProcessReceipt` handler; every receipt pays once (the saved `RobuxPurchases.Receipts` list). Game-pass ownership comes from Roblox (login and the server's purchase event), never saved or taken from the client. Auto Bat starts OFF each session; the server turns it on only for owners.
 
 ## Worlds
 
@@ -454,7 +486,7 @@ Preserve existing protections:
 - validation/sanitization
 - bounded retry behavior
 
-Current confirmed schema is Schema 10 (Schema 6 removed Tee equipment, Schema 7 added Juice, Schema 8 retired the saved Training Ground selection, Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards, Schema 10 added the new-player tutorial: TutorialCompleted, and while unfinished TutorialStep and TutorialProgress).
+Current confirmed schema is Schema 11 (Schema 6 removed Tee equipment, Schema 7 added Juice, Schema 8 retired the saved Training Ground selection, Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards, Schema 10 added the new-player tutorial: TutorialCompleted, and while unfinished TutorialStep and TutorialProgress, Schema 11 added StarterPackGranted, CashPackQuotes and the gift fields: PendingGifts, GiftInbox, ReceivedGifts, GiftedEntitlements).
 
 The global leaderboards' OrderedDataStores are mirrors of saved values, written from successful saves; PlayerData remains canonical.
 
@@ -489,6 +521,7 @@ Relevant files include:
 - `README.md` - repository/project overview
 - `CLAUDE.md` - Claude-specific current project context when present
 - `ECONOMY.md` - progression and economy balance: formulas, targets, tables and `tools/balance` simulator results
+- `MONETIZATION.md` - Robux products and passes: ids, receipt handling, Auto Bat
 - `CURRENT_STATE.md` - optional current development snapshot when present
 
 Other documentation may be added later when justified, such as:
@@ -542,7 +575,7 @@ Unless asked, do not add:
 - crates
 - quests
 - daily rewards
-- monetization (the two Training Ground game passes and the Welcome Back 3x offline-reward developer product are the approved exceptions)
+- monetization (the approved exceptions are listed under Monetization: the Training Ground passes, the Welcome Back 3x, the three Power products, Auto Bat, and the Shop's Starter Pack, Cash Packs and Boosts)
 - leaderboards (World 1's four global boards are the approved exception)
 - trading
 - rarity systems

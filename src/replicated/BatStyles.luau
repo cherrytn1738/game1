@@ -97,6 +97,19 @@ Styles.Bats = {
   contact = "Supernova",
   idle = "Stars",
  },
+ -- The Starter Pack's exclusive (model built from Parts by the server's CatBatModel): a cream
+ -- barrel whose top is a cat's head (ears, cyan eyes, nose, whiskers), a paw print, gold bands,
+ -- a dark purple grip wrapped in lavender like a tail, and a curled tail at the knob.
+ catastrophe_bat = {
+  parts = {Barrel = look(rgb(250, 240, 225)), Grip = look(rgb(70, 35, 110), M.Fabric), Wrap = look(rgb(190, 150, 245), M.Fabric),
+   Knob = look(rgb(190, 150, 245)), Tail = look(rgb(190, 150, 245)), Bands = look(rgb(245, 200, 80), M.Metal),
+   Ears = look(rgb(250, 240, 225)), InnerEars = look(rgb(255, 150, 190)), Eyes = look(rgb(70, 230, 255), M.Neon),
+   Nose = look(rgb(255, 120, 170)), Whiskers = look(rgb(80, 60, 110)), Paw = look(rgb(170, 120, 240))},
+  light = {rgb(120, 230, 255), 0.8, 5},
+  swing = {colors = {rgb(255, 190, 230), rgb(180, 140, 255)}, lifetime = 0.16},
+  contact = "Sprinkles",
+  idle = "Glitter",
+ },
 }
 
 function Styles.Get(itemId)

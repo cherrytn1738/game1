@@ -199,7 +199,7 @@ local function launch(station, hit)
    end
    if finalSection and not result.rewardAwarded then
     local cashEarned = Progression.GetHitCash(distance, world.cashMultiplier, final.sectionMultiplier,
-     result.batCashMultiplier, PlayerData.GetJuiceMultiplier(player, "Cash"))
+     result.batCashMultiplier, result.cashJuiceMultiplier or 1)
     result.rewardAwarded = true
     result.cashEarned, final.cashEarned = cashEarned, cashEarned
     player.leaderstats.Cash.Value += cashEarned
@@ -207,8 +207,10 @@ local function launch(station, hit)
     player:SetAttribute("LastBatCashSwingId", result.swingId)
     PlayerData.RecordBattingCash(player, cashEarned)
     -- Batting Power: for the seconds the ball was in play, at the hit's Level (ProgressionConfig).
-    local hitPower = Progression.GetHitPowerBase(result.launchLevel, final.flightSeconds)
-    local granted, powerResult = PlayerData.GrantPower(player, hitPower, "CompletedHit", result.ballId)
+    local hitPower = Progression.GetHitPowerBase(final.flightSeconds)
+    -- The Ball and juice bonuses are the swing's snapshot (BattingTimingServer).
+    local granted, powerResult = PlayerData.GrantPower(player, hitPower, "CompletedHit", result.ballId,
+     result.powerJuiceMultiplier or 1)
     final.powerEarned = granted and powerResult.powerGranted or 0
     player:SetAttribute("LastBatPowerEarned", final.powerEarned)
     final.worldCompletionMessage = Progress.Complete(player, world, distance)

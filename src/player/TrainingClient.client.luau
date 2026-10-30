@@ -84,8 +84,8 @@ local function powerPerHit()
  if not ground then return 0 end
  local ball = Equipment.Get("Ball", Player:GetAttribute("EquippedBall"))
  local active = Player:FindFirstChild("ActiveJuices")
- local boost = active and Juice.GetMultiplier(active:GetAttributes(), "Power") or 1
- local base = Progression.GetTrainingBase(Player:GetAttribute("Level") or 1) * ground.powerMultiplier
+ local boost = active and Juice.GetMultiplier(active:GetAttributes(), "Power", workspace:GetServerTimeNow()) or 1
+ local base = Progression.TrainingBase * ground.powerMultiplier
  return Progression.GetPowerGrant(base, Player:GetAttribute("Rebirths") or 0, ball and ball.powerGainMultiplier or 1, boost)
 end
 local function powerPopup(amount)
@@ -187,7 +187,7 @@ function refresh()
  local rebirths = Player:GetAttribute("Rebirths") or 0
  local ball = Equipment.Get("Ball", Player:GetAttribute("EquippedBall"))
  local ballMultiplier = ball and ball.powerGainMultiplier or 1
- local trainingBase = Progression.GetTrainingBase(Player:GetAttribute("Level") or 1)
+ local trainingBase = Progression.TrainingBase
  local trainingAt = Player:GetAttribute("TrainingActive") and Player:GetAttribute("TrainingGround")
  for _, ground in Config.Grounds do
   local row = rows[ground.id]

@@ -5,6 +5,8 @@ local Player = game:GetService("Players").LocalPlayer
 local BattingRemote = Storage:WaitForChild("BattingTiming")
 local Swing = require(Storage:WaitForChild("SwingConfig"))
 local GameAudio = require(Storage:WaitForChild("GameAudio"))
+local Worlds = require(Storage:WaitForChild("WorldConfig"))
+local Monetization = require(Storage:WaitForChild("MonetizationConfig"))
 
 -- The swing's swish (presentation only) peaks when the barrel moves fastest, between Release
 -- and contact. Practice swings use a softer cue.
@@ -358,7 +360,7 @@ local function playSwing()
 	end
 end
 
-table.insert(lifetimeConnections, Tool.Activated:Connect(function()
+local function requestSwing()
 	-- Presentation failure/unsupported rigs cannot disable an otherwise valid request.
 	if Tool.Parent ~= Player.Character or os.clock() < nextInputTime
 		or Player:GetAttribute("TrainingActive") or Player:GetAttribute("HitActive")
@@ -370,7 +372,45 @@ table.insert(lifetimeConnections, Tool.Activated:Connect(function()
 	playSwing()
 	-- Real swings only (not Training practice): starts the swing cinematic and camera zoom.
 	marker:Fire("SwingStart")
-end))
+end
+table.insert(lifetimeConnections, Tool.Activated:Connect(requestSwing))
+
+-- Auto Bat (a game pass; the server sets AutoBatEnabled only for owners): presses Swing for the
+-- player, through the same request as a click, once the last hit has settled
+-- (Monetization.ShouldAutoSwing). The server checks every swing as usual.
+local settledAt = os.clock()
+local function settle() settledAt = os.clock() end
+table.insert(lifetimeConnections, Player:GetAttributeChangedSignal("HitActive"):Connect(settle))
+table.insert(lifetimeConnections, Player:GetAttributeChangedSignal("BattingActive"):Connect(settle))
+local function stationBall()
+	local world = Worlds.Get(Player:GetAttribute("CurrentWorldId"))
+	local area = world and workspace:FindFirstChild(world.stationName)
+	return area and area:FindFirstChild("Baseball")
+end
+task.spawn(function()
+	while not destroyed do
+		task.wait(Monetization.AutoBat.checkSeconds)
+		if not destroyed and Player:GetAttribute("AutoBatEnabled") == true and Tool.Parent == Player.Character then
+			local ball = stationBall()
+			if Monetization.ShouldAutoSwing({
+				enabled = true,
+				batting = Player:GetAttribute("BattingActive") == true,
+				training = Player:GetAttribute("TrainingActive") == true,
+				hitActive = Player:GetAttribute("HitActive") == true,
+				exitPending = Tool:GetAttribute("ExitPending") == true,
+				cinematic = Player:GetAttribute("CinematicCamera") ~= nil or Player:GetAttribute("PortalJourney") ~= nil
+					or Player:GetAttribute("GameFinale") ~= nil,
+				traveling = Player:GetAttribute("WorldTraveling") == true,
+				ballState = ball and ball:GetAttribute("BallState"),
+				serverNow = workspace:GetServerTimeNow(),
+				nextSwingTime = Player:GetAttribute("BatNextSwingTime"),
+				settledSeconds = os.clock() - settledAt,
+			}) then
+				requestSwing()
+			end
+		end
+	end
+end)
 
 -- Client-local presentation only; it never sends a real swing or grants Power.
 local practice = Instance.new("BindableEvent")

@@ -199,7 +199,7 @@ return function(sources, options)
  end
  local function trainContact(s)
   local ground = bestGround(s)
-  local grant = P.GetPowerGrant(P.GetTrainingBase(s.level) * ground.powerMultiplier, s.rebirths, ballMultiplier(s))
+  local grant = P.GetPowerGrant(P.TrainingBase * ground.powerMultiplier, s.rebirths, ballMultiplier(s))
   s.time += A.contact
   s.contacts += 1
   s.trainingPower += grant
@@ -216,7 +216,7 @@ return function(sources, options)
   local landed = math.min(distance, world.endDistance)
   local section = Field.GetSection(landed, world)
   local cash = P.GetHitCash(landed, world.cashMultiplier, section.rewardMultiplier, batMultiplier(s))
-  local power = P.GetPowerGrant(P.GetHitPowerBase(s.level, seconds - A.launchDelay), s.rebirths, ballMultiplier(s))
+  local power = P.GetPowerGrant(P.GetHitPowerBase(seconds - A.launchDelay), s.rebirths, ballMultiplier(s))
   s.cash += cash
   s.earned += cash
   s.battingPower += power
@@ -362,7 +362,7 @@ return function(sources, options)
  -- cap (a share of the Power left to the Level Cap). Returns that, the time-based reward, and
  -- the Power left before the return.
  local function offlinePower(s, seconds)
-  local base = Training.GetOfflineReward(1, 1 + seconds, bestGround(s).id, P.GetTrainingBase(s.level))
+  local base = Training.GetOfflineReward(1, 1 + seconds, bestGround(s).id, P.TrainingBase)
   local timed = P.GetPowerGrant(base, s.rebirths, ballMultiplier(s))
   local remaining = P.GetPowerToLevelCap({Level = s.level, Power = s.power, LevelCap = cap(s)})
   return math.min(timed, Training.GetOfflinePowerLimit(remaining)), timed, remaining
@@ -587,8 +587,8 @@ return function(sources, options)
    probe.rebirths = math.max(0, math.ceil(level / P.LevelsPerRebirth) - 1)
    probe.world = level >= 250 and "world_3" or level >= 150 and "world_2" or "world_1"
    local _, distance, seconds = landing(probe)
-   local batting = P.GetHitPowerBase(level, seconds - A.launchDelay) / (seconds + A.cycleOverhead) * 60
-   local basic = P.GetTrainingBase(level) / A.contact * 60
+   local batting = P.GetHitPowerBase(seconds - A.launchDelay) / (seconds + A.cycleOverhead) * 60
+   local basic = P.TrainingBase / A.contact * 60
    local ground = Training.GetBestGround(probe.rebirths, {}, {world_1 = true, world_2 = level >= 150, world_3 = level >= 250})
    say("  Level %3d  hit %5.0f studs %4.1fs: batting %6.1f vs Basic Training %6.1f (%3.0f%%) vs %s x%d (%4.1f%%)", level,
     distance, seconds, batting, basic, 100 * batting / basic, ground.displayName, ground.powerMultiplier,
@@ -687,7 +687,7 @@ return function(sources, options)
    local world = Worlds.Worlds[1]
    local landed = math.min(distance, world.endDistance)
    local cash = P.GetHitCash(landed, 1, Field.GetSection(landed, world).rewardMultiplier, 1)
-   table.insert(levelRows, string.format("%d,%d,%d,%d,%.1f,%.0f,%.2f,%d", level, required, cumulative, P.GetTrainingBase(level), speed, distance, seconds, cash))
+   table.insert(levelRows, string.format("%d,%d,%d,%d,%.1f,%.0f,%.2f,%d", level, required, cumulative, P.TrainingBase, speed, distance, seconds, cash))
   end
   csv["levels.csv"] = table.concat(levelRows, "\n")
 

@@ -254,8 +254,7 @@ function Training.GetBestGround(rebirths, passes, worlds)
 end
 
 -- Offline base Power for the time away (before Ball and Rebirth, and before the run cap below):
--- trainingBase is the Training base at the Level the player logged out at
--- (ProgressionConfig.GetTrainingBase).
+-- trainingBase is the Training base (ProgressionConfig.TrainingBase, the same at every Level).
 function Training.GetOfflineReward(timestamp, now, groundId, trainingBase)
  local ground = Training.Get(groundId)
  if not Training.OfflineTrainingEnabled or not ground or type(timestamp) ~= "number"

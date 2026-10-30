@@ -374,8 +374,9 @@ Remote.OnServerEvent:Connect(function(player, session, action)
 	state.nextSwingTime = now + Swing.Duration
 	player:SetAttribute("BatNextSwingTime", state.nextSwingTime)
 	state.swingId += 1
-	-- Snapshot the server's Level, Ball ID (its Power bonus) and Bat Cash bonus at swing
-	-- acceptance, so swapping equipment mid-flight cannot change this hit's rewards.
+	-- Snapshot the server's Level, Ball ID (its Power bonus), Bat Cash bonus and active juice
+	-- bonuses at swing acceptance, so swapping equipment, or a juice starting or ending, mid-flight
+	-- cannot change this hit's rewards.
 	local result = {
 		swingId = state.swingId,
   worldId = state.worldId,
@@ -383,6 +384,8 @@ Remote.OnServerEvent:Connect(function(player, session, action)
   launchLevel = launchLevel,
   ballId = player:GetAttribute("EquippedBall"),
   batCashMultiplier = Equipment.Get("Bat", player:GetAttribute("EquippedBat")).cashMultiplier,
+  powerJuiceMultiplier = PlayerData.GetJuiceMultiplier(player, "Power"),
+  cashJuiceMultiplier = PlayerData.GetJuiceMultiplier(player, "Cash"),
   launchSpeedOverride = type(studioSpeed) == "number" and studioSpeed > 0 and studioSpeed or nil,
 		evaluatedAt = now,
 	}

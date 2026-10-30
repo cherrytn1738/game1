@@ -71,9 +71,9 @@ An established architecture decision (it replaced the earlier Bat = Power, Ball 
 
 The server derives every multiplier from the authoritative equipped IDs through `EquipmentConfig`; clients never supply one. Whole Power is rounded down once, after every bonus (formulas in `ProgressionConfig`; tuning in `.vscode/ECONOMY.md`):
 
-- **Training Power** = the Training base at the player's Level (5 at Level 1 up to 33 from Level 20) × ground multiplier × Ball × (Rebirths + 1) × any Power juice.
+- **Training Power** = the Training base (5 at every Level) × ground multiplier × Ball × (Rebirths + 1) × any Power juice.
 - **Hit Power** = the Training base × `HitPowerPerSecond` (0.37) × seconds the ball was in play, rounded, × Ball × (Rebirths + 1) × any Power juice. No ground multiplier: counting the time between hits, batting earns about 50-70% of Basic Training's Power, so Training stays the best Power source.
-- **Offline Power** = 25% of the best usable ground's Training rate at the logout Level (up to 8 hours) × the saved equipped Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (the run cap, below).
+- **Offline Power** = 25% of the best usable ground's Training rate (no Level term; up to 8 hours) × the saved equipped Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (the run cap, below).
 - **Hit Cash** = (distance / 80)^1.5 × the World's `cashMultiplier` (1, 10, 100) × section multiplier × Bat × any Cash juice, rounded, at least $1 (about $1 for an early hit).
 
 A hit snapshots the Ball ID and the Bat's Cash multiplier when the swing is accepted, so swapping equipment mid-flight (which is blocked anyway) cannot change that hit's rewards.
@@ -148,11 +148,11 @@ The All-Star and Championship Balls were removed (their IDs were also cleared fr
 | Chrono Orb (chrono_orb) | 2,200,000 | ×200,000 | ghostly echoes left behind, a swirling time vortex, colour-shifting strands, time ripples |
 
 - **Offers:** each series has its own server-issued purchase token (`EquipmentPurchaseToken_Ball` for World 1's, `EquipmentPurchaseToken_Ball_world_2` for World 2's, `EquipmentPurchaseToken_Ball_world_3` for World 3's). The server finds the series from the token, checks the World unlock, then sells that series' next ball.
-- **Where they're sold:** World 2's ball display (`hub.displays` entry with `series = "world_2"`) and the Equipment menu, where locked cards say "Locked · Unlock World 2". World 1's ball display shows only World 1's series.
+- **Where they're sold:** World 2's ball display (`hub.displays` entry with `series = "world_2"`) only, where locked pedestals say "Unlock Time Travel to buy these." World 1's ball display shows only World 1's series.
 - **Models:** `tools/blender/balls_world2.py` builds them like `balls.py` and exports `assets/models/BallsWorld2.fbx`, to be split into `DisplayItems` the same way. Until then, each shows as a plain sphere in its `appearance` colour.
 - **Effects:** each has its own flight layers like World 1's balls (see Flight layers above).
 
-**World 3 (Future World) balls** are the third series (`series` id `world_3`), one ball per World 3 runway section, sold the same way from World 3's "FUTURE BALLS" display and the Equipment menu. They need World 3 unlocked and none of the other series. Every one beats the Chrono Orb, each about 1.5x the one before, priced for World 3's Cash (×100) and far below `PlayerData`'s 9 trillion Cash cap:
+**World 3 (Future World) balls** are the third series (`series` id `world_3`), one ball per World 3 runway section, sold the same way from World 3's "FUTURE BALLS" display. They need World 3 unlocked and none of the other series. Every one beats the Chrono Orb, each about 1.5x the one before, priced for World 3's Cash (×100) and far below `PlayerData`'s 9 trillion Cash cap:
 
 | Ball (id) | Price | Power | Flight |
 |---|---|---|---|
@@ -183,7 +183,7 @@ Every World's hub has a physical **Ball Display** (that World's ball series) and
 
 - **Item models:** each pedestal shows `ServerStorage.RunwayAssets.DisplayItems.<item id>` when that model exists, scaled to 2 studs and spun about its centre. Without one, it shows a placeholder ball in the item's `appearance` colour with two red seams. To show a designed ball, put its model in `DisplayItems` named by its item ID (for example `practice_ball`).
 - **Labels (client):** a floating label per pedestal shows this player's status (EQUIPPED cyan, OWNED white, FOR SALE gold, LOCKED red), the name, the boost (×1.3 CASH) and the price (red when unaffordable). Items spin and bob locally (`ItemDisplayClient`).
-- **Buying:** the pedestal's ProximityPrompt reads Buy, Equip, Equipped (disabled) or Locked. Triggering it sends the same `EquipmentUpgrade` request as the Equipment menu (Purchase with the server-issued offer token, or Equip), so the server validates everything and the menu's listener shows the result as a notification. Locked items explain why instead of sending a request.
+- **Buying:** the pedestal's ProximityPrompt reads Buy, Equip, Equipped (disabled) or Locked. The pedestals are the only place Bats and Balls are bought (there is no Cash equipment menu; the Inventory only equips). Triggering one sends an `EquipmentUpgrade` request (Purchase with the server-issued offer token, or Equip), so the server validates everything, and `ItemDisplayClient` shows the result as a notification and plays the Purchase / Equip sound. Locked items explain why instead of sending a request.
 
 ## Equipment Progression
 
@@ -302,16 +302,18 @@ Level 1 should produce a short hit far below the World 1 endpoint.
 
 A new save starts a four-step tutorial in World 1 that shows the whole loop in about a minute and a half. It runs once: a completed tutorial never shows again.
 
+**A focused HUD.** While it runs (and before the save loads, so nothing flashes up first), the persistent HUD shows only the Level bar with the Power amount and multiplier above it (`HubInterfaces.TutorialFocus`, read by HUDClient, MonetizationClient and JuiceHUDClient from `TutorialStep`). The quick-menu tiles, the Cash / Rebirth counters, the Batting shortcut, Auto Bat, the Power purchase row and the juice pills are hidden; the tutorial brings back only the tiles it points at (`HubInterfaces.TutorialTile`): the Inventory tile from the Sandlot purchase on, and the Rebirth tile at the Rebirth step. The banner, arrows and spotlight, the batting and Training controls (Swing, Leave), hit and Power feedback, notifications, and the menus a step uses (Inventory, Rebirth) still show. Everything returns the moment the server marks the tutorial Complete, with no respawn. Only the player's own Rebirth completes the Rebirth step; the Starter Pack's bonus Rebirth only raises the Level Cap it waits for.
+
 | Step | Objective (banner) | Done when (server) | Guidance | Target | Measured (Studio, balance pass) |
 |---|---|---|---|---|---|
 | 1 | GET 30 POWER (n/30) | 30 Power granted (any source) | arrows to Basic Training | ~15 s | ~15 s (4 s walk + 6 practice hits at +5/+6: 11.1 s on the plate) |
 | 2 | EARN $2 FROM BATTING ($n/$2) | $2 of batting Cash earned | arrows to the tee | 15-20 s | ~14 s (5 s walk + two hits at $1, 3.5 s each) |
-| 3 | BUY THE SANDLOT BALL ($2 for x3 POWER) | the Sandlot Ball owned (buying equips it) | arrows to its pedestal; the Shop opens there with the Balls tab, then PURCHASE, spotlit | 10-15 s | ~9 s (6 s walk + two clicks) |
-| 4 | REACH LEVEL 20 (n/20), then REBIRTH NOW! | Level 20 (the Level Cap), then a successful Rebirth | "Train to gain Power"; arrows to Basic Training only after 20 s without Power; then the Rebirth menu opens (or the HUD's Rebirth tile is ringed while Training) with REBIRTH, then CONFIRM, spotlit | 45-60 s | ~59 s (8 s walk + 51 s Training from Level 3) |
+| 3 | BUY THE SANDLOT BALL, then EQUIP THE SANDLOT BALL | a real Sandlot purchase recorded by the server (saved as `TutorialBoughtBall`, even when bought earlier in the tutorial), then the Sandlot equipped; during the tutorial buying it does not equip it. Owning it alone never completes the step, and Studio's `OwnAllBalls` is not applied to fresh saves or while the tutorial runs | arrows to its pedestal, where its prompt reads Buy; once bought, the Inventory tile returns and is ringed, then the Inventory's Balls tab and the Sandlot's card are spotlit | 10-15 s | not yet measured (6 s walk + one press + three taps) |
+| 4 | REACH LEVEL 20 (n/20), then REBIRTH NOW! | Level 20 (the Level Cap), then a successful Rebirth | "Train to gain Power"; arrows to Basic Training only after 20 s without Power; then the Rebirth menu opens (or the HUD's Rebirth tile is ringed while Training) with REBIRTH, then CONFIRM, spotlit | 45-60 s | ~233 s with the flat Training base (was ~59 s); needs a later rebalance |
 | | TUTORIAL COMPLETE! | | the banner fades after 5 s | 1.5-2 min | about 1.75 min |
 
 - **Values:** `TutorialConfig` (30 Power, $2, the main Ball series' second ball, Basic Training, World 1; Level 20 is `Progression.GetLevelCap(0)`). The Ball's price and multiplier come from `EquipmentConfig`.
-- **Balance it relies on:** the Training base is +5 Power per practice hit at Level 1 and grows with Level (33 by Level 20); Levels below 20 need `9 * Level + 1` Power (1,729 from Level 1 to 20, under a minute of Training with the Sandlot Ball's 3x); an early hit pays $1 (`ProgressionConfig.GetHitCash`); the first Level Cap is 20. `tools/balance` checks these timings (`.vscode/ECONOMY.md`).
+- **Balance it relies on:** the Training base is +5 Power per practice hit at every Level; Levels below 20 need `9 * Level + 1` Power (1,729 from Level 1 to 20, under a minute of Training with the Sandlot Ball's 3x); an early hit pays $1 (`ProgressionConfig.GetHitCash`); the first Level Cap is 20. `tools/balance` checks these timings (`.vscode/ECONOMY.md`).
 - **Server authority:** `PlayerData` owns the state (session `tutorial`), moves it only from its own events (granted Power, `RecordBattingCash` from `BallLauncher`, purchases, Level, Rebirths; a Rebirth from any step completes it), publishes `TutorialStep` / `TutorialProgress`, and saves a step change soon (the important-save path). There is no client request that moves it. Progress counts what was earned, so spending Cash never takes it back.
 - **Persistence (Schema 10):** `TutorialCompleted`, and while unfinished `TutorialStep` and `TutorialProgress` (a finished save keeps no step or count). Rejoining resumes the saved step and count, moving past anything already done.
 - **Existing players:** a save from before Schema 10, or with malformed tutorial fields, skips the tutorial when it already shows play (any Rebirth, Level above 1, Power, Cash, bought equipment or a World beyond World 1) and starts it otherwise. An out-of-range count resets to 0.
@@ -363,27 +365,51 @@ Schema 9 adds two saved stats for the global leaderboards (see Global Leaderboar
 - **TimePlayed:** whole seconds in the game across all sessions. Server-authoritative: the saved total plus this session's time from the server's own clock (`os.clock`), stopping when the player leaves. It is saved with every normal save (autosave, leave, shutdown); no extra writes.
 - **RobuxSpent:** verified Robux spent in this experience, counted only from purchases the server can verify, never from the client:
   - game passes bought through an in-game prompt (`PromptGamePassPurchaseFinished` with `purchased` true, which Roblox fires on the server), at Roblox's price (`GetProductInfo`), or the configured `robuxPrice` if that lookup fails;
-  - developer product receipts through `PlayerData.RecordRobuxReceipt(player, receipt)`, called once a developer product is granted (today the Welcome Back 3x offer, through `ProductServer`).
+  - developer product receipts through `PlayerData.RecordRobuxReceipt(player, receipt)`, called once a developer product is granted (the Welcome Back 3x offer and the Power, Cash and juice products, through `ProductServer`).
 - **No double counting:** `RobuxPurchases` saves what has been counted: game pass ids (`Passes`) and the 50 most recent receipt `PurchaseId`s (`Receipts`). A repeated event or receipt, in the same session or after a rejoin, adds nothing.
 - **Limits:** passes bought outside the game (such as on the website) and purchases from before tracking began are not counted, and nothing is estimated. Both training passes have `gamePassId` 0 for now, so no Robux can be spent yet and the Robux Spent board shows R$ 0 until the passes are created.
 
+### The Shop (Robux)
+
+The HUD's Shop tile opens the Shop (`ShopClient`, menu "Store"): a purple showcase window with one scrolling list of colourful cards under four headings. It is the game's only shop menu: Bats and Balls are bought with Cash only at their hub display pedestals. Every amount comes from config and server-set attributes; ids still 0 show a grey SOON button. Details and ids: `MONETIZATION.md`.
+- **~ PACK ~ Starter Pack** (game pass, 39 Robux): the Catastrophe Bat large on the left, then +10K POWER, +1 REBIRTH, POWER PUNCH x1 and CATASTROPHE BAT, and the buy button (OWNED once owned). Owned at login or bought in game, it is given once ever: the Bat, one Power Punch (not started), a bonus Rebirth (Rebirths +1 and the Level Cap rise; Level, Power and everything else stay, and banked Power levels up), then 10,000 Power through the normal Level path; saved straight away (`StarterPackGranted`). Its bonus Rebirth never counts as the tutorial's Rebirth (only the player's own Rebirth at the Level Cap, `TryRebirth`, does; the bonus one just raises the Level Cap the tutorial waits for). One notice: "STARTER PACK UNLOCKED! +10K POWER • +1 REBIRTH • POWER PUNCH +1 • CATASTROPHE BAT".
+- **Catastrophe Bat** (`catastrophe_bat`): an exclusive 2.5x Cash Bat (between Jungle and Amethyst), outside every purchase series, never sold for Cash; Cash only, like every Bat. Its model is built from Parts (`CatBatModel`, the bat-template layout): a cream barrel whose top is a cat's head (cream ears with pink insides, glowing cyan eyes, a pink nose, whiskers), lavender paw prints front and back, gold bands, a dark purple grip wrapped in lavender like a tail, and a curled lavender tail at the knob; a soft cyan glow, a pink-to-lavender swing trail and a sprinkle burst on contact.
+- **~ CASH PACKS ~** (developer products): Tiny / Small / Medium / Large for 25 / 59 / 115 / 229 Robux, each worth 15 / 50 / 125 / 300 normal hits of Cash for the player now: a hit at their Level's usual distance (`Progression.GetExpectedHitDistance`, from the measured hits, at most the World's end) in that section of their current World with their equipped Bat, no juice. The card shows the amount from the same formula, so it stays meaningful at every stage. The amount is fixed when the player presses Buy (the server quotes it, saves it, then prompts), so a delayed or retried receipt pays exactly that.
+- **~ BOOSTS ~** (developer products): Boost Bundle (2 Power Punch + 2 Cash Splash, 95 Robux) above Power Punch and Cash Splash (39 Robux each), with the juice-box models. Bought juices go to the Inventory; the player chooses when to USE them.
+- **~ TRAINING GROUNDS ~**: Dragon's Lair (30x, 1000 Robux) always, beside the premium ground in the player's World: Cosmic Rift (World 1, 10x), Time Machine Lab (World 2, 35x) or Quantum Lab (World 3, 120x), all on Cosmic Rift's one 500 Robux pass. Buying asks the server (TrainingRequest "Buy"), exactly as at the cage; owned passes show OWNED. The list follows the player's World. Each card's top half is a 3D preview of the ground's own cage (a clean copy the server publishes to `ReplicatedStorage.TrainingGroundModels`, framed from above one side), then its name, "30x POWER", and the Gift and Robux buttons.
+- **Gifts:** every Shop item also has a square Gift button (a present). It opens a picker of the other players in the server (headshot, display name, @username), then "Gift Power Punch to Josh?" with the price and GIFT / CANCEL (ALREADY OWNED for a permanent item they have). The buyer pays through a gift developer product at the same price; the server saved the recipient (and a Cash pack's amount, from the recipient's own progression) before the prompt, and the receipt queues the gift on the recipient's record so it arrives even if they left (at their next login), exactly once. A gifted Training Ground is a saved entitlement that opens the same grounds as its pass. Details: `MONETIZATION.md`.
+
+### No hotbar
+
+The Roblox backpack hotbar is off (`HUDClient`), so the Bat can't be equipped by hand with the number keys; the batting and Training stations equip it themselves and put it away afterwards.
+
+### Power purchases and Auto Bat
+
+Details, ids and setup steps: `MONETIZATION.md`.
+- **Power purchases:** three buttons in a row under the Level bar, as wide as it, with the Batting button below them: yellow "+10K", red "+100K" and rainbow "+1M", each with the Power bolt leaning out behind the amount and its price in green with the Robux icon in the corner (SOON while the developer product id is 0). They show and hide with the bar. A purchase adds exactly that Power (no Ball, Rebirth or juice multiplier) through the normal Level path, so Level-ups, banking at the Level Cap and the tutorial follow; "+10K POWER" confirms it.
+- **Auto Bat:** a game pass, one button at the very top centre (the flight distance shows just under it), with a bat leaning across its left edge: red "AUTO BAT / ONLY [Robux] 25" until owned, then grey OFF / green ON. It starts OFF each session. While ON, every time the player could swing at the plate (no hit in play, ball back on the tee, past the cooldown) and the last hit settled a second ago, the Bat presses Swing for them; the server checks the swing as usual. It shows while batting and in flight, under the tutorial banner during the tutorial, and hides with menus and cinematics.
+
 ### Juice (Schema 7)
 
-Juice is a consumable item that grants a temporary, server-timed bonus. The architecture is in place, but no juices are defined yet.
-- **Definitions:** `JuiceConfig.DEFINITIONS` entries `{id, displayName, effect, multiplier, durationSeconds, color}`, validated at load. `effect` is `Power` or `Cash`. IDs are persistent and must never be renamed or reused.
-- **Storage:** inside the existing `PlayerProgression` save (Schema 7) as `OwnedJuices` (id → count, up to 999) and `ActiveJuices` (id → whole seconds left, capped at 24 hours). Older saves start with none. A malformed (non-table) field fails closed like other progression; unknown juices and invalid entries are dropped.
-- **Server authority:** only `PlayerData` changes juice state.
-  - `GrantJuice` is server-only (for future rewards, shop, or codes).
-  - `UseJuice` runs on the client's `JuiceRequest` "Use" intent, with a 0.3s cooldown, in `JuiceServer`.
-  - `GetJuiceMultiplier` returns the combined bonus for an effect.
-  - Grants and uses schedule an important save.
-- **Timing:** active juices count down once per second by real elapsed time, only while the player is in the game; timers pause offline.
-- **Stacking:** drinking a juice that is already active adds its duration, up to the cap. Different juices with the same effect multiply.
-- **Effects:**
-  - Power juice multiplies online Power grants (active Training and real hits) inside the single grant path, so whole Power is still rounded once after all bonuses. It does not apply to offline Training.
-  - Cash juice multiplies the hit's Cash reward.
-  - Neither changes launch strength or distance.
-- **Display:** clients read `OwnedJuices` and `ActiveJuices` folder attributes on the player. The HUD multiplier includes active Power juice. The Training rate preview does not yet.
+Juice is a consumable drink that grants a temporary, server-timed bonus. Two are defined (`JuiceConfig`):
+
+| id | Name | Effect | Duration |
+|---|---|---|---|
+| `power_punch` | Power Punch | 2x Power (Training and batting) | 600 s (10 min) |
+| `cash_splash` | Cash Splash | 2x Cash (batting) | 600 s (10 min) |
+
+- **Definitions:** `JuiceConfig.DEFINITIONS` entries `{id, displayName, effect, multiplier, durationSeconds, color, appearance}`, validated at load. `effect` is `Power` or `Cash`. IDs are persistent and must never be renamed or reused.
+- **Storage:** inside the existing `PlayerProgression` save (Schema 7, no schema change) as `OwnedJuices` (id → count, up to 999) and `ActiveJuices` (id → the Unix time, `os.time()`, the juice ends at). A malformed (non-table) field fails closed like other progression; unknown juices, invalid counts, malformed or impossibly long timers and ended timers are dropped. A small timer value (at most 24 hours) is a save from before real-time timers, holding the seconds that were left; it starts again from login.
+- **Real time:** a juice's timer runs on real time, also while the player is offline (10 minutes drunk, 3 minutes played, 2 minutes away: about 5 minutes left on return). The server ends it the moment its time passes (`ExpireJuices`, every second; no client request), and its bonus stops at that moment even before the sweep.
+- **Stacking:** drinking a juice that is already running adds its duration to the time left (capped at 24 hours left); it stays 2x, never 4x. Power Punch and Cash Splash run side by side, independently.
+- **Server authority:** only `PlayerData` changes juice state. The client's `JuiceRequest` "Use" intent names a juice id only (0.3 s cooldown, `JuiceServer`); the server checks the count, uses up exactly one and sets the expiry. `GrantJuice` is server-only. Grants and uses schedule an important save.
+- **Formulas:** Training Power = Training base × ground × Ball × (Rebirths + 1) × Power juice; hit Power = hit base × Ball × (Rebirths + 1) × Power juice; hit Cash = (distance / 80)^1.5 × World × section × Bat × Cash juice. Offline Training never gets a juice. Neither juice changes launch strength, loft, distance, equipment or the Level Cap. Power Punch never touches Cash, Cash Splash never touches Power, and developer product rewards get neither.
+- **Hit snapshot:** a hit's juice bonuses are taken when its swing is accepted (with its Ball and Bat). A juice that ends mid-flight still pays that hit; one drunk mid-flight does not boost it. Training reads the juice at each Power grant.
+- **Inventory (Juice tab):** a card per juice: its juice box, name, "2x Power • 10 min", "Owned: N", the time left under the box while it runs, and USE (grey at 0).
+- **Juice boxes:** `JuiceModels` builds each carton from Parts: body, bands, folded gable top with a sealed seam, a bent straw, and a front label with the juice's icon (Decals, so it shows in ViewportFrames). Power Punch is blue and electric purple with a yellow straw, the Power bolt and thin cyan Neon trims; Cash Splash is green with gold bands, a white straw, the Cash icon, a gold coin and splash drops.
+- **HUD:** a pill per running juice on the right edge, a little above the middle ("2x POWER 09:42", "2x CASH 07:31", in the juice's colours), counting down to the server's expiry time. The HUD multiplier and the Training rate previews include Power Punch.
+- **Feedback:** "POWER PUNCH ACTIVATED! / 2x POWER FOR 10 MIN" (or "POWER PUNCH +10 MIN" when extending) with a short glug and a light ding (`JuiceDrink`).
+- **Getting them:** the Shop sells them (Boost Bundle, Power Punch, Cash Splash) and the Starter Pack includes one Power Punch. In Studio only, on a `StudioFreshSave` throwaway save, the Workspace attribute `StudioGrantJuice` = N gives N of each at login, and `StudioJuiceSeconds` makes a drunk juice last that many seconds (to watch it end).
 - **Size:** `UI.SizeScale` (currently 0.75) shrinks the HUD groups, quick menu, notifications, and the Training status box, each around its own anchor (`UI.Shrink`). Windows use their own larger `UI.MenuScale` (see Scaling) and are capped at 680×550 before scaling. The quick menu never drops below 0.45, so phones stay readable and tappable. The HUD's bottom clearance for the Roblox hotbar and touch controls is not scaled.
 
 ### World-space UI distance

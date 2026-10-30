@@ -256,6 +256,8 @@ end
 -- station ball and in flight, both as Inventory icons. BallDiameter is the ball body's size in
 -- the model, used to fit the 0.8-stud physics ball.
 function ItemDisplay.PublishItemModels()
+ -- The Starter Pack's Bat is built from Parts rather than imported.
+ require(script.Parent:WaitForChild("CatBatModel")).Ensure()
  local ReplicatedStorage = game:GetService("ReplicatedStorage")
  local assets = game:GetService("ServerStorage"):FindFirstChild("RunwayAssets")
  local source = assets and assets:FindFirstChild("DisplayItems")

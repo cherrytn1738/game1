@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local Equipment = require(game:GetService("ReplicatedStorage"):WaitForChild("EquipmentConfig"))
 local Worlds = require(game.ReplicatedStorage:WaitForChild("WorldConfig"))
 local BatStyles = require(game.ReplicatedStorage:WaitForChild("BatStyles"))
+local CatBatModel = require(script.Parent:WaitForChild("CatBatModel"))
 local ServerStorage = game:GetService("ServerStorage")
 local connections = {}
 
@@ -34,6 +35,7 @@ local function attachBatModel(tool, item)
  end
  local old = tool:FindFirstChild("BatModel")
  if old then old:Destroy() end
+ CatBatModel.Ensure()
  local assets = ServerStorage:FindFirstChild("RunwayAssets")
  local folder = assets and assets:FindFirstChild("DisplayItems")
  local template = folder and folder:FindFirstChild(item.id)

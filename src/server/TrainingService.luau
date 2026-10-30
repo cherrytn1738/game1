@@ -169,9 +169,8 @@ function Service.Start()
     -- One grant per hit; hits missed during a stall are skipped (no burst/catch-up rewards).
     repeat state.nextTick += state.ground.interval until state.nextTick > now
     -- Granted at the Level Cap too (Power keeps building there until a Rebirth).
-    -- The Training base grows with Level (ProgressionConfig.GetTrainingBase), times the ground.
-    local progression = Data.GetProgression(player)
-    local base = Progression.GetTrainingBase(progression and progression.Level or 1) * state.ground.powerMultiplier
+    -- The Training base (the same at every Level, ProgressionConfig.TrainingBase), times the ground.
+    local base = Progression.TrainingBase * state.ground.powerMultiplier
     local granted, result = Data.GrantPower(player,base,"ActiveTraining")
     -- Display copies of the grant; the tick count makes repeats visible.
     if granted and result.powerGranted > 0 then

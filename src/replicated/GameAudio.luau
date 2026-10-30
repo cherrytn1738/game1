@@ -96,6 +96,9 @@ GameAudio.Cues = {
  Purchase = {"rbxassetid://9113728756", 0.3, "UI", eq = {0, 0, -3}, follow = {"Confirm", 0.08}},
  -- PSE "Switch Impact On Flip Up Large Metal 2": a chunky mechanical lock-in.
  Equip = {"rbxassetid://9119727134", 0.26, "UI", eq = {1, 0, -3}, cooldown = 0.1},
+ -- Drinking a juice: a short glug (PSE "Glug 2", cut early) and a light, quick ding as it kicks in.
+ JuiceDrink = {"rbxassetid://9114622480", 0.35, "UI", fadeAt = 0.7, fadeSeconds = 0.2, cooldown = 0.3, follow = {"JuiceActivate", 0.6}},
+ JuiceActivate = {"rbxassetid://9119834602", 0.25, "UI", speed = 1.3, eq = {0, 0, -3}},
  -- PSE "Magic Zoom Up Sharp Tubular Whoosh": a rising portal whoosh.
  Travel = {"rbxassetid://9125647922", 0.4, "UI", eq = {0, 0, -3}, cooldown = 1},
 

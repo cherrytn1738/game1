@@ -22,10 +22,12 @@ local function rainbow()
  return ColorSequence.new(points)
 end
 
--- How far up the Bat lineup an item is: 0 for the first, 1 for the last.
+-- How far up the Bat lineup an item is: 0 for the first, 1 for the last. Exclusive Bats sit
+-- outside the lineup and set their own (effectTier).
 local function tierOf(itemId)
  local item = Equipment.GetById(itemId)
- local count = #Equipment.GetItems("Bat")
+ if item and item.exclusive then return item.effectTier or 0 end
+ local count = #Equipment.GetSeriesItems("Bat")
  return item and count > 1 and (item.order - 1) / (count - 1) or 0
 end
 

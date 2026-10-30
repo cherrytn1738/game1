@@ -24,8 +24,6 @@ local GuideArrows = require(script.Parent:WaitForChild("GuideArrows"))
 local Spotlight = require(script.Parent:WaitForChild("Spotlight"))
 
 local CHECK_SECONDS = 0.2
-local SHOP_OPEN_DISTANCE = 14 -- studs from the tutorial Ball's pedestal that open the Shop
-local SHOP_REARM_DISTANCE = 24 -- walking this far away lets it open the Shop again
 local IDLE_SECONDS = 20 -- ReachLevel: arrows return to Training after this long without Power
 local BALL = Equipment.Get("Ball", Tutorial.BallId)
 local WORLD = Worlds.Get(Tutorial.WorldId)
@@ -58,7 +56,7 @@ heading.Text = "TUTORIAL"
 local guide = GuideArrows.new()
 local connections = {}
 local shownStep, shownProgress
-local shopDismissed, rebirthOpened = false, false
+local rebirthOpened = false
 local lastProgressAt = os.clock()
 local finished = false
 
@@ -118,15 +116,12 @@ local function namedButton(screen, name)
  return nil
 end
 
--- The Shop's Balls tab, then (once the Balls show) the tutorial Ball's PURCHASE button.
-local function shopTarget()
- local shop = Player.PlayerGui:FindFirstChild("EquipmentShopGui")
- local list = shop and shop:FindFirstChild("EquipmentList", true)
- local row = list and list:FindFirstChild(Tutorial.BallId)
- if row then
-  return row:FindFirstChild("Action"), shop, string.format("BUY THE %s - $%s", string.upper(BALL.displayName), UI.Number(BALL.price))
- end
- return namedButton(shop, "BallTab"), shop, "OPEN THE BALLS"
+-- Once the tutorial Ball is bought: the Inventory's Balls tab, then the Ball's card (which equips it).
+local function inventoryTarget()
+ local menu = Player.PlayerGui:FindFirstChild("InventoryGui")
+ local card = namedButton(menu, Tutorial.BallId)
+ if card then return card, menu, "EQUIP THE " .. string.upper(BALL.displayName) end
+ return namedButton(menu, "BallTab"), menu, "OPEN YOUR BALLS"
 end
 
 -- The Rebirth menu's REBIRTH button, then its CONFIRM button.
@@ -143,8 +138,12 @@ local function texts(step, progress)
  elseif step == "EarnCash" then
   return string.format("EARN $%d FROM BATTING ($%d/$%d)", Tutorial.CashGoal, progress, Tutorial.CashGoal), "Hit the ball down the runway"
  elseif step == "BuyBall" then
+  -- Once bought, the Ball is equipped from the Inventory (buying it doesn't equip it here).
+  if Player:GetAttribute("TutorialBoughtBall") == true then
+   return "EQUIP THE " .. string.upper(BALL.displayName), "Open your Inventory, then Balls, and tap it"
+  end
   return "BUY THE " .. string.upper(BALL.displayName),
-   string.format("$%s for x%s POWER", UI.Number(BALL.price), UI.Number(BALL.powerGainMultiplier))
+   string.format("Walk up to its display and press Buy ($%s for x%s POWER)", UI.Number(BALL.price), UI.Number(BALL.powerGainMultiplier))
  elseif step == "ReachLevel" then
   local cap = Player:GetAttribute("LevelCap") or Tutorial.RebirthLevel
   return string.format("REACH LEVEL %d (%d/%d)", cap, Player:GetAttribute("Level") or 1, cap), "Train to gain Power"
@@ -184,7 +183,7 @@ local function update()
  if step == Tutorial.Complete then finish() return end
  if step ~= shownStep then
   if shownStep then GameAudio.Play("TutorialStep") bump() end
-  shownStep, shopDismissed, rebirthOpened, lastProgressAt = step, false, false, os.clock()
+  shownStep, rebirthOpened, lastProgressAt = step, false, os.clock()
  elseif progress ~= shownProgress then
   bump()
  end
@@ -196,6 +195,7 @@ local function update()
  local inWorld = Player:GetAttribute("CurrentWorldId") == Tutorial.WorldId
  local busy = Player:GetAttribute("TrainingActive") or Player:GetAttribute("BattingActive") or Player:GetAttribute("HitActive")
  local menu = Interfaces.Current()
+ local bought = Player:GetAttribute("TutorialBoughtBall") == true
  objective.Text, hint.Text = texts(step, progress)
  local needsHome = step == "EarnPower" or step == "EarnCash" or step == "BuyBall"
  if needsHome and not inWorld then hint.Text = "Travel back to " .. WORLD.title end
@@ -209,24 +209,13 @@ local function update()
    route = trainingRoute(root)
   elseif step == "EarnCash" then
    route = battingRoute()
-  elseif step == "BuyBall" then
+  elseif step == "BuyBall" and not bought then
    local pedestal = ballPedestal()
    route = pedestal and {pedestal.Position}
   end
  end
  if route then guide:Show(route) else guide:Hide() end
 
- -- At the tutorial Ball's pedestal, the Shop opens once per approach with the Ball spotlit.
- local pedestal = step == "BuyBall" and alive and inWorld and ballPedestal()
- if pedestal then
-  local distance = (root.Position - pedestal.Position).Magnitude
-  if distance > SHOP_REARM_DISTANCE then shopDismissed = false end
-  if distance < SHOP_OPEN_DISTANCE and not shopDismissed and not menu and Interfaces.CanOpen() then
-   shopDismissed = true
-   Interfaces.Open("Shop")
-   menu = Interfaces.Current()
-  end
- end
  -- The Rebirth menu opens by itself once, as soon as menus can open (after leaving Training).
  if step == "Rebirth" and not rebirthOpened and not menu and Interfaces.CanOpen() then
   rebirthOpened = true
@@ -235,8 +224,11 @@ local function update()
  end
 
  local target, scope, caption, dim
- if step == "BuyBall" and menu == "Shop" then
-  target, scope, caption = shopTarget()
+ if step == "BuyBall" and bought and menu == "Inventory" then
+  target, scope, caption = inventoryTarget()
+ elseif step == "BuyBall" and bought and not menu then
+  -- Only a ring on the HUD's Inventory tile (no darkening outside a menu).
+  target, caption, dim = namedButton(Player.PlayerGui:FindFirstChild("GameHUD"), "Inventory"), "OPEN YOUR INVENTORY", false
  elseif step == "Rebirth" and menu == "Rebirth" then
   target, scope, caption = rebirthTarget()
  elseif step == "Rebirth" and not menu then
@@ -255,11 +247,10 @@ end
 
 table.insert(connections, Player:GetAttributeChangedSignal("Power"):Connect(function() lastProgressAt = os.clock() end))
 table.insert(connections, Player:GetAttributeChangedSignal("TrainingActive"):Connect(function() lastProgressAt = os.clock() end))
-for _, attribute in {"TutorialStep", "TutorialProgress", "Level"} do
+for _, attribute in {"TutorialStep", "TutorialProgress", "TutorialBoughtBall", "Level"} do
  table.insert(connections, Player:GetAttributeChangedSignal(attribute):Connect(update))
 end
 table.insert(connections, Interfaces.Changed:Connect(function()
- -- Closing the Shop by hand means it shouldn't pop open again until the player walks off.
  task.defer(update)
 end))
 table.insert(connections, Player.CharacterRemoving:Connect(function()

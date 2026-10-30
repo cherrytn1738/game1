@@ -81,7 +81,19 @@ local Equipment = {
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(25, 18, 70), Color3.fromRGB(255, 205, 80), Enum.Material.SmoothPlastic),
     },
+    -- Exclusive: only from the Starter Pack (MonetizationConfig.StarterPack), never sold for
+    -- Cash. A side-grade between the Jungle and Amethyst Bats. Its model is built from Parts
+    -- (server CatBatModel).
+    catastrophe_bat = {
+     id = "catastrophe_bat", displayName = "Catastrophe Bat", price = 0,
+     cashMultiplier = 2.5,
+     modelPath = "StarterPack.Bat",
+     source = "Starter Pack", effectTier = .35,
+     appearance = batLook(Color3.fromRGB(250, 240, 225), Color3.fromRGB(70, 35, 110), Enum.Material.SmoothPlastic),
+    },
    },
+   -- Items outside every purchase series (granted, never bought), listed after the series.
+   exclusives = {"catastrophe_bat"},
   },
   Ball = {
    displayName = "Balls", ownedField = "OwnedBalls",
@@ -324,6 +336,18 @@ for _, category in Equipment.CategoryOrder do
    id = item.nextId
   end
   seriesItems[category][series.id or ""] = chain
+ end
+ -- Exclusive items: owned and equipped like the rest, but in no series, so never for sale.
+ for _, id in definition.exclusives or {} do
+  local item = definition.items[id]
+  assert(item and item.id == id and not byId[id] and item.nextId == nil, "Invalid exclusive equipment: " .. id)
+  local field = category == "Ball" and "powerGainMultiplier" or "cashMultiplier"
+  local other = category == "Ball" and "cashMultiplier" or "powerGainMultiplier"
+  assert(type(item[field]) == "number" and item[field] >= 1 and item[field] < math.huge and item[other] == nil,
+   "Invalid exclusive " .. category .. " multiplier: " .. id)
+  item.category, item.order, item.exclusive = category, #items + 1, true
+  byId[id] = item
+  table.insert(items, item)
  end
  for itemId in definition.items do
   assert(byId[itemId] and byId[itemId].category == category, "Unlinked equipment: " .. itemId)

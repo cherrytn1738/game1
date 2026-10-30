@@ -15,8 +15,13 @@ local UI = require(script.Parent:WaitForChild("UICommon"))
 local Interfaces = require(script.Parent:WaitForChild("HubInterfaces"))
 local QuickMenu = require(script.Parent:WaitForChild("QuickMenu"))
 local StarterGui = game:GetService("StarterGui")
-local savedBackpackEnabled
 local savedTouchEnabled
+-- No Roblox hotbar: the Bat is never equipped by hand (number keys), only by the batting and
+-- Training stations, which equip it themselves.
+StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+-- Under the Level bar: the Power purchase row (MonetizationClient builds it inside the bar), then
+-- the Batting teleport. Heights before the HUD size factor.
+local PURCHASE_ROW_GAP, PURCHASE_ROW_HEIGHT = 10, 76
 
 local gui = UI.Screen("GameHUD", 12)
 local root = Instance.new("Frame")
@@ -80,7 +85,7 @@ for index=1,24 do
  stripe.BorderSizePixel, stripe.Rotation = 0,25
  stripeCells[index] = stripe
 end
--- Under the level bar: the Batting teleport (intent only; the server picks the spot).
+-- Under the Power purchase row: the Batting teleport (intent only; the server picks the spot).
 local battingShortcut = UI.Button(root,"BattingShortcut","BATTING")
 battingShortcut.AnchorPoint = Vector2.new(.5,1)
 battingShortcut.Activated:Connect(function()
@@ -88,8 +93,9 @@ battingShortcut.Activated:Connect(function()
  if remote and Interfaces.CanOpen() and not Interfaces.IsOpen() then remote:FireServer() end
 end)
 
--- Tile names map to the interface names registered by each client controller.
-local quickMenuInterfaces = {Shop = "Shop", Rebirth = "Rebirth", Inventory = "Inventory"}
+-- Tile names map to the interface names registered by each client controller. The Shop tile opens
+-- the Robux Shop (ShopClient, "Store"); Bats and Balls are bought at the hub displays ("Shop").
+local quickMenuInterfaces = {Shop = "Store", Rebirth = "Rebirth", Inventory = "Inventory"}
 local navigation = QuickMenu.Create(root, function(name)
  if name == "TrainingTeleport" then
   -- Intent only: the server checks eligibility and chooses the destination.
@@ -223,7 +229,7 @@ local function refresh()
  local ball = Equipment.Get("Ball", Player:GetAttribute("EquippedBall"))
  -- Includes any active Power juice (display copy of the server timers).
  local activeFolder = Player:FindFirstChild("ActiveJuices")
- local juiceBoost = activeFolder and Juice.GetMultiplier(activeFolder:GetAttributes(), "Power") or 1
+ local juiceBoost = activeFolder and Juice.GetMultiplier(activeFolder:GetAttributes(), "Power", workspace:GetServerTimeNow()) or 1
  multiplierLabel.Text = ready and "×" .. UI.Number(Progression.GetPowerMultiplier(rebirths) * ball.powerGainMultiplier * juiceBoost, 2) .. " Multiplier" or ""
  powerTrack.Visible = ready
  local fill = ready and (capped and 1 or math.clamp(power / Progression.PowerRequiredForNextLevel(level),0,1)) or 0
@@ -245,13 +251,6 @@ local function refresh()
  UI.SetButton(speedButton,flightSpeed == 2 and "2×: ON" or "2×: OFF",batting and playing and flightSpeed == 1,flightSpeed == 2)
  UI.SetButton(swingButton,playing and "IN FLIGHT" or "SWING",batting and not playing,true)
  local hideBackpack = Interfaces.IsOpen() or batting or Player:GetAttribute("TrainingActive")
- if hideBackpack and savedBackpackEnabled == nil then
-  savedBackpackEnabled = StarterGui:GetCoreGuiEnabled(Enum.CoreGuiType.Backpack)
-  StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
- elseif not hideBackpack and savedBackpackEnabled ~= nil then
-  StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, savedBackpackEnabled)
-  savedBackpackEnabled = nil
- end
  local touchGui = Player.PlayerGui:FindFirstChild("TouchGui")
  if touchGui then
   if hideBackpack and savedTouchEnabled == nil then
@@ -261,15 +260,22 @@ local function refresh()
    touchGui.Enabled, savedTouchEnabled = savedTouchEnabled, nil
   end
  end
+ -- The tutorial keeps only the Level / Power bar (Interfaces.TutorialFocus), plus the tiles it
+ -- has brought back (Interfaces.TutorialTile: Inventory, then Rebirth), which it points at.
+ local focus = Interfaces.TutorialFocus()
  -- Hidden while a hit is in flight to keep the cinematic view clear.
- wallet.Visible = not Interfaces.IsOpen() and not playing
+ wallet.Visible = not Interfaces.IsOpen() and not playing and not focus
  -- Training keeps the HUD up: the Level / Power bar (watch Power grow), the counters and the
  -- menu tiles. Only batting and a hit in flight clear the screen.
  local training = ready and alive and Player:GetAttribute("TrainingActive") == true
  progression.Visible = not Interfaces.IsOpen() and not batting and not playing
- battingShortcut.Visible = progression.Visible and ready and alive == true and Interfaces.CanOpen()
+ battingShortcut.Visible = progression.Visible and ready and alive == true and Interfaces.CanOpen() and not focus
  UI.SetButton(battingShortcut,"BATTING",Interfaces.CanOpen(),true)
  navigation.Visible = (Interfaces.CanOpen() or training) and not Interfaces.IsOpen()
+  and (not focus or Interfaces.TutorialTile("Inventory") or Interfaces.TutorialTile("Rebirth"))
+ for _, tile in navigation:GetChildren() do
+  if tile:IsA("GuiButton") then tile.Visible = not focus or Interfaces.TutorialTile(tile.Name) end
+ end
  hint.Visible = batting and not playing and os.clock() >= popupUntil
  hint.Text = UserInputService.TouchEnabled and "SWING to hit · LEAVE to exit" or "Click to swing · Space to leave"
  if Interfaces.IsOpen() or not ready or not alive then
@@ -289,8 +295,9 @@ end
 local function resize()
  local width, height = root.AbsoluteSize.X, root.AbsoluteSize.Y
  local narrow, short = width < 600, height < 440
- -- Not scaled: this space keeps the bar clear of the Roblox hotbar and touch controls.
- local bottom = UserInputService.TouchEnabled and (narrow and 172 or 76) or 110
+ -- Not scaled: the space under the bar, for the Power purchase row and the Batting button (and,
+ -- on phones, clear of the touch controls).
+ local bottom = UserInputService.TouchEnabled and narrow and 172 or 110
  local progressWidth = math.min(760,narrow and (width-24)/SIZE or math.max(300,width-390))
  controls.Position = UDim2.new(1,-14,1,(short and -16 or -84) * SIZE)
  -- Reserve the bottom-left counters for desktop; touch keeps them clear of movement controls.
@@ -316,15 +323,17 @@ local function resize()
  powerAmount.TextSize = narrow and 17 or short and 20 or 26
  powerLabel.Position, powerLabel.Size = UDim2.new(.49,0,0,10),UDim2.new(.51,-16,1,-20)
  powerLabel.TextSize = narrow and 20 or short and 22 or 28
- battingShortcut.Position, battingShortcut.Size = UDim2.new(.5,0,1,-bottom+46*SIZE),UDim2.fromOffset(math.min(300,progressWidth),36)
+ battingShortcut.Position = UDim2.new(.5,0,1,-bottom+(PURCHASE_ROW_GAP+PURCHASE_ROW_HEIGHT+8+36)*SIZE)
+ battingShortcut.Size = UDim2.fromOffset(math.min(300,progressWidth),36)
  for index,stripe in stripeCells do
   local x = (index-2)*36
   stripe.Visible = x <= progressWidth+36
   stripe.Position = UDim2.new(0,x,.5,0)
  end
  QuickMenu.Resize(navigation, root.AbsoluteSize)
- -- Phone counters occupy the top-right; place distance immediately beneath them.
- flightDistance.Position = UDim2.new(.5,0,0,narrow and 104 or 10)
+ -- Phone counters occupy the top-right; place distance immediately beneath them. Wider screens
+ -- show it just under the Auto Bat button (MonetizationClient) at the top centre.
+ flightDistance.Position = UDim2.new(.5,0,0,narrow and 104 or 58)
  flightDistance.Size = UDim2.fromOffset(math.min(420,width-32),56)
  distanceTextSize.MaxTextSize = narrow and 34 or 44
  hint.Position = UDim2.new(.5,0,1,-bottom-100*SIZE)
@@ -348,27 +357,7 @@ Player:GetAttributeChangedSignal("HitActive"):Connect(function()
  distanceBall, distanceOrigin, distanceForward = nil,nil,nil
  if Player:GetAttribute("HitActive") then hideCashPopup() end
 end)
-for _, name in {"Power","Level","LevelCap","Rebirths","EquippedBall"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
-local lastLevel = Player:GetAttribute("DataLoaded") and Player:GetAttribute("Level") or nil
-local noticePending = false
-Player:GetAttributeChangedSignal("DataLoaded"):Connect(function()
- lastLevel = Player:GetAttribute("DataLoaded") and Player:GetAttribute("Level") or nil
-end)
-Player:GetAttributeChangedSignal("Level"):Connect(function()
- if noticePending or not Player:GetAttribute("DataLoaded") then return end
- noticePending = true
- -- Coalesce a multi-level grant into one notification; loading/resetting is silent.
- task.defer(function()
-  noticePending = false
-  local level = Player:GetAttribute("Level")
-  if Player:GetAttribute("DataLoaded") and lastLevel and level > lastLevel then
-   local atCap = level >= Player:GetAttribute("LevelCap")
-   UI.Notify("Level " .. UI.Number(lastLevel) .. " → " .. UI.Number(level)
-    .. (atCap and "\nMAX LEVEL REACHED\nREBIRTH AVAILABLE" or ""),atCap and "cap" or "level")
-  end
-  lastLevel = level
- end)
-end)
+for _, name in {"Power","Level","LevelCap","Rebirths","EquippedBall","TutorialStep","TutorialBoughtBall"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
 Player:GetAttributeChangedSignal("CurrentWorldId"):Connect(clearTransient)
 Player.CharacterRemoving:Connect(clearTransient)
 local function characterAdded(character)

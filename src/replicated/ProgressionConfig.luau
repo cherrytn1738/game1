@@ -40,14 +40,11 @@ local Progression = {
  -- Bands past the last listed one: 20 Levels each, starting this many times above the band before.
  LevelBandTailGrowth = 1.8,
  -- Training: base Power per practice hit at Basic Training, before the Ground, Ball, Rebirth and
- -- Juice multipliers. TrainingBase at Level 1, plus TrainingBasePerLevel per Level up to
- -- TrainingBaseMaxLevel (rounded down): 5, 6, 8, 9, ... 33 from Level 20. The early growth lets the
- -- tutorial take ~6 hits for 30 Power yet reach Level 20 in about a minute.
+ -- Juice multipliers. The same at every Level (Level only sets how far hits go).
  TrainingBase = 5,
- TrainingBasePerLevel = 1.5,
- TrainingBaseMaxLevel = 20,
- -- Real hits: Power for each second the ball is in play, as a share of the Training base at the
- -- hit's Level (before Ball, Rebirth and Juice), rounded. Counting the time between hits, batting
+ -- Real hits: Power for each second the ball is in play, as a share of the Training base (before
+ -- Ball, Rebirth and Juice), rounded; never scaled by Level (higher Levels only stay in play
+ -- longer because they hit farther). Counting the time between hits, batting
  -- earns about 50-70% of Basic Training's Power (Training gives half the base per second) and
  -- never uses the Ground, so Training is always the best Power source.
  HitPowerPerSecond = 0.37,
@@ -70,6 +67,11 @@ local Progression = {
   {250, 665}, {263, 667}, {276, 705}, {290, 714}, {303, 719}, {316, 679}, {330, 702}, {343, 685},
   {356, 699}, -- ~6,140 rising to 6,820 studs
   {370, 716}}, -- reaches World 3's end (and every earlier World's)
+ -- About how far a hit at a Level lands (studs), from the same measured hits: {Level, distance}
+ -- points, rising evenly in proportion between them (~2.8% a Level up to 140). For estimates
+ -- only (the Cash packs' "normal hits", MonetizationConfig); real hits are always measured.
+ ExpectedHitDistances = {{1, 81}, {140, 3906}, {141, 4050}, {144, 4450}, {147, 4770}, {150, 5100},
+  {249, 5820}, {250, 6140}, {369, 6820}, {370, 7000}},
  LaunchAngleDegrees = 38,
  -- Cash per hit = World cashMultiplier x (distance / CashReferenceDistance)^CashDistanceExponent
  -- x section rewardMultiplier x Bat cashMultiplier x Cash Juice, rounded, at least 1.
@@ -125,15 +127,9 @@ function Progression.GetPowerGrant(baseAmount, rebirths, ballMultiplier, boostMu
  return math.floor(baseAmount * ballMultiplier * Progression.GetPowerMultiplier(rebirths) * (boostMultiplier or 1))
 end
 
--- Training base Power per practice hit at this Level (Basic Training, before multipliers).
-function Progression.GetTrainingBase(level)
- local levels = math.min(level, Progression.TrainingBaseMaxLevel) - Progression.StartingLevel
- return math.floor(Progression.TrainingBase + Progression.TrainingBasePerLevel * math.max(0, levels))
-end
-
 -- A real hit's base Power: HitPowerPerSecond of the Training base for each second in play.
-function Progression.GetHitPowerBase(level, seconds)
- return math.floor(Progression.GetTrainingBase(level) * Progression.HitPowerPerSecond * math.max(0, seconds) + 0.5)
+function Progression.GetHitPowerBase(seconds)
+ return math.floor(Progression.TrainingBase * Progression.HitPowerPerSecond * math.max(0, seconds) + 0.5)
 end
 
 function Progression.GetLaunchSpeed(level)
@@ -152,6 +148,19 @@ function Progression.GetLaunchSpeed(level)
   local low, high = points[index - 1], points[index]
   if level <= high[1] then
    return low[2] + (high[2] - low[2]) * (level - low[1]) / (high[1] - low[1])
+  end
+ end
+ return points[#points][2]
+end
+
+-- About how far a hit at this Level lands (ExpectedHitDistances; flat past the last point).
+function Progression.GetExpectedHitDistance(level)
+ local points = Progression.ExpectedHitDistances
+ if level <= points[1][1] then return points[1][2] end
+ for index = 2, #points do
+  local a, b = points[index - 1], points[index]
+  if level <= b[1] then
+   return a[2] * (b[2] / a[2]) ^ ((level - a[1]) / (b[1] - a[1]))
   end
  end
  return points[#points][2]
