@@ -60,7 +60,7 @@ Players hit a ball from a batting tee into long progression fields rather than p
 Established design decisions:
 
 - Level alone determines authoritative launch strength.
-- Every valid batting hit launches straight at a configured loft; the old timing mechanic is retired.
+- Every valid batting hit launches straight at a configured, Level-based loft; the old timing mechanic is retired.
 - Ball equipment multiplies Power gained from Training, real hits, and offline Training (`powerGainMultiplier`).
 - Bat equipment multiplies the Cash a real hit earns, only (`cashMultiplier`).
 - Neither changes launch strength, loft, direction or distance; Training Grounds multiply Training Power only; Rebirths multiply Power gain.
@@ -193,7 +193,7 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 - Level Cap currently scales as `20 * (Rebirths + 1)` (20, 40, 60, ...; the first Rebirth is at Level 20).
 - Rebirth Power multiplier currently scales as `Rebirths + 1`.
 - The Training base (Power per practice hit at Basic Training) is 5 at every Level; Level never scales Power gain.
-- Launch speed comes from a Level -> speed table built from measured hits (`tools/balance/HitMeasurements`).
+- Launch speed comes from a Level -> speed table built from measured hits (`tools/balance/HitMeasurements`), at a 38-degree loft. The first Levels use an early launch curve (`ProgressionConfig.EarlyLaunch`: Level 1 at 61.6 studs/s and 48.3 degrees, falling at 0.57x gravity until its first landing; speed and loft blend evenly, and the gravity eases, into the table, 38 degrees and normal gravity by Level 21) so a new player's hit rises and hangs in a light arc instead of skimming into the ground. Bounces and rolling always use normal gravity.
 - These are implementation/balance values, not immutable design decisions; `tools/balance` simulates and re-solves them (`.vscode/ECONOMY.md`).
 - Level is the sole long-term determinant of batting distance.
 

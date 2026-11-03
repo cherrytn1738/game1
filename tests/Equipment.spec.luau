@@ -310,7 +310,10 @@ return function(sources)
   and fresh:GetAttribute("EquippedBat") == "metal_bat" and fresh:GetAttribute("WorldUnlocked_world_2"), "Rebirth preserves unrelated progression")
  ok, state = Data.GrantPower(fresh, 4, "FutureTraining")
  check(ok and state.powerGranted == 8 and fresh:GetAttribute("Power") == 8, "central Ball and Rebirth multipliers (the bought Bat adds no Power)")
- check(Progression.GetLaunchSpeed(Data.GetProgression(fresh).Level) == Progression.GetLaunchSpeed(1), "Power/Rebirth do not affect same-level launch")
+ check(Progression.GetLaunchSpeed(Data.GetProgression(fresh).Level) == Progression.GetLaunchSpeed(1)
+  and Progression.GetLaunchAngle(Data.GetProgression(fresh).Level) == Progression.GetLaunchAngle(1)
+  and Progression.GetLaunchGravityScale(Data.GetProgression(fresh).Level) == Progression.GetLaunchGravityScale(1),
+  "Power/Rebirth do not affect same-level launch")
  check(Progression.GetLaunchSpeed(10) > Progression.GetLaunchSpeed(1), "a higher Level launches faster")
  leave(fresh)
  fresh = join(20)
@@ -1182,6 +1185,46 @@ return function(sources)
  end
  check(speedRises and stepsInOrder and Progression.GetLaunchSpeed(10000) == speedSteps[#speedSteps][2],
   "launch speed rises through the table, then steps through measured speeds and holds after the last")
+ -- The early launch curve: Level 1 hits faster and steeper, blending evenly into the table, which
+ -- (and the 38-degree loft) is untouched from EarlyLaunch.untilLevel on.
+ local early = Progression.EarlyLaunch
+ check(Progression.GetLaunchSpeed(1) == early.speed and Progression.GetLaunchAngle(1) == early.angleDegrees
+  and early.speed > speedTable[1][2] and early.angleDegrees > Progression.LaunchAngleDegrees and early.angleDegrees <= 50,
+  "Level 1 launches at the early speed and a steeper loft (at most 50 degrees)")
+ local smooth, inRange = true, true
+ for level = 2, early.untilLevel + 5 do
+  local speedStep = Progression.GetLaunchSpeed(level) - Progression.GetLaunchSpeed(level - 1)
+  local angleStep = Progression.GetLaunchAngle(level - 1) - Progression.GetLaunchAngle(level)
+  smooth = smooth and speedStep > 0 and speedStep < 2 and angleStep >= 0 and angleStep < 1
+  local angle = Progression.GetLaunchAngle(level)
+  inRange = inRange and angle > 0 and angle >= Progression.LaunchAngleDegrees and angle <= early.angleDegrees
+ end
+ check(smooth and inRange, "early speeds rise and the loft eases down every Level, with no jump into the table")
+ -- The lighter first-flight gravity: strongest at Level 1, easing back to normal gravity by untilLevel.
+ local gravitySmooth = Progression.GetLaunchGravityScale(1) == early.gravityScale
+  and early.gravityScale > 0 and early.gravityScale < 1
+ for level = 2, early.untilLevel do
+  local step = Progression.GetLaunchGravityScale(level) - Progression.GetLaunchGravityScale(level - 1)
+  gravitySmooth = gravitySmooth and step > 0 and step < .05
+ end
+ for _, level in {early.untilLevel, early.untilLevel + 1, 40, 140, 141, 370, 10000} do
+  gravitySmooth = gravitySmooth and Progression.GetLaunchGravityScale(level) == 1
+ end
+ check(gravitySmooth, "early hits fall lighter, easing back to normal gravity by untilLevel and after")
+ -- Eased: the first Levels keep most of it (Level 5 still has over 3/4 of Level 1's reduction).
+ local reduction = 1 - early.gravityScale
+ check(1 - Progression.GetLaunchGravityScale(5) > reduction * .75
+  and Progression.GetLaunchGravityScale(1) < Progression.GetLaunchGravityScale(2),
+  "the lighter gravity is strongest at Level 1 and mostly kept through the first Levels")
+ check(Progression.GetLaunchSpeed(21) == 78 and Progression.GetLaunchAngle(21) == 38 and Progression.GetLaunchGravityScale(21) == 1,
+  "Level 21 launches exactly as before the early curve")
+ local tableKept = Progression.GetLaunchAngle(early.untilLevel) == Progression.LaunchAngleDegrees
+  and Progression.GetLaunchAngle(10000) == Progression.LaunchAngleDegrees
+ for _, point in speedTable do
+  if point[1] >= early.untilLevel then tableKept = tableKept and Progression.GetLaunchSpeed(point[1]) == point[2] end
+ end
+ check(tableKept and speedTable[#speedTable][2] == 505 and speedSteps[1][2] == 660 and speedSteps[#speedSteps][2] == 716,
+  "the measured table and steps are unchanged from untilLevel on")
  check(Progression.GetHitCash(81, 1, 1, 1) == 1 and Progression.GetHitCash(95, 1, 1, 1) == 1 and Progression.GetHitCash(0, 1, 1, 1) == 1,
   "early hits pay $1, so the tutorial's $2 takes two hits")
  check(Progression.GetHitCash(4000, 1, 1, 1) > Progression.GetHitCash(2000, 1, 1, 1)

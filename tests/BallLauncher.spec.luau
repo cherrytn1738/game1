@@ -28,7 +28,9 @@ return function(sources)
  local world=Worlds.Get(Worlds.StartingWorldId)
  local heartbeat=signal()
  local forceLegendary,forceMythic=false,false
- local workspaceFake={Gravity=196.2,GetServerTimeNow=os.clock,Raycast=function() return {} end,
+ -- What the ground raycast finds under the ball (anything: touching the ground; nil: airborne).
+ local rayHit={}
+ local workspaceFake={Gravity=196.2,GetServerTimeNow=os.clock,Raycast=function() return rayHit end,
   GetAttribute=function(_,name)
    if name=="ForceLegendaryHit" then return forceLegendary or nil end
    if name=="ForceMythicHit" then return forceMythic or nil end
@@ -80,7 +82,13 @@ return function(sources)
   game={GetService=function(_,name) return assert(services[name],name) end},
   script={Parent={WaitForChild=function(_,name) return name=="FieldServer" and ready or name end}},
   require=function(name) return assert(modules[name],name) end,
-  Instance={new=function(class) local instance=object() instance.ClassName=class table.insert(created,instance) return instance end},
+  Instance={new=function(class)
+   local instance=object()
+   instance.ClassName=class
+   instance.Destroy=function(self) self.destroyed=true end
+   table.insert(created,instance)
+   return instance
+  end},
   task={delay=function(seconds,fn,...) table.insert(delayed,{seconds=seconds,fn=fn,args=table.pack(...)}) end},
   print=function() end,
   os={clock=function() return testTime end},
@@ -99,7 +107,8 @@ return function(sources)
    local ball=balls[world.id]
    velocity=velocity or ball.AssemblyLinearVelocity
    check((ball.AssemblyLinearVelocity-velocity).Magnitude<.00001,"all Bat/Ball combinations produce identical Level-based velocity")
-   check(result.launchSpeed==Progression.GetLaunchSpeed(5) and result.launchAngleDegrees==38,"launch strength and loft remain Level-based")
+   check(result.launchSpeed==Progression.GetLaunchSpeed(5) and result.launchAngleDegrees==Progression.GetLaunchAngle(5)
+    and result.launchGravityScale==Progression.GetLaunchGravityScale(5),"launch strength, loft and early gravity remain Level-based")
    -- Change the display selection after acceptance; the reward must use the snapshot.
    player:SetAttribute("EquippedBall",ballItem.id=="baseball" and "practice_ball" or "baseball")
    player:SetAttribute("EquippedBat",bat.id=="wood_bat" and "amethyst_bat" or "wood_bat")
@@ -178,6 +187,74 @@ return function(sources)
  normalLaunch.fn(table.unpack(normalLaunch.args,1,normalLaunch.args.n))
  local normalVelocity=balls[world.id].AssemblyLinearVelocity
  Launcher.CancelPlayer(player)
+ -- Juices change only rewards: a hit with both running launches exactly like one without.
+ local juiced={worldId=world.id,session=1,swingId=749,launchLevel=5,ballId="supernova_ball",batCashMultiplier=28,
+  powerJuiceMultiplier=2,cashJuiceMultiplier=2}
+ check(Launcher.TryLaunch(player,juiced,tool),"juiced hit accepted")
+ local juicedLaunch=table.remove(delayed,1)
+ juicedLaunch.fn(table.unpack(juicedLaunch.args,1,juicedLaunch.args.n))
+ check((balls[world.id].AssemblyLinearVelocity-normalVelocity).Magnitude<.00001
+  and juiced.launchGravityScale==normalHit.launchGravityScale,"Power Punch / Cash Splash never change the launch")
+ Launcher.CancelPlayer(player)
+ -- A new player's hit (Level 1) leaves the tee rising, at its early-launch speed and angle.
+ local firstHit={worldId=world.id,session=1,swingId=748,launchLevel=1,ballId="baseball",batCashMultiplier=1}
+ check(Launcher.TryLaunch(player,firstHit,tool),"Level 1 hit accepted")
+ local firstLaunch=table.remove(delayed,1)
+ firstLaunch.fn(table.unpack(firstLaunch.args,1,firstLaunch.args.n))
+ local firstVelocity=balls[world.id].AssemblyLinearVelocity
+ local firstFlat=Vector3.new(firstVelocity.X,0,firstVelocity.Z).Magnitude
+ check(firstVelocity.Y>0 and math.abs(math.deg(math.atan2(firstVelocity.Y,firstFlat))-Progression.EarlyLaunch.angleDegrees)<.001
+  and math.abs(firstVelocity.Magnitude-Progression.EarlyLaunch.speed*Field.HitTimeScale)<.001,
+  "the Level 1 hit launches upward at the early-launch speed and angle")
+ -- Until its first landing an early hit falls at its lighter gravity (the time scale's gravity
+ -- force, lifted by the scale); the first ground contact restores normal gravity for good.
+ local ball=balls[world.id]
+ local function gravityForce(scale)
+  return -Vector3.yAxis*ball.AssemblyMass*workspaceFake.Gravity*(Field.HitTimeScale^2*scale-1)
+ end
+ local earlyScale=Progression.EarlyLaunch.gravityScale
+ local firstAttachment,firstForce=created[#created-1],created[#created]
+ check(firstForce.ClassName=="VectorForce" and earlyScale<1 and firstHit.launchGravityScale==earlyScale
+  and ball:GetAttribute("LaunchGravityScale")==earlyScale and (firstForce.Force-gravityForce(earlyScale)).Magnitude<.001,
+  "the Level 1 hit leaves the tee at the early, lighter gravity")
+ rayHit=nil
+ heartbeat:Fire(1/60)
+ check((firstForce.Force-gravityForce(earlyScale)).Magnitude<.001,"the lighter gravity holds while the ball is airborne")
+ local groundPart={IsDescendantOf=function(_,ancestor) return ancestor==workspaceFake[world.fieldName].Ground end}
+ ball.Touched:Fire(groundPart)
+ check((firstForce.Force-gravityForce(1)).Magnitude<.001,"the first ground contact restores normal gravity")
+ heartbeat:Fire(1/60)
+ check(math.abs(firstForce.Force.Y-gravityForce(1).Y)<.001,"bounces after the first landing keep normal gravity")
+ rayHit={}
+ Launcher.CancelPlayer(player)
+ check(firstForce.destroyed and firstAttachment.destroyed and ball:GetAttribute("LaunchGravityScale")==nil
+  and ball:GetAttribute("BallState")=="Ready","ending the hit removes its force and attachment from the ball")
+ -- The ground raycast counts as a landing too (a Level 10 hit, still partly lighter).
+ local midHit={worldId=world.id,session=1,swingId=747,launchLevel=10,ballId="baseball",batCashMultiplier=1}
+ check(Launcher.TryLaunch(player,midHit,tool),"Level 10 hit accepted")
+ local midLaunch=table.remove(delayed,1)
+ midLaunch.fn(table.unpack(midLaunch.args,1,midLaunch.args.n))
+ local midForce=created[#created]
+ local midScale=Progression.GetLaunchGravityScale(10)
+ check(midScale>earlyScale and midScale<1 and (midForce.Force-gravityForce(midScale)).Magnitude<.001,
+  "a Level 10 hit gets less of the lighter gravity")
+ heartbeat:Fire(1/60)
+ check(math.abs(midForce.Force.Y-gravityForce(1).Y)<.001,"touching the ground (raycast) restores normal gravity")
+ Launcher.CancelPlayer(player)
+ check(midForce.destroyed and created[#created-1].destroyed,"a cancelled hit leaves no force behind")
+ -- Level 21 launches exactly as before the early curve: the table's 78 studs/s at 38 degrees,
+ -- under the plain time-scaled gravity.
+ local level21={worldId=world.id,session=1,swingId=746,launchLevel=21,ballId="baseball",batCashMultiplier=1}
+ check(Launcher.TryLaunch(player,level21,tool),"Level 21 hit accepted")
+ local level21Launch=table.remove(delayed,1)
+ level21Launch.fn(table.unpack(level21Launch.args,1,level21Launch.args.n))
+ local loft=math.rad(38)
+ local oldVelocity=(Vector3.new(0,0,-1)*(78*math.cos(loft))+Vector3.yAxis*(78*math.sin(loft)))*Field.HitTimeScale
+ local oldForce=-Vector3.yAxis*ball.AssemblyMass*workspaceFake.Gravity*(Field.HitTimeScale^2-1)
+ check(level21.launchSpeed==78 and level21.launchAngleDegrees==38 and level21.launchGravityScale==1
+  and (ball.AssemblyLinearVelocity-oldVelocity).Magnitude<.0001 and (created[#created].Force-oldForce).Magnitude<.0001,
+  "a Level 21 hit is unchanged: 78 studs/s, 38 degrees, normal gravity")
+ Launcher.CancelPlayer(player)
  forceLegendary=true
  local legendary={worldId=world.id,session=1,swingId=751,launchLevel=5,ballId="baseball",batCashMultiplier=1}
  check(Launcher.TryLaunch(player,legendary,tool),"legendary hit accepted")
@@ -253,7 +330,9 @@ return function(sources)
  check(Launcher.SpeedUp(player,1),"owner may speed up live hit")
  check((ball.AssemblyLinearVelocity-normalVelocity*2).Magnitude<.00001,"velocity doubles")
  local force=created[#created]
- check(force.ClassName=="VectorForce" and math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*((2*Field.HitTimeScale)^2-1))<.0001,
+ -- (A Level 5 hit is still in its lighter early gravity, which the time scale multiplies too.)
+ local airborneScale=Progression.GetLaunchGravityScale(5)
+ check(force.ClassName=="VectorForce" and math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*((2*Field.HitTimeScale)^2*airborneScale-1))<.0001,
   "extra gravity scales total acceleration by four without changing workspace gravity")
  check(player:GetAttribute("BallFlightSpeed")==2,"speed replicated for UI")
  for _=1,3 do
@@ -262,7 +341,7 @@ return function(sources)
  end
  check((ball.AssemblyLinearVelocity-normalVelocity*2).Magnitude<.00001 and player:GetAttribute("BallFlightSpeed")==2,
   "rejected requests never compound or restore velocity")
- check(math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*((2*Field.HitTimeScale)^2-1))<.0001,"rejected requests leave the 2x gravity unchanged")
+ check(math.abs(force.Force.Y+ball.AssemblyMass*workspaceFake.Gravity*((2*Field.HitTimeScale)^2*airborneScale-1))<.0001,"rejected requests leave the 2x gravity unchanged")
  check(result.launchSpeed==Progression.GetLaunchSpeed(5),"speedup does not change Level launch strength")
  ball.CFrame=CFrame.new(0,.5,-100)
  ball.AssemblyLinearVelocity,ball.AssemblyAngularVelocity=Vector3.zero,Vector3.zero

@@ -59,6 +59,10 @@ There is no command-line Luau here, so the simulator runs in Studio (Edit mode, 
 Hit distance comes from Roblox physics, so the table in `HitMeasurements.luau` must be
 re-measured after any change to hit physics, the runway or `FieldConfig.HitTimeScale`. In Studio
 (`StudioFreshSave` on, so no real save or leaderboard is touched), set the Workspace attribute
-`StudioLaunchSpeed` to a speed, bat once, and read the player's `LastBatDistanceStuds`. Above
+`StudioLaunchSpeed` to a speed (and `StudioLaunchAngle` to a loft in degrees and
+`StudioLaunchGravityScale` to a first-flight gravity scale; the table's measurements are at 38
+degrees and full gravity), bat once, and read the player's `LastBatDistanceStuds`. The simulator
+looks distances up by speed only, so its Levels 1-20 (the early launch curve's steeper loft and
+lighter first flight) are only rough. Above
 about 505 studs/s distance changes erratically from one speed to the next (see ECONOMY.md), so
 every speed the table uses up there is measured exactly, twice.

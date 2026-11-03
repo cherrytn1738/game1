@@ -368,9 +368,12 @@ Remote.OnServerEvent:Connect(function(player, session, action)
  -- (e.g. to reach a World's end portal); the saved Level is untouched. Live servers ignore it.
  local studioLevel = RunService:IsStudio() and workspace:GetAttribute("StudioLaunchLevel")
  local launchLevel = type(studioLevel) == "number" and math.floor(studioLevel) >= 1 and math.floor(studioLevel) or progression.Level
- -- StudioLaunchSpeed launches at exactly that speed instead (to measure hit distances for
+ -- StudioLaunchSpeed / StudioLaunchAngle / StudioLaunchGravityScale launch at exactly that speed /
+ -- angle (degrees) / first-flight gravity scale instead (to measure hit distances for
  -- tools/balance); also Studio only.
  local studioSpeed = RunService:IsStudio() and workspace:GetAttribute("StudioLaunchSpeed")
+ local studioAngle = RunService:IsStudio() and workspace:GetAttribute("StudioLaunchAngle")
+ local studioGravity = RunService:IsStudio() and workspace:GetAttribute("StudioLaunchGravityScale")
 	state.nextSwingTime = now + Swing.Duration
 	player:SetAttribute("BatNextSwingTime", state.nextSwingTime)
 	state.swingId += 1
@@ -387,6 +390,8 @@ Remote.OnServerEvent:Connect(function(player, session, action)
   powerJuiceMultiplier = PlayerData.GetJuiceMultiplier(player, "Power"),
   cashJuiceMultiplier = PlayerData.GetJuiceMultiplier(player, "Cash"),
   launchSpeedOverride = type(studioSpeed) == "number" and studioSpeed > 0 and studioSpeed or nil,
+  launchAngleOverride = type(studioAngle) == "number" and studioAngle > 0 and studioAngle < 90 and studioAngle or nil,
+  launchGravityScaleOverride = type(studioGravity) == "number" and studioGravity > 0 and studioGravity <= 1 and studioGravity or nil,
 		evaluatedAt = now,
 	}
 	result.contact = BallLauncher.TryLaunch(player, result, tool)

@@ -73,6 +73,15 @@ local Progression = {
  ExpectedHitDistances = {{1, 81}, {140, 3906}, {141, 4050}, {144, 4450}, {147, 4770}, {150, 5100},
   {249, 5820}, {250, 6140}, {369, 6820}, {370, 7000}},
  LaunchAngleDegrees = 38,
+ -- The first Levels' hits: at the table's 55 studs/s a 38-degree hit only rises ~2 studs and lands
+ -- ~20 studs out (Roblox gravity, 196 studs/s^2), then rolls, so it looks like a grounder. Level 1
+ -- launches at this speed and angle instead, and both blend evenly back into LaunchSpeedTable and
+ -- LaunchAngleDegrees by untilLevel (from where nothing changes). Until its first landing the
+ -- ball also falls at gravityScale x normal gravity (a lighter, longer arc; BallLauncher), which
+ -- eases back to 1 by untilLevel (most of it kept through ~Level 5); bounces and rolling always
+ -- use normal gravity. Measured at Level 1: ~0.52 s in the air (full gravity: ~0.28 s) and still
+ -- ~90 studs ($1). A softer landing rolls less, so less gravity needs more lift, not less speed.
+ EarlyLaunch = {untilLevel = 21, speed = 61.6, angleDegrees = 48.3, gravityScale = 0.57},
  -- Cash per hit = World cashMultiplier x (distance / CashReferenceDistance)^CashDistanceExponent
  -- x section rewardMultiplier x Bat cashMultiplier x Cash Juice, rounded, at least 1.
  CashReferenceDistance = 80,
@@ -132,7 +141,13 @@ function Progression.GetHitPowerBase(seconds)
  return math.floor(Progression.TrainingBase * Progression.HitPowerPerSecond * math.max(0, seconds) + 0.5)
 end
 
-function Progression.GetLaunchSpeed(level)
+-- How much of EarlyLaunch still applies at this Level: 1 at Level 1, falling evenly to 0 at untilLevel.
+local function earlyShare(level)
+ local early = Progression.EarlyLaunch
+ return math.clamp((early.untilLevel - level) / (early.untilLevel - 1), 0, 1)
+end
+
+local function tableSpeed(level)
  local steps = Progression.LaunchSpeedSteps
  if steps and level >= steps[1][1] then
   local speed = steps[1][2]
@@ -151,6 +166,25 @@ function Progression.GetLaunchSpeed(level)
   end
  end
  return points[#points][2]
+end
+
+-- Launch speed (studs/s), angle (degrees) and first-flight gravity scale for a Level: the only
+-- inputs to a hit's distance.
+function Progression.GetLaunchSpeed(level)
+ local speed = tableSpeed(level)
+ return speed + (Progression.EarlyLaunch.speed - tableSpeed(1)) * earlyShare(level)
+end
+
+function Progression.GetLaunchAngle(level)
+ local angle = Progression.LaunchAngleDegrees
+ return angle + (Progression.EarlyLaunch.angleDegrees - angle) * earlyShare(level)
+end
+
+-- Eased (smoothstep), so the first Levels keep most of the lighter gravity and it settles gently
+-- into normal gravity near untilLevel.
+function Progression.GetLaunchGravityScale(level)
+ local share = earlyShare(level)
+ return 1 + (Progression.EarlyLaunch.gravityScale - 1) * share * share * (3 - 2 * share)
 end
 
 -- About how far a hit at this Level lands (ExpectedHitDistances; flat past the last point).

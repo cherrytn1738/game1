@@ -17,7 +17,7 @@ Players approach a batting tee to enter batting mode.
 While batting:
 
 - The player is positioned and locked at the batting location.
-- Click/tap to swing; every valid swing launches straight downfield at a fixed configured loft.
+- Click/tap to swing; every valid swing launches straight downfield at a configured loft (38 degrees, steeper for the first Levels; see below).
 - Level alone determines launch speed. There is no timing fan, quality, spray, or timing power bonus.
 - The server validates station occupancy, session, cooldown, ball readiness, Level, and launch.
 - Space / touch Leave exits batting; the established animation and camera remain.
@@ -717,7 +717,8 @@ Malformed new fields are repaired; LevelCap is derived, never trusted from a sav
 - Training base Power per practice hit = `5 + 1.5 * (Level - 1)` rounded down up to Level 20 (5, 6, 8, ... 33), then 33.
 - A valid finalized field hit grants Power once, through server-only
   `PlayerData.GrantPower(player, baseAmount, source)`: the Training base × `HitPowerPerSecond` (0.37) × the seconds the ball was in play, rounded. Active training uses this API; offline grants use the same private grant path inside the atomic load transaction.
-- Speed comes from `LaunchSpeedTable` ({Level, speed} points, linear between them and flat after the last), with fixed 38-degree loft.
+- Speed comes from `LaunchSpeedTable` ({Level, speed} points, linear between them and flat after the last), with a 38-degree loft (`Progression.GetLaunchSpeed` / `GetLaunchAngle`).
+- **Early launch curve** (`EarlyLaunch`): at the table's 55 studs/s a 38-degree hit only rose ~2 studs over the tee and first landed ~17 studs out, then rolled (Roblox gravity is 196 studs/s²), so the first hits looked like grounders; a faster, steeper launch alone still dropped out of the air in about 0.28 s. Level 1 now launches at 61.6 studs/s and 48.3 degrees (41 forward, 46 up) and falls at 0.57x gravity until its first landing (through the hit's existing VectorForce, sized from the ball's mass; Workspace.Gravity is untouched). The first ground contact restores normal gravity for the bounces and roll. The extra speed and loft shrink evenly to nothing by Level 21; the lighter gravity eases out (smoothstep: about 0.62x at Level 5, 0.75x at 10, 0.91x at 15, 0.997x at 20), and from Level 21 the measured table, 38 degrees and normal gravity take over unchanged. A softer landing bounces and rolls less, so the lower gravity is paired with a little more lift rather than less forward speed. Measured at Level 1 against full gravity (66 studs/s at 42 degrees): first flight 0.28 s to about 0.52 s, apex 7.5 to about 12-12.7 studs, first bounce 22 to about 34-35 studs, final distance 91 to about 84-96 studs, still $1 (Levels 1-6 measured at $1, so the tutorial's $2 takes two hits).
   Level is snapshotted at swing acceptance; Power, Rebirths, Bat, and Ball
   do not modify launch speed. Physics still determines actual final distance; the table is built from measured hits (`tools/balance/HitMeasurements`).
 - `PlayerData.CanRebirth(player)` checks eligibility. `TryRebirth(player)` also

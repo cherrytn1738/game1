@@ -35,7 +35,7 @@ local function resetBall(station)
  ball.AssemblyLinearVelocity, ball.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
  ball.CFrame = teeFrame(station)
  ball:SetAttribute("BallState", "Ready")
- for _, name in {"LaunchLevel", "LaunchAngleDegrees", "LaunchSpeed", "CurrentSectionId",
+ for _, name in {"LaunchLevel", "LaunchAngleDegrees", "LaunchSpeed", "LaunchGravityScale", "CurrentSectionId",
   "LegendaryHitUserId", "LegendaryLaunchAt", "MythicHitUserId", "MythicLaunchAt", "PortalCaptured"} do
   ball:SetAttribute(name, nil)
  end
@@ -108,8 +108,11 @@ local function launch(station, hit)
  local flat = Vector3.new(difference.X, 0, difference.Z)
  if flat.Magnitude < 0.01 then warn("HitDirection must be separated from the tee.") cleanup(station, hit) return end
  local forward = flat.Unit
- result.launchAngleDegrees = Progression.LaunchAngleDegrees
+ result.launchAngleDegrees = result.launchAngleOverride or Progression.GetLaunchAngle(result.launchLevel)
  result.launchSpeed = result.launchSpeedOverride or Progression.GetLaunchSpeed(result.launchLevel)
+ result.launchGravityScale = result.launchGravityScaleOverride or Progression.GetLaunchGravityScale(result.launchLevel)
+ -- Early Levels fall at a lighter gravity until the first landing (ProgressionConfig.EarlyLaunch).
+ hit.airborneGravityScale = result.launchGravityScale
  local loft = math.rad(result.launchAngleDegrees)
  ball.CFrame = originFrame
  ball.Anchored = false
@@ -122,12 +125,18 @@ local function launch(station, hit)
  ball:SetAttribute("LaunchLevel", result.launchLevel)
  ball:SetAttribute("LaunchAngleDegrees", result.launchAngleDegrees)
  ball:SetAttribute("LaunchSpeed", result.launchSpeed)
+ ball:SetAttribute("LaunchGravityScale", result.launchGravityScale)
  player:AddReplicationFocus(ball)
  hit.focused = true
  hit.character = character
 
  -- Ground-only rolling resistance is a physics force, never a scripted trajectory.
  -- A sphere otherwise retains substantial rolling energy on a flat Roblox floor.
+ -- The same force carries the time scale's extra gravity (and lifts some of it off an early
+ -- hit's first flight).
+ local function gravityForce(speed)
+  return -Vector3.yAxis * ball.AssemblyMass * Workspace.Gravity * (speed^2 * hit.airborneGravityScale - 1)
+ end
  hit.attachment = Instance.new("Attachment")
  hit.attachment.Name = "RollingResistanceAttachment"
  hit.attachment.Parent = ball
@@ -136,7 +145,7 @@ local function launch(station, hit)
  hit.force.Attachment0 = hit.attachment
  hit.force.ApplyAtCenterOfMass = true
  hit.force.RelativeTo = Enum.ActuatorRelativeTo.World
- hit.force.Force = -Vector3.yAxis * ball.AssemblyMass * Workspace.Gravity * (timeScale^2 - 1)
+ hit.force.Force = gravityForce(timeScale)
  hit.force.Parent = ball
  hit.speed = timeScale
  -- Only publish the speed when 2x is available; the HUD shows its button from this.
@@ -255,10 +264,20 @@ local function launch(station, hit)
   return capture.from:Lerp(gateCenter, ease) + swirl
  end
 
+ -- The first landing ends the lighter early gravity: bounces and rolling use normal gravity.
+ local function landed()
+  if hit.airborneGravityScale == 1 then return end
+  hit.airborneGravityScale = 1
+  hit.force.Force = gravityForce(hit.speed)
+ end
+
  -- Preserve the Milestone 9 fast-bounce contact fix. Contact records a landing,
  -- but never ends a moving hit.
  hit.groundContact = ball.Touched:Connect(function(part)
-  if station.hit == hit and not hit.finished and part:IsDescendantOf(station.field.Ground) then sample(ball.Position, true) end
+  if station.hit == hit and not hit.finished and part:IsDescendantOf(station.field.Ground) then
+   landed()
+   sample(ball.Position, true)
+  end
  end)
  hit.tracking = RunService.Heartbeat:Connect(function(dt)
   if station.hit ~= hit or hit.finished then return end
@@ -290,11 +309,12 @@ local function launch(station, hit)
    return
   end
   local contact = Workspace:Raycast(position, -Vector3.yAxis * (ball.Size.Y / 2 + 0.1), rayParams)
+  if contact then landed() end
   local section = sample(position, contact ~= nil)
   local grounded = section ~= nil and contact ~= nil
   if ball:GetAttribute("CurrentSectionId") ~= (section and section.id) then ball:SetAttribute("CurrentSectionId", section and section.id) end
   local horizontal = Vector3.new(velocity.X, 0, velocity.Z)
-  local force = -Vector3.yAxis * ball.AssemblyMass * Workspace.Gravity * (speed^2 - 1)
+  local force = gravityForce(speed)
   if grounded and math.abs(velocity.Y) < 2 * speed and horizontal.Magnitude > 0.01 then
    local acceleration = math.min(Field.RollingDeceleration * speed^2, horizontal.Magnitude / math.max(dt, 1/240) * 0.5)
    force -= horizontal.Unit * ball.AssemblyMass * acceleration
@@ -310,8 +330,8 @@ local function launch(station, hit)
   elseif position.Y < Field.GroundTop - 50 then finish("out of bounds", true)
   elseif simulationSeconds >= Field.MaximumFlightSeconds then finish("timeout", true) end
  end)
- print(string.format("[BallLaunch] %s / %s: Level %d, loft %.1f, speed %.1f",
-  player.Name, world.id, result.launchLevel, result.launchAngleDegrees, result.launchSpeed))
+ print(string.format("[BallLaunch] %s / %s: Level %d, loft %.1f, speed %.1f, gravity x%.2f",
+  player.Name, world.id, result.launchLevel, result.launchAngleDegrees, result.launchSpeed, result.launchGravityScale))
 end
 
 -- Seconds after an accepted swing before the launch, so the ball visibly leaves the tee at
