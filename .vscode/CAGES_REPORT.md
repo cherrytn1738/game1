@@ -17,7 +17,7 @@ early.
 | 2 | Pharaoh's Tomb | PharaohsTombCage | `4185b2b` | 40 meshes, about 145K triangles |
 | 3 | Gladiator Colosseum | GladiatorColosseumCage | `8c6130f` | 44 meshes, about 107K triangles |
 | 4 | Samurai Dojo | SamuraiDojoCage | `23a06cf` | 53 meshes, about 98K triangles |
-| 5 | Time Machine Lab | TimeMachineLabCage | | |
+| 5 | Time Machine Lab | TimeMachineLabCage | `9ac7256` | 58 meshes, about 91K triangles, 25 moving parts |
 | 6 | Sandbox Diamond | SandboxDiamondCage | | |
 | 7 | Pinball Cage | PinballCage | | |
 | 8 | Cereal Bowl Stadium | CerealBowlCage | | |
@@ -148,6 +148,31 @@ early.
   - **Drifting only:** three pocket watches and an hourglass. Each of these is several meshes, and the
     pieces must move together.
 - **New emitter:** `ChronoMotes`.
+
+### World 4, all five
+- **Names and effects:** the template names are unchanged (SandboxDiamondCage, PinballCage,
+  CerealBowlCage, ToySoldierCage, SnowGlobeCage). The Snow Globe keeps its snow swirl practice effect.
+- **Legacy styles:** your place still holds the previous World 4 models, built on the standard cage.
+  Their mesh names stay in `TrainingCageStyles` as legacy entries next to the new ones, so the old
+  models stay coloured until the new ones are imported over them. Remove those entries after the
+  import; I'll do it when you say the models are in.
+
+### Sandbox Diamond
+- **Frame:** the sandbox is a hexagon round the cage, so it doesn't read as a rectangle. Its wall is
+  two boards high, with a single low board as a step at the door. Twelve posts of doubled boards carry
+  board beams.
+- **Walls and roof:** a blue rope play net between the posts, four triangular shade sails at
+  alternating corner heights (yellow, red, blue, green) for the roof, and bunting along the beams.
+- **Floor:** sand inside the hexagon, rake lines down the pitch lane and round the batter's ground,
+  and sand heaps along the walls.
+- **Pail:** a yellow pail tipped on its side on a sand heap, its mouth to the batter. The ball rests on
+  its lower lip at PITCH, and sand spills out.
+- **Screen:** a round green plastic sand sifter on edge, with a square mesh and a ring round the window.
+- **Bat rack:** four toy shovels standing in a blue crate by the left wall.
+- **Toys:** three sandcastles. The big one outside the front has a pinwheel that turns. There are
+  also starfish moulds, shells, a toy dump truck, a rake and spare pails.
+- **Beach ball:** it bobs and turns. Its opposite gores share a mesh, so each mesh is centred on the
+  ball.
 
 ## Things that didn't work or were skipped
 (none yet)

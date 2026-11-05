@@ -728,13 +728,45 @@ local function withParts(base, extra)
 end
 local TOY_RED, TOY_YELLOW, TOY_BLUE, TOY_GREEN = rgb(232, 60, 54), rgb(255, 206, 44), rgb(52, 122, 234), rgb(66, 186, 90)
 
+-- Sandbox Diamond: a hexagonal plank sandbox under shade sails. The beach ball's four meshes (its
+-- opposite gores share a mesh, so each is centred on the ball) turn and bob together; the pinwheel's
+-- two blade pairs turn on its axle (Blender +Y).
+local SAND_PLANK, SAND_GRAIN = rgb(204, 150, 92), rgb(238, 210, 150)
+local function beachBall(color)
+ local entry = style(color, M.SmoothPlastic, {spin = 30, spinAxis = Vector3.yAxis})
+ entry.bob, entry.bobSpeed = 0.35, 1.3
+ return entry
+end
 Styles.SandboxDiamondCage = {
- parts = withParts(standardParts("Sand", {frame = TOY_RED, pads = TOY_YELLOW, net = rgb(60, 130, 230), machine = TOY_YELLOW, trim = TOY_BLUE}), {
-  SandBorder = style(rgb(214, 164, 104), M.Wood), SandHeaps = style(rgb(238, 210, 150), M.Sand),
-  SandPail = style(TOY_YELLOW, M.SmoothPlastic), SandPailRim = style(TOY_BLUE, M.SmoothPlastic),
+ -- Legacy entries (standardParts and the first scenery) keep the previous model, built on the
+ -- standard cage, styled until the new one is imported over it; drop them after the import.
+ parts = withParts(withParts(standardParts("Sand", {frame = TOY_RED, pads = TOY_YELLOW, net = rgb(60, 130, 230), machine = TOY_YELLOW, trim = TOY_BLUE}), {
+  SandBorder = style(rgb(214, 164, 104), M.Wood), SandBeachBall = style(TOY_RED, M.SmoothPlastic),
+ }), {
+  SandBoards = style(SAND_PLANK, M.Wood), SandBoardsDark = style(rgb(160, 110, 64), M.Wood),
+  SandBolts = style(rgb(150, 154, 162), M.Metal), SandRope = style(rgb(236, 226, 200), M.Fabric),
+  SandNet = style(rgb(52, 126, 230), M.Fabric),
+  SandSailYellow = style(TOY_YELLOW, M.Fabric), SandSailRed = style(TOY_RED, M.Fabric),
+  SandSailBlue = style(TOY_BLUE, M.Fabric), SandSailGreen = style(TOY_GREEN, M.Fabric),
+  SandBuntingRed = style(TOY_RED, M.Fabric), SandBuntingYellow = style(TOY_YELLOW, M.Fabric), SandBuntingBlue = style(TOY_BLUE, M.Fabric),
+  SandFloor = style(SAND_GRAIN, M.Sand), SandHeaps = style(SAND_GRAIN, M.Sand), SandRakeLines = style(rgb(214, 184, 120), M.Sand),
+  SandPail = style(TOY_YELLOW, M.SmoothPlastic), SandPailRim = style(TOY_BLUE, M.SmoothPlastic), SandPailStar = style(TOY_RED, M.SmoothPlastic),
+  SandSifter = style(TOY_GREEN, M.SmoothPlastic), SandSifterMesh = style(rgb(36, 130, 64), M.SmoothPlastic),
   SandShovelHandles = style(TOY_RED, M.SmoothPlastic), SandShovelScoops = style(TOY_BLUE, M.SmoothPlastic),
-  SandCastle = style(rgb(232, 204, 144), M.Sand), SandBeachBall = style(TOY_RED, M.SmoothPlastic),
+  SandCrate = style(TOY_BLUE, M.SmoothPlastic),
+  SandCastle = style(rgb(232, 204, 144), M.Sand), SandCastleDark = style(rgb(206, 176, 116), M.Sand),
+  SandFlags = style(TOY_RED, M.Fabric), SandSticks = style(rgb(246, 240, 226), M.Wood),
+  SandPinwheelA = style(TOY_RED, M.SmoothPlastic, {spin = 120, spinAxis = Vector3.zAxis}),
+  SandPinwheelB = style(TOY_YELLOW, M.SmoothPlastic, {spin = 120, spinAxis = Vector3.zAxis}),
+  SandBallRed = beachBall(TOY_RED), SandBallYellow = beachBall(TOY_YELLOW), SandBallBlue = beachBall(TOY_BLUE),
+  SandBallWhite = beachBall(rgb(250, 250, 246)),
+  SandStarfish = style(rgb(255, 128, 76), M.SmoothPlastic), SandMoulds = style(TOY_GREEN, M.SmoothPlastic),
+  SandShells = style(rgb(255, 220, 204), M.SmoothPlastic),
+  SandTruckCab = style(TOY_RED, M.SmoothPlastic), SandTruckBed = style(TOY_YELLOW, M.SmoothPlastic),
+  SandTruckWheels = style(rgb(30, 30, 34), M.Rubber), SandGrass = style(rgb(92, 164, 72), M.SmoothPlastic),
+  SandPlate = style(rgb(250, 250, 246), M.SmoothPlastic), SandBall = style(rgb(248, 248, 244), M.SmoothPlastic),
  }),
+ effects = {{kind = "SunMotes", position = b(-1, 10, 6), size = Vector3.new(30, 9, 46)}},
  tint = {color = rgb(255, 248, 232), brightness = 0.03, contrast = 0.04, saturation = 0.12},
 }
 
