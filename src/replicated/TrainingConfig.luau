@@ -62,7 +62,7 @@ local Training = {
     accent = Color3.fromRGB(200, 36, 36), frame = Color3.fromRGB(34, 30, 32), net = Color3.fromRGB(46, 40, 40),
     banner = Color3.fromRGB(190, 30, 30), lights = true, decorations = {}}},
   {id = "time_machine_lab", displayName = "Time Machine Lab", sharesPass = "cosmic_rift", powerMultiplier = 35, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(46, 50, 62), turfMaterial = M.DiamondPlate,
+   theme = {template = "TimeMachineLabCage", turf = Color3.fromRGB(46, 50, 62), turfMaterial = M.DiamondPlate,
     lane = Color3.fromRGB(70, 230, 255), laneMaterial = M.Neon,
     accent = Color3.fromRGB(70, 230, 255), frame = Color3.fromRGB(196, 150, 70), net = Color3.fromRGB(110, 70, 200),
     banner = Color3.fromRGB(40, 30, 100), lights = true, decorations = {}}},

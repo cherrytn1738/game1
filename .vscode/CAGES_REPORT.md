@@ -16,7 +16,7 @@ early.
 | 1 | Caveman Camp | CavemanCampCage | `59f14ee` | 33 meshes, about 96K triangles |
 | 2 | Pharaoh's Tomb | PharaohsTombCage | `4185b2b` | 40 meshes, about 145K triangles |
 | 3 | Gladiator Colosseum | GladiatorColosseumCage | `8c6130f` | 44 meshes, about 107K triangles |
-| 4 | Samurai Dojo | SamuraiDojoCage | | |
+| 4 | Samurai Dojo | SamuraiDojoCage | `23a06cf` | 53 meshes, about 98K triangles |
 | 5 | Time Machine Lab | TimeMachineLabCage | | |
 | 6 | Sandbox Diamond | SandboxDiamondCage | | |
 | 7 | Pinball Cage | PinballCage | | |
@@ -120,6 +120,34 @@ early.
   bamboo groves, and a raked gravel garden with three mossy rocks.
 - **Koi pond:** it is along the left wall, with lily pads and four koi that circle it. A deer-scarer
   rocks at its end.
+
+### Time Machine Lab (World 2's showpiece)
+- **Plan:** an oval rotunda (superellipse, power 4) of brass and glass, under a glass dome with brass
+  ribs. A gear crown turns round the oculus lantern.
+- **Wall gears:** a train of three meshing gears on each side wall. Each turns at a speed set by its
+  tooth count, opposite to its neighbour.
+- **Armillary:** three toothed rings turn on their own axes round a glowing core over the middle. It
+  floats; there is no rod, so the rings never pass through anything.
+- **Clock-face floor:** about 19 studs across, centred at y 13, so it stays clear of the batter's
+  boxes. It has Roman numerals, minute ticks and a sunburst.
+- **Clock hands:** each hand is symmetric (a tip at one end, a counterweight ring of the same length at
+  the other), so it can spin about its own middle. `TrainingStadium` turns a part about its
+  bounding-box centre.
+- **Time portal:**
+  - It is centred on the ball and made large enough to rise over the screen; its lower part sinks into
+    the floor.
+  - The swirl, its core and the toothed ring all turn about the ball.
+  - At first the portal sat entirely behind the screen, so I enlarged it and lowered the screen.
+- **Screen:** riveted brass, with a bolted porthole flange, two pressure gauges, a nameplate, and
+  copper pipes with valve wheels.
+- **Lab:** tesla coils with sparking arcs, copper pipes, a pressure tank (with steam), a control
+  console, and a gear and clock over the door.
+- **Relics:**
+  - **Turning and drifting:** a caveman's club, a pharaoh's mask, a Roman helmet, a samurai helmet,
+    a dinosaur skull and a rocket.
+  - **Drifting only:** three pocket watches and an hourglass. Each of these is several meshes, and the
+    pieces must move together.
+- **New emitter:** `ChronoMotes`.
 
 ## Things that didn't work or were skipped
 (none yet)

@@ -375,6 +375,78 @@ for index, letter in {"A", "B", "C", "D", "E", "F"} do
   {sway = 4, swaySpeed = 0.8 + index * 0.07, phase = index * 1.1, light = {rgb(255, 170, 110), 9, 0.9}})
 end
 
+-- Time Machine Lab (the paid World 2 ground): gear trains turn on both walls (each gear at its own
+-- speed by its tooth count, neighbours in opposite directions), the armillary's rings turn about
+-- their own axes, the floor clock's hands sweep round, the portal's ring and swirl turn, and relics
+-- from every era drift and turn under the dome.
+local function spun(color, material, spin, axis, extra)
+ local entry = style(color, material, extra)
+ entry.spin, entry.spinAxis = spin, axis
+ return entry
+end
+local CHRONO_BRASS, CHRONO_DARK, CHRONO_CYAN, CHRONO_VIOLET = rgb(214, 160, 72), rgb(146, 100, 44), rgb(90, 230, 255), rgb(170, 100, 255)
+local function drift(color, material, spinSpeed, bobSpeed, phase, extra)
+ local entry = spun(color, material, spinSpeed, Vector3.yAxis, extra)
+ entry.bob, entry.bobSpeed, entry.phase = 0.45, bobSpeed, phase
+ return entry
+end
+local function floating(color, material, extra)
+ local entry = style(color, material, extra)
+ entry.bob, entry.bobSpeed, entry.phase = 0.5, 0.9, 0.6
+ return entry
+end
+Styles.TimeMachineLabCage = {
+ parts = {
+  ChronoBrass = style(CHRONO_BRASS, M.Metal), ChronoBrassFrame = style(CHRONO_BRASS, M.Metal),
+  ChronoBrassPlate = style(CHRONO_BRASS, M.DiamondPlate), ChronoBrassDark = style(CHRONO_DARK, M.Metal),
+  ChronoRivets = style(CHRONO_DARK, M.Metal), ChronoScreen = style(CHRONO_BRASS, M.Metal), ChronoConsole = style(CHRONO_DARK, M.Metal),
+  ChronoDomeRibs = style(CHRONO_BRASS, M.Metal), ChronoPortalRing = style(CHRONO_BRASS, M.Metal),
+  ChronoCopper = style(rgb(200, 104, 58), M.Metal), ChronoCoils = style(rgb(200, 104, 58), M.Metal),
+  ChronoIron = style(rgb(60, 60, 68), M.Metal), ChronoFloorGrate = style(rgb(60, 60, 68), M.DiamondPlate),
+  ChronoGlass = style(rgb(190, 225, 235), M.Glass, {transparency = 0.6, shadow = false}),
+  ChronoDome = style(rgb(190, 225, 235), M.Glass, {transparency = 0.6, shadow = false}),
+  ChronoClockFace = style(rgb(244, 236, 214), M.Marble), ChronoClockInk = style(rgb(28, 22, 20), M.SmoothPlastic),
+  ChronoGauges = style(rgb(244, 236, 214), M.SmoothPlastic), ChronoButtons = style(rgb(255, 80, 50), M.Neon, {pulse = 1.4}),
+  ChronoGlow = style(CHRONO_CYAN, M.Neon, {pulse = 0.5}),
+  ChronoArcs = style(rgb(190, 240, 255), M.Neon, {pulse = 3, shadow = false, light = {rgb(150, 220, 255), 12, 1.5}}),
+  ChronoCore = style(rgb(255, 236, 170), M.Neon, {pulse = 0.7, light = {rgb(255, 220, 150), 22, 2}}),
+  ChronoPortalRim = style(CHRONO_CYAN, M.Neon, {pulse = 0.9}),
+  ChronoPortalCore = style(rgb(240, 250, 255), M.Neon, {light = {rgb(170, 150, 255), 14, 2.5}}),
+  ChronoPortalSwirl = spun(CHRONO_VIOLET, M.Neon, -90, Vector3.zAxis, {shadow = false}),
+  ChronoPortalGear = spun(CHRONO_DARK, M.Metal, 20, Vector3.zAxis),
+  ChronoCrownGear = spun(CHRONO_BRASS, M.Metal, 8, Vector3.yAxis),
+  ChronoHandMinute = spun(rgb(28, 22, 20), M.Metal, 30, Vector3.yAxis),
+  ChronoHandHour = spun(rgb(28, 22, 20), M.Metal, 2.5, Vector3.yAxis),
+  ChronoGearA = spun(CHRONO_BRASS, M.Metal, 12, Vector3.xAxis), ChronoGearB = spun(CHRONO_DARK, M.Metal, -18, Vector3.xAxis),
+  ChronoGearC = spun(CHRONO_BRASS, M.Metal, 28.8, Vector3.xAxis), ChronoGearD = spun(CHRONO_BRASS, M.Metal, -12, Vector3.xAxis),
+  ChronoGearE = spun(CHRONO_DARK, M.Metal, 18, Vector3.xAxis), ChronoGearF = spun(CHRONO_BRASS, M.Metal, -28.8, Vector3.xAxis),
+  -- Armillary ring axes in part space (a Blender direction (x, y, z) is (-x, z, y)).
+  ChronoRingA = spun(CHRONO_BRASS, M.Metal, 10, Vector3.yAxis),
+  ChronoRingB = spun(CHRONO_DARK, M.Metal, -16, Vector3.new(-1, 0.35, 0).Unit),
+  ChronoRingC = spun(CHRONO_BRASS, M.Metal, 24, Vector3.new(-0.3, -0.2, 1).Unit),
+  ChronoFloatClub = drift(rgb(130, 88, 50), M.Wood, 20, 0.7, 0), ChronoFloatMask = drift(GOLD, M.Metal, -15, 0.8, 1),
+  ChronoFloatHelmet = drift(rgb(186, 120, 58), M.Metal, 18, 0.75, 2), ChronoFloatKabuto = drift(rgb(30, 26, 26), M.SmoothPlastic, -22, 0.85, 3),
+  ChronoFloatSkull = drift(rgb(232, 224, 200), M.SmoothPlastic, 14, 0.65, 4), ChronoFloatRocket = drift(rgb(240, 242, 246), M.SmoothPlastic, -25, 0.9, 5),
+  -- The pocket watches (with their faces and ticks) and the hourglass (frame, glass and sand) drift
+  -- together, each piece with the same motion.
+  ChronoFloatWatchA = floating(GOLD, M.Metal), ChronoFloatWatchB = floating(GOLD, M.Metal), ChronoFloatWatchC = floating(GOLD, M.Metal),
+  ChronoFloatWatchFaces = floating(rgb(244, 236, 214), M.SmoothPlastic), ChronoFloatWatchTicks = floating(rgb(28, 22, 20), M.SmoothPlastic),
+  ChronoFloatHourglass = floating(CHRONO_BRASS, M.Metal),
+  ChronoFloatHourglassGlass = floating(rgb(200, 235, 245), M.Glass, {transparency = 0.5, shadow = false}),
+  ChronoFloatSand = floating(rgb(240, 206, 120), M.Sand),
+  ChronoPlate = style(rgb(244, 236, 214), M.SmoothPlastic), ChronoBall = style(rgb(248, 248, 244), M.SmoothPlastic),
+ },
+ effects = {
+  {kind = "CoilSparks", position = b(-13.6, 29.4, 8.2), size = Vector3.new(2.6, 2.6, 2.6)},
+  {kind = "CoilSparks", position = b(11.6, 29.4, 8.2), size = Vector3.new(2.6, 2.6, 2.6)},
+  {kind = "Stars", position = b(3, 24.5, 3), size = Vector3.new(6, 6, 1)},
+  {kind = "Stars", position = b(-1, 11, 14.4), size = Vector3.new(2, 2, 2)},
+  {kind = "ChronoMotes", position = b(-1, 10, 8), size = Vector3.new(30, 10, 48)},
+  {kind = "Steam", position = b(-6, 33, 6.4), size = Vector3.new(0.4, 0.3, 0.4)},
+ },
+ tint = {color = rgb(250, 240, 222), brightness = 0, contrast = 0.1, saturation = 0.12},
+}
+
 -- ---------- World 3 (Future World) ----------
 -- From tools/blender/solar_rooftop_cage.py, robo_factory_cage.py, biodome_lab_cage.py,
 -- lunar_base_cage.py and quantum_lab_cage.py, more intricate down the row.
@@ -759,6 +831,8 @@ Styles.Emitters = {
  Petals = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 190, 214), rgb(255, 230, 238)), LightEmission = 0.3, Size = fade(0.3),
   Rate = 6, Lifetime = range(5, 8), Speed = range(0.2, 0.6), EmissionDirection = Enum.NormalId.Bottom, SpreadAngle = Vector2.new(60, 60),
   Acceleration = Vector3.new(0.4, -0.4, 0), RotSpeed = range(-90, 90)},
+ ChronoMotes = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 220, 140), rgb(120, 230, 255)), LightEmission = 0.9,
+  Size = fade(0.22), Rate = 10, Lifetime = range(3, 6), Speed = range(0.2, 0.7), SpreadAngle = Vector2.new(180, 180), RotSpeed = range(-120, 120)},
  GoldDust = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 226, 150)), LightEmission = 0.6, Size = fade(0.18),
   Transparency = NumberSequence.new(0.3), Rate = 8, Lifetime = range(5, 8), Speed = range(0.05, 0.3), SpreadAngle = Vector2.new(180, 180)},
  -- World 3
