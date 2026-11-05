@@ -57,7 +57,7 @@ local Training = {
     accent = Color3.fromRGB(180, 30, 36), frame = Color3.fromRGB(236, 230, 214), net = Color3.fromRGB(176, 120, 60),
     banner = Color3.fromRGB(150, 24, 30), lights = true, decorations = {}}},
   {id = "samurai_dojo", displayName = "Samurai Dojo", requiredRebirths = 12, powerMultiplier = 70, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(196, 190, 132), turfMaterial = M.Fabric,
+   theme = {template = "SamuraiDojoCage", turf = Color3.fromRGB(196, 190, 132), turfMaterial = M.Fabric,
     lane = Color3.fromRGB(150, 104, 64), laneMaterial = M.WoodPlanks,
     accent = Color3.fromRGB(200, 36, 36), frame = Color3.fromRGB(34, 30, 32), net = Color3.fromRGB(46, 40, 40),
     banner = Color3.fromRGB(190, 30, 30), lights = true, decorations = {}}},

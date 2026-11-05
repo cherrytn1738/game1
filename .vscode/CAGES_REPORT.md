@@ -15,7 +15,7 @@ early.
 |---|---|---|---|---|
 | 1 | Caveman Camp | CavemanCampCage | `59f14ee` | 33 meshes, about 96K triangles |
 | 2 | Pharaoh's Tomb | PharaohsTombCage | `4185b2b` | 40 meshes, about 145K triangles |
-| 3 | Gladiator Colosseum | GladiatorColosseumCage | | |
+| 3 | Gladiator Colosseum | GladiatorColosseumCage | `8c6130f` | 44 meshes, about 107K triangles |
 | 4 | Samurai Dojo | SamuraiDojoCage | | |
 | 5 | Time Machine Lab | TimeMachineLabCage | | |
 | 6 | Sandbox Diamond | SandboxDiamondCage | | |
@@ -96,6 +96,30 @@ early.
   They are behind the arena wall, so they are mostly seen from outside; the spectators in the upper
   arches are the crowd seen from inside.
 - **Motion:** the crowd's four groups bob a quarter beat apart (a wave), and the brazier flames pulse.
+
+### Samurai Dojo
+- **Frame:** every hoop is a vermilion torii: black-footed pillars, a tie beam, a central strut with a
+  gold plaque, and an upswept lintel.
+- **Walls:** shoji between the torii, with a black frame, a lattice on both faces, paper, and a slatted
+  transom above.
+- **Doorway:** a split indigo curtain hangs in it, and the opened sliding doors are pushed aside behind
+  the wall.
+- **Roof:** a curved hip-and-gable pagoda roof whose corners sweep up, with tile ridges, hips, white
+  rafter ends and golden fish (shachi) on the ridge.
+- **Floor:** a plank floor, with tatami along both walls and a black border round the batter's ground.
+  The batter's boxes are left open, so the chalk shows.
+- **Launcher:** a bamboo spring arm bent over a lashed cross pole, with its cut-bamboo cup holding the
+  ball at PITCH.
+- **Screen:** a six-fold gold screen. The middle panel holds the window, a crane flies across the left
+  leaves, and a red sun and a pine bough are on the right.
+- **Inside:** six red paper lanterns hang from the tie beams and sway out of step, each with a warm
+  light. There is also a katana stand, bokken, a suit of armour, a taiko drum, a bonsai and two
+  hanging scrolls. The brush strokes on the scrolls are abstract, not real writing.
+- **Outside:** a cherry tree at the front-right corner dropping petals (a new `Petals` emitter, also
+  falling lightly inside the hall). There are also stone lanterns, stepping stones from the door, two
+  bamboo groves, and a raked gravel garden with three mossy rocks.
+- **Koi pond:** it is along the left wall, with lily pads and four koi that circle it. A deer-scarer
+  rocks at its end.
 
 ## Things that didn't work or were skipped
 (none yet)

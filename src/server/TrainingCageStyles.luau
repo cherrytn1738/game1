@@ -330,6 +330,51 @@ for index, letter in {"A", "B", "C", "D"} do
  Styles.GladiatorColosseumCage.parts["ArenaCrowdHeads" .. letter] = style(rgb(226, 170, 128), M.SmoothPlastic, table.clone(motion))
 end
 
+local DOJO_RED, DOJO_BLACK, DOJO_WOOD = rgb(214, 54, 34), rgb(24, 20, 20), rgb(82, 56, 38)
+local BAMBOO_GREEN, BLOSSOM_PINK = rgb(170, 180, 92), rgb(255, 184, 210)
+Styles.SamuraiDojoCage = {
+ parts = {
+  DojoTorii = style(DOJO_RED, M.SmoothPlastic), DojoToriiBlack = style(DOJO_BLACK, M.SmoothPlastic),
+  DojoLacquer = style(DOJO_BLACK, M.SmoothPlastic), DojoRoofTrim = style(DOJO_BLACK, M.SmoothPlastic),
+  DojoWoodDark = style(DOJO_WOOD, M.Wood), DojoLattice = style(DOJO_WOOD, M.Wood),
+  DojoPaper = style(rgb(248, 244, 232), M.SmoothPlastic, {transparency = 0.08}),
+  DojoRoof = style(rgb(70, 74, 84), M.ClayRoofTiles), DojoRoofTiles = style(rgb(54, 58, 66), M.SmoothPlastic),
+  DojoRafters = style(rgb(236, 232, 220), M.SmoothPlastic), DojoGold = style(GOLD, M.Metal),
+  DojoFloor = style(rgb(170, 118, 72), M.WoodPlanks), DojoTatami = style(rgb(196, 188, 122), M.Fabric),
+  DojoTatamiEdge = style(DOJO_BLACK, M.Fabric),
+  DojoBamboo = style(BAMBOO_GREEN, M.SmoothPlastic), DojoBambooNodes = style(rgb(128, 142, 66), M.SmoothPlastic),
+  DojoBambooLeaves = style(rgb(100, 156, 62), M.SmoothPlastic), DojoRope = style(rgb(200, 170, 112), M.Fabric),
+  DojoScreenGold = style(rgb(232, 184, 74), M.Foil), DojoCraneWhite = style(rgb(250, 250, 246), M.SmoothPlastic),
+  DojoInk = style(DOJO_BLACK, M.SmoothPlastic), DojoCraneRed = style(rgb(220, 50, 40), M.SmoothPlastic),
+  DojoPine = style(rgb(52, 108, 66), M.SmoothPlastic), DojoNoren = style(rgb(30, 42, 104), M.Fabric),
+  DojoArmour = style(rgb(160, 28, 28), M.SmoothPlastic), DojoCords = style(rgb(230, 180, 50), M.Fabric),
+  DojoDrum = style(rgb(122, 56, 30), M.Wood), DojoDrumSkin = style(rgb(236, 220, 184), M.Leather),
+  DojoBonsai = style(rgb(60, 122, 60), M.SmoothPlastic), DojoScroll = style(rgb(248, 244, 232), M.Fabric),
+  DojoStone = style(rgb(160, 160, 154), M.Slate), DojoGravel = style(rgb(214, 210, 196), M.Pebble),
+  DojoGravelLines = style(rgb(188, 184, 170), M.Pebble),
+  DojoLanternGlow = style(rgb(255, 220, 140), M.Neon, {pulse = 0.3}),
+  DojoBark = style(rgb(82, 56, 52), M.Wood), DojoBlossom = style(BLOSSOM_PINK, M.SmoothPlastic),
+  DojoBlossomLight = style(rgb(255, 220, 230), M.SmoothPlastic), DojoPetals = style(BLOSSOM_PINK, M.SmoothPlastic),
+  DojoWater = style(rgb(76, 140, 166), M.Glass, {transparency = 0.35, shadow = false}),
+  DojoPondBed = style(rgb(36, 46, 40), M.SmoothPlastic), DojoLilyPads = style(rgb(76, 152, 76), M.SmoothPlastic),
+  -- The koi and their white patches circle the pond together; the deer-scarer rocks.
+  DojoKoi = style(rgb(255, 116, 26), M.SmoothPlastic, {spin = 25, spinAxis = Vector3.yAxis}),
+  DojoKoiWhite = style(rgb(250, 250, 246), M.SmoothPlastic, {spin = 25, spinAxis = Vector3.yAxis}),
+  DojoShishi = style(BAMBOO_GREEN, M.SmoothPlastic, {sway = 10, swaySpeed = 0.8}),
+  DojoPlate = style(rgb(248, 244, 232), M.SmoothPlastic), DojoBall = style(rgb(248, 248, 244), M.SmoothPlastic),
+ },
+ effects = {
+  {kind = "Petals", position = b(16.2, 40.6, 7), size = Vector3.new(8, 4, 8)},
+  {kind = "Petals", position = b(-1, 10, 11), size = Vector3.new(26, 1, 44)},
+ },
+ tint = {color = rgb(255, 246, 236), brightness = 0.02, contrast = 0.05, saturation = 0.1},
+}
+-- Six red paper lanterns sway on their cords, each a little out of step, with a warm light inside.
+for index, letter in {"A", "B", "C", "D", "E", "F"} do
+ Styles.SamuraiDojoCage.parts["DojoLantern" .. letter] = style(rgb(210, 46, 36), M.SmoothPlastic,
+  {sway = 4, swaySpeed = 0.8 + index * 0.07, phase = index * 1.1, light = {rgb(255, 170, 110), 9, 0.9}})
+end
+
 -- ---------- World 3 (Future World) ----------
 -- From tools/blender/solar_rooftop_cage.py, robo_factory_cage.py, biodome_lab_cage.py,
 -- lunar_base_cage.py and quantum_lab_cage.py, more intricate down the row.
@@ -711,6 +756,9 @@ Styles.Emitters = {
  Incense = {Texture = SMOKE, Color = ColorSequence.new(rgb(236, 230, 220)), LightEmission = 0.1, Size = grow(0.3, 1.6),
   Transparency = grow(0.6, 1), Rate = 4, Lifetime = range(3, 5), Speed = range(0.6, 1.2), SpreadAngle = Vector2.new(8, 8),
   Acceleration = Vector3.new(0.15, 0.3, 0), RotSpeed = range(-30, 30)},
+ Petals = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 190, 214), rgb(255, 230, 238)), LightEmission = 0.3, Size = fade(0.3),
+  Rate = 6, Lifetime = range(5, 8), Speed = range(0.2, 0.6), EmissionDirection = Enum.NormalId.Bottom, SpreadAngle = Vector2.new(60, 60),
+  Acceleration = Vector3.new(0.4, -0.4, 0), RotSpeed = range(-90, 90)},
  GoldDust = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 226, 150)), LightEmission = 0.6, Size = fade(0.18),
   Transparency = NumberSequence.new(0.3), Rate = 8, Lifetime = range(5, 8), Speed = range(0.05, 0.3), SpreadAngle = Vector2.new(180, 180)},
  -- World 3
