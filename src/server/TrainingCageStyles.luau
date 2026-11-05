@@ -863,16 +863,44 @@ Styles.CerealBowlCage = {
  tint = {color = rgb(255, 250, 238), brightness = 0.03, contrast = 0.04, saturation = 0.1},
 }
 
+-- Toy Soldier Fort: a painted toy fort under a striped tent. The wind-up soldier's key turns about
+-- its shaft (Blender +Y) and the four tower flags wave out of step.
+local FORT_TAN, FORT_BLUE, FORT_RED, FORT_GOLD = rgb(220, 174, 112), rgb(46, 82, 184), rgb(214, 40, 40), rgb(255, 200, 64)
 Styles.ToySoldierCage = {
- parts = withParts(standardParts("Fort", {frame = rgb(30, 50, 110), pads = rgb(214, 40, 40), net = rgb(40, 40, 50),
+ -- Legacy entries keep the previous model (built on the standard cage) styled until the new one is
+ -- imported over it; drop them after the import.
+ parts = withParts(withParts(standardParts("Fort", {frame = rgb(30, 50, 110), pads = rgb(214, 40, 40), net = rgb(40, 40, 50),
   machine = rgb(214, 40, 40), trim = rgb(214, 40, 40)}), {
-  FortWalls = style(rgb(214, 172, 118), M.Wood), FortTowers = style(TOY_BLUE, M.SmoothPlastic),
-  FortRoofs = style(TOY_RED, M.SmoothPlastic), FortFlags = style(TOY_YELLOW, M.Fabric, {sway = 8, swaySpeed = 2}),
+  FortFlags = style(TOY_YELLOW, M.Fabric, {sway = 8, swaySpeed = 2}),
   SoldierCoat = style(rgb(214, 36, 36), M.SmoothPlastic), SoldierPants = style(rgb(30, 46, 110), M.SmoothPlastic),
   SoldierHat = style(rgb(20, 20, 24), M.Fabric), SoldierSkin = style(rgb(255, 214, 178), M.SmoothPlastic),
   SoldierTrim = style(GOLD, M.Metal), SoldierBelts = style(rgb(250, 250, 250), M.SmoothPlastic),
-  -- The wind-up key turns about its shaft (Blender +Y).
   SoldierKey = style(GOLD, M.Metal, {spin = 90, spinAxis = Vector3.zAxis}),
+ }), {
+  FortWalls = style(FORT_TAN, M.Wood), FortSeams = style(rgb(160, 118, 72), M.Wood), FortMerlons = style(FORT_TAN, M.Wood),
+  FortBaseBand = style(FORT_BLUE, M.SmoothPlastic), FortStripe = style(FORT_RED, M.SmoothPlastic), FortWalk = style(rgb(182, 134, 82), M.WoodPlanks),
+  FortTowers = style(FORT_BLUE, M.SmoothPlastic), FortTowerTrim = style(rgb(250, 250, 246), M.SmoothPlastic),
+  FortRoofs = style(FORT_RED, M.SmoothPlastic), FortSlits = style(rgb(18, 18, 22), M.SmoothPlastic),
+  FortPoles = style(rgb(236, 226, 204), M.Wood), FortPennants = style(TOY_YELLOW, M.Fabric),
+  FortGate = style(FORT_BLUE, M.SmoothPlastic), FortPortcullis = style(rgb(76, 76, 86), M.Metal),
+  FortBridge = style(rgb(170, 118, 66), M.WoodPlanks), FortChains = style(rgb(150, 154, 164), M.Metal),
+  FortMoat = style(rgb(64, 140, 230), M.SmoothPlastic), FortWaves = style(rgb(250, 250, 255), M.SmoothPlastic),
+  FortCanvasRed = style(FORT_RED, M.Fabric), FortCanvasWhite = style(rgb(250, 248, 240), M.Fabric),
+  FortPath = style(rgb(222, 196, 144), M.SmoothPlastic),
+  FortCoat = style(rgb(214, 36, 36), M.SmoothPlastic), FortTrousers = style(rgb(30, 46, 110), M.SmoothPlastic),
+  FortSkin = style(rgb(255, 214, 178), M.SmoothPlastic), FortBlack = style(rgb(20, 20, 24), M.SmoothPlastic),
+  FortGold = style(FORT_GOLD, M.Metal), FortBelts = style(rgb(250, 250, 250), M.SmoothPlastic),
+  FortRifleWood = style(rgb(128, 78, 40), M.Wood), FortSteel = style(rgb(180, 184, 194), M.Metal),
+  FortStand = style(TOY_GREEN, M.SmoothPlastic),
+  FortKey = style(FORT_GOLD, M.Metal, {spin = 90, spinAxis = Vector3.zAxis}),
+  FortDrum = style(FORT_RED, M.SmoothPlastic), FortDrumHeads = style(rgb(248, 244, 228), M.Leather),
+  FortDrumHoops = style(FORT_BLUE, M.SmoothPlastic), FortDrumCords = style(FORT_GOLD, M.Fabric),
+  FortCannon = style(rgb(46, 46, 52), M.Metal), FortCarriage = style(FORT_RED, M.SmoothPlastic), FortWheels = style(TOY_YELLOW, M.SmoothPlastic),
+  FortBlocks = style(TOY_YELLOW, M.SmoothPlastic), FortBlocksRed = style(TOY_RED, M.SmoothPlastic), FortBlocksBlue = style(TOY_BLUE, M.SmoothPlastic),
+  FortLetters = style(rgb(250, 250, 246), M.SmoothPlastic), FortBarrels = style(rgb(150, 102, 58), M.Wood),
+  FortPlate = style(rgb(250, 250, 246), M.SmoothPlastic), FortBall = style(rgb(248, 248, 244), M.SmoothPlastic),
+  FortFlagA = style(TOY_YELLOW, M.Fabric, {sway = 8, swaySpeed = 2}), FortFlagB = style(FORT_RED, M.Fabric, {sway = 8, swaySpeed = 2.2, phase = 1}),
+  FortFlagC = style(FORT_RED, M.Fabric, {sway = 8, swaySpeed = 1.9, phase = 2}), FortFlagD = style(TOY_YELLOW, M.Fabric, {sway = 8, swaySpeed = 2.1, phase = 3}),
  }),
  tint = {color = rgb(255, 246, 236), brightness = 0.02, contrast = 0.05, saturation = 0.12},
 }

@@ -20,7 +20,7 @@ early.
 | 5 | Time Machine Lab | TimeMachineLabCage | `9ac7256` | 58 meshes, about 91K triangles, 25 moving parts |
 | 6 | Sandbox Diamond | SandboxDiamondCage | `0a0d5d6` | 42 meshes, about 50K triangles |
 | 7 | Pinball Cage | PinballCage | `aa2d9d9` | 46 meshes, about 40K triangles |
-| 8 | Cereal Bowl Stadium | CerealBowlCage | | |
+| 8 | Cereal Bowl Stadium | CerealBowlCage | `38c567d` | 36 meshes, about 118K triangles |
 | 9 | Toy Soldier Fort | ToySoldierCage | | |
 | 10 | Snow Globe | SnowGlobeCage | | |
 
@@ -208,6 +208,23 @@ early.
   art is a smiling sun mascot, a bowl of loops, a starburst badge and a milk-splash band, with no
   text. Its prize, a spinning top, turns on top.
 - **Outside:** a gable-top milk carton with cow spots, a resting spoon, spilled cereal and sugar cubes.
+
+### Toy Soldier Fort
+- **Walls and towers:** painted plank walls with seams, a blue base band, a red stripe and
+  battlements. Round blue towers stand at the corners (white trim, arrow slits, red cone roofs and
+  flags that wave out of step), with square towers mid-side, so the outline isn't a plain rectangle.
+  A wall walk on posts runs inside.
+- **Gatehouse:** two square towers and an arch over the door, with the portcullis raised (its spikes
+  show under the arch). The drawbridge is lowered across a painted moat on chains, with a striped
+  sentry box beside it.
+- **Roof:** a red-and-white striped tent canopy on a ridge pole, its poles standing in the end walls.
+- **Pitcher:** a big wind-up tin soldier on a green stand holds the ball out at PITCH, and the key in
+  his back turns.
+- **Screen:** a toy drum with gold zigzag cords and the window through both heads. I made it a little
+  smaller than the first try (radius 2.7) so the soldier's head and shoulders show above it.
+- **Inside:** a toy cannon with cannonballs, five soldiers on guard along the left wall, two at the
+  gate, alphabet blocks (A, B, C), barrels and crates.
+- **Outside:** six soldiers on guard along the front.
 
 ## Things that didn't work or were skipped
 (none yet)
