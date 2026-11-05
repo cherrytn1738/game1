@@ -128,10 +128,30 @@ local function bolts(position, color)
  end
 end
 
+-- A die face rolled on landing (the Lucky Dice): a number from 1 to 6 that pops up and fades.
+-- Picked here on each client, so it is cosmetic only and never changes a result.
+local function rolledNumber(holder, color)
+ local gui = Instance.new("BillboardGui")
+ gui.Name, gui.Size, gui.StudsOffset, gui.LightInfluence = "DiceRoll", UDim2.fromScale(5, 5), Vector3.new(0, 3, 0), 0
+ local label = Instance.new("TextLabel")
+ label.BackgroundTransparency, label.Size, label.Font, label.TextScaled = 1, UDim2.fromScale(1, 1), Enum.Font.FredokaOne, true
+ label.Text, label.TextColor3 = tostring(math.random(1, 6)), color
+ local stroke = Instance.new("UIStroke")
+ stroke.Thickness, stroke.Color = 4, Color3.fromRGB(255, 255, 255)
+ stroke.Parent = label
+ label.Parent = gui
+ gui.Parent = holder
+ local fade = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 1)
+ TweenService:Create(gui, TweenInfo.new(1.6, Enum.EasingStyle.Quad), {StudsOffset = Vector3.new(0, 8, 0)}):Play()
+ TweenService:Create(label, fade, {TextTransparency = 1}):Play()
+ TweenService:Create(stroke, fade, {Transparency = 1}):Play()
+end
+
 function BallEffects.Burst(name, position)
  local spec = name and Styles.Bursts[name]
  if not spec then return end
  local holder = invisiblePart("Burst", CFrame.new(position))
+ if spec.number then rolledNumber(holder, spec.number) end
  for _, entry in spec.emit or {} do
   local emitter = Styles.MakeEmitter(entry[1], holder, 1.6)
   if emitter then

@@ -500,6 +500,123 @@ Styles.Balls = {
   }},
   idle = "VoidDust",
  },
+
+ -- World 4 (Tiny Town): models from tools/blender/balls_world4.py.
+ dandelion_puff_ball = { -- Dandelion Puff
+  parts = {Shell = look(rgb(250, 248, 236), M.Fabric), Stalks = look(rgb(236, 230, 206)), Tufts = look(rgb(255, 255, 255), M.Fabric)},
+  -- A soft white wisp with seeds drifting off behind it.
+  flight = {color = rgb(255, 255, 240), land = "Seeds", layers = {
+   ribbon {colors = {WHITE, rgb(240, 236, 210)}, width = 0.35, lifetime = 0.4, fade = {0.2, 1}, taper = "comet"},
+   streak {texture = "smoke", colors = {WHITE, rgb(240, 240, 230)}, size = 0.7, endSize = 1.8, lifetime = 0.5, rate = 40, transparency = 0.6},
+   emit("Seeds", {rate = 26, back = true}),
+   debris {rate = 8, size = Vector3.new(0.12, 0.12, 0.12), colors = {WHITE, rgb(250, 246, 226)}, shape = "Ball", life = 1.6, fall = 1.5,
+    spread = 1.5},
+  }},
+  idle = "Seeds",
+ },
+ blueberry_ball = { -- Blueberry
+  parts = {Shell = look(rgb(54, 66, 156)), Bloom = look(rgb(150, 160, 214), M.SmoothPlastic, 0.35), Crown = look(rgb(32, 34, 74)),
+   Leaf = look(rgb(96, 182, 72))},
+  -- A juicy blue-purple ribbon flicking off drops of juice; it splashes on landing.
+  flight = {color = rgb(110, 120, 240), land = "Juice", layers = {
+   ribbon {colors = {rgb(150, 160, 255), rgb(80, 60, 190)}, width = 0.45, lifetime = 0.4, taper = "teardrop", glow = true},
+   streak {colors = {rgb(170, 160, 255), rgb(90, 70, 200)}, size = 0.9, endSize = 0.3, lifetime = 0.3, transparency = 0.5, glow = true},
+   emit("JuiceDrops", {rate = 18, back = true}),
+  }},
+ },
+ meatball_ball = { -- Meatball
+  parts = {Shell = look(rgb(128, 70, 38), M.Sand), Sauce = look(rgb(214, 44, 26)), Herbs = look(rgb(74, 146, 44))},
+  -- Steaming hot: a rich red ribbon trailing steam, and a sauce splat where it lands.
+  flight = {color = rgb(230, 90, 50), land = "Sauce", layers = {
+   ribbon {colors = {rgb(255, 150, 90), rgb(190, 50, 30)}, width = 0.45, lifetime = 0.35, taper = "teardrop"},
+   emit("Steam", {rate = 22, back = true}),
+   debris {rate = 6, size = Vector3.new(0.14, 0.1, 0.14), colors = {rgb(214, 44, 26), rgb(180, 30, 20)}, shape = "Ball", life = 0.6, fall = 8},
+  }},
+  idle = "Steam",
+ },
+ bouncy_ball = { -- Bouncy Ball
+  parts = {Shell = look(rgb(64, 216, 112)), SwirlRed = look(rgb(255, 70, 90)), SwirlYellow = look(rgb(255, 214, 40)),
+   SwirlBlue = look(rgb(60, 130, 255))},
+  -- A rainbow swirl that wiggles as it flies, and a boing when it lands.
+  flight = {color = rgb(255, 230, 120), launch = "Boing", land = "Boing", layers = {
+   ribbon {rainbow = true, width = 0.4, lifetime = 0.45, taper = "swell", wobble = {amp = 0.25, freq = 3}},
+   ribbon {rainbow = true, width = 0.18, lifetime = 0.4, taper = "needle", orbit = {radius = 0.4, speed = 2}},
+   emit("Sprinkles", {rate = 20}),
+  }},
+  idle = "Sprinkles",
+ },
+ lucky_dice_ball = { -- Lucky Dice
+  parts = {Shell = look(rgb(250, 248, 242)), Pips = look(rgb(24, 22, 28)), OnePip = look(rgb(232, 30, 40))},
+  -- Two little dice tumbling round it; on landing it rolls a number (picked on each client,
+  -- cosmetic only).
+  flight = {color = rgb(255, 240, 230), land = "DiceRoll", layers = {
+   ribbon {colors = {WHITE, rgb(255, 120, 120)}, width = 0.35, lifetime = 0.35, taper = "comet", glow = true},
+   orbiters {count = 2, radius = 1.0, speed = 1.8, size = Vector3.one * 0.22, shape = "Block", colors = {WHITE, rgb(255, 230, 230)},
+    spin = 6, trail = {width = 0.05, lifetime = 0.2}},
+   emit("Glitter", {rate = 20}),
+  }},
+  idle = "Glitter",
+ },
+ yarn_ball = { -- Yarn Ball
+  parts = {Shell = look(rgb(222, 84, 146), M.Fabric), Strands = look(rgb(246, 116, 170), M.Fabric), Strands2 = look(rgb(190, 54, 118), M.Fabric),
+   LooseEnd = look(rgb(246, 116, 170), M.Fabric)},
+  -- Unravels as it goes: three thin threads of colour twisting out behind it.
+  flight = {color = rgb(255, 140, 190), land = "Yarn", layers = {
+   ribbon {colors = {rgb(255, 120, 180), rgb(220, 70, 140)}, width = 0.1, lifetime = 0.7, taper = "needle", orbit = {radius = 0.35, speed = 1.6}},
+   ribbon {colors = {rgb(255, 214, 80), rgb(240, 160, 40)}, width = 0.1, lifetime = 0.7, taper = "needle",
+    orbit = {radius = 0.35, speed = 1.6, phase = 0.33}},
+   ribbon {colors = {rgb(110, 190, 255), rgb(60, 120, 230)}, width = 0.1, lifetime = 0.7, taper = "needle",
+    orbit = {radius = 0.35, speed = 1.6, phase = 0.66}},
+  }},
+  idle = "Threads",
+ },
+ bath_bomb_ball = { -- Bath Bomb
+  parts = {Shell = look(rgb(196, 160, 246)), Swirl = look(rgb(140, 232, 214)), Speckles = look(rgb(255, 146, 186)),
+   Fizz = look(rgb(232, 246, 255), M.Glass, 0.3)},
+  -- Fizzes all the way: a pastel ribbon in a cloud of colourful bubbles.
+  flight = {color = rgb(210, 180, 255), land = "Fizz", layers = {
+   ribbon {colors = {rgb(255, 180, 220), rgb(180, 150, 255), rgb(140, 232, 214)}, width = 0.5, lifetime = 0.45, taper = "swell", glow = true},
+   emit("Fizz", {rate = 40, back = true}),
+   emit("Bubbles", {rate = 24, back = true}),
+  }},
+  idle = "Fizz",
+ },
+ mini_globe_ball = { -- Mini Globe
+  parts = {Shell = look(rgb(54, 120, 232)), Land = look(rgb(96, 184, 78)), IceCaps = look(rgb(245, 250, 255), M.Snow)},
+  light = {rgb(150, 200, 255), 1.2, 8},
+  -- A tiny Earth: a blue-and-green ribbon and a little moon in orbit.
+  flight = {color = rgb(120, 190, 255), land = "Globe", layers = {
+   ribbon {colors = {rgb(140, 210, 255), rgb(60, 120, 230), rgb(90, 180, 80)}, width = 0.45, lifetime = 0.4, taper = "teardrop", glow = true},
+   orbiters {count = 1, radius = 1.1, speed = 1.2, size = Vector3.one * 0.2, shape = "Ball", color = rgb(220, 220, 226),
+    trail = {width = 0.05, lifetime = 0.25}},
+  }},
+ },
+ cats_eye_marble = { -- Cat's-Eye Marble
+  parts = {Shell = look(rgb(180, 226, 255), M.Glass, 0.55), Vanes = look(rgb(60, 232, 140), M.Neon), Core = look(rgb(255, 220, 90), M.Neon)},
+  light = {rgb(90, 240, 160), 1.8, 9},
+  -- Glassy and glowing: a green-gold streak with a sparkle of glimmers.
+  flight = {color = rgb(90, 240, 160), land = "Glimmer", layers = {
+   streak {colors = {rgb(200, 255, 220), rgb(60, 200, 140)}, size = 1.1, endSize = 0.3, lifetime = 0.35, transparency = 0.45, glow = true},
+   ribbon {colors = {rgb(220, 255, 230), rgb(60, 232, 140)}, width = 0.3, lifetime = 0.4, glow = true, taper = "needle",
+    orbit = {radius = 0.3, speed = 2.4}},
+   emit("Glimmer", {rate = 30}),
+  }},
+  idle = "Glimmer",
+ },
+ dream_orb = { -- Dream Orb
+  parts = {Shell = look(rgb(128, 136, 240)), Moon = look(rgb(255, 228, 140), M.Neon), Stars = look(rgb(255, 242, 186), M.Neon),
+   Cloud = look(rgb(226, 226, 255))},
+  light = {rgb(255, 222, 160), 2.2, 11},
+  -- A soft night-light glow: a dreamy violet wake, fading stars and slow echoes.
+  flight = {color = rgb(200, 180, 255), launch = "Dream", land = "Dream", layers = {
+   streak {texture = "glow", colors = {rgb(255, 236, 190), rgb(150, 120, 255)}, size = 1.6, endSize = 2.4, lifetime = 0.55, glow = true,
+    transparency = 0.35},
+   ribbon {colors = {rgb(255, 240, 200), rgb(170, 150, 255)}, width = 0.4, lifetime = 0.5, glow = true, taper = "comet"},
+   echoes {interval = 0.1, color = rgb(190, 170, 255), life = 0.5, grow = 1.4},
+   emit("DreamStars", {rate = 40, back = true}),
+  }},
+  idle = "DreamStars",
+ },
 }
 
 -- Particle presets on built-in Roblox textures (no uploads needed). Sizes suit the
@@ -594,6 +711,32 @@ Styles.Emitters = {
  VoidDust = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 220, 190), rgb(170, 100, 255)), LightEmission = 1,
   Size = pop(0.4), Rate = 45, Lifetime = range(0.6, 1.1), Speed = range(0.4, 1.4), SpreadAngle = Vector2.new(180, 180),
   RotSpeed = range(-200, 200)},
+ -- World 4
+ Seeds = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 255, 255), rgb(246, 240, 214)), LightEmission = 0.3,
+  Size = pop(0.35), Rate = 18, Lifetime = range(1.4, 2.4), Speed = range(0.3, 1), SpreadAngle = Vector2.new(180, 180),
+  Acceleration = Vector3.new(0, 0.5, 0), RotSpeed = range(-60, 60)},
+ JuiceDrops = {Texture = SPARK, Color = ColorSequence.new(rgb(170, 150, 255), rgb(90, 60, 200)), LightEmission = 0.4,
+  Size = pop(0.3), Rate = 20, Lifetime = range(0.4, 0.8), Speed = range(1, 3), SpreadAngle = Vector2.new(180, 180),
+  Acceleration = Vector3.new(0, -8, 0)},
+ SauceDrops = {Texture = SPARK, Color = ColorSequence.new(rgb(240, 80, 50), rgb(170, 30, 20)), LightEmission = 0.2,
+  Size = pop(0.35), Rate = 20, Lifetime = range(0.4, 0.8), Speed = range(1, 3), SpreadAngle = Vector2.new(180, 180),
+  Acceleration = Vector3.new(0, -8, 0)},
+ Threads = {Texture = SPARK, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, rgb(255, 120, 180)),
+  ColorSequenceKeypoint.new(0.5, rgb(255, 214, 80)), ColorSequenceKeypoint.new(1, rgb(110, 190, 255))}), LightEmission = 0.5,
+  Size = pop(0.3), Rate = 20, Lifetime = range(0.6, 1.1), Speed = range(0.5, 2), SpreadAngle = Vector2.new(180, 180),
+  RotSpeed = range(-240, 240)},
+ Fizz = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 200, 230), rgb(170, 240, 225)), LightEmission = 0.6,
+  Size = pop(0.3), Rate = 35, Lifetime = range(0.5, 1), Speed = range(0.5, 1.5), SpreadAngle = Vector2.new(180, 180),
+  Acceleration = Vector3.new(0, 2.5, 0)},
+ Glimmer = {Texture = SPARKLE, Color = ColorSequence.new(rgb(220, 255, 230), rgb(255, 220, 90)), LightEmission = 1,
+  Size = pop(0.3), Rate = 30, Lifetime = range(0.4, 0.9), Speed = range(0.5, 1.8), SpreadAngle = Vector2.new(180, 180),
+  RotSpeed = range(-160, 160)},
+ DreamStars = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 236, 180), rgb(180, 160, 255)), LightEmission = 1,
+  Size = pop(0.4), Rate = 30, Lifetime = range(1, 1.8), Speed = range(0.2, 0.8), SpreadAngle = Vector2.new(180, 180),
+  RotSpeed = range(-90, 90)},
+ FlourDust = {Texture = SMOKE, Color = ColorSequence.new(rgb(255, 255, 252), rgb(240, 236, 226)), Size = grow(0.4, 1.6),
+  Transparency = fadeOut(0.45), Rate = 10, Lifetime = range(0.6, 1.2), Speed = range(0.2, 0.8), SpreadAngle = Vector2.new(180, 180),
+  Acceleration = Vector3.new(0, -0.5, 0), RotSpeed = range(-40, 40)},
 }
 
 -- One-shot bursts at launch or landing: Emitters presets to emit, plus optional extras.
@@ -617,6 +760,8 @@ Styles.FlightSounds = {
  robo_core_ball = {"rbxassetid://9119409838", 0.15, 1.6}, -- the hum, pitched up to a servo whine (0.6x)
  rocket_ball = {"rbxassetid://9112825609", 0.05, 0.8}, -- the fire roar, deeper, like an engine (0.8x)
  singularity_orb = {"rbxassetid://9119409838", 0.2, 0.6}, -- the cosmic hum, slowed into a deep drone (0.9x)
+ bath_bomb_ball = {"rbxassetid://9112752570", 0.45, 0.9}, -- the bubbles, a little lower, fizzing (0.5x)
+ dream_orb = {"rbxassetid://9119409838", 0.15, 1.15}, -- the cosmic hum, soft and dreamy (0.7x)
 }
 
 Styles.Bursts = {
@@ -645,6 +790,18 @@ Styles.Bursts = {
  MoonDust = {emit = {{"MoonDust", 30}}, ring = rgb(210, 220, 240)},
  RedDust = {emit = {{"RedDust", 36}}, ring = rgb(230, 140, 90)},
  Singularity = {emit = {{"VoidDust", 70}}, ring = rgb(190, 130, 255), flash = rgb(210, 170, 255), bolts = rgb(220, 190, 255)},
+ -- World 4. number: a die face (1-6) pops up above the landing, rolled on each client (cosmetic only).
+ Seeds = {emit = {{"Seeds", 45}}},
+ Juice = {emit = {{"JuiceDrops", 50}}, ring = rgb(140, 130, 255)},
+ Sauce = {emit = {{"SauceDrops", 45}, {"Steam", 12}}, ring = rgb(220, 70, 40)},
+ Boing = {emit = {{"Sprinkles", 30}}, ring = rgb(255, 230, 120), flash = rgb(255, 240, 180)},
+ DiceRoll = {emit = {{"Glitter", 30}}, ring = rgb(255, 255, 255), number = rgb(232, 30, 40)},
+ Yarn = {emit = {{"Threads", 45}}},
+ Fizz = {emit = {{"Fizz", 60}, {"Bubbles", 30}}, flash = rgb(220, 200, 255)},
+ Globe = {ring = rgb(120, 200, 255), flash = rgb(170, 220, 255)},
+ Glimmer = {emit = {{"Glimmer", 50}}, flash = rgb(140, 255, 190)},
+ Dream = {emit = {{"DreamStars", 70}}, ring = rgb(220, 200, 255), flash = rgb(255, 236, 200)},
+ Flour = {emit = {{"FlourDust", 24}}, ring = rgb(250, 246, 236)},
 }
 
 function Styles.Get(itemId)

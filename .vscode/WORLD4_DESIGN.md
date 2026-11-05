@@ -246,11 +246,18 @@ One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), adde
   `tools/studio/group_runway_imports.luau`, save the place
 
 ### Phase 4: the 10 Balls and the Rolling Pin Bat (Blender)
-- [ ] `tools/blender/balls_world4.py`, exported to `assets/models/BallsWorld4.fbx`
-- [ ] `BallStyles` entries: parts, trails, landing effects and idle emitters
-- [ ] The Rolling Pin Bat model (in `tools/blender/bats.py`'s style, `BatStyles` entry), replacing its
-      placeholder colours
-- [ ] Studio import steps listed; tests pass; commit
+- [x] `tools/blender/balls_world4.py`, exported to `assets/models/BallsWorld4.fbx`
+- [x] `BallStyles` entries: parts, trails, landing effects and idle emitters (World 4 emitters and
+      bursts; the Lucky Dice's landing burst pops up a number 1-6 picked on each client,
+      `BallEffects` `number`, cosmetic only; flight sounds for the Bath Bomb and Dream Orb)
+- [x] The Rolling Pin Bat model (`tools/blender/bats_world4.py`, bats.py's helpers and conventions,
+      exported to `assets/models/BatsWorld4.fbx` so the ten earlier bats need no re-import;
+      `BatStyles` entry with a flour trail, flour contact burst and idle flour dust). Its
+      `EquipmentConfig` appearance stays as the stand-in until the model is imported
+- [x] Studio import steps (`tools/studio/group_item_imports.luau` groups both imports into
+      `DisplayItems`); tests pass; commit
+- Studio import (by hand): Import 3D `BallsWorld4.fbx` and `BatsWorld4.fbx`, run
+  `tools/studio/group_item_imports.luau`, save the place
 
 ### Phase 5: the cage models (Blender)
 - [ ] `cage_helpers.py` scripts for the Sandbox Diamond, Pinball Cage, Cereal Bowl Stadium, Toy

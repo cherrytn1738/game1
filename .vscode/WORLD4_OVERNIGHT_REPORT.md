@@ -9,7 +9,8 @@ This file is updated after every phase.
 | Phase | What | Commit | State |
 |---|---|---|---|
 | 2 | Runway props, sections 1-5 | `410485c` | Done; the models need importing by hand |
-| 3 | Runway props, sections 6-10; keyhole end portal | (this commit) | Done; the models need importing by hand |
+| 3 | Runway props, sections 6-10; keyhole end portal | `012bd89` | Done; the models need importing by hand |
+| 4 | The ten World 4 Balls and the Rolling Pin Bat | (this commit) | Done; the models need importing by hand |
 
 ## What was finished
 
@@ -76,6 +77,46 @@ This file is updated after every phase.
     and it stands 360 studs tall with an opening radius of 79.
   - **Tests:** the same as Phase 2. All suites pass; UIModal passes with the tween stand-in.
 
+### Phase 4: the ten Balls and the Rolling Pin Bat
+- **Balls:** `tools/blender/balls_world4.py` builds the ten Balls at radius 1, each mesh named
+  `<id>__<Part>` with a 2-unit `Shell`. It is exported to `assets/models/BallsWorld4.fbx`.
+  - **Dandelion Puff:** seed stalks with parachute tufts.
+  - **Blueberry:** a crown, a frosty bloom and a leaf.
+  - **Meatball:** a lumpy shell, a sauce dollop and herb flecks.
+  - **Bouncy Ball:** three rainbow spiral stripes.
+  - **Lucky Dice:** a die's pips on six sides; the single pip is red.
+  - **Yarn Ball:** wound strands and a loose end.
+  - **Bath Bomb:** a swirl band, speckles and fizz bubbles.
+  - **Mini Globe:** continents and ice caps.
+  - **Cat's-Eye Marble:** a glass shell with three glowing vanes.
+  - **Dream Orb:** a crescent moon, stars and a cloud wisp.
+- **Rolling Pin Bat:** `tools/blender/bats_world4.py` uses `bats.py`'s helpers and hand-at-origin
+  layout. It is a wooden roller with red turned handles at both ends, red rings and a flour
+  dusting, exported to `assets/models/BatsWorld4.fbx`.
+- **`BallStyles`:** each World 4 Ball has parts, a light where it glows, its own flight layers, and
+  launch and landing bursts.
+  - The effects are seeds drifting off the Dandelion Puff, juice splashing from the Blueberry,
+    steam and a sauce splat from the Meatball, a rainbow wiggle and a boing from the Bouncy Ball,
+    tumbling mini dice round the Lucky Dice, coloured threads off the Yarn Ball, fizz from the Bath
+    Bomb, an orbiting moon round the Mini Globe, glimmers off the Cat's-Eye Marble, and dreamy
+    stars and echoes behind the Dream Orb.
+  - There are eight new emitters (seven for the Balls, plus FlourDust for the bat) and eleven new
+    bursts, and flight sounds for the Bath Bomb and Dream Orb (existing sound ids, retuned).
+- **Lucky Dice:** its landing pops up a number from 1 to 6 (`BallEffects` burst `number`). The
+  number is picked on each client, so it is cosmetic only.
+- **`BatStyles`:** `rolling_pin_bat` has a flour-white swing trail, a flour puff on contact and
+  idle flour dust. Its `EquipmentConfig` appearance stays as the stand-in until the model is
+  imported; only the comment changed.
+- **Import tool:** `tools/studio/group_item_imports.luau` groups both imports into `DisplayItems`.
+  A Ball is pivoted on its Shell, and the Bat on the hand, the same as World 3's.
+- **Checks (playtest, client):**
+  - All ten World 4 styles resolve every burst and emitter name, and every burst plays.
+  - The dice number pops up.
+  - Each World 4 Ball's flight effects launch, update along a fake flight and stop without
+    errors.
+  - The Output is clean.
+  - Tests: as before.
+
 ## Decisions I made on my own
 - **Hose:** the garden hose is a hose on a reel cart. A coil lying flat would barely show at
   runway scale.
@@ -99,6 +140,13 @@ This file is updated after every phase.
   floating props.
 - **The keyhole look stays in World 4.** It is World 4's `portalModel`, as the design says, so it
   appears on World 4's hub portal and end portal. World 3's portals are unchanged.
+- **Rolling Pin Bat file:** the bat has its own script and FBX (`bats_world4.py`,
+  `BatsWorld4.fbx`) instead of being added to `bats.py`. Re-exporting `Bats.fbx` would have meant
+  re-importing all ten earlier bats.
+- **Flight sounds:** only the Bath Bomb and Dream Orb have their own flight sound, reusing
+  existing sound ids. The other World 4 Balls use the shared whoosh, as most earlier Balls do.
+- **Rolling Pin Bat's swing:** it gets a flour trail, a flour contact burst and idle flour dust,
+  to fit its theme.
 
 ## Things that didn't work or were skipped
 - **Screen captures time out**, so I couldn't look at anything in Studio. Studio isn't drawing
@@ -127,8 +175,14 @@ This file is updated after every phase.
    (it reports `RunwayWorld4House: made 24, parts left 0` and `KeyholePortal: moved into
    RunwayAssets`), then save the place. You can import all three files first and run the script
    once.
-3. **Restart the playtest after importing.** The runway and portals are built when the server
-   starts.
+3. **Phase 4 models:** Import 3D `assets/models/BallsWorld4.fbx` and `assets/models/BatsWorld4.fbx`,
+   leaving both in the Workspace. Run `tools/studio/group_item_imports.luau` in the command bar.
+   - It should print ten Ball lines, each about 2 studs across (the Dandelion Puff about 2.8),
+     and one Bat line about 4.3 studs long.
+   - It should end with `BallsWorld4 parts left: 0` and `BatsWorld4 parts left: 0`.
+   - Then save the place.
+4. **Restart the playtest after importing.** The runway, portals and displays are built when the
+   server starts.
 
 ## What to check in Studio
 ### Phase 2
@@ -169,3 +223,18 @@ This file is updated after every phase.
   - whether the keyhole glow reads warm and bright from the batting area;
   - whether the swirl turns inside the keyhole's round top;
   - whether the floating paper planes and bubbles hover at a sensible height.
+
+### Phase 4
+- **Before importing:** World 4's Ball display shows the ten Balls in their `EquipmentConfig`
+  colours, now with their new idle effects (seeds, steam, sprinkles, glitter, threads, fizz,
+  glimmers, dream stars). The Rolling Pin Bat pedestal shows the placeholder bat with idle flour
+  dust.
+- **After importing:** World 4's Ball display shows the real models. The Rolling Pin Bat pedestal
+  shows a rolling pin, and so does the batter's hand once it is equipped.
+- **What to look for, hitting with each World 4 Ball (`StudioFreshSave` with the Studio
+  attributes to own them):**
+  - **Lucky Dice:** a red number pops up where it lands.
+  - **Cat's-Eye Marble:** the glass shell lets its green vanes glow through.
+  - **Yarn Ball:** its threads twist behind it.
+  - **Dandelion Puff:** its seeds drift slowly.
+- **Rolling Pin Bat:** swing it and look for a flour puff on contact.

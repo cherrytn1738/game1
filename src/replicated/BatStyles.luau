@@ -97,6 +97,15 @@ Styles.Bats = {
   contact = "Supernova",
   idle = "Stars",
  },
+ -- World 4 (tools/blender/bats_world4.py): a baker's rolling pin, red handles at both ends, dusted
+ -- with flour, which puffs off it as it swings.
+ rolling_pin_bat = {
+  parts = {Barrel = look(rgb(232, 190, 136), M.Wood), Grip = look(rgb(214, 56, 48), M.Wood), Knob = look(rgb(214, 56, 48), M.Wood),
+   Bands = look(rgb(214, 56, 48), M.Wood), TipHandle = look(rgb(214, 56, 48), M.Wood), Flour = look(rgb(252, 250, 244), M.Sand)},
+  swing = {colors = {rgb(255, 255, 250), rgb(240, 226, 200)}, lifetime = 0.22},
+  contact = "Flour",
+  idle = "FlourDust",
+ },
  -- The Starter Pack's exclusive (model built from Parts by the server's CatBatModel): a cream
  -- barrel whose top is a cat's head (ears, cyan eyes, nose, whiskers), a paw print, gold bands,
  -- a dark purple grip wrapped in lavender like a tail, and a curled tail at the knob.

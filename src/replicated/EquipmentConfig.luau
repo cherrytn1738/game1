@@ -81,8 +81,8 @@ local Equipment = {
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(25, 18, 70), Color3.fromRGB(255, 205, 80), Enum.Material.SmoothPlastic),
     },
-    -- World 4's Bat (Tiny Town): priced so it is bought midway through World 4. Placeholder
-    -- colours until its model is made (WORLD4_DESIGN.md, Phase 4).
+    -- World 4's Bat (Tiny Town): priced so it is bought midway through World 4. Its model is
+    -- tools/blender/bats_world4.py (BatStyles); appearance is the stand-in until it is imported.
     rolling_pin_bat = {
      id = "rolling_pin_bat", displayName = "Rolling Pin Bat", price = 1650000000,
      cashMultiplier = 42,
