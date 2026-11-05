@@ -525,6 +525,90 @@ def tiles(bm, x0, x1, y0, y1, size, gap, z0, z1, rng=None, jitter=0.0, keep=lamb
             box(bm, (cx, cy, z0 + h / 2), (sx - gap, sy - gap, h))
 
 
+def squircle_points(cx, cy, rx, ry, a0, a1, count, p=8.0):
+    """Points along a superellipse (a rounded rectangle) from angle a0 to a1."""
+    points = []
+    for i in range(count):
+        a = a0 + (a1 - a0) * i / (count - 1)
+        c, s = math.cos(a), math.sin(a)
+        points.append(Vector((cx + rx * math.copysign(abs(c) ** (2 / p), c), cy + ry * math.copysign(abs(s) ** (2 / p), s), 0)))
+    return points
+
+
+def profile_along(bm, points, profile, closed=False):
+    """Loft a 2D profile ((outward, up) points, any closed outline) along a flat path round a centre:
+    'outward' is the path's horizontal normal (to the right of travel). Open paths are capped."""
+    n = len(points)
+    sections = []
+    for i, p in enumerate(points):
+        if closed:
+            ahead, behind = points[(i + 1) % n], points[i - 1]
+        else:
+            ahead, behind = points[min(i + 1, n - 1)], points[max(i - 1, 0)]
+        t = (ahead - behind).normalized()
+        out = Vector((t.y, -t.x, 0))
+        sections.append([p + out * u + Vector((0, 0, v)) for u, v in profile])
+    rings = [[bm.verts.new(q) for q in s] for s in sections]
+    m = len(profile)
+    pairs = list(zip(rings, rings[1:])) + ([(rings[-1], rings[0])] if closed else [])
+    for a, b in pairs:
+        for k in range(m):
+            j = (k + 1) % m
+            bm.faces.new((a[k], a[j], b[j], b[k]))
+    if not closed:
+        bm.faces.new(tuple(reversed(rings[0])))
+        bm.faces.new(tuple(rings[-1]))
+
+
+def crenellations(bm, start, end, height, thickness, merlon=1.6, gap=1.2, depth=1.2):
+    """Square merlons along a wall top from start to end (battlements)."""
+    start, end = Vector(start), Vector(end)
+    d = end - start
+    length = d.length
+    t = d.normalized()
+    angle = math.atan2(t.y, t.x)
+    count = max(1, int((length + gap) / (merlon + gap)))
+    used = count * merlon + (count - 1) * gap
+    s = (length - used) / 2
+    for k in range(count):
+        c = start + t * (s + merlon / 2 + k * (merlon + gap))
+        box(bm, (c.x, c.y, height + depth / 2), (merlon, thickness, depth), Matrix.Rotation(angle, 4, "Z"))
+
+
+def pine(bm, base, height, radius, segments=12):
+    """A little cartoon pine: three stacked cones."""
+    base = Vector(base)
+    for z, r, h in ((0.25, 1.0, 0.5), (0.55, 0.78, 0.4), (0.8, 0.52, 0.32)):
+        lathe(bm, [(0, base.z + height * z), (radius * r, base.z + height * z), (0, base.z + height * (z + h))], segments,
+              transform=Matrix.Translation((base.x, base.y, 0)))
+
+
+def loft(bm, rings, closed=False, cap_ends=False):
+    """Connect rings of points (equal counts) into a surface; closed joins each ring's ends."""
+    verts = [[bm.verts.new(p) for p in ring] for ring in rings]
+    count = len(rings[0])
+    for a, b in zip(verts, verts[1:]):
+        for k in range(count if closed else count - 1):
+            j = (k + 1) % count
+            bm.faces.new((a[k], a[j], b[j], b[k]))
+    if cap_ends:
+        bm.faces.new(tuple(reversed(verts[0])))
+        bm.faces.new(tuple(verts[-1]))
+    return verts
+
+
+def ray_ellipse(origin, d, centre, rx, rz):
+    """How far from origin (inside) along unit 2D direction d to an ellipse's edge."""
+    ox, oz = origin[0] - centre[0], origin[1] - centre[1]
+    a = (d[0] / rx) ** 2 + (d[1] / rz) ** 2
+    b = 2 * (ox * d[0] / rx ** 2 + oz * d[1] / rz ** 2)
+    c = (ox / rx) ** 2 + (oz / rz) ** 2 - 1
+    root = b * b - 4 * a * c
+    if root < 0:
+        return 0.0
+    return max(0.0, (-b + math.sqrt(root)) / (2 * a))
+
+
 def check_centred(objects, spins):
     """spins: {mesh name: (axis point, axis)}. Prints how far each spinning mesh's bounding-box
     centre sits off its axis (it should be ~0)."""

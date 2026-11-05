@@ -14,7 +14,7 @@ early.
 | # | Cage | Template | Commit | Notes |
 |---|---|---|---|---|
 | 1 | Caveman Camp | CavemanCampCage | `59f14ee` | 33 meshes, about 96K triangles |
-| 2 | Pharaoh's Tomb | PharaohsTombCage | | |
+| 2 | Pharaoh's Tomb | PharaohsTombCage | `4185b2b` | 40 meshes, about 145K triangles |
 | 3 | Gladiator Colosseum | GladiatorColosseumCage | | |
 | 4 | Samurai Dojo | SamuraiDojoCage | | |
 | 5 | Time Machine Lab | TimeMachineLabCage | | |
@@ -76,6 +76,26 @@ early.
   and a black cat statue.
 - **Outside:** a sphinx along the left wall and four obelisks at the corners.
 - **New emitters:** `Incense` and `GoldDust`.
+
+### Gladiator Colosseum
+- **Plan:** the cage is an oval amphitheatre round the batting rectangle, a superellipse with power 4.
+  The first try, with power 6, still read as a rectangle.
+- **Arcade:** 32 bays in two tiers, with Tuscan half-columns below and Ionic above. The lower arches
+  have bronze grilles, except the gate arch at the door. The upper arches have balustrades, with
+  spectators leaning over them round the machine end and the sides.
+- **Roof:** a velarium of alternating red and cream canvas sails, stretched from masts on the attic to
+  a ring over the middle. The middle stays open.
+- **Walls:** banners hang on every third bay and shields on every other bay. They are left off the
+  wall behind the batter, where the camera is.
+- **Ballista:** a torsion ballista with its arms drawn and the ball at the front of the stock.
+- **Screen:** a round bronze shield with a rim of rivets, a laurel wreath and lightning bolts.
+- **Chariot:** there is no room between the oval and the side limit, so the chariot stands on the arena
+  sand beside the cage. It is parked, so its wheels don't turn.
+- **Lions:** two bronze lions on plinths outside the gate, facing each other across it.
+- **Crowd stands:** they stand outside the machine end, with an emperor's box under a red awning.
+  They are behind the arena wall, so they are mostly seen from outside; the spectators in the upper
+  arches are the crowd seen from inside.
+- **Motion:** the crowd's four groups bob a quarter beat apart (a wave), and the brazier flames pulse.
 
 ## Things that didn't work or were skipped
 (none yet)

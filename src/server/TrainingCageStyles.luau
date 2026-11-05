@@ -291,6 +291,45 @@ Styles.PharaohsTombCage = {
  tint = {color = rgb(255, 238, 210), brightness = 0.02, contrast = 0.06, saturation = 0.1},
 }
 
+local TRAVERTINE, BRONZE, CRIMSON = rgb(222, 212, 188), rgb(186, 120, 58), rgb(170, 22, 28)
+Styles.GladiatorColosseumCage = {
+ parts = {
+  ArenaStone = style(TRAVERTINE, M.Limestone), ArenaStoneDark = style(rgb(170, 160, 142), M.Limestone),
+  ArenaSeats = style(TRAVERTINE, M.Limestone), ArenaPlinths = style(rgb(240, 238, 230), M.Marble),
+  ArenaColumns = style(rgb(240, 238, 230), M.Marble), ArenaColumnsUpper = style(rgb(240, 238, 230), M.Marble),
+  ArenaGrilles = style(BRONZE, M.Metal), ArenaBronze = style(BRONZE, M.Metal), ArenaShield = style(BRONZE, M.Metal),
+  ArenaLions = style(BRONZE, M.Metal), ArenaIron = style(rgb(70, 70, 76), M.Metal),
+  ArenaShieldGold = style(GOLD, M.Metal), ArenaShieldBosses = style(GOLD, M.Metal), ArenaBannerGold = style(GOLD, M.Metal),
+  ArenaChariotGold = style(GOLD, M.Metal),
+  ArenaWood = style(rgb(128, 84, 46), M.Wood), ArenaRing = style(rgb(128, 84, 46), M.Wood),
+  ArenaRope = style(rgb(180, 150, 100), M.Fabric), ArenaRigging = style(rgb(180, 150, 100), M.Fabric),
+  ArenaCanvasRed = style(CRIMSON, M.Fabric), ArenaCanvasCream = style(rgb(244, 232, 204), M.Fabric),
+  ArenaBanners = style(CRIMSON, M.Fabric), ArenaAwning = style(CRIMSON, M.Fabric),
+  ArenaShields = style(CRIMSON, M.SmoothPlastic), ArenaChariot = style(CRIMSON, M.SmoothPlastic),
+  ArenaSand = style(rgb(226, 200, 150), M.Sand), ArenaSandRidges = style(rgb(206, 180, 130), M.Sand),
+  ArenaEmperor = style(rgb(110, 30, 130), M.Fabric), ArenaEmperorHead = style(rgb(226, 170, 128), M.SmoothPlastic),
+  ArenaLaurel = style(rgb(100, 160, 56), M.SmoothPlastic), ArenaWeapons = style(rgb(196, 198, 204), M.Metal),
+  ArenaStraw = style(rgb(218, 186, 104), M.Fabric), ArenaAmphorae = style(rgb(184, 102, 60), M.Concrete),
+  ArenaFlames = style(CAMPFIRE, M.Neon, {pulse = 2, shadow = false, light = {rgb(255, 160, 70), 14, 1.5}}),
+  ArenaPlate = style(rgb(244, 242, 236), M.Marble), ArenaBall = style(rgb(248, 248, 244), M.SmoothPlastic),
+ },
+ effects = {
+  {kind = "Flame", position = b(-14, 7, 3.9), size = Vector3.new(0.7, 0.3, 0.7)},
+  {kind = "Flame", position = b(-14, 27, 3.9), size = Vector3.new(0.7, 0.3, 0.7)},
+  {kind = "Flame", position = b(12, 8, 3.9), size = Vector3.new(0.7, 0.3, 0.7)},
+  {kind = "Flame", position = b(12, 27, 3.9), size = Vector3.new(0.7, 0.3, 0.7)},
+  {kind = "Dust", position = b(-1, 10, 5), size = Vector3.new(30, 8, 50)},
+ },
+ tint = {color = rgb(255, 244, 226), brightness = 0.02, contrast = 0.06, saturation = 0.08},
+}
+-- The crowd does a wave: four groups of spectators (and their heads) bob a quarter beat apart.
+for index, letter in {"A", "B", "C", "D"} do
+ local tunic = ({rgb(204, 40, 36), rgb(242, 240, 230), rgb(52, 92, 184), rgb(220, 158, 56)})[index]
+ local motion = {bob = 0.22, bobSpeed = 3, phase = (index - 1) * math.pi / 2}
+ Styles.GladiatorColosseumCage.parts["ArenaCrowd" .. letter] = style(tunic, M.Fabric, table.clone(motion))
+ Styles.GladiatorColosseumCage.parts["ArenaCrowdHeads" .. letter] = style(rgb(226, 170, 128), M.SmoothPlastic, table.clone(motion))
+end
+
 -- ---------- World 3 (Future World) ----------
 -- From tools/blender/solar_rooftop_cage.py, robo_factory_cage.py, biodome_lab_cage.py,
 -- lunar_base_cage.py and quantum_lab_cage.py, more intricate down the row.

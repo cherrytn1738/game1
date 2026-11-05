@@ -52,7 +52,7 @@ local Training = {
     accent = Color3.fromRGB(240, 190, 50), frame = Color3.fromRGB(206, 170, 110), net = Color3.fromRGB(36, 70, 150),
     banner = Color3.fromRGB(30, 60, 140), lights = true, decorations = {}}},
   {id = "gladiator_colosseum", displayName = "Gladiator Colosseum", requiredRebirths = 10, powerMultiplier = 50, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(214, 186, 140), turfMaterial = M.Sand,
+   theme = {template = "GladiatorColosseumCage", turf = Color3.fromRGB(214, 186, 140), turfMaterial = M.Sand,
     lane = Color3.fromRGB(184, 102, 70), laneMaterial = M.Brick,
     accent = Color3.fromRGB(180, 30, 36), frame = Color3.fromRGB(236, 230, 214), net = Color3.fromRGB(176, 120, 60),
     banner = Color3.fromRGB(150, 24, 30), lights = true, decorations = {}}},
