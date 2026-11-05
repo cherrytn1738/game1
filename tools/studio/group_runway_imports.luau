@@ -1,4 +1,4 @@
--- Studio command-bar script (not Rojo-managed): sorts World 4's imported runway FBX files into
+-- Studio command-bar script (not Rojo-managed): sorts World 4's imported runway and portal FBX files into
 -- ServerStorage.RunwayAssets templates, one Model per template, the way World 3's were grouped.
 --
 -- 1. In Studio, Import 3D each FBX listed below (default settings), leaving each result in the
@@ -38,7 +38,36 @@ local manifests = {
   ChessPawn = {"PawnBody"},
   BoardGameBox = {"GameBoxBase", "GameBoxLid", "GameBoxArt", "GameBoxBoard"},
  },
+ RunwayWorld4House = {
+  Crayon = {"CrayonA", "CrayonB", "CrayonC", "CrayonBands"},
+  PaperPlane = {"PlaneWings", "PlaneStripe"},
+  GluePuddle = {"GlueBottle", "GlueCap", "GlueLabel", "GluePuddle"},
+  PaperScrap = {"PaperBall", "PaperScrapColor"},
+  PaperHills = {"PaperHillA", "PaperHillB"},
+  RubberDuck = {"DuckBody", "DuckBeak", "DuckEyes"},
+  SoapBar = {"SoapBar", "SoapSuds", "SoapDish"},
+  BubbleFoam = {"BubbleFoam", "BubbleShine"},
+  Bubbles = {"Bubbles"},
+  TubWall = {"TubSide", "TubRim", "TubFeet", "TubWater"},
+  Pencil = {"PencilBody", "PencilWood", "PencilLead", "PencilFerrule", "PencilEraser", "PencilCup"},
+  SpinningGlobe = {"GlobeOcean", "GlobeLand", "GlobeStand"},
+  ReadingLamp = {"LampMetal", "LampJoints", "LampBulb"},
+  Eraser = {"EraserPink", "EraserBlue"},
+  BookCliffs = {"BookCoversA", "BookCoversB", "BookCoversC", "BookPages"},
+  OldTrunk = {"TrunkBody", "TrunkBands", "TrunkLid"},
+  RockingHorse = {"HorseBody", "HorseRockers", "HorseMane", "HorseSaddle"},
+  Cobweb = {"CobwebPosts", "CobwebSilk", "CobwebSpider"},
+  DustBunny = {"DustFluff", "DustEyes"},
+  AtticWindow = {"WindowFrame", "WindowGlass", "WindowWall"},
+  GiantPillow = {"PillowClothA", "PillowClothB", "PillowSeam"},
+  BlanketTunnel = {"TunnelBlanket", "TunnelStripes", "TunnelCushions"},
+  NightLight = {"NightLightBase", "NightLightGlow", "NightLightFace"},
+  PlushToy = {"PlushFur", "PlushSnout", "PlushEyes"},
+ },
 }
+-- Imports kept whole as one template of the same name (the portals): WorldPortal.luau sizes and
+-- places them itself.
+local WHOLE = {"KeyholePortal"}
 local CENTRED = {}
 
 local assets = game.ServerStorage:FindFirstChild("RunwayAssets")
@@ -48,6 +77,26 @@ if not assets then
  assets.Parent = game.ServerStorage
 end
 local out = {}
+for _, name in WHOLE do
+ local source = workspace:FindFirstChild(name)
+ if not source then
+  table.insert(out, name .. ": not imported")
+  continue
+ end
+ local old = assets:FindFirstChild(name)
+ if old then old:Destroy() end
+ for _, part in source:GetDescendants() do
+  if part:IsA("BasePart") then
+   part.Anchored, part.CanCollide, part.CanTouch, part.CanQuery = true, false, false, false
+  end
+ end
+ local box, size = source:GetBoundingBox()
+ source.WorldPivot = CFrame.new(box.Position - Vector3.new(0, size.Y / 2, 0))
+ source:ScaleTo(source:GetScale() * 0.01)
+ source:PivotTo(CFrame.new())
+ source.Parent = assets
+ table.insert(out, name .. ": moved into RunwayAssets")
+end
 for importName, manifest in manifests do
  local source = workspace:FindFirstChild(importName)
  if not source then

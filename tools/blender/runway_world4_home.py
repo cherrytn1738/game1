@@ -201,6 +201,65 @@ def heart_outline(size, n=28, flip=False):
     return points
 
 
+def fresh_batch_collection():
+    """fresh_collection, also freeing the old meshes so repeated runs do not pile up orphan data."""
+    coll = bpy.data.collections.get(COLLECTION)
+    old_meshes = [o.data for o in coll.objects if o.type == "MESH"] if coll else []
+    coll = fresh_collection(COLLECTION)
+    for mesh in old_meshes:
+        if mesh.users == 0:
+            bpy.data.meshes.remove(mesh)
+    return coll
+
+
+def build_and_export(only=None, export=True):
+    global MANIFEST
+    coll = fresh_batch_collection()
+    layer = bpy.context.view_layer.layer_collection.children.get(COLLECTION)
+    if layer:
+        layer.exclude = False
+    objects, manifest = [], {}
+    for index, (prop, builder) in enumerate(BUILDERS):
+        if only and prop not in only:
+            continue
+        group = builder(coll)
+        # Rest on z = 0 with the footprint centred on the origin.
+        lo = Vector((min(v.co[i] for o in group for v in o.data.vertices) for i in range(3)))
+        hi = Vector((max(v.co[i] for o in group for v in o.data.vertices) for i in range(3)))
+        shift = Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))
+        slot = index if not only else list(only).index(prop)
+        for obj in group:
+            obj.data.transform(Matrix.Translation(shift))
+            triangulate_ngons(obj)
+            obj.location.x += (slot % 6) * 26.0
+            obj.location.y += (slot // 6) * 30.0
+            objects.append(obj)
+            if "." in obj.name:
+                print("NAME CLASH:", obj.name)
+        manifest[prop] = [o.name for o in group]
+        size = hi - lo
+        print(prop, "tris", sum(triangles(o) for o in group), "size", tuple(round(c, 2) for c in size))
+    for obj in objects:
+        if max(obj.dimensions) > 20.0:
+            print("TOO BIG:", obj.name, tuple(round(d, 2) for d in obj.dimensions))
+    MANIFEST = manifest
+    print("triangles:", sum(triangles(o) for o in objects))
+    if only or not export:
+        return objects
+    for other in bpy.context.selected_objects:
+        other.select_set(False)
+    for obj in objects:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
+    os.makedirs(os.path.dirname(EXPORT_PATH), exist_ok=True)
+    bpy.ops.export_scene.fbx(filepath=EXPORT_PATH, use_selection=True, object_types={"MESH"},
+                             apply_unit_scale=True, add_leaf_bones=False, bake_anim=False)
+    with open(MANIFEST_PATH, "w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=1)
+    print("exported", EXPORT_PATH, "with", len(manifest), "models")
+    return objects
+
+
 # ---------- 1. Giant Backyard ----------
 
 def build_grass_blade(coll):
@@ -806,65 +865,6 @@ BUILDERS = [
     ("GiantDie", build_giant_die), ("PlayingCard", build_playing_card), ("GamePiece", build_game_piece),
     ("ChessPawn", build_chess_pawn), ("BoardGameBox", build_board_game_box),
 ]
-
-
-def fresh_batch_collection():
-    """fresh_collection, also freeing the old meshes so repeated runs do not pile up orphan data."""
-    coll = bpy.data.collections.get(COLLECTION)
-    old_meshes = [o.data for o in coll.objects if o.type == "MESH"] if coll else []
-    coll = fresh_collection(COLLECTION)
-    for mesh in old_meshes:
-        if mesh.users == 0:
-            bpy.data.meshes.remove(mesh)
-    return coll
-
-
-def build_and_export(only=None, export=True):
-    global MANIFEST
-    coll = fresh_batch_collection()
-    layer = bpy.context.view_layer.layer_collection.children.get(COLLECTION)
-    if layer:
-        layer.exclude = False
-    objects, manifest = [], {}
-    for index, (prop, builder) in enumerate(BUILDERS):
-        if only and prop not in only:
-            continue
-        group = builder(coll)
-        # Rest on z = 0 with the footprint centred on the origin.
-        lo = Vector((min(v.co[i] for o in group for v in o.data.vertices) for i in range(3)))
-        hi = Vector((max(v.co[i] for o in group for v in o.data.vertices) for i in range(3)))
-        shift = Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))
-        slot = index if not only else list(only).index(prop)
-        for obj in group:
-            obj.data.transform(Matrix.Translation(shift))
-            triangulate_ngons(obj)
-            obj.location.x += (slot % 6) * 26.0
-            obj.location.y += (slot // 6) * 30.0
-            objects.append(obj)
-            if "." in obj.name:
-                print("NAME CLASH:", obj.name)
-        manifest[prop] = [o.name for o in group]
-        size = hi - lo
-        print(prop, "tris", sum(triangles(o) for o in group), "size", tuple(round(c, 2) for c in size))
-    for obj in objects:
-        if max(obj.dimensions) > 20.0:
-            print("TOO BIG:", obj.name, tuple(round(d, 2) for d in obj.dimensions))
-    MANIFEST = manifest
-    print("triangles:", sum(triangles(o) for o in objects))
-    if only or not export:
-        return objects
-    for other in bpy.context.selected_objects:
-        other.select_set(False)
-    for obj in objects:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = objects[0]
-    os.makedirs(os.path.dirname(EXPORT_PATH), exist_ok=True)
-    bpy.ops.export_scene.fbx(filepath=EXPORT_PATH, use_selection=True, object_types={"MESH"},
-                             apply_unit_scale=True, add_leaf_bones=False, bake_anim=False)
-    with open(MANIFEST_PATH, "w", encoding="utf-8") as handle:
-        json.dump(manifest, handle, indent=1)
-    print("exported", EXPORT_PATH, "with", len(manifest), "models")
-    return objects
 
 
 build_and_export(globals().get("ONLY"), globals().get("EXPORT", True))

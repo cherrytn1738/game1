@@ -1090,6 +1090,84 @@ local MESH_PROPS = {
  chessPawn = {template = "ChessPawn", fallback = "rock", colors = function(c, v)
   return {PawnBody = v % 2 == 0 and INK or Color3.fromRGB(246, 240, 226)}
  end},
+ -- World 4, sections 6-10 (tools/blender/runway_world4_house.py). Craft Table; the paper plane glides.
+ crayon = {template = "Crayon", fallback = "candyCane", colors = function(c, v)
+  return {CrayonA = TOYS[v % 4 + 1], CrayonB = TOYS[(v + 1) % 4 + 1], CrayonC = TOYS[(v + 2) % 4 + 1], CrayonBands = INK}
+ end},
+ paperPlane = {template = "PaperPlane", fallback = "lollipop", faceTee = true, lift = 6, colors = function(c, v)
+  return {PlaneWings = Color3.fromRGB(252, 252, 248), PlaneStripe = TOYS[v % 4 + 1]}
+ end},
+ gluePuddle = {template = "GluePuddle", fallback = "crystals", colors = function()
+  return {GlueBottle = Color3.fromRGB(250, 250, 246), GlueCap = TOY_ORANGE, GlueLabel = TOY_BLUE, GluePuddle = Color3.fromRGB(246, 248, 255)}
+ end},
+ paperScrap = {template = "PaperScrap", fallback = "rock", colors = function(c, v)
+  return {PaperBall = Color3.fromRGB(250, 250, 246), PaperScrapColor = ({c.accent, TOY_YELLOW, Color3.fromRGB(140, 200, 255)})[v % 3 + 1]}
+ end},
+ -- Bathtub Bay. The duck faces the batter.
+ rubberDuck = {template = "RubberDuck", fallback = "cloud", faceTee = "exact", yawOffset = math.pi, colors = function()
+  return {DuckBody = Color3.fromRGB(255, 214, 40), DuckBeak = TOY_ORANGE, DuckEyes = INK}
+ end},
+ soapBar = {template = "SoapBar", fallback = "iceShards", colors = function(c, v)
+  local soap = ({Color3.fromRGB(255, 160, 190), Color3.fromRGB(170, 230, 200), Color3.fromRGB(200, 180, 255)})[v % 3 + 1]
+  return {SoapBar = soap, SoapSuds = WHITE, SoapDish = Color3.fromRGB(140, 216, 220)}
+ end},
+ bubbleFoam = {template = "BubbleFoam", fallback = "gumdrops", materials = {BubbleShine = GLASS}, transparency = {BubbleShine = 0.45},
+  colors = function()
+  return {BubbleFoam = Color3.fromRGB(252, 252, 255), BubbleShine = Color3.fromRGB(200, 230, 255)}
+ end},
+ bubbles = {template = "Bubbles", fallback = "bush", lift = 2, materials = {Bubbles = GLASS}, transparency = {Bubbles = 0.45}, colors = function()
+  return {Bubbles = Color3.fromRGB(200, 230, 255)}
+ end},
+ -- Bookshelf Cliffs. The lamp shows its side to the batter.
+ pencil = {template = "Pencil", fallback = "pine", materials = {PencilFerrule = METAL}, colors = function(c, v)
+  return {PencilBody = TOY_YELLOW, PencilWood = Color3.fromRGB(240, 206, 156), PencilLead = INK, PencilFerrule = CHROME,
+   PencilEraser = Color3.fromRGB(255, 150, 170), PencilCup = TOYS[v % 4 + 1]}
+ end},
+ spinningGlobe = {template = "SpinningGlobe", fallback = "planet", materials = {GlobeStand = METAL}, colors = function()
+  return {GlobeOcean = Color3.fromRGB(64, 140, 230), GlobeLand = Color3.fromRGB(110, 200, 90), GlobeStand = GOLD}
+ end},
+ readingLamp = {template = "ReadingLamp", fallback = "mesa", faceTee = "exact", yawOffset = math.pi / 2,
+  materials = {LampBulb = NEON, LampJoints = METAL}, colors = function(c, v)
+  return {LampMetal = TOYS[v % 4 + 1], LampJoints = Color3.fromRGB(52, 52, 60), LampBulb = Color3.fromRGB(255, 236, 170)}
+ end},
+ eraser = {template = "Eraser", fallback = "rock", colors = function()
+  return {EraserPink = Color3.fromRGB(255, 150, 170), EraserBlue = TOY_BLUE}
+ end},
+ -- Attic Treasures. The trunk and the web face the batter, the rocking horse its side.
+ oldTrunk = {template = "OldTrunk", fallback = "geode", faceTee = "exact", yawOffset = math.pi,
+  materials = {TrunkBody = WOOD, TrunkLid = WOOD, TrunkBands = METAL}, colors = function()
+  return {TrunkBody = Color3.fromRGB(120, 74, 44), TrunkLid = Color3.fromRGB(140, 88, 52), TrunkBands = GOLD}
+ end},
+ rockingHorse = {template = "RockingHorse", fallback = "moon", faceTee = "exact", yawOffset = math.pi / 2,
+  materials = {HorseRockers = WOOD}, colors = function(c, v)
+  return {HorseBody = Color3.fromRGB(250, 242, 226), HorseRockers = TOY_RED, HorseMane = Color3.fromRGB(150, 90, 46),
+   HorseSaddle = v % 2 == 0 and TOY_BLUE or TOY_GREEN}
+ end},
+ cobweb = {template = "Cobweb", fallback = "star", faceTee = "exact", yawOffset = math.pi, materials = {CobwebPosts = WOOD},
+  transparency = {CobwebSilk = 0.2}, colors = function()
+  return {CobwebPosts = Color3.fromRGB(170, 124, 80), CobwebSilk = Color3.fromRGB(240, 242, 250), CobwebSpider = INK}
+ end},
+ dustBunny = {template = "DustBunny", fallback = "rock", faceTee = "exact", yawOffset = math.pi, materials = {DustFluff = FABRIC},
+  colors = function()
+  return {DustFluff = Color3.fromRGB(160, 156, 170), DustEyes = WHITE}
+ end},
+ -- Pillow Fort. The tunnel opens toward the batter; the night light glows.
+ giantPillow = {template = "GiantPillow", fallback = "cloud", materials = {PillowClothA = FABRIC, PillowClothB = FABRIC}, colors = function(c, v)
+  local pastel = {Color3.fromRGB(170, 160, 240), Color3.fromRGB(255, 190, 205), Color3.fromRGB(160, 214, 255), Color3.fromRGB(255, 226, 150)}
+  return {PillowClothA = pastel[v % 4 + 1], PillowClothB = pastel[(v + 1) % 4 + 1], PillowSeam = Color3.fromRGB(255, 248, 230)}
+ end},
+ blanketTunnel = {template = "BlanketTunnel", fallback = "moon", faceTee = "exact", yawOffset = math.pi,
+  materials = {TunnelBlanket = FABRIC, TunnelStripes = FABRIC, TunnelCushions = FABRIC}, colors = function(c)
+  return {TunnelBlanket = Color3.fromRGB(96, 100, 200), TunnelStripes = c.accent, TunnelCushions = Color3.fromRGB(150, 196, 255)}
+ end},
+ nightLight = {template = "NightLight", fallback = "star", faceTee = "exact", yawOffset = math.pi, materials = {NightLightGlow = NEON},
+  colors = function()
+  return {NightLightBase = Color3.fromRGB(246, 246, 250), NightLightGlow = Color3.fromRGB(255, 226, 140), NightLightFace = Color3.fromRGB(150, 110, 50)}
+ end},
+ plushToy = {template = "PlushToy", fallback = "bush", faceTee = "exact", yawOffset = math.pi, materials = {PlushFur = FABRIC}, colors = function(c, v)
+  local fur = ({Color3.fromRGB(176, 120, 72), Color3.fromRGB(240, 200, 150), Color3.fromRGB(200, 150, 210)})[v % 3 + 1]
+  return {PlushFur = fur, PlushSnout = Color3.fromRGB(250, 228, 196), PlushEyes = INK}
+ end},
 }
 
 -- Backdrops: large shapes on the outer ground, mostly prop meshes at a much bigger scale.
@@ -1200,6 +1278,24 @@ local BACKDROP_MESHES = {
   local base = TOYS[v % #TOYS + 1]
   return {GameBoxBase = base, GameBoxLid = TOYS[(v + 2) % #TOYS + 1], GameBoxArt = WHITE, GameBoxBoard = Color3.fromRGB(246, 236, 206)}
  end},
+ paperHills = {template = "PaperHills", fallback = "candyHills", scale = 4, colors = function(c, v)
+  local paper = {Color3.fromRGB(150, 206, 255), Color3.fromRGB(255, 190, 130), Color3.fromRGB(190, 240, 160), Color3.fromRGB(255, 170, 200)}
+  return {PaperHillA = paper[v % 4 + 1], PaperHillB = paper[(v + 1) % 4 + 1]}
+ end},
+ tubWall = {template = "TubWall", fallback = "bigClouds", scale = 4, faceTee = "exact", materials = {TubFeet = METAL, TubWater = GLASS},
+  transparency = {TubWater = 0.3}, colors = function()
+  return {TubSide = Color3.fromRGB(250, 252, 255), TubRim = WHITE, TubFeet = GOLD, TubWater = Color3.fromRGB(140, 210, 255)}
+ end},
+ bookCliffs = {template = "BookCliffs", fallback = "mountains", scale = 4, colors = function(c, v)
+  return {BookCoversA = TOYS[v % 4 + 1], BookCoversB = Color3.fromRGB(120, 70, 150), BookCoversC = TOYS[(v + 2) % 4 + 1],
+   BookPages = Color3.fromRGB(252, 242, 220)}
+ end},
+ atticWindow = {template = "AtticWindow", fallback = "towers", scale = 4, faceTee = "exact", yawOffset = math.pi,
+  materials = {WindowFrame = WOOD, WindowWall = WOOD, WindowGlass = NEON}, transparency = {WindowGlass = 0.25}, colors = function()
+  return {WindowFrame = Color3.fromRGB(180, 130, 86), WindowWall = Color3.fromRGB(110, 80, 64), WindowGlass = Color3.fromRGB(196, 214, 255)}
+ end},
+ pillowHills = {template = "GiantPillow", fallback = "bigClouds", scale = 4, materials = MESH_PROPS.giantPillow.materials,
+  colors = MESH_PROPS.giantPillow.colors},
 }
 
 local function getTemplate(definition)

@@ -8,7 +8,8 @@ This file is updated after every phase.
 
 | Phase | What | Commit | State |
 |---|---|---|---|
-| 2 | Runway props, sections 1-5 | (this commit) | Done; the models need importing by hand |
+| 2 | Runway props, sections 1-5 | `410485c` | Done; the models need importing by hand |
+| 3 | Runway props, sections 6-10; keyhole end portal | (this commit) | Done; the models need importing by hand |
 
 ## What was finished
 
@@ -43,6 +44,38 @@ This file is updated after every phase.
     kinds placed along World 4's runway (878 parts) and every part got its tint. The stand-ins
     were removed afterwards.
 
+### Phase 3: runway props, sections 6-10, and the keyhole end portal
+- **Blender script:** `tools/blender/runway_world4_house.py` builds 24 templates. It is exported
+  to `assets/models/RunwayWorld4House.fbx`, with its manifest.
+  - **Craft Table:** Crayon, PaperPlane (floating), GluePuddle; filler PaperScrap; backdrop
+    PaperHills.
+  - **Bathtub Bay:** RubberDuck, SoapBar, BubbleFoam; filler Bubbles (floating); backdrop TubWall.
+  - **Bookshelf Cliffs:** Pencil (three in a cup), SpinningGlobe, ReadingLamp; filler Eraser;
+    backdrop BookCliffs.
+  - **Attic Treasures:** OldTrunk, RockingHorse, Cobweb (with a little spider); filler
+    DustBunny; backdrop AtticWindow (moonlit).
+  - **Pillow Fort:** GiantPillow, BlanketTunnel, NightLight (a glowing crescent moon and star);
+    filler PlushToy; backdrop GiantPillow at backdrop scale.
+- **Keyhole portal:** `tools/blender/keyhole_portal.py`, exported to
+  `assets/models/KeyholePortal.fbx`.
+  - It is an arched wooden door with panel mouldings, a brass escutcheon, a knob and hinges, on
+    a stone threshold.
+  - Its keyhole-shaped `PortalVortex` glows warm, with the spiral `PortalSwirl` turning in the
+    keyhole's round top.
+  - `WorldPortal` has a new `LOOKS.KeyholePortal`, and `world_4.portalModel = "KeyholePortal"`.
+    Until the model is imported, the clockwork portal stands in, as before.
+- **Sections:** `RunwayDecor` has entries for all 24 kinds, each with its placeholder fallback.
+  `WorldConfig` sections 6-10 are switched to them.
+- **Import tool:** `group_runway_imports.luau` now also handles the house batch, and moves the
+  keyhole portal into `RunwayAssets` whole.
+- **Checks:**
+  - **Placeholders:** in a playtest, World 4 builds with its placeholders, and both portals use
+    the clockwork stand-in (opening radius 106).
+  - **Stand-ins:** with stand-in templates, all 24 house kinds placed (1,083 parts) and every part
+    was tinted. A stand-in `KeyholePortal` gate got its looks: the swirl spins, the glow pulses,
+    and it stands 360 studs tall with an opening radius of 79.
+  - **Tests:** the same as Phase 2. All suites pass; UIModal passes with the tween stand-in.
+
 ## Decisions I made on my own
 - **Hose:** the garden hose is a hose on a reel cart. A coil lying flat would barely show at
   runway scale.
@@ -57,6 +90,15 @@ This file is updated after every phase.
   20-stud checks in the section's accent colour.
 - **Tests:** UIModal can't run normally while Studio is in the background (see the next
   section), so it was run with a stand-in TweenService instead.
+- **Pencils:** the pencil is three pencils in a cup, so it stands tall.
+- **Pillow Fort's backdrop:** `pillowHills` reuses the GiantPillow model, scaled up.
+- **Portal opening:** the keyhole portal's opening is keyhole-shaped, so its `OpeningRadius` is
+  smaller than the round vortex's. A hit is still captured by distance alone (BallLauncher); only
+  the trip's camera framing uses the radius.
+- **Floating props:** the paper plane (lift 6) and the bubbles (lift 2) float, like World 3's
+  floating props.
+- **The keyhole look stays in World 4.** It is World 4's `portalModel`, as the design says, so it
+  appears on World 4's hub portal and end portal. World 3's portals are unchanged.
 
 ## Things that didn't work or were skipped
 - **Screen captures time out**, so I couldn't look at anything in Studio. Studio isn't drawing
@@ -80,6 +122,13 @@ This file is updated after every phase.
    2. Paste `tools/studio/group_runway_imports.luau` into the command bar and press Enter. It
       prints one line per template and `RunwayWorld4Home: made 25, parts left 0`.
    3. Save the place.
+2. **Phase 3 models:** Import 3D `assets/models/RunwayWorld4House.fbx` and
+   `assets/models/KeyholePortal.fbx`, leaving both in the Workspace. Run the same script again
+   (it reports `RunwayWorld4House: made 24, parts left 0` and `KeyholePortal: moved into
+   RunwayAssets`), then save the place. You can import all three files first and run the script
+   once.
+3. **Restart the playtest after importing.** The runway and portals are built when the server
+   starts.
 
 ## What to check in Studio
 ### Phase 2
@@ -98,3 +147,25 @@ This file is updated after every phase.
   - anything sunk into or floating above the deck;
   - fences running along the runway;
   - see-through water on the sprinkler and the faucet.
+
+### Phase 3
+- **Before importing:** sections 6-10 look as they did on `main`, and World 4's hub portal and end
+  portal are still the clockwork portal.
+- **After importing:**
+  - **Sections 6-10:**
+    - **Craft Table:** crayons, gliding paper planes, glue bottles with puddles, paper scraps, and
+      faceted paper hills on the outer ground.
+    - **Bathtub Bay:** rubber ducks, soap bars on dishes, foam heaps, floating bubbles and the
+      claw-foot tub wall.
+    - **Bookshelf Cliffs:** pencil cups, globes, desk lamps, erasers and cliffs of giant books.
+    - **Attic Treasures:** trunks, rocking horses (side on), cobwebs, dust bunnies and moonlit
+      round windows.
+    - **Pillow Fort:** pillows, blanket tunnels (opening toward the batter), night lights, teddy
+      bears and pillow heaps.
+  - **World 4's hub portal:** the arched door with a glowing keyhole.
+  - **End portal:** the same door, 360 studs tall, at 8,000 studs. A World 4 portal hit should
+    still be pulled into the keyhole and play the finale.
+- **What to look for:**
+  - whether the keyhole glow reads warm and bright from the batting area;
+  - whether the swirl turns inside the keyhole's round top;
+  - whether the floating paper planes and bubbles hover at a sensible height.

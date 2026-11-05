@@ -270,6 +270,8 @@ local Worlds = {
    -- The shared hub layout (above). Mouse-Hole Plaza (HubDecor "TinyTown") is not built yet, so
    -- the hub uses the plain floor (.vscode/WORLD4_DESIGN.md, Phase 6).
    offset = Vector3.new(24000, 0, 0), arrival = arrival(Vector3.new(24000, 0, 0)),
+   -- A giant door keyhole glowing from the other side (WorldPortal: the hub portal and the end portal).
+   portalModel = "KeyholePortal",
    hub = hubLayout("World4Hub", nil, "world_4", "TINY TOWN BALLS"),
    -- No card image yet: the painted scene in the sky and ground colours.
    preview = {sky = Color3.fromRGB(255, 214, 150), ground = Color3.fromRGB(120, 196, 90)},
@@ -287,9 +289,10 @@ local Worlds = {
     propScale = 1.8, fillerScale = 1.5},
    -- Shrunk to bug size across a giant house and yard, in the order of the World 4 balls
    -- (Dandelion Puff to Dream Orb). The Cash multipliers follow the earlier Worlds' pattern (x1 to
-   -- 700, x1.15 to 2100, x1.35 beyond). Sections 1-5 use the Tiny Town meshes (runway_world4_home.py);
+   -- 700, x1.15 to 2100, x1.35 beyond). The props are Tiny Town meshes (runway_world4_home.py, sections
+   -- 1-5, and runway_world4_house.py, 6-10);
    -- each one stands in with its placeholder kind (RunwayDecor fallback) until its model is imported.
-   -- Sections 6-10 still use placeholder kinds (WORLD4_DESIGN.md, Phase 3). floorChecker: big checks.
+   -- floorChecker: big checks (a picnic blanket, a chessboard).
    sections = {
     {id = "backyard", displayName = "Giant Backyard", startDistance = 0, endDistance = 700,
      order = 1, rewardMultiplier = 1, color = Color3.fromRGB(92, 182, 72), accent = Color3.fromRGB(232, 64, 56),
@@ -313,24 +316,24 @@ local Worlds = {
      props = {"giantDie", "playingCard", "gamePiece"}, backdrop = "boardGameBox", fillers = {"chessPawn"}, floorChecker = true},
     {id = "crafttable", displayName = "Craft Table", startDistance = 3500, endDistance = 4200,
      order = 6, rewardMultiplier = 1.35, color = Color3.fromRGB(236, 222, 196), accent = Color3.fromRGB(236, 90, 160),
-     material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.SmoothPlastic, props = {"candyCane", "lollipop", "crystals"},
-     backdrop = "candyHills", fillers = {"rock"}, floorPlanks = true},
+     material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.SmoothPlastic, props = {"crayon", "paperPlane", "gluePuddle"},
+     backdrop = "paperHills", fillers = {"paperScrap"}, floorPlanks = true},
     {id = "bathtub", displayName = "Bathtub Bay", startDistance = 4200, endDistance = 4900,
      order = 7, rewardMultiplier = 1.35, color = Color3.fromRGB(150, 214, 236), accent = Color3.fromRGB(255, 220, 60),
      material = Enum.Material.Marble, deckMaterial = Enum.Material.Marble, deckColor = Color3.fromRGB(236, 244, 250),
-     props = {"cloud", "iceShards", "gumdrops"}, backdrop = "bigClouds", fillers = {"bush"}, floorTiles = true},
+     props = {"rubberDuck", "soapBar", "bubbleFoam"}, backdrop = "tubWall", fillers = {"bubbles"}, floorTiles = true},
     {id = "bookshelf", displayName = "Bookshelf Cliffs", startDistance = 4900, endDistance = 5700,
      order = 8, rewardMultiplier = 1.35, color = Color3.fromRGB(140, 92, 62), accent = Color3.fromRGB(80, 150, 220),
-     material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.WoodPlanks, props = {"mesa", "pine", "planet"},
-     backdrop = "mountains", fillers = {"rock"}, floorPlanks = true},
+     material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.WoodPlanks, props = {"pencil", "spinningGlobe", "readingLamp"},
+     backdrop = "bookCliffs", fillers = {"eraser"}, floorPlanks = true},
     {id = "attic", displayName = "Attic Treasures", startDistance = 5700, endDistance = 6800,
      order = 9, rewardMultiplier = 1.35, color = Color3.fromRGB(96, 80, 96), accent = Color3.fromRGB(196, 214, 255),
      material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.WoodPlanks, deckColor = Color3.fromRGB(110, 86, 70),
-     props = {"moon", "geode", "star"}, backdrop = "towers", fillers = {"rock"}, floorPlanks = true},
+     props = {"oldTrunk", "rockingHorse", "cobweb"}, backdrop = "atticWindow", fillers = {"dustBunny"}, floorPlanks = true},
     {id = "pillowfort", displayName = "Pillow Fort", startDistance = 6800, endDistance = 8000,
      order = 10, rewardMultiplier = 1.35, color = Color3.fromRGB(70, 74, 140), accent = Color3.fromRGB(255, 226, 150),
      material = Enum.Material.Fabric, deckMaterial = Enum.Material.Fabric, deckColor = Color3.fromRGB(150, 140, 210),
-     props = {"cloud", "star", "moon"}, backdrop = "bigClouds", fillers = {"bush"}},
+     props = {"giantPillow", "blanketTunnel", "nightLight"}, backdrop = "pillowHills", fillers = {"plushToy"}},
    }},
  },
 }

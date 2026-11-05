@@ -2,7 +2,8 @@
 -- frame. The model is ServerStorage.RunwayAssets.WorldPortal (Studio-managed, from
 -- tools/blender/world_portal.py), the clockwork time portal, or the World's own portalModel
 -- (FuturePortal, from tools/blender/future_portal.py, in World 2, whose portals lead on to
--- World 3), or a plain octagon of parts until it is imported. An
+-- World 3; KeyholePortal, from tools/blender/keyhole_portal.py, in World 4), or a plain octagon of
+-- parts until it is imported (a missing portalModel falls back to the clockwork portal). An
 -- invisible Trigger fills the opening; stepping into it opens the Worlds menu on that client
 -- (WorldTravelClient), and travel itself stays the server-checked World Travel request.
 -- Parts with Spin/Pulse attributes are animated on each client (TrainingStadiumClient).
@@ -56,6 +57,19 @@ LOOKS.FuturePortal = {
  FuturePortalSteps = {color = CYAN, material = M.Neon},
  PortalVortex = {color = Color3.fromRGB(96, 52, 220), material = M.Neon},
  PortalSwirl = {color = Color3.fromRGB(235, 160, 255), material = M.Neon, spin = -70},
+}
+-- World 4's look (tools/blender/keyhole_portal.py): an arched wooden door whose brass-rimmed keyhole
+-- glows warm from the other side, the spiral turning in the keyhole's round top.
+LOOKS.KeyholePortal = {
+ KeyholeDoor = {color = Color3.fromRGB(150, 92, 52), material = M.Wood},
+ KeyholeTrim = {color = Color3.fromRGB(184, 122, 70), material = M.Wood},
+ KeyholePlate = {color = GOLD, material = M.Metal},
+ KeyholeScrews = {color = Color3.fromRGB(255, 232, 160), material = M.Metal},
+ KeyholeKnob = {color = GOLD, material = M.Metal},
+ KeyholeGlow = {color = Color3.fromRGB(255, 196, 90), material = M.Neon, pulse = 0.5, light = true},
+ KeyholeBase = {color = Color3.fromRGB(176, 168, 160), material = M.Slate, collide = true},
+ PortalVortex = {color = Color3.fromRGB(255, 214, 120), material = M.Neon},
+ PortalSwirl = {color = Color3.fromRGB(255, 246, 214), material = M.Neon, spin = -70},
 }
 
 local function prepare(part, collide)

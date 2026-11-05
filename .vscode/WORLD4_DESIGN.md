@@ -232,11 +232,18 @@ One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), adde
   Workspace), run `tools/studio/group_runway_imports.luau` in the command bar, save the place
 
 ### Phase 3: runway props, sections 6-10, and the keyhole end portal (Blender)
-- [ ] `tools/blender/runway_world4_house.py` (Craft Table to Pillow Fort), exported to
-      `assets/models/RunwayWorld4House.fbx`
-- [ ] `tools/blender/keyhole_portal.py`, exported to `assets/models/KeyholePortal.fbx`;
-      `world_4.portalModel = "KeyholePortal"`; `WorldPortal` builds it
-- [ ] Sections 6-10 switched to their meshes; Studio import steps listed; tests pass; commit
+- [x] `tools/blender/runway_world4_house.py` (Craft Table to Pillow Fort), exported to
+      `assets/models/RunwayWorld4House.fbx` (+ manifest): 24 templates; `pillowHills` reuses
+      `GiantPillow` at backdrop scale; the paper plane and bubbles float (`lift`)
+- [x] `tools/blender/keyhole_portal.py`, exported to `assets/models/KeyholePortal.fbx`: an arched
+      wooden door, brass escutcheon, knob and hinges; `PortalVortex` is keyhole-shaped (the gate's
+      capture is by distance, so the smaller opening only changes the trip's framing);
+      `world_4.portalModel = "KeyholePortal"`; `WorldPortal` `LOOKS.KeyholePortal` (until imported,
+      the clockwork portal stands in)
+- [x] Sections 6-10 switched to their meshes (each with its placeholder `fallback`); Studio import
+      steps listed; tests pass; commit
+- Studio import (by hand): Import 3D `RunwayWorld4House.fbx` and `KeyholePortal.fbx`, run
+  `tools/studio/group_runway_imports.luau`, save the place
 
 ### Phase 4: the 10 Balls and the Rolling Pin Bat (Blender)
 - [ ] `tools/blender/balls_world4.py`, exported to `assets/models/BallsWorld4.fbx`

@@ -1,0 +1,122 @@
+{
+ "Crayon": [
+  "CrayonA",
+  "CrayonB",
+  "CrayonC",
+  "CrayonBands"
+ ],
+ "PaperPlane": [
+  "PlaneWings",
+  "PlaneStripe"
+ ],
+ "GluePuddle": [
+  "GlueBottle",
+  "GlueCap",
+  "GlueLabel",
+  "GluePuddle"
+ ],
+ "PaperScrap": [
+  "PaperBall",
+  "PaperScrapColor"
+ ],
+ "PaperHills": [
+  "PaperHillA",
+  "PaperHillB"
+ ],
+ "RubberDuck": [
+  "DuckBody",
+  "DuckBeak",
+  "DuckEyes"
+ ],
+ "SoapBar": [
+  "SoapBar",
+  "SoapSuds",
+  "SoapDish"
+ ],
+ "BubbleFoam": [
+  "BubbleFoam",
+  "BubbleShine"
+ ],
+ "Bubbles": [
+  "Bubbles"
+ ],
+ "TubWall": [
+  "TubSide",
+  "TubRim",
+  "TubFeet",
+  "TubWater"
+ ],
+ "Pencil": [
+  "PencilBody",
+  "PencilWood",
+  "PencilLead",
+  "PencilFerrule",
+  "PencilEraser",
+  "PencilCup"
+ ],
+ "SpinningGlobe": [
+  "GlobeOcean",
+  "GlobeLand",
+  "GlobeStand"
+ ],
+ "ReadingLamp": [
+  "LampMetal",
+  "LampJoints",
+  "LampBulb"
+ ],
+ "Eraser": [
+  "EraserPink",
+  "EraserBlue"
+ ],
+ "BookCliffs": [
+  "BookCoversA",
+  "BookCoversB",
+  "BookCoversC",
+  "BookPages"
+ ],
+ "OldTrunk": [
+  "TrunkBody",
+  "TrunkBands",
+  "TrunkLid"
+ ],
+ "RockingHorse": [
+  "HorseBody",
+  "HorseRockers",
+  "HorseMane",
+  "HorseSaddle"
+ ],
+ "Cobweb": [
+  "CobwebPosts",
+  "CobwebSilk",
+  "CobwebSpider"
+ ],
+ "DustBunny": [
+  "DustFluff",
+  "DustEyes"
+ ],
+ "AtticWindow": [
+  "WindowFrame",
+  "WindowGlass",
+  "WindowWall"
+ ],
+ "GiantPillow": [
+  "PillowClothA",
+  "PillowClothB",
+  "PillowSeam"
+ ],
+ "BlanketTunnel": [
+  "TunnelBlanket",
+  "TunnelStripes",
+  "TunnelCushions"
+ ],
+ "NightLight": [
+  "NightLightBase",
+  "NightLightGlow",
+  "NightLightFace"
+ ],
+ "PlushToy": [
+  "PlushFur",
+  "PlushSnout",
+  "PlushEyes"
+ ]
+}
