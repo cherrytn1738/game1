@@ -19,7 +19,7 @@ early.
 | 4 | Samurai Dojo | SamuraiDojoCage | `23a06cf` | 53 meshes, about 98K triangles |
 | 5 | Time Machine Lab | TimeMachineLabCage | `9ac7256` | 58 meshes, about 91K triangles, 25 moving parts |
 | 6 | Sandbox Diamond | SandboxDiamondCage | `0a0d5d6` | 42 meshes, about 50K triangles |
-| 7 | Pinball Cage | PinballCage | | |
+| 7 | Pinball Cage | PinballCage | `aa2d9d9` | 46 meshes, about 40K triangles |
 | 8 | Cereal Bowl Stadium | CerealBowlCage | | |
 | 9 | Toy Soldier Fort | ToySoldierCage | | |
 | 10 | Snow Globe | SnowGlobeCage | | |
@@ -192,6 +192,22 @@ early.
 - **Plunger:** the spring plunger sits in a raised shooter lane, with the ball against its tip at PITCH.
 - **Screen:** the scoreboard backglass, with a seven-segment score ("1450980"), the ball count and
   credits, speaker grilles and art on dark glass.
+
+### Cereal Bowl Stadium
+- **Bowl:** the wall is a flaring oval bowl (superellipse, power 3.5), blue outside with a white
+  stripe band and dots, white inside, under a rolled white rim.
+- **Door:** a chip broken out of the bowl, with jagged shards along its edges.
+- **Roof:** six bendy drinking straws, striped red or blue, each with an accordion bend near one end.
+  They arch rim to rim under a sheet of cling film (glass, mostly see-through) that sags between them.
+- **Milk:** milk fills the bowl round the cage. Cereal loops in three colours bob on it out of step,
+  with berries, banana slices, flakes and ripple rings. The loops spilled outside are a separate,
+  still mesh, so they don't bob on dry ground.
+- **Spoon catapult:** a spoon balanced on a sugar-cube fulcrum. Its bowl holds the ball at PITCH, and a
+  strawberry weighs down its handle.
+- **Screen:** an opened cereal box with its flaps folded out and the window tunnelled through it. The
+  art is a smiling sun mascot, a bowl of loops, a starburst badge and a milk-splash band, with no
+  text. Its prize, a spinning top, turns on top.
+- **Outside:** a gable-top milk carton with cow spots, a resting spoon, spilled cereal and sugar cubes.
 
 ## Things that didn't work or were skipped
 (none yet)

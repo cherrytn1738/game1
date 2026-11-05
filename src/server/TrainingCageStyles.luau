@@ -824,16 +824,42 @@ for index, letter in {"A", "B", "C", "D", "E"} do
  Styles.PinballCage.parts["PinBumper" .. letter] = bumperCap(index)
 end
 
+-- Cereal Bowl Stadium: a giant bowl under bendy straws and cling film. The floating cereal loops bob
+-- on the milk (each colour out of step) and the box's prize top spins.
+local function floatingLoops(color, phase)
+ return style(color, M.SmoothPlastic, {bob = 0.08, bobSpeed = 1.4, phase = phase})
+end
 Styles.CerealBowlCage = {
- parts = withParts(standardParts("Bowl", {frame = rgb(70, 150, 230), pads = rgb(255, 150, 40), net = rgb(214, 224, 236),
+ -- Legacy entries keep the previous model (built on the standard cage) styled until the new one is
+ -- imported over it; drop them after the import.
+ parts = withParts(withParts(standardParts("Bowl", {frame = rgb(70, 150, 230), pads = rgb(255, 150, 40), net = rgb(214, 224, 236),
   machine = rgb(255, 150, 40), trim = rgb(70, 150, 230)}), {
-  BowlWall = style(rgb(90, 160, 236), M.SmoothPlastic), BowlRim = style(rgb(246, 248, 255), M.SmoothPlastic),
-  BowlMilk = style(rgb(252, 250, 244), M.SmoothPlastic),
-  BowlLoopsA = style(rgb(255, 158, 54), M.SmoothPlastic), BowlLoopsB = style(rgb(255, 104, 128), M.SmoothPlastic),
-  BowlLoopsC = style(rgb(244, 222, 86), M.SmoothPlastic), BowlSpoon = style(rgb(214, 220, 230), M.Metal),
   BowlCatapult = style(rgb(196, 146, 92), M.Wood), BowlBoxes = style(rgb(240, 120, 36), M.SmoothPlastic),
-  BowlBoxArt = style(TOY_YELLOW, M.SmoothPlastic),
+ }), {
+  BowlWall = style(rgb(80, 150, 232), M.SmoothPlastic), BowlInside = style(rgb(244, 246, 250), M.SmoothPlastic),
+  BowlRim = style(rgb(250, 251, 255), M.SmoothPlastic), BowlStripe = style(rgb(250, 251, 255), M.SmoothPlastic),
+  BowlDots = style(rgb(250, 251, 255), M.SmoothPlastic),
+  BowlStraws = style(rgb(250, 250, 250), M.SmoothPlastic), BowlStrawStripes = style(TOY_RED, M.SmoothPlastic),
+  BowlStrawStripesBlue = style(TOY_BLUE, M.SmoothPlastic),
+  BowlFilm = style(rgb(225, 240, 255), M.Glass, {transparency = 0.8, shadow = false}),
+  BowlMilk = style(rgb(252, 250, 244), M.SmoothPlastic), BowlMilkRipples = style(rgb(236, 232, 222), M.SmoothPlastic),
+  BowlLoopsA = floatingLoops(rgb(255, 158, 54), 0), BowlLoopsB = floatingLoops(rgb(255, 104, 128), 2.1),
+  BowlLoopsC = floatingLoops(rgb(244, 222, 86), 4.2), BowlSpilledLoops = style(rgb(255, 158, 54), M.SmoothPlastic),
+  BowlBerries = style(rgb(60, 52, 150), M.SmoothPlastic), BowlBanana = style(rgb(255, 244, 186), M.SmoothPlastic),
+  BowlFlakes = style(rgb(234, 178, 92), M.SmoothPlastic),
+  BowlSpoon = style(rgb(214, 220, 230), M.Metal), BowlSugar = style(rgb(252, 252, 252), M.Salt),
+  BowlStrawberry = style(rgb(230, 32, 46), M.SmoothPlastic), BowlLeaves = style(rgb(62, 152, 62), M.SmoothPlastic),
+  BowlSeeds = style(rgb(255, 230, 100), M.SmoothPlastic),
+  BowlBox = style(rgb(250, 128, 38), M.Cardboard), BowlBoxSide = style(rgb(242, 216, 76), M.Cardboard),
+  BowlBoxArt = style(TOY_YELLOW, M.SmoothPlastic), BowlBoxArtRed = style(TOY_RED, M.SmoothPlastic),
+  BowlBoxArtBlue = style(TOY_BLUE, M.SmoothPlastic), BowlBoxArtWhite = style(rgb(250, 250, 246), M.SmoothPlastic),
+  BowlBoxInk = style(rgb(26, 20, 20), M.SmoothPlastic),
+  BowlTop = style(TOY_RED, M.SmoothPlastic, {spin = 300, spinAxis = Vector3.yAxis}),
+  BowlCarton = style(rgb(250, 250, 248), M.Cardboard), BowlCartonBlue = style(rgb(60, 120, 220), M.Cardboard),
+  BowlCartonSpots = style(rgb(24, 24, 30), M.SmoothPlastic),
+  BowlPlate = style(rgb(250, 250, 246), M.SmoothPlastic), BowlBall = style(rgb(248, 248, 244), M.SmoothPlastic),
  }),
+ effects = {{kind = "SunMotes", position = b(-1, 10, 6), size = Vector3.new(30, 9, 46)}},
  tint = {color = rgb(255, 250, 238), brightness = 0.03, contrast = 0.04, saturation = 0.1},
 }
 
