@@ -78,8 +78,13 @@ local Worlds = {
    -- painted scene in the sky and ground colours is shown instead.
    preview = {image = "rbxassetid://123256532508164", sky = Color3.fromRGB(110, 196, 255), ground = Color3.fromRGB(86, 176, 78)},
    runoutDistance = 2000,
-   -- Cash per hit in this World is multiplied by cashMultiplier (ProgressionConfig.GetHitCash), so
-   -- each World has its own price tier.
+   -- Cash per hit = (cashBase + cashMultiplier x the distance pay) x section x Bat ...
+   -- (ProgressionConfig.GetHitCash), so each World has its own price tier. World 1 has no
+   -- cashBase. Later Worlds also set launchLevels (ProgressionConfig.GetWorldLaunchLevel): hits
+   -- start over in each World, back to the early floaty arc, and grow to its end portal from
+   -- launchLevels.from to .to (the Levels where it opens and where its end is reached), while
+   -- cashBase ("start pay") makes even its first, shortest hits pay more than the previous World's
+   -- last ones. arrivalNote is shown on the portal trip's arrival card.
    cashMultiplier = 1,
    -- A giant time portal stands at the endpoint (RunwayDecor); a ball that reaches it is pulled
    -- in, completing the World, and the batter is pulled through to the next World (PortalJourney).
@@ -138,7 +143,9 @@ local Worlds = {
    hub = hubLayout("World2Hub", "TimeTravel", "world_2", "TIME TRAVEL BALLS"),
    preview = {image = "rbxassetid://97442980907113", sky = Color3.fromRGB(150, 120, 235), ground = Color3.fromRGB(104, 88, 166)},
    runoutDistance = 2000,
-   cashMultiplier = 10,
+   launchLevels = {from = 150, to = 250},
+   cashBase = 3000, cashMultiplier = 7,
+   arrivalNote = "FRESH START! YOUR HITS GROW AGAIN, AND EVERY HIT PAYS MORE",
    -- The same portal ends World 2 and pulls the batter through to World 3.
    endPortal = {height = 360},
    -- Cosmetic only (RunwayDecor), as World 1.
@@ -200,7 +207,9 @@ local Worlds = {
    hub = hubLayout("World3Hub", "Future", "world_3", "FUTURE BALLS"),
    preview = {image = "rbxassetid://135986912788694", sky = Color3.fromRGB(150, 220, 255), ground = Color3.fromRGB(226, 234, 244)},
    runoutDistance = 2000,
-   cashMultiplier = 100,
+   launchLevels = {from = 250, to = 370},
+   cashBase = 40000, cashMultiplier = 60,
+   arrivalNote = "FRESH START! YOUR HITS GROW AGAIN, AND EVERY HIT PAYS MORE",
    -- The same portal ends World 3 and pulls the batter through the singularity to World 4.
    endPortal = {height = 360},
    -- Cosmetic only (RunwayDecor), as the other Worlds. Landmarks are single giant meshes
@@ -267,7 +276,9 @@ local Worlds = {
    -- No card image yet: the painted scene in the sky and ground colours.
    preview = {sky = Color3.fromRGB(255, 214, 150), ground = Color3.fromRGB(120, 196, 90)},
    runoutDistance = 2000,
-   cashMultiplier = 1000,
+   launchLevels = {from = 370, to = 490},
+   cashBase = 500000, cashMultiplier = 600,
+   arrivalNote = "SHRUNK DOWN! YOUR HITS GROW AGAIN, AND EVERY HIT PAYS MORE",
    -- The last World for now. Its portal completes it as usual, then plays a temporary finale
    -- (PortalJourneyClient) instead of a trip. To add World 5: give World 4 a nextWorldId and
    -- move the finale.

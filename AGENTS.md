@@ -59,8 +59,8 @@ Players hit a ball from a batting tee into long progression fields rather than p
 
 Established design decisions:
 
-- Level alone determines authoritative launch strength.
-- Every valid batting hit launches straight at a configured, Level-based loft; the old timing mechanic is retired.
+- Level, and the World you bat in, determine authoritative launch strength: hits start over in each new World (World 2 onward) and grow back to its end portal over that World's Level range (`WorldConfig` `launchLevels`, `ProgressionConfig.GetWorldLaunchLevel`).
+- Every valid batting hit launches straight at a configured loft from that launch Level; the old timing mechanic is retired.
 - Ball equipment multiplies Power gained from Training, real hits, and offline Training (`powerGainMultiplier`).
 - Bat equipment multiplies the Cash a real hit earns, only (`cashMultiplier`).
 - Neither changes launch strength, loft, direction or distance; Training Grounds multiply Training Power only; Rebirths multiply Power gain.
@@ -195,13 +195,13 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 - The Training base (Power per practice hit at Basic Training) is 5 at every Level; Level never scales Power gain.
 - Launch speed comes from a Level -> speed table built from measured hits (`tools/balance/HitMeasurements`), at a 38-degree loft. Distance is erratic in speed (bounces), so from Level 22 each Level uses its own measured speed (`LaunchSpeedSteps`) chosen to land on a curve that grows 5% a Level from Level 21 (~146 studs), easing to 1.65% at Level 100 and staying there to Level 140 (3,906 studs): about 347 studs at Level 40, 755 at 60, 1,363 at 80, 2,053 at 100; below ~200 studs/s single hits still vary (up to ~40%). World 1's end is still reached at Level 150, World 2's at 250, World 3's at 370 and World 4's (8,000, measured in World 4's longer field) at 490. The first Levels use an early launch curve (`ProgressionConfig.EarlyLaunch`: Level 1 at 61.6 studs/s and 48.3 degrees, falling at 0.57x gravity until its first landing; speed and loft blend evenly, and the gravity eases, into the table, 38 degrees and normal gravity by Level 21) so a new player's hit rises and hangs in a light arc instead of skimming into the ground. Bounces and rolling always use normal gravity.
 - These are implementation/balance values, not immutable design decisions; `tools/balance` simulates and re-solves them (`.vscode/ECONOMY.md`).
-- Level is the sole long-term determinant of batting distance.
+- Level (through the World's launch Levels) is the sole long-term determinant of batting distance.
 
 ### Equipment Roles
 
 - Ball: multiplies Power gain (Training, real hits, offline Training).
 - Bat: multiplies Cash rewards from batting.
-- Level: solely determines hit distance.
+- Level and the current World: solely determine hit distance (hits start over in each later World).
 - Training Ground: multiplies Training Power only.
 - Rebirth: multiplies Power gain.
 - Purchased Power / Cash multipliers (Robux, see Monetization): multiply Power gain / batting Cash; never distance.
@@ -213,7 +213,7 @@ Formulas (whole Power is rounded down once, after all bonuses):
 - Training Power = Training base (5) × ground multiplier × Ball × (Rebirths + 1) × purchased Power multiplier × any Power juice
 - Hit Power = Training base × 0.37 per second in play (rounded) × Ball × (Rebirths + 1) × purchased Power multiplier × any Power juice (no ground; about 50-70% of Basic Training's rate)
 - Offline Power = 25% of the best usable ground's Training rate (no Level term), for up to 8 hours, × Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held to half the Power still needed for the Level Cap (Welcome Back's 3x adds it twice more, up to all of it)
-- Hit Cash = (distance / 80)^1.5 × World Cash multiplier (1, 10, 100, 1,000) × section multiplier × Bat × purchased Cash multiplier × any Cash juice, rounded, at least $1
+- Hit Cash = (World start pay + World Cash multiplier × (distance / 80)^1.5) × section multiplier × Bat × purchased Cash multiplier × any Cash juice, rounded, at least $1
 
 ### Bat
 
@@ -228,9 +228,10 @@ Current Cash multipliers and prices (each Bat about 1.5x the one before):
 - Candy Cane: 4x, $3,000
 - Frostbite: 6x, $15,000
 - Magma: 9x, $50,000 (World 1's last purchase, before World 2 opens)
-- Lightning: 13x, $1.5M
-- Dragon Bone: 19x, $25M
-- Celestial: 28x, $120M
+- Lightning: 13x, $3.2M (World 2's last purchase)
+- Dragon Bone: 19x, $28M
+- Celestial: 28x, $130M
+- Rolling Pin: 42x, $1.65B (World 4, bought midway through it)
 - Catastrophe Bat: 2.5x, exclusive to the Starter Pack (never sold for Cash, outside the series)
 
 Bat does not affect Power gain or launch distance.
@@ -254,7 +255,7 @@ World 1's Balls (intended balance; the Sandlot Ball's $2 is the tutorial's first
 - Dragonfire Ball: 1,250x, $14,000
 - Supernova Ball: 3,500x, $40,000
 
-Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball), World 2's ten (Dino Egg to Chrono Orb, 5,000x-200,000x for $150K-$2.2M), World 3's ten (Solar Cell to Singularity Orb, 300,000x-11,000,000x for $10M-$108M) and World 4's ten (Dandelion Puff to Dream Orb, 16,000,000x-600,000,000x for $500M-$2.5B; prices rise gently because World 4 has no new Bat). Every ball beats the one before it and every ball of an earlier series (about 1.5x a step from World 2 on). A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
+Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball), World 2's ten (Dino Egg to Chrono Orb, 5,000x-200,000x for $175K-$2.1M), World 3's ten (Solar Cell to Singularity Orb, 300,000x-11,000,000x for $15M-$113M) and World 4's ten (Dandelion Puff to Dream Orb, 16,000,000x-600,000,000x for $530M-$2.8B). Every ball beats the one before it and every ball of an earlier series (about 1.5x a step from World 2 on). A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
 
 ### Training Grounds
 
@@ -443,6 +444,8 @@ World completion is based on authoritative final forward distance.
 
 Completing a World permanently unlocks the next World. World 4 (Tiny Town; being built in phases, `.vscode/WORLD4_DESIGN.md`) is the last World for now: its end portal plays a temporary "you finished the game" finale instead of a trip. World 3's portal leads to World 4. A save that completed World 3 before World 4 existed has World 4 unlocked on load.
 
+Hits start over in each World after World 1: below the World's `launchLevels.from` (the Level where it opens) a hit uses the early floaty arc (99-143 studs), and from `from` to `to` (the Level where its end is reached) it grows evenly in studs to the end portal (`WorldLaunchSteps`). Each later World has a start pay (`cashBase`; World 2 3,000, World 3 40,000, World 4 500,000, with multipliers 7 / 60 / 600), so even its shortest hit pays more than the previous World's farthest. The portal trip's arrival card says so (`arrivalNote`). In an earlier World a later player hits its end every time, at that World's lower pay.
+
 Every hub shares one compact layout (`WorldConfig` `hubLayout`), named from the spawn, which looks into the hub with the batting area and runway behind it: Training Grounds on the left, item displays on the right, an open plaza with the World's event piece in the middle, and the World portal at the back. World 1's four global leaderboards (Level, Time Played, Robux Spent, Cash) stand either side of its portal. Only the art differs between Worlds.
 
 World unlocks persist.
@@ -595,7 +598,7 @@ Unless asked, do not add:
 - additional Worlds
 - new equipment categories
 
-Normal batting is deterministic and Level-based.
+Normal batting is deterministic and based on Level and the World batted in.
 
 Training Grounds are physical batting cages in a row in each World's hub; access comes from Rebirths or a game pass, once a World the ground stands in is unlocked.
 

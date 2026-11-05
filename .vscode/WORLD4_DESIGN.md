@@ -21,7 +21,7 @@ saves. Reuse World 3's systems; do not build new ones.
 |---|---|
 | Id / name | `world_4`, "World 4", title "Tiny Town" |
 | End distance | 8,000 studs (runout 2,000, like every World) |
-| Cash multiplier | x1,000 (World 3 is x100) |
+| Cash | start pay 500,000 + x600 distance pay (Phase 1b; Phase 1 had x1,000). Hits start over here: Levels 370-490 grow from the early arc to the end portal |
 | Offset | `Vector3.new(24000, 0, 0)` (World 3 is at 16,000) |
 | Station / field | `BattingArea4` / `LongRangeField4` |
 | Hub | `World4Hub`, theme `TinyTown`, Ball display title "TINY TOWN BALLS" |
@@ -126,14 +126,14 @@ of the earlier series. Every Ball beats the one before and the Singularity Orb (
 | 9 | Cat's-Eye Marble | `cats_eye_marble` | 400M | $4B | glass with a glowing swirl |
 | 10 | Dream Orb | `dream_orb` | 600M | $5.4B | soft night-light glow, fading stars |
 
-These are the design's starting prices. Phase 1's balance pass kept the Power values and set the
-prices to $500M, $800M, $1B, $1.2B, $1.5B, $1.7B, $1.9B, $2.1B, $2.3B and $2.5B (no new Bat raises
-Cash in World 4; see `ECONOMY.md`). `EquipmentConfig` holds the live values.
+These are the design's starting prices. The balance passes kept the Power values and set the prices
+to $530M, $1.1B, $1.2B, $1.35B, $1.5B, $1.9B, $2.1B, $2.3B, $2.55B and $2.8B (Phase 1b, with hits starting
+over in each World and the Rolling Pin Bat; see `ECONOMY.md`). `EquipmentConfig` holds the live values.
 
 The Lucky Dice's number is cosmetic, chosen by the client; it never changes a result. Effects
 use `BallStyles` (flight layers, landing effects, idle emitters) like World 3's Balls, and models
 come from one Blender batch (`tools/blender/balls_world4.py` → `assets/models/BallsWorld4.fbx`).
-No new Bats: the Bat series is shared by every World and is unchanged.
+One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), added after the Celestial Bat in the shared Bat series (Phase 1b); its model comes in Phase 4.
 
 ## Portal journey
 
@@ -202,6 +202,22 @@ No new Bats: the Bat series is shared by every World and is unchanged.
       `tools/balance/README.md`)
 - [x] Commit
 
+### Phase 1b: hits start over in each World, and the Rolling Pin Bat
+- [x] `WorldConfig` `launchLevels` (World 2 150-250, World 3 250-370, World 4 370-490), `cashBase`
+      start pay (3,000 / 40,000 / 500,000) with multipliers 7 / 60 / 600, and `arrivalNote`
+- [x] `ProgressionConfig.GetWorldLaunchLevel` + `WorldLaunchSteps` (simulator `designWorldLaunch`);
+      `GetHitCash` start pay; used by `BallLauncher` and the Cash Pack quotes
+- [x] Rolling Pin Bat (`rolling_pin_bat`, 42x, $1.65B) after the Celestial Bat; placeholder colours
+- [x] Worlds 2-4 repriced; World 2's end gap closed (Lightning Bat $3.2M, now World 2's last
+      purchase; Clockwork Ball $1.35M); Phase 1's World 4 bands kept (re-solving did not help)
+- [x] Portal trip arrival card shows the World's `arrivalNote`
+- [x] Simulator `WORLD DISTANCES` section; tests (every World reaches its end exactly at its `to`,
+      first hit pays more than the previous World's best, earlier Worlds never pay more)
+- [x] Docs; commit
+- Not done: shortening World 4's first full run's early-arc stretch (about a quarter of
+  Rebirth 19). With distance from Level and World only, it cannot be shortened while the arrival
+  hit still starts over (see `ECONOMY.md` Decisions to review).
+
 ### Phase 2: runway props, sections 1-5 (Blender)
 - [ ] `tools/blender/runway_world4_home.py` (Giant Backyard to Board Game Boulevard), exported to
       `assets/models/RunwayWorld4Home.fbx`
@@ -215,9 +231,11 @@ No new Bats: the Bat series is shared by every World and is unchanged.
       `world_4.portalModel = "KeyholePortal"`; `WorldPortal` builds it
 - [ ] Sections 6-10 switched to their meshes; Studio import steps listed; tests pass; commit
 
-### Phase 4: the 10 Balls (Blender)
+### Phase 4: the 10 Balls and the Rolling Pin Bat (Blender)
 - [ ] `tools/blender/balls_world4.py`, exported to `assets/models/BallsWorld4.fbx`
 - [ ] `BallStyles` entries: parts, trails, landing effects and idle emitters
+- [ ] The Rolling Pin Bat model (in `tools/blender/bats.py`'s style, `BatStyles` entry), replacing its
+      placeholder colours
 - [ ] Studio import steps listed; tests pass; commit
 
 ### Phase 5: the cage models (Blender)

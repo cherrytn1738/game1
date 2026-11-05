@@ -1,6 +1,7 @@
 -- Progression balance: Level requirements, Level Caps, Training and batting Power, launch speed
 -- and Cash per hit. The numbers are tuned with tools/balance (see .vscode/ECONOMY.md). Power is
--- progress toward the next Level, not launch power; Level alone sets launch strength.
+-- progress toward the next Level, not launch power; Level and the World you bat in set launch
+-- strength (GetWorldLaunchLevel).
 local Progression = {
  StartingPower = 0,
  StartingLevel = 1,
@@ -100,6 +101,44 @@ local Progression = {
   {399, 651}, {406, 720}, {420, 698}, {435, 713}, {446, 780}, {457, 750}, {462, 762}, {483, 683},
   -- ~7,380 / 7,425 / 7,520 / 7,620 / 7,700 / 7,775 / 7,805 / 7,955 studs
   {490, 717}}, -- reaches World 4's end (and every earlier World's)
+ -- Worlds 2-4: {Level, launch Level} steps from each World's launchLevels.from to its .to
+ -- (GetWorldLaunchLevel; printed by tools/balance designWorldLaunch).
+ WorldLaunchSteps = {
+  world_2 = {
+   {150, 21}, {151, 27}, {152, 33}, {153, 38}, {154, 42}, {155, 44}, {156, 49}, {157, 51}, {158, 53},
+   {159, 56}, {160, 59}, {161, 62}, {162, 63}, {163, 66}, {164, 68}, {165, 70}, {166, 71}, {167, 73},
+   {168, 75}, {169, 77}, {170, 79}, {171, 81}, {172, 82}, {173, 83}, {174, 86}, {175, 87}, {176, 89},
+   {177, 91}, {178, 93}, {179, 94}, {180, 96}, {181, 97}, {182, 99}, {183, 101}, {184, 103}, {185, 105},
+   {186, 106}, {187, 108}, {188, 110}, {189, 111}, {190, 112}, {191, 113}, {192, 114}, {193, 116},
+   {194, 117}, {195, 118}, {196, 120}, {197, 122}, {199, 123}, {202, 125}, {203, 127}, {204, 129},
+   {206, 131}, {207, 132}, {208, 134}, {212, 135}, {213, 139}, {215, 140}, {217, 143}, {224, 146},
+   {229, 149}, {235, 159}, {236, 169}, {238, 179}, {239, 189}, {242, 199}, {244, 219}, {246, 239},
+   {247, 249}, {250, 250},
+  },
+  world_3 = {
+   {250, 21}, {251, 27}, {252, 33}, {253, 37}, {254, 42}, {255, 44}, {256, 47}, {257, 51}, {258, 53},
+   {259, 56}, {260, 59}, {261, 61}, {262, 62}, {263, 65}, {264, 67}, {265, 70}, {267, 73}, {268, 75},
+   {270, 79}, {272, 82}, {273, 83}, {274, 85}, {275, 86}, {276, 88}, {277, 91}, {279, 93}, {280, 95},
+   {281, 97}, {283, 99}, {284, 101}, {285, 103}, {286, 105}, {287, 106}, {288, 108}, {289, 110},
+   {290, 111}, {291, 112}, {292, 113}, {293, 114}, {294, 116}, {295, 117}, {296, 118}, {297, 120},
+   {298, 121}, {299, 122}, {301, 123}, {303, 125}, {304, 127}, {306, 129}, {307, 130}, {308, 132},
+   {309, 134}, {314, 139}, {316, 140}, {319, 143}, {326, 146}, {331, 149}, {337, 159}, {338, 169},
+   {340, 179}, {342, 189}, {344, 199}, {346, 209}, {347, 219}, {348, 229}, {349, 239}, {350, 249},
+   {355, 262}, {358, 275}, {361, 302}, {363, 315}, {364, 342}, {367, 369}, {370, 370},
+  },
+  world_4 = {
+   {370, 21}, {371, 29}, {372, 34}, {373, 39}, {374, 43}, {375, 47}, {376, 50}, {377, 53}, {378, 56},
+   {379, 59}, {380, 62}, {381, 64}, {382, 66}, {383, 69}, {384, 70}, {385, 73}, {386, 75}, {387, 77},
+   {388, 79}, {389, 81}, {390, 83}, {391, 85}, {392, 86}, {393, 89}, {394, 91}, {395, 93}, {396, 95},
+   {397, 96}, {398, 97}, {399, 99}, {400, 102}, {401, 104}, {402, 106}, {403, 108}, {404, 110},
+   {405, 111}, {406, 113}, {408, 115}, {409, 117}, {410, 118}, {411, 120}, {412, 122}, {414, 123},
+   {416, 124}, {417, 126}, {418, 127}, {419, 129}, {420, 130}, {421, 132}, {422, 134}, {426, 139},
+   {428, 140}, {430, 143}, {436, 146}, {441, 149}, {446, 159}, {447, 169}, {449, 179}, {450, 189},
+   {452, 199}, {454, 219}, {456, 239}, {457, 249}, {462, 262}, {464, 275}, {467, 302}, {468, 315},
+   {469, 329}, {470, 342}, {472, 369}, {478, 398}, {481, 405}, {482, 419}, {483, 434}, {485, 445},
+   {486, 456}, {487, 461}, {488, 482}, {490, 490},
+  },
+ },
  -- About how far a hit at a Level lands (studs), from the same measured hits: {Level, distance}
  -- points, rising evenly in proportion between them. For estimates only (the Cash packs'
  -- "normal hits", MonetizationConfig); real hits are always measured.
@@ -118,8 +157,10 @@ local Progression = {
  -- use normal gravity. Measured at Level 1: ~0.52 s in the air (full gravity: ~0.28 s) and still
  -- ~90 studs ($1). A softer landing rolls less, so less gravity needs more lift, not less speed.
  EarlyLaunch = {untilLevel = 21, speed = 61.6, angleDegrees = 48.3, gravityScale = 0.57},
- -- Cash per hit = World cashMultiplier x (distance / CashReferenceDistance)^CashDistanceExponent
- -- x section rewardMultiplier x Bat cashMultiplier x Cash Juice, rounded, at least 1.
+ -- Cash per hit = (World cashBase + World cashMultiplier x (distance / CashReferenceDistance)^
+ -- CashDistanceExponent) x section rewardMultiplier x Bat cashMultiplier x Cash Juice, rounded, at
+ -- least 1. A World's cashBase (its "start pay") makes its first, shortest hits pay more than the
+ -- previous World's last ones (World 1 has none).
  CashReferenceDistance = 80,
  CashDistanceExponent = 1.5,
  -- Technical validation limits, not progression rewards or client inputs.
@@ -236,10 +277,34 @@ function Progression.GetExpectedHitDistance(level)
  return points[#points][2]
 end
 
--- Cash for a hit that landed `distance` studs out (see the formula above).
-function Progression.GetHitCash(distance, worldMultiplier, sectionMultiplier, batMultiplier, boostMultiplier)
+-- Cash for a hit that landed `distance` studs out (see the formula above). worldBase is the
+-- World's cashBase (0 when nil).
+function Progression.GetHitCash(distance, worldMultiplier, sectionMultiplier, batMultiplier, boostMultiplier, worldBase)
  local scaled = (math.max(0, distance) / Progression.CashReferenceDistance) ^ Progression.CashDistanceExponent
- return math.max(1, math.floor(scaled * worldMultiplier * sectionMultiplier * batMultiplier * (boostMultiplier or 1) + 0.5))
+ local pay = (worldBase or 0) + scaled * worldMultiplier
+ return math.max(1, math.floor(pay * sectionMultiplier * batMultiplier * (boostMultiplier or 1) + 0.5))
+end
+
+-- The Level whose launch (speed, loft, early gravity) a hit uses in a World. World 1 (no
+-- launchLevels) uses the player's Level. Every later World starts hits over: below its
+-- launchLevels.from (the cheap start of each run) the early floaty arc of Levels 1 to
+-- EarlyLaunch.untilLevel is spread over the Levels; from `from` to `to` the hit grows evenly in
+-- studs from that arc's end to the World's end portal, which is reached at `to`
+-- (WorldLaunchSteps, chosen from the measured hits by tools/balance `designWorldLaunch`).
+function Progression.GetWorldLaunchLevel(level, world)
+ local range = world and world.launchLevels
+ local steps = range and Progression.WorldLaunchSteps[world.id]
+ if not steps then return level end
+ if level < range.from then
+  local early = Progression.EarlyLaunch.untilLevel
+  return math.max(1, math.floor(1 + (early - 1) * (level - 1) / (range.from - 1)))
+ end
+ local launch = steps[1][2]
+ for _, step in steps do
+  if level < step[1] then break end
+  launch = step[2]
+ end
+ return launch
 end
 
 -- Shared pure arithmetic; only PlayerData may grant authoritative Power.

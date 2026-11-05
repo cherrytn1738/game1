@@ -228,15 +228,16 @@ end
 
 -- The Cash of one normal hit for a player at this Level, in this World, with this Bat and Cash
 -- multiplier (GetMultiplier("Cash", tiers); 1 when omitted): a hit landing at the Level's usual
--- distance (Progression.GetExpectedHitDistance, at most the World's end) in the section there,
--- before any juice. Server state only (the client previews the same).
+-- distance in this World (Progression.GetExpectedHitDistance of its launch Level, at most the
+-- World's end) in the section there, before any juice. Server state only (the client previews
+-- the same).
 function Monetization.GetCashPerHit(level, worldId, batId, cashMultiplier)
  local world = Worlds.Get(worldId) or Worlds.Get(Worlds.StartingWorldId)
  local bat = Equipment.Get("Bat", batId) or Equipment.Get("Bat")
- local distance = math.min(Progression.GetExpectedHitDistance(level), world.endDistance)
+ local distance = math.min(Progression.GetExpectedHitDistance(Progression.GetWorldLaunchLevel(level, world)), world.endDistance)
  local section = Field.GetRewardSection(distance, world)
  return Progression.GetHitCash(distance, world.cashMultiplier, section and section.rewardMultiplier or 1, bat.cashMultiplier,
-  cashMultiplier)
+  cashMultiplier, world.cashBase)
 end
 
 -- The whole Cash a Cash pack pays (at least 1).

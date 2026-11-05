@@ -685,7 +685,7 @@ return function(sources)
  local batOrder = {}
  for _, bat in bats do table.insert(batOrder, bat.id .. "=" .. bat.cashMultiplier) end
  check(table.concat(batOrder, ",") == "wood_bat=1,metal_bat=1.5,jungle_bat=2,amethyst_bat=3,candy_cane_bat=4,"
-  .. "frostbite_bat=6,magma_bat=9,lightning_bat=13,dragon_bone_bat=19,celestial_bat=28", "Bat Cash multipliers in order")
+  .. "frostbite_bat=6,magma_bat=9,lightning_bat=13,dragon_bone_bat=19,celestial_bat=28,rolling_pin_bat=42", "Bat Cash multipliers in order")
  for index = 2, #bats do
   check(bats[index].cashMultiplier > bats[index - 1].cashMultiplier and bats[index].price > bats[index - 1].price,
    bats[index].id .. " beats " .. bats[index - 1].id .. " and costs more")
@@ -1284,6 +1284,47 @@ return function(sources)
  check(tableKept and speedTable[#speedTable][1] == early.untilLevel and perLevel and stepAt[140] == 505 and stepAt[141] == 660
   and stepAt[370] == 716 and speedSteps[#speedSteps][1] == 490 and speedSteps[#speedSteps][2] == 717,
   "the table hands over to measured steps at untilLevel; 140 = 505, 141 = 660, 370 = 716, the last 490 = 717")
+ -- Hits start over in each later World (WorldConfig launchLevels, GetWorldLaunchLevel): the
+ -- early floaty arc below the World's range, rising after it, its end reached exactly at the
+ -- range's last Level; its start pay makes even its shortest hit pay more than the previous
+ -- World's farthest, and no earlier World ever pays more at the same Level.
+ local function worldPay(level, world)
+  local distance = math.min(Progression.GetExpectedHitDistance(Progression.GetWorldLaunchLevel(level, world)), world.endDistance)
+  return Progression.GetHitCash(distance, world.cashMultiplier, Field.GetSection(distance, world).rewardMultiplier, 1, 1, world.cashBase)
+ end
+ local previousWorld
+ for _, world in Worlds.Worlds do
+  local range = world.launchLevels
+  if not range then
+   check(Progression.GetWorldLaunchLevel(37, world) == 37 and Progression.GetWorldLaunchLevel(450, world) == 450
+    and (world.cashBase or 0) == 0, world.id .. " uses the player's Level and has no start pay")
+  else
+   local early = Progression.EarlyLaunch.untilLevel
+   local rises, belowEarly, last = true, true, 0
+   for level = 1, 600 do
+    local launch = Progression.GetWorldLaunchLevel(level, world)
+    rises = rises and launch >= last
+    last = launch
+    if level < range.from then belowEarly = belowEarly and launch <= early end
+   end
+   check(rises and belowEarly and Progression.GetWorldLaunchLevel(1, world) == 1
+    and Progression.GetWorldLaunchLevel(range.from, world) == early, world.id .. "'s hits start over and only ever grow with Level")
+   check(Progression.GetExpectedHitDistance(Progression.GetWorldLaunchLevel(range.to - 1, world)) < world.endDistance
+    and Progression.GetExpectedHitDistance(Progression.GetWorldLaunchLevel(range.to, world)) >= world.endDistance,
+    world.id .. " reaches its end exactly at Level " .. range.to)
+   local farthest = Progression.GetHitCash(previousWorld.endDistance, previousWorld.cashMultiplier,
+    Field.GetSection(previousWorld.endDistance, previousWorld).rewardMultiplier, 1, 1, previousWorld.cashBase)
+   check(Progression.GetHitCash(81, world.cashMultiplier, 1, 1, 1, world.cashBase) > farthest,
+    world.id .. "'s shortest hit pays more than " .. previousWorld.id .. "'s farthest")
+   local earlierPaysLess = true
+   for level = 1, 520 do earlierPaysLess = earlierPaysLess and worldPay(level, world) > worldPay(level, previousWorld) end
+   check(earlierPaysLess, previousWorld.id .. " never pays more than " .. world.id .. " at the same Level")
+  end
+  previousWorld = world
+ end
+ check(Worlds.Get("world_2").launchLevels.from == 150 and Worlds.Get("world_3").launchLevels.from == 250
+  and Worlds.Get("world_4").launchLevels.from == 370 and Worlds.Get("world_4").launchLevels.to == 490,
+  "each World's range starts where the World before it ends")
  check(Progression.GetHitCash(81, 1, 1, 1) == 1 and Progression.GetHitCash(95, 1, 1, 1) == 1 and Progression.GetHitCash(0, 1, 1, 1) == 1,
   "early hits pay $1, so the tutorial's $2 takes two hits")
  check(Progression.GetHitCash(4000, 1, 1, 1) > Progression.GetHitCash(2000, 1, 1, 1)

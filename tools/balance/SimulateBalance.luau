@@ -302,6 +302,53 @@ return function(sources, options)
   for key, inner in value do result[key] = copy(inner) end
   return result
  end
+ -- Where a hit at this Level lands in this World (ProgressionConfig.GetWorldLaunchLevel: hits
+ -- start over in each later World), and its Cash there (with the World's start pay).
+ local function worldHit(level, worldId)
+  local world = Worlds.Get(worldId)
+  return world, hitAt(P.GetLaunchSpeed(P.GetWorldLaunchLevel(level, world)))
+ end
+ local function hitCash(landed, world, sectionMultiplier, bat, boost)
+  return P.GetHitCash(landed, world.cashMultiplier, sectionMultiplier, bat, boost, world.cashBase)
+ end
+ -- designWorldLaunch = true: builds WorldLaunchSteps for every World with launchLevels (used for
+ -- the rest of this run, and printed to paste into ProgressionConfig). From launchLevels.from to
+ -- .to the target distance rises evenly in studs from the early arc's end (EarlyLaunch.untilLevel)
+ -- to the World's end; each Level takes the highest global Level whose measured distance does not
+ -- pass the target (so the end is reached only at .to), and .to the first Level that reaches it.
+ if options.designWorldLaunch then
+  local reach, best = {}, 0
+  for level = 1, 700 do
+   best = math.max(best, (hitAt(P.GetLaunchSpeed(level))))
+   reach[level] = best
+  end
+  local early = P.EarlyLaunch.untilLevel
+  P.WorldLaunchSteps = {}
+  for _, world in Worlds.Worlds do
+   local range = world.launchLevels
+   if range then
+    local steps, last = {}, nil
+    for level = range.from, range.to do
+     local launch
+     if level >= range.to then
+      launch = 700
+      for g = early, 700 do if reach[g] >= world.endDistance then launch = g break end end
+     else
+      local target = reach[early] + (world.endDistance - reach[early]) * (level - range.from) / (range.to - range.from)
+      target = math.min(target, world.endDistance - 1)
+      launch = early
+      for g = early, 700 do if reach[g] <= target then launch = g else break end end
+     end
+     if launch ~= last then table.insert(steps, {level, launch}) last = launch end
+    end
+    P.WorldLaunchSteps[world.id] = steps
+    local parts = {}
+    for _, step in steps do table.insert(parts, string.format("{%d, %d}", step[1], step[2])) end
+    say("WorldLaunchSteps.%s = {%s}", world.id, table.concat(parts, ", "))
+   end
+  end
+  say("")
+ end
  -- The set of Worlds up to and including worldId (in order), as unlocked Worlds.
  local function worldsThrough(worldId)
   local set = {}
@@ -313,10 +360,9 @@ return function(sources, options)
  end
  -- The furthest World a hit at this Level has unlocked (each World's end opens the next).
  local function worldForLevel(level)
-  local distance = (hitAt(P.GetLaunchSpeed(level)))
   local id = Worlds.StartingWorldId
   for _, world in Worlds.Worlds do
-   if world.id == id and world.nextWorldId and distance >= world.endDistance then id = world.nextWorldId end
+   if world.id == id and world.nextWorldId and select(2, worldHit(level, world.id)) >= world.endDistance then id = world.nextWorldId end
   end
   return id
  end
@@ -353,15 +399,13 @@ return function(sources, options)
   return grant
  end
  local function landing(s)
-  local world = Worlds.Get(s.world)
-  local distance, seconds = hitAt(P.GetLaunchSpeed(s.level))
-  return world, distance, seconds
+  return worldHit(s.level, s.world)
  end
  local function hit(s)
   local world, distance, seconds = landing(s)
   local landed = math.min(distance, world.endDistance)
   local section = Field.GetSection(landed, world)
-  local cash = P.GetHitCash(landed, world.cashMultiplier, section.rewardMultiplier, batMultiplier(s), s.cashBoost * s.juiceCash)
+  local cash = hitCash(landed, world, section.rewardMultiplier, batMultiplier(s), s.cashBoost * s.juiceCash)
   local power = P.GetPowerGrant(P.GetHitPowerBase(seconds - A.launchDelay), s.rebirths, ballMultiplier(s), s.powerBoost * s.juicePower)
   s.cash += cash
   s.earned += cash
@@ -397,10 +441,9 @@ return function(sources, options)
  end
  -- Cash for one hit right now (current Level, World and Bat).
  local function cashPerHit(s)
-  local world = Worlds.Get(s.world)
-  local landed = math.min(hitAt(P.GetLaunchSpeed(s.level)), world.endDistance)
-  return P.GetHitCash(landed, world.cashMultiplier, Field.GetSection(landed, world).rewardMultiplier, batMultiplier(s),
-   s.cashBoost * s.juiceCash)
+  local world, distance = worldHit(s.level, s.world)
+  local landed = math.min(distance, world.endDistance)
+  return hitCash(landed, world, Field.GetSection(landed, world).rewardMultiplier, batMultiplier(s), s.cashBoost * s.juiceCash)
  end
  -- improvement: the new multiplier over the equipped one. costHits: the price in hits at the
  -- current Cash per hit. paybackHits (Bats): hits for the extra Cash to repay the price.
@@ -834,6 +877,26 @@ return function(sources, options)
    say("  %-10s end %5d studs: %s%s", world.title, world.endDistance,
     reached and string.format("completed at %s (Rebirth %d, Level %d)", clock(reached.time), reached.rebirths, reached.level) or "not completed",
     reached and lastBuy and string.format(", %s at %s (%s before)", lastBuy.name, clock(lastBuy.time), clock(reached.time - lastBuy.time)) or "")
+  end
+
+  -- Where each run's hits land: the run's top 20 Levels (most of its time) in the World it is
+  -- played in, from the run's first Level in that band to its last (or the World's end).
+  say("")
+  say("WORLD DISTANCES (active player: each run's top 20 Levels in its World, Wood Bat Cash, no boosts)")
+  for _, run in a.runs do
+   local world = Worlds.Get(run.world)
+   local low, high = P.LevelsPerRebirth * run.rebirths, P.GetLevelCap(run.rebirths) - 1
+   if world.launchLevels then low = math.max(low, math.min(world.launchLevels.from, high)) end
+   local function at(level)
+    local _, distance = worldHit(level, world.id)
+    local landed = math.min(distance, world.endDistance)
+    local section = Field.GetSection(landed, world)
+    return landed, section.displayName, hitCash(landed, world, section.rewardMultiplier, 1, 1)
+   end
+   local d1, s1, c1 = at(low)
+   local d2, s2, c2 = at(high)
+   say("  Run %2d  %-12s Levels %3d-%3d: %5.0f %-22s -> %5.0f %-22s $%s -> $%s", run.rebirths, world.title, low, high,
+    d1, s1, d2, s2, short(c1), short(c2))
   end
 
   -- Spenders.

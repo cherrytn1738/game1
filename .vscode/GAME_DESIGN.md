@@ -18,7 +18,7 @@ While batting:
 
 - The player is positioned and locked at the batting location.
 - Click/tap to swing; every valid swing launches straight downfield at a configured loft (38 degrees, steeper for the first Levels; see below).
-- Level alone determines launch speed. There is no timing fan, quality, spray, or timing power bonus.
+- Level, and the World you bat in, determine launch speed (hits start over in each later World: see World 4 below and `ECONOMY.md` Distance per World). There is no timing fan, quality, spray, or timing power bonus.
 - The server validates station occupancy, session, cooldown, ball readiness, Level, and launch.
 - Space / touch Leave exits batting; the established animation and camera remain.
 
@@ -74,7 +74,7 @@ The server derives every multiplier from the authoritative equipped IDs through 
 - **Training Power** = the Training base (5 at every Level) × ground multiplier × Ball × (Rebirths + 1) × any Power juice.
 - **Hit Power** = the Training base × `HitPowerPerSecond` (0.37) × seconds the ball was in play, rounded, × Ball × (Rebirths + 1) × any Power juice. No ground multiplier: counting the time between hits, batting earns about 50-70% of Basic Training's Power, so Training stays the best Power source.
 - **Offline Power** = 25% of the best usable ground's Training rate (no Level term; up to 8 hours) × the saved equipped Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (the run cap, below).
-- **Hit Cash** = (distance / 80)^1.5 × the World's `cashMultiplier` (1, 10, 100, 1,000) × section multiplier × Bat × any Cash juice, rounded, at least $1 (about $1 for an early hit).
+- **Hit Cash** = (the World's `cashBase` start pay + its `cashMultiplier` × (distance / 80)^1.5) × section multiplier × Bat × any Cash juice, rounded, at least $1 (about $1 for an early hit).
 
 A hit snapshots the Ball ID and the Bat's Cash multiplier when the swing is accepted, so swapping equipment mid-flight (which is blocked anyway) cannot change that hit's rewards.
 
@@ -101,9 +101,10 @@ Ten Bats, cooler as the price rises (Cash multipliers, tuned with `tools/balance
 | Candy Cane Bat (candy_cane_bat) | 3,000 | ×4 | pink-and-white swirl / sprinkles |
 | Frostbite Bat (frostbite_bat) | 15,000 | ×6 | icy trail / frost ring |
 | Magma Bat (magma_bat) | 50,000 | ×9 | fire trail / fire burst |
-| Lightning Bat (lightning_bat) | 1,500,000 | ×13 | flickering trail / lightning zap |
-| Dragon Bone Bat (dragon_bone_bat) | 25,000,000 | ×19 | flame trail / fire burst |
-| Celestial Bat (celestial_bat) | 120,000,000 | ×28 | rainbow trail / starburst and shockwave |
+| Lightning Bat (lightning_bat) | 3,200,000 | ×13 | flickering trail / lightning zap |
+| Dragon Bone Bat (dragon_bone_bat) | 28,000,000 | ×19 | flame trail / fire burst |
+| Celestial Bat (celestial_bat) | 130,000,000 | ×28 | rainbow trail / starburst and shockwave |
+| Rolling Pin Bat (rolling_pin_bat) | 1,650,000,000 | ×42 | placeholder look until its model (World 4, Phase 4) |
 
 The Alloy and Carbon Bats were removed (cleared from the developer's save; other saves drop them on load).
 
@@ -136,16 +137,16 @@ The All-Star and Championship Balls were removed (their IDs were also cleared fr
 
 | Ball (id) | Price | Power | Flight |
 |---|---|---|---|
-| Dino Egg (dino_egg_ball) | 150,000 | ×5,000 | swaying jungle trail shedding leaves and eggshell, spores |
-| Stone Ball (stone_ball) | 200,000 | ×7,500 | thick dust trail, pebbles in orbit, rock chunks breaking off |
-| Scarab Ball (scarab_ball) | 270,000 | ×11,000 | gold and lapis spiral through a sand stream, golden scarabs in orbit |
-| Olympian Laurel (laurel_ball) | 365,000 | ×17,000 | white-gold streak shedding golden laurel leaves, victory rings rippling behind |
+| Dino Egg (dino_egg_ball) | 175,000 | ×5,000 | swaying jungle trail shedding leaves and eggshell, spores |
+| Stone Ball (stone_ball) | 220,000 | ×7,500 | thick dust trail, pebbles in orbit, rock chunks breaking off |
+| Scarab Ball (scarab_ball) | 350,000 | ×11,000 | gold and lapis spiral through a sand stream, golden scarabs in orbit |
+| Olympian Laurel (laurel_ball) | 440,000 | ×17,000 | white-gold streak shedding golden laurel leaves, victory rings rippling behind |
 | Viking Rune (viking_rune_ball) | 490,000 | ×25,000 | glowing rune stones in orbit, icy flickering trail, frost mist, rune lightning |
-| Samurai Ball (samurai_ball) | 660,000 | ×38,000 | two crossing katana-slash ribbons, red silk trail, a storm of cherry petals |
-| Knight's Ball (knight_ball) | 890,000 | ×57,000 | gleaming steel streak with a fluttering red plume banner, sparks, glints |
-| Sheriff Star (sheriff_star_ball) | 1,200,000 | ×85,000 | dusty frontier trail, gold stars circling like a spinning badge |
-| Clockwork Ball (clockwork_ball) | 1,600,000 | ×130,000 | brass and cyan strands winding round it, spinning gears in orbit, steam, a ticking ring |
-| Chrono Orb (chrono_orb) | 2,200,000 | ×200,000 | ghostly echoes left behind, a swirling time vortex, colour-shifting strands, time ripples |
+| Samurai Ball (samurai_ball) | 630,000 | ×38,000 | two crossing katana-slash ribbons, red silk trail, a storm of cherry petals |
+| Knight's Ball (knight_ball) | 960,000 | ×57,000 | gleaming steel streak with a fluttering red plume banner, sparks, glints |
+| Sheriff Star (sheriff_star_ball) | 1,150,000 | ×85,000 | dusty frontier trail, gold stars circling like a spinning badge |
+| Clockwork Ball (clockwork_ball) | 1,350,000 | ×130,000 | brass and cyan strands winding round it, spinning gears in orbit, steam, a ticking ring |
+| Chrono Orb (chrono_orb) | 2,100,000 | ×200,000 | ghostly echoes left behind, a swirling time vortex, colour-shifting strands, time ripples |
 
 - **Offers:** each series has its own server-issued purchase token (`EquipmentPurchaseToken_Ball` for World 1's, `EquipmentPurchaseToken_Ball_world_2` for World 2's, `EquipmentPurchaseToken_Ball_world_3` for World 3's). The server finds the series from the token, checks the World unlock, then sells that series' next ball.
 - **Where they're sold:** World 2's ball display (`hub.displays` entry with `series = "world_2"`) only, where locked pedestals say "Unlock Time Travel to buy these." World 1's ball display shows only World 1's series.
@@ -156,16 +157,16 @@ The All-Star and Championship Balls were removed (their IDs were also cleared fr
 
 | Ball (id) | Price | Power | Flight |
 |---|---|---|---|
-| Solar Cell (solar_cell_ball) | 10,000,000 | ×300,000 | warm sunbeam streak in glowing segments, sun glints, rings of sunlight |
-| Hover Ball (hover_ball) | 13,000,000 | ×450,000 | twin thin cyan thruster contrails, hover rings rippling out |
-| Hologram Ball (hologram_ball) | 17,000,000 | ×675,000 | glitchy blue afterimages, a flickering scan-line ribbon, hologram sparks |
-| Robo Core (robo_core_ball) | 22,000,000 | ×1,000,000 | steel streak with a red laser core, sparks, nuts and bolts shaken loose |
+| Solar Cell (solar_cell_ball) | 15,000,000 | ×300,000 | warm sunbeam streak in glowing segments, sun glints, rings of sunlight |
+| Hover Ball (hover_ball) | 16,500,000 | ×450,000 | twin thin cyan thruster contrails, hover rings rippling out |
+| Hologram Ball (hologram_ball) | 22,000,000 | ×675,000 | glitchy blue afterimages, a flickering scan-line ribbon, hologram sparks |
+| Robo Core (robo_core_ball) | 24,500,000 | ×1,000,000 | steel streak with a red laser core, sparks, nuts and bolts shaken loose |
 | Bio Seed (bio_seed_ball) | 29,000,000 | ×1,500,000 | curling vine-green trail, a glowing tendril, drifting spores, falling leaves |
-| Pixel Ball (pixel_ball) | 38,000,000 | ×2,250,000 | trail of square arcade pixels, a stepped rainbow ribbon |
-| Rocket Ball (rocket_ball) | 49,000,000 | ×3,400,000 | roaring flame exhaust, fire streak and a billowing smoke trail |
-| Moon Rock (moon_rock_ball) | 64,000,000 | ×5,000,000 | floating moon dust hanging behind it, pale moonlight, little moon rocks in orbit |
-| Red Planet (red_planet_ball) | 83,000,000 | ×7,500,000 | billowing red dust plume, rust-orange ribbon, two tiny moons in orbit |
-| Singularity Orb (singularity_orb) | 108,000,000 | ×11,000,000 | purple vortex wake, accretion ribbons whirling round it, warping rings, bright motes |
+| Pixel Ball (pixel_ball) | 34,000,000 | ×2,250,000 | trail of square arcade pixels, a stepped rainbow ribbon |
+| Rocket Ball (rocket_ball) | 45,000,000 | ×3,400,000 | roaring flame exhaust, fire streak and a billowing smoke trail |
+| Moon Rock (moon_rock_ball) | 56,000,000 | ×5,000,000 | floating moon dust hanging behind it, pale moonlight, little moon rocks in orbit |
+| Red Planet (red_planet_ball) | 76,000,000 | ×7,500,000 | billowing red dust plume, rust-orange ribbon, two tiny moons in orbit |
+| Singularity Orb (singularity_orb) | 113,000,000 | ×11,000,000 | purple vortex wake, accretion ribbons whirling round it, warping rings, bright motes |
 
 - **Models:** `tools/blender/balls_world3.py` (reusing the World 1 and 2 ball helpers) exports `assets/models/BallsWorld3.fbx`, split into `DisplayItems` the same way.
 
@@ -260,7 +261,7 @@ A giant time portal (the hub portal's model, 360 studs tall, `WorldConfig` `endP
   Audio (Roblox-licensed): APM "New World Anthem Link 4" (music); Pro Sound Effects vortex blast, thunder, rushing pass-by and energy whoosh, the rare hits' launch boom and riser, and "Magic Transformation 17" (arrival). The rest of the mix ducks under it (the Cinematic duck), and the HUD skips its own World-unlock sting for portal hits. Dying, leaving or travelling cancels the trip.
 - Already-completed Worlds still capture the ball (normal rewards), without the trip. World 1's portal leads to World 2, World 2's to World 3 and World 3's to World 4.
 - **Finale (temporary, World 4):** World 4 (Tiny Town) is the last World for now (World 3 had the finale until World 4 was added), so its portal has a `finale` (`WorldConfig` `endPortal.finale`) instead of a next World. A first completion through it (or any portal hit with `ForcePortalJourney` in Studio) holds the batter the same way, sets `GameFinale`, and plays about 12 s on their client (`PortalJourneyClient`): the impact as above with APM's "A Winner's Anthem"; a push-in on the portal as "YOU FINISHED THE GAME! / MORE WORLDS COMING SOON" slams in; a crane shot over the runway's end as fireworks burst round the portal (Pro Sound Effects fireworks); then back at the tee, the batter in a shower of confetti and fireworks with a cheering crowd as "THANKS FOR PLAYING! / WORLD 3 COMPLETE" lands; then white, and at 11.8 s the server returns them to World 3's hub. World 3 still saves as completed, so a future World 4 can unlock from it: to add one, give World 3 a `nextWorldId` and remove the `finale`.
-- **Testing in Studio:** the Workspace attribute `ForcePortalJourney` plays the trip on every portal hit, not only the first completion; `StudioLaunchLevel` launches hits as that Level (80 reaches either portal; the saved Level is untouched); `StudioWalkSpeed` sets the playtest walk speed (e.g. to run down a runway). Live servers ignore all three.
+- **Testing in Studio:** the Workspace attribute `ForcePortalJourney` plays the trip on every portal hit, not only the first completion; `StudioLaunchLevel` launches hits as that Level, through the World's launch Levels (World 1: 150 reaches its portal; Worlds 2-4: their `launchLevels.to`, 250 / 370 / 490; the saved Level is untouched); `StudioWalkSpeed` sets the playtest walk speed (e.g. to run down a runway). Live servers ignore all three.
 - The giant portals' gears, hands and swirl turn on each client (`PortalJourneyClient`).
 
 Worlds are not unlocked by simply purchasing them with Cash.
@@ -527,7 +528,9 @@ World 3 (Future World) is a trip from a near-future city out to the edge of real
 
 ## World 4 (Tiny Town)
 
-World 4 is being built in phases from `.vscode/WORLD4_DESIGN.md` (concept, sections, hub, grounds, Balls, portal trip and the phase checklist). Phase 1 is in: `world_4` in `WorldConfig` (offset 24,000, end 8,000, Cash ×1,000, ten sections from Giant Backyard to Pillow Fort with reward tiers 1.0× to 700, 1.15× to 2,100 and 1.35× beyond), the finale at its end portal (World 3's portal now leads to World 4), its row of grounds (Sandbox Diamond, Pinball Cage, Cereal Bowl Stadium, Toy Soldier Fort, Snow Globe, Dragon's Lair) on the standard cage, and its ten Balls as the `world_4` series. Until the later phases its runway uses existing primitive props tinted in its colours, its hub the plain floor and its Balls their `EquipmentConfig` colours. Balance: `.vscode/ECONOMY.md`.
+World 4 is being built in phases from `.vscode/WORLD4_DESIGN.md` (concept, sections, hub, grounds, Balls, portal trip and the phase checklist). Phase 1 is in: `world_4` in `WorldConfig` (offset 24,000, end 8,000, start pay 500,000 and Cash ×600, Levels 370-490, ten sections from Giant Backyard to Pillow Fort with reward tiers 1.0× to 700, 1.15× to 2,100 and 1.35× beyond), the finale at its end portal (World 3's portal now leads to World 4), its row of grounds (Sandbox Diamond, Pinball Cage, Cereal Bowl Stadium, Toy Soldier Fort, Snow Globe, Dragon's Lair) on the standard cage, and its ten Balls as the `world_4` series. Until the later phases its runway uses existing primitive props tinted in its colours, its hub the plain floor and its Balls their `EquipmentConfig` colours. Balance: `.vscode/ECONOMY.md`.
+
+**Hits start over in each World** (Worlds 2-4; World 1 is unchanged). A World's `launchLevels` (`from` = the Level where it opens, `to` = the Level where its end is reached: World 2 150-250, World 3 250-370, World 4 370-490) pick the launch through `ProgressionConfig.GetWorldLaunchLevel`: below `from` the early floaty arc (99-143 studs), then even growth in studs to the end portal at `to`, so each run sweeps two or three of the World's sections and its end is still reached at the same Level. Each later World pays a start pay (`cashBase`) on top of its distance pay, so even its first 99-stud hit pays more than the previous World's best (3.9-4.5×). The portal trip's arrival card shows the World's `arrivalNote` ("FRESH START! YOUR HITS GROW AGAIN, AND EVERY HIT PAYS MORE"; World 4: "SHRUNK DOWN! ..."). In an earlier World a later player hits its end every time, at that World's lower pay. World 4 also sells the **Rolling Pin Bat** (42×, $1.65B), bought midway through it.
 
 ## Hubs
 

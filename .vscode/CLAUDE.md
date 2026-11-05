@@ -211,7 +211,7 @@ The physical batting tee still exists in the world.
 - Training Power = Training base (5) × ground multiplier × Ball × (Rebirths + 1) × purchased Power multiplier (× Power juice)
 - Hit Power = Training base × `HitPowerPerSecond` (0.37) × seconds in play, rounded, × Ball × (Rebirths + 1) × purchased Power multiplier (× Power juice); no ground
 - Offline Power = 25% of the best usable ground's rate, no Level term (8 h cap) × saved Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held to half the Power still needed for the Level Cap (Welcome Back's 3x: twice more, up to all of it)
-- Hit Cash = (distance / 80)^1.5 × World `cashMultiplier` (1, 10, 100, 1,000) × section multiplier × Bat × purchased Cash multiplier (× Cash juice), rounded, at least $1
+- Hit Cash = (World `cashBase` + World `cashMultiplier` × (distance / 80)^1.5) × section multiplier × Bat × purchased Cash multiplier (× Cash juice), rounded, at least $1
 - Purchased multipliers (`MonetizationConfig.Multipliers`, Robux tiers; saved `PowerMultiplierTier` / `CashMultiplierTier`): Power 2x-4x in 5 tiers, Cash 2x-5x in 7 (+0.5x a tier); 1x with none; never distance
 - Juices (`JuiceConfig`): Power Punch (2x Power) and Cash Splash (2x Cash), 600 s each, on real time (saved expiry times, so they run while offline); a repeat drink adds 600 s (never 4x); never offline Training; a hit snapshots its juices when its swing is accepted. Sold in the Shop and one in the Starter Pack (Studio: `StudioGrantJuice` on a `StudioFreshSave` save, `StudioJuiceSeconds`)
 
@@ -223,7 +223,7 @@ Bat increases Cash earned from real completed hits.
 
 Bat does NOT increase Power or hit distance.
 
-Current Cash multipliers and prices: Wood 1x $0, Metal 1.5x $25, Jungle 2x $120, Amethyst 3x $600, Candy Cane 4x $3,000, Frostbite 6x $15,000, Magma 9x $50,000 (World 1's last purchase), Lightning 13x $1.5M, Dragon Bone 19x $25M, Celestial 28x $120M.
+Current Cash multipliers and prices: Wood 1x $0, Metal 1.5x $25, Jungle 2x $120, Amethyst 3x $600, Candy Cane 4x $3,000, Frostbite 6x $15,000, Magma 9x $50,000 (World 1's last purchase), Lightning 13x $3.2M (World 2's last purchase), Dragon Bone 19x $28M, Celestial 28x $130M, Rolling Pin 42x $1.65B (World 4).
 
 These are balance values from `tools/balance` and may change.
 
@@ -615,6 +615,8 @@ World 2 (Time Travel): per-World Training Grounds with World 2's row, the Time T
 
 World 3 (Future World): its themed runway (ten sections and a black-hole landmark), ten balls as the third purchase series, five futuristic cage models, the Future hub, and the temporary finale at its end portal. The Blender models live in ServerStorage.RunwayAssets once imported (sources in tools/blender/, exports in assets/models/).
 
-World 4 (Tiny Town), Phase 1 of `.vscode/WORLD4_DESIGN.md`: World 4's config (offset 24,000, end 8,000, Cash x1,000, ten runway sections with placeholder primitive props, the finale moved to its end portal, World 3's portal now leading there), its row of five grounds plus Dragon's Lair (standard cage), ten balls as the fourth purchase series, launch steps measured in World 4's field, and Level bands to 500. Its runway meshes, Balls, cages, Mouse-Hole Plaza hub and shrinking trip are later phases.
+World 4 (Tiny Town), Phase 1 of `.vscode/WORLD4_DESIGN.md`: World 4's config (offset 24,000, end 8,000, start pay 500,000 and Cash x600, ten runway sections with placeholder primitive props, the finale moved to its end portal, World 3's portal now leading there), its row of five grounds plus Dragon's Lair (standard cage), ten balls as the fourth purchase series, launch steps measured in World 4's field, and Level bands to 500. Its runway meshes, Balls, cages, Mouse-Hole Plaza hub and shrinking trip are later phases.
+
+Hits start over in each World after World 1 (before World 4's Phase 2): `WorldConfig` `launchLevels` (World 2 150-250, World 3 250-370, World 4 370-490) and `ProgressionConfig.GetWorldLaunchLevel` / `WorldLaunchSteps` give each hit a launch Level from the player's Level and the World batted in (the early floaty arc below the range, even growth in studs to the end portal inside it); each later World's `cashBase` start pay keeps its first hits paying more than the previous World's best; the portal trip's arrival card shows `arrivalNote`; World 2-4 prices were re-tuned and World 4 sells the Rolling Pin Bat.
 
 Always inspect the current code before acting on those planned features.

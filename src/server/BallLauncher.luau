@@ -108,9 +108,11 @@ local function launch(station, hit)
  local flat = Vector3.new(difference.X, 0, difference.Z)
  if flat.Magnitude < 0.01 then warn("HitDirection must be separated from the tee.") cleanup(station, hit) return end
  local forward = flat.Unit
- result.launchAngleDegrees = result.launchAngleOverride or Progression.GetLaunchAngle(result.launchLevel)
- result.launchSpeed = result.launchSpeedOverride or Progression.GetLaunchSpeed(result.launchLevel)
- result.launchGravityScale = result.launchGravityScaleOverride or Progression.GetLaunchGravityScale(result.launchLevel)
+ -- Hits start over in each later World: the player's Level picks a launch Level for this World.
+ local launchLevel = Progression.GetWorldLaunchLevel(result.launchLevel, world)
+ result.launchAngleDegrees = result.launchAngleOverride or Progression.GetLaunchAngle(launchLevel)
+ result.launchSpeed = result.launchSpeedOverride or Progression.GetLaunchSpeed(launchLevel)
+ result.launchGravityScale = result.launchGravityScaleOverride or Progression.GetLaunchGravityScale(launchLevel)
  -- Early Levels fall at a lighter gravity until the first landing (ProgressionConfig.EarlyLaunch).
  hit.airborneGravityScale = result.launchGravityScale
  local loft = math.rad(result.launchAngleDegrees)
@@ -208,7 +210,7 @@ local function launch(station, hit)
    end
    if finalSection and not result.rewardAwarded then
     local cashEarned = Progression.GetHitCash(distance, world.cashMultiplier, final.sectionMultiplier,
-     result.batCashMultiplier, (result.cashJuiceMultiplier or 1) * (result.cashTierMultiplier or 1))
+     result.batCashMultiplier, (result.cashJuiceMultiplier or 1) * (result.cashTierMultiplier or 1), world.cashBase)
     result.rewardAwarded = true
     result.cashEarned, final.cashEarned = cashEarned, cashEarned
     player.leaderstats.Cash.Value += cashEarned
@@ -330,8 +332,9 @@ local function launch(station, hit)
   elseif position.Y < Field.GroundTop - 50 then finish("out of bounds", true)
   elseif simulationSeconds >= Field.MaximumFlightSeconds then finish("timeout", true) end
  end)
- print(string.format("[BallLaunch] %s / %s: Level %d, loft %.1f, speed %.1f, gravity x%.2f",
-  player.Name, world.id, result.launchLevel, result.launchAngleDegrees, result.launchSpeed, result.launchGravityScale))
+ print(string.format("[BallLaunch] %s / %s: Level %d (launch Level %d), loft %.1f, speed %.1f, gravity x%.2f",
+  player.Name, world.id, result.launchLevel, Progression.GetWorldLaunchLevel(result.launchLevel, world), result.launchAngleDegrees,
+  result.launchSpeed, result.launchGravityScale))
 end
 
 -- Seconds after an accepted swing before the launch, so the ball visibly leaves the tee at

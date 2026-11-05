@@ -89,9 +89,9 @@ return function(sources)
  check(second.nextWorldId=="world_3" and third and third.order==3 and third.endDistance==7000 and third.nextWorldId=="world_4",
   "World 2 leads to World 3 (7000 studs), which leads to World 4")
  check(third.endPortal and third.endPortal.finale==nil,"World 3's end portal is a trip again, not the finale")
- check(fourth and fourth.order==4 and fourth.endDistance==8000 and fourth.nextWorldId==nil and fourth.cashMultiplier==1000
+ check(fourth and fourth.order==4 and fourth.endDistance==8000 and fourth.nextWorldId==nil and fourth.cashBase==500000 and fourth.cashMultiplier==600
   and fourth.offset==Vector3.new(24000,0,0) and Worlds.Worlds[#Worlds.Worlds]==fourth,
-  "World 4 (Tiny Town) is the last World for now (8000 studs, x1000 Cash, offset 24000)")
+  "World 4 (Tiny Town) is the last World for now (8000 studs, start pay 500K, x600 Cash, offset 24000)")
  check(fourth.endPortal and fourth.endPortal.finale and fourth.endPortal.finale.title~=nil,"World 4's end portal has the temporary finale")
  for _, world in {third, fourth} do
   check(#world.sections==10 and Field.GetWidth(world)==160,world.id .. " has ten runway themes on a 160-stud runway")
