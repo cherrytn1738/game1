@@ -22,7 +22,7 @@ early.
 | 7 | Pinball Cage | PinballCage | `aa2d9d9` | 46 meshes, about 40K triangles |
 | 8 | Cereal Bowl Stadium | CerealBowlCage | `38c567d` | 36 meshes, about 118K triangles |
 | 9 | Toy Soldier Fort | ToySoldierCage | `29a7d01` | 49 meshes, about 46K triangles |
-| 10 | Snow Globe | SnowGlobeCage | | |
+| 10 | Snow Globe | SnowGlobeCage | `4766a6d` | 51 meshes, about 64K triangles, the dome is the enclosure |
 
 ## Decisions I made on my own
 - **Branch:** I made the cage commits on a new branch, `custom-cages`, not on `main`. It will be
