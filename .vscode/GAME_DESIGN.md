@@ -103,7 +103,7 @@ Ten Bats, cooler as the price rises (Cash multipliers, tuned with `tools/balance
 | Magma Bat (magma_bat) | 50,000 | ×9 | fire trail / fire burst |
 | Lightning Bat (lightning_bat) | 3,200,000 | ×13 | flickering trail / lightning zap |
 | Dragon Bone Bat (dragon_bone_bat) | 28,000,000 | ×19 | flame trail / fire burst |
-| Celestial Bat (celestial_bat) | 130,000,000 | ×28 | rainbow trail / starburst and shockwave |
+| Celestial Bat (celestial_bat) | 100,000,000 | ×28 | rainbow trail / starburst and shockwave |
 | Rolling Pin Bat (rolling_pin_bat) | 1,650,000,000 | ×42 | placeholder look until its model (World 4, Phase 4) |
 
 The Alloy and Carbon Bats were removed (cleared from the developer's save; other saves drop them on load).
@@ -166,7 +166,7 @@ The All-Star and Championship Balls were removed (their IDs were also cleared fr
 | Rocket Ball (rocket_ball) | 45,000,000 | ×3,400,000 | roaring flame exhaust, fire streak and a billowing smoke trail |
 | Moon Rock (moon_rock_ball) | 56,000,000 | ×5,000,000 | floating moon dust hanging behind it, pale moonlight, little moon rocks in orbit |
 | Red Planet (red_planet_ball) | 76,000,000 | ×7,500,000 | billowing red dust plume, rust-orange ribbon, two tiny moons in orbit |
-| Singularity Orb (singularity_orb) | 113,000,000 | ×11,000,000 | purple vortex wake, accretion ribbons whirling round it, warping rings, bright motes |
+| Singularity Orb (singularity_orb) | 97,000,000 | ×11,000,000 | purple vortex wake, accretion ribbons whirling round it, warping rings, bright motes |
 
 - **Models:** `tools/blender/balls_world3.py` (reusing the World 1 and 2 ball helpers) exports `assets/models/BallsWorld3.fbx`, split into `DisplayItems` the same way.
 
@@ -530,7 +530,7 @@ World 3 (Future World) is a trip from a near-future city out to the edge of real
 
 World 4 is being built in phases from `.vscode/WORLD4_DESIGN.md` (concept, sections, hub, grounds, Balls, portal trip and the phase checklist). Phase 1 is in: `world_4` in `WorldConfig` (offset 24,000, end 8,000, start pay 500,000 and Cash ×600, Levels 370-490, ten sections from Giant Backyard to Pillow Fort with reward tiers 1.0× to 700, 1.15× to 2,100 and 1.35× beyond), the finale at its end portal (World 3's portal now leads to World 4), its row of grounds (Sandbox Diamond, Pinball Cage, Cereal Bowl Stadium, Toy Soldier Fort, Snow Globe, Dragon's Lair) on the standard cage, and its ten Balls as the `world_4` series. Until the later phases its runway uses existing primitive props tinted in its colours, its hub the plain floor and its Balls their `EquipmentConfig` colours. Balance: `.vscode/ECONOMY.md`.
 
-**Hits start over in each World** (Worlds 2-4; World 1 is unchanged). A World's `launchLevels` (`from` = the Level where it opens, `to` = the Level where its end is reached: World 2 150-250, World 3 250-370, World 4 370-490) pick the launch through `ProgressionConfig.GetWorldLaunchLevel`: below `from` the early floaty arc (99-143 studs), then even growth in studs to the end portal at `to`, so each run sweeps two or three of the World's sections and its end is still reached at the same Level. Each later World pays a start pay (`cashBase`) on top of its distance pay, so even its first 99-stud hit pays more than the previous World's best (3.9-4.5×). The portal trip's arrival card shows the World's `arrivalNote` ("FRESH START! YOUR HITS GROW AGAIN, AND EVERY HIT PAYS MORE"; World 4: "SHRUNK DOWN! ..."). In an earlier World a later player hits its end every time, at that World's lower pay. World 4 also sells the **Rolling Pin Bat** (42×, $1.65B), bought midway through it.
+**Hits start over in each World** (Worlds 2-4; World 1 is unchanged). A World's `launchLevels` (`from` = the Level where it opens, `to` = the Level where its end is reached: World 2 150-250, World 3 250-370, World 4 370-490) pick the launch through `ProgressionConfig.GetWorldLaunchLevel`: below `from` the early floaty arc (99-143 studs), then even growth in studs to the end portal at `to`, so each run sweeps two or three of the World's sections and its end is still reached at the same Level. Each later World pays a start pay (`cashBase`) on top of its distance pay, so even its first 99-stud hit pays more than the previous World's best (3.9-4.5×). In an earlier World a later player hits its end every time, at that World's lower pay. World 4 also sells the **Rolling Pin Bat** (42×, $1.65B), bought midway through it.
 
 ## Hubs
 

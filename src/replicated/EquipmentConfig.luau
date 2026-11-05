@@ -76,7 +76,7 @@ local Equipment = {
      appearance = batLook(Color3.fromRGB(230, 220, 190), Color3.fromRGB(120, 20, 20), Enum.Material.SmoothPlastic),
     },
     celestial_bat = {
-     id = "celestial_bat", displayName = "Celestial Bat", price = 130000000,
+     id = "celestial_bat", displayName = "Celestial Bat", price = 100000000,
      cashMultiplier = 28, nextId = "rolling_pin_bat",
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(25, 18, 70), Color3.fromRGB(255, 205, 80), Enum.Material.SmoothPlastic),
@@ -302,7 +302,7 @@ local Equipment = {
      appearance = {color = Color3.fromRGB(196, 86, 48), material = Enum.Material.Sand},
     },
     singularity_orb = {
-     id = "singularity_orb", displayName = "Singularity Orb", price = 113000000,
+     id = "singularity_orb", displayName = "Singularity Orb", price = 97000000,
      powerGainMultiplier = 11000000,
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(20, 16, 30), material = Enum.Material.Neon},

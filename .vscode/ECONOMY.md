@@ -74,11 +74,11 @@ active player.
 | Whole tutorial | 1.5-2 min | 1 min 44 s | to re-measure |
 | Second run, Training only, Level 1 → 40 | ~3 min | 3.0 min | to re-measure |
 | Batting vs Basic Training | 50-70% | 49-69% | 11 Power a hit at Level 3 |
-| Free-to-play World 2 / World 3 / World 4 | ~1h 40m / ~4h 45m / ~10h 30m | 1h 41m / 4h 38m / 10h 17m | |
-| World 4's runs (Rebirths 19-24) | LONG pace: 75-95 min | 69-99 min; finale 18h 09m | |
+| Free-to-play World 2 / World 3 / World 4 | ~1h 40m / ~4h 45m / ~10h 30m | 1h 41m / 4h 38m / 10h 15m | |
+| World 4's runs (Rebirths 19-24) | LONG pace: 75-95 min | 68-99 min; finale 18h 03m | |
 | Hits start over in each World | its first hit far shorter than the last World's, but paying more; every section landed in | first hits 146 studs paying 3.9-4.5× the last World's best; each run sweeps 2-3 sections | |
-| Nothing to buy | no long waits | longest: World 1 17 min, World 2 34, World 3 61, World 4 55 | |
-| One tier of each multiplier | 30-35% faster finale | 49% (9h 16m): stronger on purpose, see Decisions to review | |
+| Nothing to buy | no long waits | longest: World 1 17 min, World 2 34, World 3 48, World 4 55 | |
+| One tier of each multiplier | 30-35% faster finale | 49% (9h 15m): stronger on purpose, see Decisions to review | |
 | Every tier | finale no sooner than half of free-to-play | 4h 18m (76% faster): stronger on purpose | |
 
 Tutorial step 3 is mostly walking and clicking, so balance cannot move it.
@@ -199,7 +199,7 @@ starts over with the World: see Cash):
 | Rocket Ball | 3,400,000 | $45M | $49M |
 | Moon Rock | 5,000,000 | $56M | $64M |
 | Red Planet | 7,500,000 | $76M | $83M |
-| Singularity Orb | 11,000,000 | $113M | $108M |
+| Singularity Orb | 11,000,000 | $97M | $108M |
 
 **World 4 Balls** (×1.5 a step, all above the Singularity Orb). The design's starting prices
 ($500M to $5.4B) were for a World whose hits barely grew; with the reset and the Rolling Pin Bat
@@ -231,7 +231,7 @@ they rise ~1.1× a step:
 | Magma | 9 | $50,000 | |
 | Lightning | 13 | $3.2M | $1.5M |
 | Dragon Bone | 19 | $28M | $25M |
-| Celestial | 28 | $130M | $120M |
+| Celestial | 28 | $100M | $120M |
 | **Rolling Pin** (World 4) | 42 | $1.65B | new |
 
 The Magma Bat was $300,000 (World 2's first Bat). At $50,000 it is World 1's last purchase: with
@@ -327,19 +327,19 @@ purchase, its price in hits at that moment, and for Bats the hits until the extr
 | 6h 53m | Rocket Ball | $45M | 3,400,000 | 1.51 | 42 | 35 | |
 | 7h 26m | Moon Rock | $56M | 5,000,000 | 1.47 | 39 | 37 | |
 | 8h 06m | Red Planet | $76M | 7,500,000 | 1.5 | 53 | 48 | |
-| 9h 01m | Singularity Orb | $113M | 11,000,000 | 1.47 | 71 | 61 | |
-| 10h 02m | Celestial Bat | $130M | 28 | 1.47 | 70 | 62 | 131 |
-| 10h 32m | Dandelion Puff | $530M | 16M | 1.45 | 49 | 38 | |
-| 10h 55m | Blueberry | $1.1B | 24M | 1.5 | 79 | 78 | |
-| 11h 31m | Meatball | $1.2B | 36M | 1.5 | 71 | 66 | |
-| 12h 10m | Bouncy Ball | $1.35B | 54M | 1.5 | 82 | 72 | |
-| 12h 56m | Lucky Dice | $1.5B | 80M | 1.48 | 74 | 89 | |
-| 13h 51m | Rolling Pin Bat | $1.65B | 42 | 1.5 | 71 | 62 | 124 |
-| 14h 22m | Yarn Ball | $1.9B | 120M | 1.5 | 47 | 45 | |
-| 15h 04m | Bath Bomb | $2.1B | 180M | 1.5 | 59 | 52 | |
-| 15h 47m | Mini Globe | $2.3B | 270M | 1.5 | 51 | 47 | |
-| 16h 38m | Cat's-Eye Marble | $2.55B | 400M | 1.48 | 60 | 52 | |
-| 17h 29m | Dream Orb | $2.8B | 600M | 1.5 | 56 | 61 | |
+| 8h 52m | Singularity Orb | $97M | 11,000,000 | 1.47 | 62 | 56 | |
+| 9h 40m | Celestial Bat | $100M | 28 | 1.47 | 56 | 54 | 114 |
+| 10h 29m | Dandelion Puff | $530M | 16M | 1.45 | 66 | 38 | |
+| 10h 52m | Blueberry | $1.1B | 24M | 1.5 | 78 | 78 | |
+| 11h 28m | Meatball | $1.2B | 36M | 1.5 | 72 | 66 | |
+| 12h 06m | Bouncy Ball | $1.35B | 54M | 1.5 | 82 | 73 | |
+| 12h 53m | Lucky Dice | $1.5B | 80M | 1.48 | 74 | 89 | |
+| 13h 48m | Rolling Pin Bat | $1.65B | 42 | 1.5 | 72 | 62 | 124 |
+| 14h 18m | Yarn Ball | $1.9B | 120M | 1.5 | 46 | 45 | |
+| 15h 00m | Bath Bomb | $2.1B | 180M | 1.5 | 60 | 52 | |
+| 15h 43m | Mini Globe | $2.3B | 270M | 1.5 | 51 | 47 | |
+| 16h 33m | Cat's-Eye Marble | $2.55B | 400M | 1.48 | 59 | 52 | |
+| 17h 23m | Dream Orb | $2.8B | 600M | 1.5 | 57 | 64 | |
 
 "Price in hits" swings more than before because Cash per hit now depends on where in its World's
 range the Level is (low at the start of each run). The longest waits with nothing to buy (from the
@@ -349,7 +349,7 @@ previous purchase, or from the World's last purchase to its end):
 |---|---|---|
 | 1 | 17 min (Frostbite → Supernova) | 9 min |
 | 2 | 34 min (Chrono Orb → Lightning Bat); was 63 | 31 min |
-| 3 | 61 min (Singularity Orb → Celestial Bat); was 61 | 15 min |
+| 3 | 48 min (Singularity Orb → Celestial Bat); was 61 | 35 min |
 | 4 | 55 min (Lucky Dice → Rolling Pin Bat); was 67 | 40 min |
 
 ## Results: progression (active player, LONG)
@@ -360,11 +360,11 @@ previous purchase, or from the World's last purchase to its end):
 | Second Rebirth | 4m 26s (Training only: 4m 43s) | 1 → 2 at Level 40 |
 | World 2 unlock (World 1's end, 5,000) | 1h 41m | Rebirth 7, Level 150 |
 | World 3 unlock (World 2's end, 6,000) | 4h 38m (4h 44m before the reset) | Rebirth 12, Level 250 |
-| World 4 unlock (World 3's end, 7,000) | 10h 17m (10h 27m) | Rebirth 18, Level 370 |
-| Finale (World 4's end, 8,000) | 18h 09m (18h 28m) | Rebirth 24, Level 490 |
+| World 4 unlock (World 3's end, 7,000) | 10h 15m (10h 27m) | Rebirth 18, Level 370 |
+| Finale (World 4's end, 8,000) | 18h 03m (18h 28m) | Rebirth 24, Level 490 |
 
 Run lengths (Rebirth k → k+1): 2.7, 6.4, 12.7, 11.3, 20.3, 22.3, 31.5, 20.5, 31.8, 31.7, 42.5,
-56.1, 47.0, 53.5, 59.2, 50.0, 62.2, 64.8, 68.7, 69.0, 99.4, 83.9, 83.4, 71.2 minutes for runs
+56.1, 47.0, 53.5, 59.2, 50.0, 60.0, 64.8, 68.2, 68.5, 99.1, 83.4, 83.1, 70.8 minutes for runs
 1-24 (target 3 + 4 × (k − 1)); run 8 is short because World 2's first ground and Balls arrive with
 it. Re-solving World 4's bands with the reset in place did not bring its runs closer to the
 targets (the smoothing evens bands across runs) and moved the finale 10 minutes earlier, so
@@ -375,8 +375,8 @@ Over the playthrough batting gives well under 0.1% of the Power.
 Cash comes only from batting, so a player who never bats stalls after about Rebirth 3.
 
 **Casual returning** (30 minutes a day): World 2 on day 4 (1h 35m of play), World 3 on day 8
-(3h 42m), World 4 on day 16 (8h 10m), the finale on day 28 (14h 00m of play). Offline Training
-gives 62% of their Power.
+(3h 42m), World 4 on day 16 (8h 06m), the finale on day 28 (14h 02m of play). Offline Training
+gives 61% of their Power.
 
 **Before** (the flat Training base on the MEDIUM bands): tutorial 4m 36s (226 s of Training for
 the Level 20 climb), Training-only run 1 17.7 min, World 2 2h 31m, World 3 6h 27m, finale 12h 42m;
@@ -392,7 +392,7 @@ the earlier Training base, before it was flat, so only their order of size still
 |---|---:|---|---|---|
 | FAST | 1 min | 41m | 1h 38m | 3h 28m |
 | MEDIUM | 2 min | 1h 04m | 2h 48m | 5h 53m |
-| **LONG** (chosen) | 4 min | 1h 41m | 4h 38m | 10h 17m (World 4 unlock; the finale is now 18h 09m) |
+| **LONG** (chosen) | 4 min | 1h 41m | 4h 38m | 10h 15m (World 4 unlock; the finale is now 18h 03m) |
 
 ## Purchased multipliers (Robux)
 
@@ -407,13 +407,13 @@ Finale = World 4's end:
 
 | Tier | Power | Robux | Finale with only this Power tier | Cash | Robux | Finale with only this Cash tier |
 |---|---|---:|---|---|---:|---|
-| 1 | 2x | 129 | 14h 19m (−3h 50m) | 2x | 129 | 12h 40m (−5h 29m) |
-| 2 | 2.5x | 169 | 13h 16m (−1h 02m) | 2.5x | 159 | 11h 34m (−1h 06m) |
-| 3 | 3x | 219 | 12h 38m (−38m) | 3x | 199 | 10h 43m (−52m) |
-| 4 | 3.5x | 279 | 11h 55m (−43m) | 3.5x | 249 | 10h 14m (−29m) |
-| 5 | 4x | 359 | 11h 25m (−30m) | 4x | 309 | 9h 51m (−23m) |
-| 6 | | | | 4.5x | 389 | 9h 33m (−18m) |
-| 7 | | | | 5x | 489 | 9h 04m (−28m) |
+| 1 | 2x | 129 | 14h 14m (−3h 49m) | 2x | 129 | 12h 39m (−5h 23m) |
+| 2 | 2.5x | 169 | 13h 15m (−58m) | 2.5x | 159 | 11h 33m (−1h 06m) |
+| 3 | 3x | 219 | 12h 38m (−37m) | 3x | 199 | 10h 41m (−52m) |
+| 4 | 3.5x | 279 | 11h 54m (−44m) | 3.5x | 249 | 10h 12m (−29m) |
+| 5 | 4x | 359 | 11h 24m (−30m) | 4x | 309 | 9h 49m (−23m) |
+| 6 | | | | 4.5x | 389 | 9h 20m (−29m) |
+| 7 | | | | 5x | 489 | 9h 04m (−16m) |
 | All | | 1,155 | | | 1,923 | |
 
 Prices are unchanged from the earlier 1.5x-2.1x ladders: both start at 129, Power rises ~30% a
@@ -422,12 +422,12 @@ them.
 
 | Player | World 2 | World 3 | World 4 | Finale | vs free-to-play | Casual (World 2 / 3 / 4 / finale) |
 |---|---|---|---|---|---|---|
-| Free to play | 1h 41m | 4h 38m | 10h 17m | 18h 09m | | day 4 / 8 / 16 / 28 |
-| Light, 1 tier each (258 Robux) | 53m | 2h 23m | 5h 15m | 9h 16m | 49% faster | day 2 / 5 / 10 / 16 |
-| Light, 2 tiers each (586 Robux) | 44m | 1h 58m | 4h 16m | 7h 28m | 59% faster | day 2 / 4 / 9 / 14 |
+| Free to play | 1h 41m | 4h 38m | 10h 15m | 18h 03m | | day 4 / 8 / 16 / 28 |
+| Light, 1 tier each (258 Robux) | 53m | 2h 23m | 5h 14m | 9h 15m | 49% faster | day 2 / 5 / 10 / 16 |
+| Light, 2 tiers each (586 Robux) | 44m | 1h 58m | 4h 16m | 7h 30m | 58% faster | day 2 / 4 / 8 / 14 |
 | Heavy, every tier (3,078 Robux) | 29m | 1h 12m | 2h 32m | 4h 18m | 76% faster | day 1 / 3 / 5 / 8 |
-| Heavy + both juices nonstop | 18m | 41m | 1h 24m | 2h 21m | 87% faster | day 1 / 2 / 3 / 5 |
-| Whale (+ Starter Pack, both paid grounds) | 16m | 38m | 1h 23m | 2h 18m | 87% faster | day 1 / 2 / 3 / 5 |
+| Heavy + both juices nonstop | 18m | 41m | 1h 24m | 2h 20m | 87% faster | day 1 / 2 / 3 / 5 |
+| Whale (+ Starter Pack, both paid grounds) | 16m | 38m | 1h 22m | 2h 17m | 87% faster | day 1 / 2 / 3 / 5 |
 
 Worst case (every tier and both juices): 4 × 2 = 8x Power and 5 × 2 = 10x Cash. At World 4's
 finale gear that is ~3.5e14 Power a practice hit (5 × 580 × 600M × 25 × 8) and ~$620M a hit at
@@ -633,22 +633,23 @@ review).
   count in the distance rule, or cheaper Levels 300-369 (World 3's top bands, moving World 3).
 - **The multiplier ladders are intentionally stronger than the spender targets** (2x-4x Power,
   2x-5x Cash, +0.5x a tier). One tier of each finishes 49% faster (target 30-35%) and every tier
-  76% faster (floor: half of free-to-play): 4h 18m against free-to-play's 18h 09m. The shares hold
+  76% faster (floor: half of free-to-play): 4h 18m against free-to-play's 18h 03m. The shares hold
   with World 4 in, because the bands are solved for the free player and the multipliers scale
   every World alike. Bringing spenders back to the targets would need smaller ladders.
-- **World 3's last wait** is now the longest in the game: the Singularity Orb (9h 01m), then the
-  Celestial Bat 61 minutes later (unchanged by this pass). The World 2 trick (moving the Bat to
-  the World's end) does not apply: the Celestial Bat is already World 3's last purchase.
+- **World 3's last wait** (Singularity Orb, then the Celestial Bat 61 minutes later) is closed by
+  two price cuts: the Singularity Orb $113M → $97M and the Celestial Bat $130M → $100M (still just
+  above the Orb, so bought after it). Its last purchases now come 40, 46 and 48 minutes apart, then
+  35 minutes before World 4; World 4 opens 2 minutes and the finale 6 minutes earlier.
 - **World 4's waits** are 23-55 minutes (was up to 67); the World lasts 8 hours with 11 purchases,
-  so its average wait is ~44 minutes. Its runs (69-99 minutes) wander around the LONG targets
+  so its average wait is ~44 minutes. Its runs (68-99 minutes) wander around the LONG targets
   (75-95); re-solving the bands did not tighten them.
 - **`MaxPower` is close:** requirements reach it (9 quadrillion) at about Level 555 (Rebirth 27,
   three runs past World 4's end); World 5 needs a bigger Power scale (or slower band growth). See
   `WORLD4_DESIGN.md` Known issues.
-- **The casual finale is day 28** (about 4 weeks; 14h 00m of play), and Offline Training gives
-  62% of a casual player's Power.
+- **The casual finale is day 28** (about 4 weeks; 14h 02m of play), and Offline Training gives
+  61% of a casual player's Power.
 - **Juices are the strongest Robux lever:** both running nonstop on top of every tier take the
-  finale from 4h 18m to 2h 21m. They are consumables (39 Robux for 10 minutes), so that would
+  finale from 4h 18m to 2h 20m. They are consumables (39 Robux for 10 minutes), so that would
   cost far more than the tiers; revisit if juices get cheaper or longer.
 - **The Magma Bat** used to be World 2's first Bat (the ×20 price jump from Frostbite followed the
   World Cash tiers); now the big jump sits between Magma ($50K) and Lightning ($3.2M, bought last

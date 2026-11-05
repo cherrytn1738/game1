@@ -204,13 +204,12 @@ One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), adde
 
 ### Phase 1b: hits start over in each World, and the Rolling Pin Bat
 - [x] `WorldConfig` `launchLevels` (World 2 150-250, World 3 250-370, World 4 370-490), `cashBase`
-      start pay (3,000 / 40,000 / 500,000) with multipliers 7 / 60 / 600, and `arrivalNote`
+      start pay (3,000 / 40,000 / 500,000) with multipliers 7 / 60 / 600
 - [x] `ProgressionConfig.GetWorldLaunchLevel` + `WorldLaunchSteps` (simulator `designWorldLaunch`);
       `GetHitCash` start pay; used by `BallLauncher` and the Cash Pack quotes
 - [x] Rolling Pin Bat (`rolling_pin_bat`, 42x, $1.65B) after the Celestial Bat; placeholder colours
 - [x] Worlds 2-4 repriced; World 2's end gap closed (Lightning Bat $3.2M, now World 2's last
       purchase; Clockwork Ball $1.35M); Phase 1's World 4 bands kept (re-solving did not help)
-- [x] Portal trip arrival card shows the World's `arrivalNote`
 - [x] Simulator `WORLD DISTANCES` section; tests (every World reaches its end exactly at its `to`,
       first hit pays more than the previous World's best, earlier Worlds never pay more)
 - [x] Docs; commit

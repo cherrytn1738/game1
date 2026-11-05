@@ -230,7 +230,7 @@ Current Cash multipliers and prices (each Bat about 1.5x the one before):
 - Magma: 9x, $50,000 (World 1's last purchase, before World 2 opens)
 - Lightning: 13x, $3.2M (World 2's last purchase)
 - Dragon Bone: 19x, $28M
-- Celestial: 28x, $130M
+- Celestial: 28x, $100M
 - Rolling Pin: 42x, $1.65B (World 4, bought midway through it)
 - Catastrophe Bat: 2.5x, exclusive to the Starter Pack (never sold for Cash, outside the series)
 
@@ -255,7 +255,7 @@ World 1's Balls (intended balance; the Sandlot Ball's $2 is the tutorial's first
 - Dragonfire Ball: 1,250x, $14,000
 - Supernova Ball: 3,500x, $40,000
 
-Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball), World 2's ten (Dino Egg to Chrono Orb, 5,000x-200,000x for $175K-$2.1M), World 3's ten (Solar Cell to Singularity Orb, 300,000x-11,000,000x for $15M-$113M) and World 4's ten (Dandelion Puff to Dream Orb, 16,000,000x-600,000,000x for $530M-$2.8B). Every ball beats the one before it and every ball of an earlier series (about 1.5x a step from World 2 on). A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
+Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball), World 2's ten (Dino Egg to Chrono Orb, 5,000x-200,000x for $175K-$2.1M), World 3's ten (Solar Cell to Singularity Orb, 300,000x-11,000,000x for $15M-$97M) and World 4's ten (Dandelion Puff to Dream Orb, 16,000,000x-600,000,000x for $530M-$2.8B). Every ball beats the one before it and every ball of an earlier series (about 1.5x a step from World 2 on). A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
 
 ### Training Grounds
 
@@ -444,7 +444,7 @@ World completion is based on authoritative final forward distance.
 
 Completing a World permanently unlocks the next World. World 4 (Tiny Town; being built in phases, `.vscode/WORLD4_DESIGN.md`) is the last World for now: its end portal plays a temporary "you finished the game" finale instead of a trip. World 3's portal leads to World 4. A save that completed World 3 before World 4 existed has World 4 unlocked on load.
 
-Hits start over in each World after World 1: below the World's `launchLevels.from` (the Level where it opens) a hit uses the early floaty arc (99-143 studs), and from `from` to `to` (the Level where its end is reached) it grows evenly in studs to the end portal (`WorldLaunchSteps`). Each later World has a start pay (`cashBase`; World 2 3,000, World 3 40,000, World 4 500,000, with multipliers 7 / 60 / 600), so even its shortest hit pays more than the previous World's farthest. The portal trip's arrival card says so (`arrivalNote`). In an earlier World a later player hits its end every time, at that World's lower pay.
+Hits start over in each World after World 1: below the World's `launchLevels.from` (the Level where it opens) a hit uses the early floaty arc (99-143 studs), and from `from` to `to` (the Level where its end is reached) it grows evenly in studs to the end portal (`WorldLaunchSteps`). Each later World has a start pay (`cashBase`; World 2 3,000, World 3 40,000, World 4 500,000, with multipliers 7 / 60 / 600), so even its shortest hit pays more than the previous World's farthest. In an earlier World a later player hits its end every time, at that World's lower pay.
 
 Every hub shares one compact layout (`WorldConfig` `hubLayout`), named from the spawn, which looks into the hub with the batting area and runway behind it: Training Grounds on the left, item displays on the right, an open plaza with the World's event piece in the middle, and the World portal at the back. World 1's four global leaderboards (Level, Time Played, Robux Spent, Cash) stand either side of its portal. Only the art differs between Worlds.
 
