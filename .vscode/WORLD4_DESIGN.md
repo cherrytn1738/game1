@@ -218,10 +218,18 @@ One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), adde
   hit still starts over (see `ECONOMY.md` Decisions to review).
 
 ### Phase 2: runway props, sections 1-5 (Blender)
-- [ ] `tools/blender/runway_world4_home.py` (Giant Backyard to Board Game Boulevard), exported to
-      `assets/models/RunwayWorld4Home.fbx`
-- [ ] `RunwayDecor` `MESH_PROPS` / `BACKDROP_MESHES` entries; sections 1-5 switched to them
-- [ ] Studio import steps listed; tests pass; commit
+- [x] `tools/blender/runway_world4_home.py` (Giant Backyard to Board Game Boulevard), exported to
+      `assets/models/RunwayWorld4Home.fbx` (+ `RunwayWorld4Home.json` manifest): 25 templates. The
+      backyard has a `HoseReel` (a hose on a reel cart, easier to read than a coil on the ground);
+      `blockSkyline` reuses `BrickTower` at backdrop scale; `GamePiece` is a wooden player token
+- [x] `RunwayDecor` `MESH_PROPS` / `BACKDROP_MESHES` entries; sections 1-5 switched to them. Each new
+      kind has a `fallback` (the Phase 1 placeholder it replaced), used until its model is imported,
+      so the runway keeps its current look before the import
+- [x] New floor flag `floorChecker` (20-stud checks in the section accent) for the Picnic Blanket and
+      Board Game Boulevard
+- [x] Studio import steps (`tools/studio/group_runway_imports.luau` groups the import); tests pass; commit
+- Studio import (by hand): Import 3D `assets/models/RunwayWorld4Home.fbx` (defaults, leave it in the
+  Workspace), run `tools/studio/group_runway_imports.luau` in the command bar, save the place
 
 ### Phase 3: runway props, sections 6-10, and the keyhole end portal (Blender)
 - [ ] `tools/blender/runway_world4_house.py` (Craft Table to Pillow Fort), exported to

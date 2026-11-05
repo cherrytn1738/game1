@@ -287,29 +287,30 @@ local Worlds = {
     propScale = 1.8, fillerScale = 1.5},
    -- Shrunk to bug size across a giant house and yard, in the order of the World 4 balls
    -- (Dandelion Puff to Dream Orb). The Cash multipliers follow the earlier Worlds' pattern (x1 to
-   -- 700, x1.15 to 2100, x1.35 beyond). The props and backdrops are placeholders from the
-   -- primitive kinds above until the Tiny Town meshes are made (WORLD4_DESIGN.md, Phases 2-3).
+   -- 700, x1.15 to 2100, x1.35 beyond). Sections 1-5 use the Tiny Town meshes (runway_world4_home.py);
+   -- each one stands in with its placeholder kind (RunwayDecor fallback) until its model is imported.
+   -- Sections 6-10 still use placeholder kinds (WORLD4_DESIGN.md, Phase 3). floorChecker: big checks.
    sections = {
     {id = "backyard", displayName = "Giant Backyard", startDistance = 0, endDistance = 700,
      order = 1, rewardMultiplier = 1, color = Color3.fromRGB(92, 182, 72), accent = Color3.fromRGB(232, 64, 56),
-     material = Enum.Material.Grass, deckMaterial = Enum.Material.LeafyGrass, props = {"jungleTree", "fern", "mushroom"},
-     backdrop = "canopy", fillers = {"rock", "bush"}},
+     material = Enum.Material.Grass, deckMaterial = Enum.Material.LeafyGrass, props = {"grassBlade", "hoseReel", "grassBlade", "ladybug", "sprinkler"},
+     backdrop = "giantFence", fillers = {"pebble", "bush"}},
     {id = "picnic", displayName = "Picnic Blanket", startDistance = 700, endDistance = 1400,
      order = 2, rewardMultiplier = 1.15, color = Color3.fromRGB(214, 70, 70), accent = Color3.fromRGB(255, 244, 236),
      material = Enum.Material.Fabric, deckMaterial = Enum.Material.Grass, deckColor = Color3.fromRGB(100, 184, 80),
-     props = {"cake", "gumdrops", "flowers"}, backdrop = "hills", fillers = {"rock"}, floorTiles = true},
+     props = {"sandwich", "antLine", "picnicBasket"}, backdrop = "blanketFolds", fillers = {"crumbs"}, floorChecker = true},
     {id = "kitchen", displayName = "Kitchen Counter", startDistance = 1400, endDistance = 2100,
      order = 3, rewardMultiplier = 1.15, color = Color3.fromRGB(226, 220, 206), accent = Color3.fromRGB(240, 172, 60),
      material = Enum.Material.Marble, deckMaterial = Enum.Material.WoodPlanks, deckColor = Color3.fromRGB(196, 150, 100),
-     props = {"cake", "lollipop", "dunes"}, backdrop = "mesas", fillers = {"rock"}, floorTiles = true},
+     props = {"cuttingBoard", "toaster", "faucet"}, backdrop = "cerealHills", fillers = {"cerealPiece"}, floorTiles = true},
     {id = "blocktown", displayName = "Block Town", startDistance = 2100, endDistance = 2800,
      order = 4, rewardMultiplier = 1.35, color = Color3.fromRGB(70, 132, 230), accent = Color3.fromRGB(255, 206, 50),
      material = Enum.Material.SmoothPlastic, deckMaterial = Enum.Material.WoodPlanks, deckColor = Color3.fromRGB(206, 160, 108),
-     props = {"beacon", "crystals", "gumdrops"}, backdrop = "towers", fillers = {"rock"}, floorPlanks = true},
+     props = {"alphabetBlock", "trainTrack", "brickTower"}, backdrop = "blockSkyline", fillers = {"toyBrick"}, floorPlanks = true},
     {id = "boardgame", displayName = "Board Game Boulevard", startDistance = 2800, endDistance = 3500,
      order = 5, rewardMultiplier = 1.35, color = Color3.fromRGB(60, 56, 64), accent = Color3.fromRGB(236, 232, 220),
      material = Enum.Material.SmoothPlastic, deckMaterial = Enum.Material.Wood, deckColor = Color3.fromRGB(150, 96, 60),
-     props = {"neonArch", "geode", "beacon"}, backdrop = "spires", fillers = {"rock"}, floorTiles = true},
+     props = {"giantDie", "playingCard", "gamePiece"}, backdrop = "boardGameBox", fillers = {"chessPawn"}, floorChecker = true},
     {id = "crafttable", displayName = "Craft Table", startDistance = 3500, endDistance = 4200,
      order = 6, rewardMultiplier = 1.35, color = Color3.fromRGB(236, 222, 196), accent = Color3.fromRGB(236, 90, 160),
      material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.SmoothPlastic, props = {"candyCane", "lollipop", "crystals"},

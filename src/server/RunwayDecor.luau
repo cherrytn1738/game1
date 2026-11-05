@@ -30,6 +30,18 @@ local SOLAR = Color3.fromRGB(30, 52, 112) -- solar cells
 local TINTED_GLASS = Color3.fromRGB(150, 214, 255)
 local HAZARD_YELLOW = Color3.fromRGB(255, 200, 30)
 local HAZARD_BLACK = Color3.fromRGB(28, 28, 32)
+-- World 4 (Tiny Town): bright toy colours and everyday things.
+local TOY_RED = Color3.fromRGB(232, 60, 54)
+local TOY_YELLOW = Color3.fromRGB(255, 206, 44)
+local TOY_BLUE = Color3.fromRGB(52, 122, 234)
+local TOY_GREEN = Color3.fromRGB(66, 186, 90)
+local TOY_ORANGE = Color3.fromRGB(255, 140, 40)
+local TOYS = {TOY_RED, TOY_YELLOW, TOY_BLUE, TOY_GREEN}
+local BEECH = Color3.fromRGB(228, 184, 128)
+local BREAD = Color3.fromRGB(240, 198, 128)
+local CRUST = Color3.fromRGB(172, 104, 52)
+local WATER = Color3.fromRGB(150, 214, 255)
+local INK = Color3.fromRGB(28, 24, 28)
 local CANDY = {Color3.fromRGB(247, 83, 155), Color3.fromRGB(255, 160, 60), Color3.fromRGB(150, 110, 245)}
 local FROSTING = {Color3.fromRGB(255, 150, 190), Color3.fromRGB(150, 105, 70), Color3.fromRGB(170, 230, 255)}
 -- Filler kinds used when a section does not list its own `fillers`.
@@ -530,6 +542,18 @@ local function buildFloor(kit, section, runwayWidth, length, c)
    kit.inlay("TileLine", Vector3.new(0.35, 0.03, length), Vector3.new(x, 0.015, centerZ), c.dark)
   end
  end
+ if section.floorChecker then
+  -- Big checks across the whole floor in the section's accent: a picnic blanket, a chessboard.
+  local check = 20
+  for row = 0, math.floor(length / check) - 1 do
+   for column = 0, runwayWidth / check - 1 do
+    if (row + column) % 2 == 1 then
+     kit.inlay("Check", Vector3.new(check, 0.03, check),
+      Vector3.new(-runwayWidth / 2 + (column + 0.5) * check, 0.012, -(startDistance + (row + 0.5) * check)), c.accent)
+    end
+   end
+  end
+ end
  if section.floorPlanks then
   for x = -72, 72, 6 do
    kit.inlay("PlankLine", Vector3.new(0.25, 0.03, length), Vector3.new(x, 0.015, centerZ), c.deep)
@@ -600,11 +624,15 @@ end
 --     "exact" keeps its authored front toward the tee (yawOffset corrects it if needed).
 --   lift raises a floating prop above the deck, in authored studs before scaling.
 --   transparency maps MeshPart names to a Transparency (e.g. glass you can see into).
+--   fallback names the kind that stands in while this one's model is not imported yet (World 4's
+--     props keep their placeholder look until then).
 -- World 2's props come from tools/blender/runway_world2.py; Blender -Y faces downfield, so
 -- props with a front use faceTee = "exact" with a half turn to face the tee.
 local NEON = Enum.Material.Neon
 local GLASS = Enum.Material.Glass
 local METAL = Enum.Material.Metal
+local WOOD = Enum.Material.Wood
+local FABRIC = Enum.Material.Fabric
 local MESH_PROPS = {
  tree = {template = "MeadowTree", colors = function(c)
   return {TreeTrunk = BARK, TreeLeaves = c.base, TreeLeavesTop = c.base:Lerp(c.accent, 0.55)}
@@ -979,6 +1007,89 @@ local MESH_PROPS = {
   colors = function()
   return {BlackHoleCore = Color3.new(0, 0, 0), BlackHoleDisc = Color3.fromRGB(255, 150, 60), BlackHoleHalo = Color3.fromRGB(255, 245, 220)}
  end},
+
+ -- World 4 (Tiny Town): props from tools/blender/runway_world4_home.py (sections 1-5). Giant Backyard.
+ grassBlade = {template = "GrassBlade", fallback = "jungleTree", materials = {GrassDew = GLASS}, transparency = {GrassDew = 0.3},
+  colors = function(c, v)
+  local green = Color3.fromRGB(72, 172, 58):Lerp(c.base, 0.3):Lerp(BLACK, (v % 3) * 0.06)
+  return {GrassBlades = green, GrassBladesLight = green:Lerp(Color3.fromRGB(196, 240, 110), 0.45), GrassDew = WATER}
+ end},
+ hoseReel = {template = "HoseReel", fallback = "fern", faceTee = true, colors = function()
+  return {HoseReelFrame = TOY_RED, HoseReelDrum = TOY_YELLOW, HoseTube = TOY_GREEN, HoseNozzle = TOY_ORANGE}
+ end},
+ sprinkler = {template = "Sprinkler", fallback = "fern", materials = {SprinklerMetal = METAL, SprinklerWater = GLASS},
+  transparency = {SprinklerWater = 0.35}, colors = function()
+  return {SprinklerBody = TOY_YELLOW, SprinklerMetal = CHROME, SprinklerWater = WATER}
+ end},
+ ladybug = {template = "Ladybug", fallback = "mushroom", faceTee = "exact", yawOffset = math.pi, colors = function()
+  return {LadybugShell = TOY_RED, LadybugSpots = INK, LadybugBody = INK, LadybugEyes = WHITE}
+ end},
+ -- Fillers for the backyard.
+ pebble = {template = "Pebble", fallback = "rock", colors = function(c)
+  return {PebbleStoneA = STONE:Lerp(c.dark, 0.15), PebbleStoneB = Color3.fromRGB(200, 188, 166)}
+ end},
+ -- Picnic Blanket. The ants march toward the batter.
+ sandwich = {template = "Sandwich", fallback = "cake", colors = function(c, v)
+  return {SandwichBread = BREAD, SandwichCrust = CRUST, SandwichLettuce = Color3.fromRGB(122, 212, 82), SandwichTomato = TOY_RED,
+   SandwichCheese = Color3.fromRGB(255, 208, 66), SandwichPick = TOYS[v % #TOYS + 1]}
+ end},
+ antLine = {template = "AntLine", fallback = "gumdrops", faceTee = "exact", yawOffset = math.pi, colors = function()
+  return {AntBodies = Color3.fromRGB(122, 32, 26), AntLegs = Color3.fromRGB(52, 22, 18), AntEyes = WHITE, AntCrumb = Color3.fromRGB(252, 248, 240)}
+ end},
+ picnicBasket = {template = "PicnicBasket", fallback = "flowers", faceTee = true,
+  materials = {BasketWicker = WOOD, BasketWeave = WOOD, BasketLid = WOOD, BasketCloth = FABRIC}, colors = function()
+  return {BasketWicker = Color3.fromRGB(214, 160, 90), BasketWeave = Color3.fromRGB(166, 110, 56), BasketLid = Color3.fromRGB(184, 126, 66),
+   BasketHandle = Color3.fromRGB(140, 90, 46), BasketCloth = TOY_RED}
+ end},
+ crumbs = {template = "Crumbs", fallback = "rock", colors = function()
+  return {CrumbBread = BREAD, CrumbCrust = CRUST}
+ end},
+ -- Kitchen Counter. The board shows its face to the batter, the faucet its side.
+ cuttingBoard = {template = "CuttingBoard", fallback = "cake", faceTee = "exact", yawOffset = math.pi,
+  materials = {BoardWood = WOOD, BoardWoodDark = WOOD}, colors = function()
+  return {BoardWood = BEECH, BoardWoodDark = Color3.fromRGB(150, 102, 60), BoardCarrot = TOY_ORANGE, BoardGreens = Color3.fromRGB(70, 168, 56),
+   BoardSlices = Color3.fromRGB(206, 240, 150)}
+ end},
+ toaster = {template = "Toaster", fallback = "lollipop", faceTee = true, materials = {ToasterChrome = METAL}, colors = function(c, v)
+  local body = ({Color3.fromRGB(140, 216, 214), Color3.fromRGB(255, 170, 160), Color3.fromRGB(255, 226, 120)})[v % 3 + 1]
+  return {ToasterBody = body, ToasterTrim = Color3.fromRGB(52, 52, 60), ToasterChrome = CHROME, ToasterToast = BREAD, ToasterCrust = CRUST}
+ end},
+ faucet = {template = "Faucet", fallback = "dunes", faceTee = "exact", yawOffset = math.pi / 2,
+  materials = {FaucetChrome = METAL, FaucetWater = GLASS}, transparency = {FaucetWater = 0.3}, colors = function(c, v)
+  return {FaucetChrome = CHROME, FaucetHandle = v % 2 == 0 and TOY_BLUE or TOY_RED, FaucetWater = WATER}
+ end},
+ cerealPiece = {template = "CerealPiece", fallback = "rock", colors = function()
+  return {CerealLoopA = Color3.fromRGB(255, 158, 54), CerealLoopB = Color3.fromRGB(255, 104, 128), CerealLoopC = Color3.fromRGB(244, 222, 86)}
+ end},
+ -- Block Town.
+ alphabetBlock = {template = "AlphabetBlock", fallback = "beacon", faceTee = "exact", yawOffset = math.pi, materials = {BlockWood = WOOD},
+  colors = function()
+  return {BlockWood = BEECH, BlockPanelA = TOY_RED, BlockPanelB = TOY_BLUE, BlockPanelC = TOY_GREEN, BlockLetters = WHITE}
+ end},
+ trainTrack = {template = "TrainTrack", fallback = "gumdrops", faceTee = true, materials = {TrackWood = WOOD}, colors = function(c, v)
+  return {TrackWood = BEECH, TrainBody = TOYS[v % #TOYS + 1], TrainCab = TOYS[(v + 2) % #TOYS + 1], TrainWheels = TOY_YELLOW,
+   TrainTrim = Color3.fromRGB(40, 40, 46)}
+ end},
+ brickTower = {template = "BrickTower", fallback = "crystals", colors = function(c, v)
+  return {BrickRed = TOYS[v % 4 + 1], BrickYellow = TOYS[(v + 1) % 4 + 1], BrickBlue = TOYS[(v + 2) % 4 + 1], BrickGreen = TOYS[(v + 3) % 4 + 1]}
+ end},
+ toyBrick = {template = "ToyBrick", fallback = "rock", colors = function(c, v)
+  return {ToyBrickA = TOYS[v % 4 + 1], ToyBrickB = TOYS[(v + 1) % 4 + 1]}
+ end},
+ -- Board Game Boulevard. The heart card and the player token face the batter.
+ giantDie = {template = "GiantDie", fallback = "geode", colors = function(c, v)
+  return {DieBody = Color3.fromRGB(250, 248, 242), DiePips = v % 2 == 0 and TOY_RED or INK}
+ end},
+ playingCard = {template = "PlayingCard", fallback = "neonArch", faceTee = "exact", yawOffset = math.pi, colors = function(c, v)
+  return {CardFace = Color3.fromRGB(252, 250, 246), CardBack = v % 2 == 0 and TOY_RED or TOY_BLUE, CardSuitsRed = TOY_RED, CardSuitsBlack = INK}
+ end},
+ gamePiece = {template = "GamePiece", fallback = "beacon", faceTee = "exact", yawOffset = math.pi, materials = {MeepleBody = WOOD, MeepleBodyB = WOOD},
+  colors = function(c, v)
+  return {MeepleBody = TOYS[v % 4 + 1], MeepleBodyB = TOYS[(v + 1) % 4 + 1]}
+ end},
+ chessPawn = {template = "ChessPawn", fallback = "rock", colors = function(c, v)
+  return {PawnBody = v % 2 == 0 and INK or Color3.fromRGB(246, 240, 226)}
+ end},
 }
 
 -- Backdrops: large shapes on the outer ground, mostly prop meshes at a much bigger scale.
@@ -1071,6 +1182,24 @@ local BACKDROP_MESHES = {
  end},
  voidShards = {template = "QuantumShard", scale = 4, lift = 12, materials = MESH_PROPS.quantumShard.materials,
   transparency = MESH_PROPS.quantumShard.transparency, colors = MESH_PROPS.quantumShard.colors},
+ -- World 4 (fallback: the placeholder backdrop each replaced). The fence runs along the runway.
+ giantFence = {template = "GiantFence", fallback = "canopy", scale = 4, faceTee = "exact", materials = {FencePickets = WOOD, FenceRails = WOOD},
+  colors = function(c)
+  return {FencePickets = Color3.fromRGB(250, 248, 240), FenceRails = Color3.fromRGB(226, 222, 210), FenceGrass = c.base}
+ end},
+ blanketFolds = {template = "BlanketFolds", fallback = "hills", scale = 4, materials = {BlanketRed = FABRIC, BlanketWhite = FABRIC},
+  colors = function(c)
+  return {BlanketRed = c.base, BlanketWhite = c.accent}
+ end},
+ cerealHills = {template = "CerealHills", fallback = "mesas", scale = 3.5, colors = function()
+  return {CerealHeapBase = Color3.fromRGB(236, 186, 96), CerealHeapA = Color3.fromRGB(255, 158, 54), CerealHeapB = Color3.fromRGB(255, 104, 128),
+   CerealHeapC = Color3.fromRGB(244, 222, 86)}
+ end},
+ blockSkyline = {template = "BrickTower", fallback = "towers", scale = 4, colors = MESH_PROPS.brickTower.colors},
+ boardGameBox = {template = "BoardGameBox", fallback = "spires", scale = 4, faceTee = "exact", yawOffset = math.pi, colors = function(c, v)
+  local base = TOYS[v % #TOYS + 1]
+  return {GameBoxBase = base, GameBoxLid = TOYS[(v + 2) % #TOYS + 1], GameBoxArt = WHITE, GameBoxBoard = Color3.fromRGB(246, 236, 206)}
+ end},
 }
 
 local function getTemplate(definition)
@@ -1078,6 +1207,17 @@ local function getTemplate(definition)
  local template = definition and folder and folder:FindFirstChild(definition.template)
  if template and template:IsA("Model") then return template end
  return nil
+end
+
+-- The kind actually placed for kind: itself when its model is imported (or it has no fallback),
+-- else its fallback kind. Returns the kind, its definition and its template (nil if missing).
+local function resolve(definitions, kind)
+ local definition = definitions[kind]
+ local template = getTemplate(definition)
+ if not template and definition and definition.fallback then
+  return resolve(definitions, definition.fallback)
+ end
+ return kind, definition, template
 end
 
 local function placeMesh(theme, frame, template, definition, c, position, scale, variant)
@@ -1121,10 +1261,8 @@ local function buildScenery(theme, frame, kit, config, section, runwayWidth, len
    -- Stagger the two sides so props alternate rather than mirror each other.
    local d = section.startDistance + (index - 0.5) * length / count + side * config.propSpacing / 4
    local variant = index + (side == 1 and 1 or 0) + section.order
-   local kind = section.props[(variant - 1) % #section.props + 1]
+   local kind, definition, template = resolve(MESH_PROPS, section.props[(variant - 1) % #section.props + 1])
    local position = Vector3.new(side * (deckInner + (index % 2 == 0 and 16 or 44)), deckTop, -d)
-   local definition = MESH_PROPS[kind]
-   local template = getTemplate(definition)
    if template then
     placeMesh(theme, frame, template, definition, c, position, config.propScale, variant)
    elseif Props[kind] then
@@ -1134,8 +1272,7 @@ local function buildScenery(theme, frame, kit, config, section, runwayWidth, len
    end -- (A mesh-only prop whose model is not imported yet is skipped.)
    local fillerPosition = Vector3.new(side * (deckInner + 30), deckTop, -(d + length / count / 2))
    local fillers = section.fillers or DEFAULT_FILLERS
-   local fillerDefinition = MESH_PROPS[fillers[variant % #fillers + 1]]
-   local fillerTemplate = getTemplate(fillerDefinition)
+   local _, fillerDefinition, fillerTemplate = resolve(MESH_PROPS, fillers[variant % #fillers + 1])
    if fillerTemplate then
     placeMesh(theme, frame, fillerTemplate, fillerDefinition, c, fillerPosition, config.fillerScale, variant)
    else
@@ -1144,16 +1281,15 @@ local function buildScenery(theme, frame, kit, config, section, runwayWidth, len
     end)
    end
   end
-  local backdropDefinition = BACKDROP_MESHES[section.backdrop]
-  local backdropTemplate = getTemplate(backdropDefinition)
+  local backdrop, backdropDefinition, backdropTemplate = resolve(BACKDROP_MESHES, section.backdrop)
   for index = 1, backdropCount do
    local d = section.startDistance + (index - 0.5) * length / backdropCount + side * config.backdropSpacing / 3
    local position = Vector3.new(side * (deckInner + config.deckWidth + 50 + (index % 3) * 35), outerTop, -d)
    local variant = index + section.order
    if backdropTemplate then
     placeMesh(theme, frame, backdropTemplate, backdropDefinition, c, position, backdropDefinition.scale, variant)
-   elseif Backdrops[section.backdrop] then
-    Backdrops[section.backdrop](kit, position, c, variant, side)
+   elseif Backdrops[backdrop] then
+    Backdrops[backdrop](kit, position, c, variant, side)
    end
   end
  end
@@ -1266,8 +1402,7 @@ end
 -- e.g. around a hub (HubDecor). colors = {color, accent} like a section's palette; variant varies
 -- heading and size. Returns false when the template is missing from RunwayAssets.
 function RunwayDecor.PlaceMesh(parent, frame, kind, position, scale, variant, colors)
- local definition = MESH_PROPS[kind] or BACKDROP_MESHES[kind]
- local template = getTemplate(definition)
+ local _, definition, template = resolve(MESH_PROPS[kind] and MESH_PROPS or BACKDROP_MESHES, kind)
  if not template then return false end
  local c = palette({color = colors.color, accent = colors.accent})
  placeMesh(parent, frame, template, definition, c, position, scale * (definition.scale or 1), variant)

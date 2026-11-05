@@ -1,0 +1,139 @@
+{
+ "GrassBlade": [
+  "GrassBlades",
+  "GrassBladesLight",
+  "GrassDew"
+ ],
+ "HoseReel": [
+  "HoseReelFrame",
+  "HoseReelDrum",
+  "HoseTube",
+  "HoseNozzle"
+ ],
+ "Sprinkler": [
+  "SprinklerBody",
+  "SprinklerMetal",
+  "SprinklerWater"
+ ],
+ "Ladybug": [
+  "LadybugShell",
+  "LadybugSpots",
+  "LadybugBody",
+  "LadybugEyes"
+ ],
+ "Pebble": [
+  "PebbleStoneA",
+  "PebbleStoneB"
+ ],
+ "GiantFence": [
+  "FencePickets",
+  "FenceRails",
+  "FenceGrass"
+ ],
+ "Sandwich": [
+  "SandwichBread",
+  "SandwichCrust",
+  "SandwichLettuce",
+  "SandwichTomato",
+  "SandwichCheese",
+  "SandwichPick"
+ ],
+ "AntLine": [
+  "AntBodies",
+  "AntLegs",
+  "AntEyes",
+  "AntCrumb"
+ ],
+ "PicnicBasket": [
+  "BasketWicker",
+  "BasketWeave",
+  "BasketLid",
+  "BasketHandle",
+  "BasketCloth"
+ ],
+ "Crumbs": [
+  "CrumbBread",
+  "CrumbCrust"
+ ],
+ "BlanketFolds": [
+  "BlanketRed",
+  "BlanketWhite"
+ ],
+ "CuttingBoard": [
+  "BoardWood",
+  "BoardWoodDark",
+  "BoardCarrot",
+  "BoardGreens",
+  "BoardSlices"
+ ],
+ "Toaster": [
+  "ToasterBody",
+  "ToasterTrim",
+  "ToasterChrome",
+  "ToasterToast",
+  "ToasterCrust"
+ ],
+ "Faucet": [
+  "FaucetChrome",
+  "FaucetHandle",
+  "FaucetWater"
+ ],
+ "CerealPiece": [
+  "CerealLoopA",
+  "CerealLoopB",
+  "CerealLoopC"
+ ],
+ "CerealHills": [
+  "CerealHeapBase",
+  "CerealHeapA",
+  "CerealHeapB",
+  "CerealHeapC"
+ ],
+ "AlphabetBlock": [
+  "BlockWood",
+  "BlockPanelA",
+  "BlockPanelB",
+  "BlockPanelC",
+  "BlockLetters"
+ ],
+ "TrainTrack": [
+  "TrackWood",
+  "TrainBody",
+  "TrainCab",
+  "TrainWheels",
+  "TrainTrim"
+ ],
+ "BrickTower": [
+  "BrickRed",
+  "BrickYellow",
+  "BrickBlue",
+  "BrickGreen"
+ ],
+ "ToyBrick": [
+  "ToyBrickA",
+  "ToyBrickB"
+ ],
+ "GiantDie": [
+  "DieBody",
+  "DiePips"
+ ],
+ "PlayingCard": [
+  "CardFace",
+  "CardBack",
+  "CardSuitsRed",
+  "CardSuitsBlack"
+ ],
+ "GamePiece": [
+  "MeepleBody",
+  "MeepleBodyB"
+ ],
+ "ChessPawn": [
+  "PawnBody"
+ ],
+ "BoardGameBox": [
+  "GameBoxBase",
+  "GameBoxLid",
+  "GameBoxArt",
+  "GameBoxBoard"
+ ]
+}
