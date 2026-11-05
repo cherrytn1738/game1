@@ -11,7 +11,8 @@
 --                 are lifted off the ground as the riser builds
 --       flight    they rocket down the runway toward the portal on a trail of light, with a
 --                 chase camera and speed lines
---       plunge    a wide shot as they spiral into the swirl, then white
+--       plunge    a wide shot as they spiral into the swirl (shrinking to bug size on the way
+--                 into Tiny Town, WorldConfig shrinkTrip), then white
 --       arrival   the white fades in the new World with a shockwave and its title
 --   * the temporary finale after the last World (WorldConfig endPortal.finale; the server holds
 --     the batter and sets GameFinale, then returns them to the hub at 11.8 s):
@@ -181,6 +182,29 @@ end
 -- ---------- the trip ----------
 
 local running = false
+-- For trips that shrink the batter (WorldConfig shrinkTrip: into Tiny Town): an anchored copy of the
+-- character stands in for it in the plunge and shrinks as it spirals into the swirl, while the real
+-- character stays hidden (and is never scaled). Returns nil if the character cannot be copied.
+local function shrinkingDouble(character)
+ local archivable = character.Archivable
+ character.Archivable = true
+ local ok, double = pcall(function() return character:Clone() end)
+ character.Archivable = archivable
+ if not ok or not double then return nil end
+ for _, descendant in double:GetDescendants() do
+  if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript") then
+   descendant:Destroy()
+  elseif descendant:IsA("BasePart") then
+   descendant.Anchored, descendant.CanCollide, descendant.CanQuery, descendant.CanTouch = true, false, false, false
+  end
+ end
+ local humanoid = double:FindFirstChildOfClass("Humanoid")
+ if humanoid then humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None end
+ double.Name = "ShrinkingBatter"
+ double.Parent = workspace
+ return double
+end
+
 local function journey()
  if running then return end
  local world = Worlds.Get(Player:GetAttribute("CurrentWorldId"))
@@ -244,6 +268,7 @@ local function journey()
  local aura = FX.Emitter(root, {Texture = FX.Textures.Sparkle, Speed = NumberRange.new(3, 8), Lifetime = NumberRange.new(0.5, 0.8),
   Rate = 0, SpreadAngle = Vector2.new(180, 180), Color = ColorSequence.new(CYAN, GOLD), Size = NumberSequence.new(1.4, 0)})
  local comet
+ local double -- the shrinking stand-in (shrinkTrip)
 
  local startedAt = os.clock()
  local nextBolt, shake = 0, 0.6
@@ -325,6 +350,10 @@ local function journey()
     if comet then FX.FadeOut(comet, 1) comet = nil end
     aura.Rate = 140
     rimBolts(center, right, radius, 6)
+    if destination.shrinkTrip then
+     double = shrinkingDouble(character)
+     if double then setVisible(character, false) end
+    end
    end)
    local s = math.clamp((t - FLIGHT_END) / (WHITE_AT - FLIGHT_END), 0, 1)
    local e = s ^ 1.8
@@ -332,6 +361,11 @@ local function journey()
    local swirl = (right * math.cos(angle) + Vector3.yAxis * math.sin(angle)) * radius * 0.35 * (1 - e)
    local position = approach:Lerp(center, e) + swirl
    root.CFrame = CFrame.lookAt(position, center) * CFrame.Angles(0, 0, t * 14)
+   if double and double.Parent then
+    -- Shrinking to bug size on the way through (Tiny Town).
+    double:PivotTo(root.CFrame)
+    double:ScaleTo(math.max(0.08, 1 - 0.92 * smooth(math.min(1, s * 1.3))))
+   end
    local eye = center - forward * radius * 1.6 + right * radius * 0.9 + Vector3.yAxis * radius * 0.15
    camera.CFrame = CFrame.lookAt(eye:Lerp(center - forward * radius * 1.1, e * 0.4) + jolt * 0.5, center:Lerp(position, 0.5))
    camera.FieldOfView = lerp(60, 48, e)
@@ -360,6 +394,7 @@ local function journey()
  game:GetService("Debris"):AddItem(inflow, 1)
  aura:Destroy()
  if comet then comet:Destroy() end
+ if double then double:Destroy() end
  FX.SpeedLines(nil)
  boostTarget = 1
 

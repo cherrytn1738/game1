@@ -267,12 +267,14 @@ local Worlds = {
    }},
   {id = "world_4", displayName = "World 4", title = "Tiny Town", order = 4, endDistance = 8000,
    stationName = "BattingArea4", fieldName = "LongRangeField4",
-   -- The shared hub layout (above). Mouse-Hole Plaza (HubDecor "TinyTown") is not built yet, so
-   -- the hub uses the plain floor (.vscode/WORLD4_DESIGN.md, Phase 6).
+   -- The shared hub layout (above): Mouse-Hole Plaza, a little town under the baseboard (HubDecor
+   -- "TinyTown"): floorboards, matchstick paths, a turning wind-up key and the mouse hole.
    offset = Vector3.new(24000, 0, 0), arrival = arrival(Vector3.new(24000, 0, 0)),
    -- A giant door keyhole glowing from the other side (WorldPortal: the hub portal and the end portal).
    portalModel = "KeyholePortal",
-   hub = hubLayout("World4Hub", nil, "world_4", "TINY TOWN BALLS"),
+   -- The trip here shrinks the batter to bug size as they spiral in (PortalJourneyClient).
+   shrinkTrip = true,
+   hub = hubLayout("World4Hub", "TinyTown", "world_4", "TINY TOWN BALLS"),
    -- No card image yet: the painted scene in the sky and ground colours.
    preview = {sky = Color3.fromRGB(255, 214, 150), ground = Color3.fromRGB(120, 196, 90)},
    runoutDistance = 2000,

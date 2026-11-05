@@ -85,8 +85,8 @@ The shared hub layout (`WorldConfig` `hubLayout`), themed as a little town under
 - **event piece:** a giant wind-up key in the middle of the plaza, slowly turning (inside
   `eventArea`, kept low enough that it never hides the portal)
 
-Built as a `HubDecor` theme `TinyTown` (Phase 6). Until then the hub uses the plain floor
-(theme nil).
+Built as a `HubDecor` theme `TinyTown` (Phase 6, done), from Parts like the other hubs
+(the wind-up key turns through its Spin attributes).
 
 ## Training Grounds
 
@@ -140,7 +140,7 @@ One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), adde
 - World 3's end portal now leads to World 4 instead of playing the finale (`world_3.nextWorldId =
   "world_4"`). The finale's text moves to World 4's `endPortal.finale`.
 - The trip cinematic (`PortalJourneyClient`) shows the player **shrinking** as they pass through
-  (Phase 6). Until then the existing trip plays.
+  (Phase 6, done: `world_4.shrinkTrip`; a shrinking copy of the batter spirals into the swirl).
 - World 4's end portal takes over the temporary finale.
 - Saves that already completed World 3 get World 4 unlocked on their next load (a completed
   World always unlocks its next World, `PlayerData` validate); their next World 3 portal hit
@@ -276,7 +276,15 @@ One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), adde
   check the printed home plates match the standard cage's, save the place
 
 ### Phase 6: hub, event piece and the shrinking portal cinematic
-- [ ] `HubDecor` theme `TinyTown` (Mouse-Hole Plaza) and the turning wind-up key
-- [ ] `PortalJourneyClient`: the shrinking trip from World 3 to World 4
-- [ ] World 4's Worlds-menu card image (a Studio capture of the hub)
-- [ ] Studio checks listed; tests pass; commit
+- [x] `HubDecor` theme `TinyTown` (Mouse-Hole Plaza) and the turning wind-up key: floorboards with
+      bottle caps, matchstick-edged paths, a button spawn and portal pad, a baseboard bowl, the mouse
+      hole (with glowing eyes and the World's sign) behind the portal, a thimble fountain, matchbox
+      houses and thread-spool towers outside, and World 4's runway models (placeholder kinds until
+      imported). Built from Parts, like the other hubs; no new Blender batch
+- [x] `PortalJourneyClient`: the shrinking trip from World 3 to World 4 (`world_4.shrinkTrip`): in the
+      plunge an anchored copy of the batter spirals in and shrinks to bug size while the real
+      character stays hidden (it is never scaled)
+- [ ] World 4's Worlds-menu card image (a Studio capture of the hub). Not done: Studio's screen
+      capture did not work while it was in the background; World 4's card keeps its painted
+      sky/ground colours until a capture is uploaded and set as `world_4.preview.image`
+- [x] Studio checks listed; tests pass; commit

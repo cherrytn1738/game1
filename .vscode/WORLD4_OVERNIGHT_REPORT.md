@@ -1,6 +1,6 @@
 # World 4 overnight report (branch `world4-art`)
 
-Work on Phases 2-6 of `.vscode/WORLD4_DESIGN.md`, done without review. Everything is on the
+Work on Phases 2-6 of `.vscode/WORLD4_DESIGN.md`, done without review. All five phases are done; the models still need importing by hand (below). Everything is on the
 `world4-art` branch, which starts from `main` at `bd4b478`. Nothing was merged into `main`.
 This file is updated after every phase.
 
@@ -11,7 +11,8 @@ This file is updated after every phase.
 | 2 | Runway props, sections 1-5 | `410485c` | Done; the models need importing by hand |
 | 3 | Runway props, sections 6-10; keyhole end portal | `012bd89` | Done; the models need importing by hand |
 | 4 | The ten World 4 Balls and the Rolling Pin Bat | `5227bcf` | Done; the models need importing by hand |
-| 5 | The five World 4 cages and the Snow Globe swirl | (this commit) | Done; the models need importing by hand |
+| 5 | The five World 4 cages and the Snow Globe swirl | `fc93964` | Done; the models need importing by hand |
+| 6 | Mouse-Hole Plaza hub, wind-up key, shrinking trip | (this commit) | Done, except the Worlds-menu card image (needs a Studio capture) |
 
 ## What was finished
 
@@ -158,6 +159,38 @@ This file is updated after every phase.
   - **Output:** only the five expected missing-template warnings.
   - **Tests:** as before.
 
+### Phase 6: Mouse-Hole Plaza, the wind-up key and the shrinking trip
+- **`HubDecor` theme `TinyTown`:** World 4's hub is no longer plain, and `WorldConfig` sets it.
+  Like the other hubs, it is built from Parts, so it needs no import.
+  - **Floor:** wooden floorboards (the walkable floor) with bottle caps set in them.
+  - **Paths:** the shared layout's paths in pale wood, edged with matchsticks whose red heads
+    alternate.
+  - **Spawn and portal pad:** a red button at the spawn, and a yellow button as the portal pad.
+  - **Bowl:** a baseboard bowl, with wooden steps and red and blue seats.
+  - **Mouse hole:** a big mouse hole in a baseboard wall behind the portal, with a wooden trim,
+    two glowing eyes inside and a "TINY TOWN / WORLD 4" sign.
+  - **Fountain:** a thimble fountain on an upturned bottle cap, with bobbing water drops.
+  - **Outside the bowl:** spool towers either side of the portal and on the floor outside, ten
+    matchbox houses with lit windows and chimneys, and eight World 4 runway models (each a
+    placeholder until imported).
+- **Event piece:** a giant brass wind-up key in a keyhole collar in the middle of the plaza.
+  - Its open bow slowly turns, at 18 degrees a second, through the existing Spin, SpinAxis and
+    SpinPivot animation.
+  - It is about 11 studs tall, and the bow is open rings, so the view to the portal passes through
+    it.
+- **Shrinking trip:** `world_4.shrinkTrip = true`, so the trip from World 3 into Tiny Town shrinks
+  the batter.
+  - In the plunge, `PortalJourneyClient` hides the real character and spirals an anchored copy of
+    it into the swirl, shrinking it to about 8%.
+  - The real character is never scaled, so nothing carries over after the trip.
+  - The arrival card is unchanged, with no extra text line, as you asked last time.
+- **Checks:**
+  - **Hub:** in a playtest the hub builds (643 parts, 31 of them turning), and a raycast finds
+    the floorboards under the spawn.
+  - **Shrinking copy:** run on the client, it shrank from 5.5 to 0.44 studs tall while the real
+    character stayed 5.5.
+  - **Output and tests:** the Output has no errors, and the tests are as before.
+
 ## Decisions I made on my own
 - **Hose:** the garden hose is a hose on a reel cart. A coil lying flat would barely show at
   runway scale.
@@ -200,6 +233,16 @@ This file is updated after every phase.
   `TrainingClient`. This is the simplest hook that keeps it a client practice visual.
 - **Pinball flippers** sit behind the batter, clear of the door path. Cage meshes don't collide,
   but a flipper across the doorway would look wrong.
+- **The hub is built from Parts in `HubDecor`**, like Worlds 1-3, not as a new Blender batch. The
+  design doc doesn't ask for hub models.
+- **The wind-up key stands upright** and turns about its shaft. Its bow is open rings, so it stays
+  low and see-through toward the portal.
+- **The mouse hole sits on the floor outside the bowl**, behind the back stand. From the plaza it
+  reads as an arched hole in a baseboard wall behind the portal.
+- **The shrink uses a copy of the character**, not the character itself. Scaling a real character
+  on the client could fight the server's position and leave the batter tiny. The copy keeps the
+  shrink purely visual and leaves nothing behind.
+- **The bottle caps** are placed at random but kept off the centre path, the key and the fountain.
 
 ## Things that didn't work or were skipped
 - **Screen captures time out**, so I couldn't look at anything in Studio. Studio isn't drawing
@@ -215,6 +258,16 @@ This file is updated after every phase.
   - Please re-run it once with Studio in the foreground.
   - The other 8 suites pass as normal: Equipment 2825, BallLauncher 5366, Field 612, TrainingUI
     33, GameAudio 15, Leaderboards 72, UICommon 13, WorldUI 14.
+- **Worlds-menu card image (Phase 6): skipped.** It needs a Studio screen capture of the hub, and
+  captures don't work while Studio is in the background. World 4's card keeps its painted sky and
+  ground colours (`world_4.preview`) until then.
+- **The descriptions in AGENTS.md, CLAUDE.md and GAME_DESIGN.md weren't touched.** You asked me not
+  to change AGENTS.md. They still say World 4's cages and hub are placeholders, which stays true
+  in game until the models are imported. WORLDS.md and WORLD4_DESIGN.md are updated. After the
+  import, the Training Grounds paragraph in AGENTS.md ("World 4's the standard cage in toy colors
+  until their models are made") and its World 4 notes can be refreshed.
+- **Nothing needed a balance, price, Level-band, distance, save-data or monetization change.** All
+  of this work is cosmetic.
 
 ## What you need to do by hand
 1. **Phase 2 models:**
@@ -241,6 +294,13 @@ This file is updated after every phase.
    printed last. If one is off, the cage's pivot is wrong, so tell me. Then save the place.
 5. **Restart the playtest after importing.** The runway, portals, displays and cages are built
    when the server starts.
+6. **World 4's Worlds-menu card (Phase 6):**
+   1. With Studio in the foreground, frame World 4's hub from the spawn, looking at the key and the
+      mouse hole, and take a screenshot. The earlier Worlds' cards are hub shots too.
+   2. Upload it as an image (Asset Manager, or ask me to do it once Studio is in the foreground).
+   3. Put its id in `world_4.preview.image` in `src/replicated/WorldConfig.luau`, as
+      `"rbxassetid://<id>"`, keeping the `sky` and `ground` colours.
+7. **When you're happy, merge `world4-art` into `main`.** I didn't merge it.
 
 ## What to check in Studio
 ### Phase 2
@@ -313,3 +373,20 @@ This file is updated after every phase.
     - nothing overlaps the next cage;
     - the camera stays inside the cage while training;
     - the Snow Globe's glass doesn't make the inside too hazy.
+
+### Phase 6
+- **Travel to World 4's hub:**
+  - The floor is floorboards with bottle caps, and the paths are edged with matchsticks.
+  - The wind-up key turns slowly in the middle; check that it doesn't hide the portal from the
+    spawn.
+  - The thimble fountain's drops bob.
+  - Behind the portal is the mouse hole, with glowing eyes and the TINY TOWN sign. Check that the
+    sign isn't hidden behind the portal's own sign.
+  - Outside the bowl are matchbox houses, spool towers and the World 4 props.
+  - Walk the paths to the cages, the displays and the portal, and check that nothing blocks them.
+- **The trip from World 3:** hit a World 3 portal hit with `ForcePortalJourney` on.
+  - In the plunge, the batter should shrink as they spiral into the swirl, then arrive normally
+    at full size.
+  - The arrival card should read only "WELCOME TO WORLD 4".
+- **Nothing left behind:** after arriving, check there is no "ShrinkingBatter" model in the
+  Workspace.

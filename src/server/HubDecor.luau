@@ -10,6 +10,10 @@
 --   TimeTravel (World 2): a sunken clockwork plaza. Checkered tiles with brass walkways, a
 --     giant clock face for events, glowing terraces up to the berm, a clock tower, chrono lamps,
 --     floating gears and time crystals, and monuments from the eras ahead on the berm.
+--   TinyTown (World 4): Mouse-Hole Plaza, a little town under the baseboard. Floorboards with
+--     bottle caps, matchstick paths, a giant wind-up key turning for events, a thimble fountain,
+--     a baseboard bowl with the mouse hole behind the portal, and matchbox houses, thread-spool
+--     towers and World 4's runway models on the floor outside.
 --   Future (World 3): a sunken spaceport plaza. White tiles with glowing seams and dark
 --     walkways, a hologram stage for events with a globe and orbiting lights, white terraces,
 --     a beacon tower with the World's sign, holo lamps, hovering drones, a glass skyline on the
@@ -991,7 +995,259 @@ local function future(k, folder, frame, config, worldId)
  end
 end
 
-local THEMES = {HomeField = homeField, TimeTravel = timeTravel, Future = future}
+-- ---------- Tiny Town ----------
+
+local PLANK_A, PLANK_B = Color3.fromRGB(204, 156, 104), Color3.fromRGB(188, 140, 92)
+local PLANK_SEAM = Color3.fromRGB(122, 84, 52)
+local PATH_WOOD = Color3.fromRGB(228, 202, 158)
+local MATCH = Color3.fromRGB(242, 214, 162)
+local MATCH_HEAD = Color3.fromRGB(214, 48, 40)
+local BASEBOARD = Color3.fromRGB(248, 246, 240)
+local TRIM_WOOD = Color3.fromRGB(150, 98, 58)
+local BRASS4 = Color3.fromRGB(230, 180, 78)
+local SILVER = Color3.fromRGB(208, 212, 220)
+local WATER = Color3.fromRGB(130, 200, 255)
+local TOY = {Color3.fromRGB(232, 60, 54), Color3.fromRGB(255, 206, 44), Color3.fromRGB(52, 122, 234), Color3.fromRGB(66, 186, 90)}
+local TINY_BOWL = {wall = BASEBOARD, wallMaterial = M.SmoothPlastic, cap = TRIM_WOOD,
+ step = Color3.fromRGB(226, 196, 150), stepMaterial = M.Wood, seats = {TOY[1], TOY[3]},
+ seatMaterials = {M.SmoothPlastic, M.SmoothPlastic}, berm = Color3.fromRGB(196, 146, 96), bermMaterial = M.WoodPlanks}
+
+-- A path of pale wood edged with matchsticks laid end to end, their red heads alternating.
+local function matchPath(k, name, x0, x1, z0, z1)
+ k.patch(name, x0, x1, z0, z1, PATH_WOOD, M.Wood, 2)
+ local along = (x1 - x0) >= (z1 - z0)
+ local length = along and (x1 - x0) or (z1 - z0)
+ local count = math.max(1, math.floor(length / 7.5))
+ local step = length / count
+ for _, side in {0, 1} do
+  for i = 0, count - 1 do
+   local a = (along and x0 or z0) + i * step + 0.3
+   local b = a + step - 0.6
+   local headAt = (i + side) % 2 == 0 and b or a
+   local head
+   if along then
+    local z = side == 0 and z0 + 0.5 or z1 - 0.5
+    k.block("Match", a, b, 0.04, 0.6, z - 0.3, z + 0.3, MATCH, M.Wood, false)
+    head = k.box("MatchHead", Vector3.one * 1.0, Vector3.new(headAt, 0.4, z), MATCH_HEAD, M.SmoothPlastic, false)
+   else
+    local x = side == 0 and x0 + 0.5 or x1 - 0.5
+    k.block("Match", x - 0.3, x + 0.3, 0.04, 0.6, a, b, MATCH, M.Wood, false)
+    head = k.box("MatchHead", Vector3.one * 1.0, Vector3.new(x, 0.4, headAt), MATCH_HEAD, M.SmoothPlastic, false)
+   end
+   head.Shape = Enum.PartType.Ball
+  end
+ end
+end
+
+-- A bottle cap set into the floor: a coloured cap with a silver liner.
+local function bottleCap(k, center, radius, color)
+ k.column("BottleCap", center, radius, 0, 0.3, color, M.SmoothPlastic, false)
+ k.column("BottleCapLiner", center, radius * 0.74, 0.3, 0.36, SILVER, M.Metal, false)
+end
+
+-- The parts of a spinning piece turn about a vertical axis through axisPoint (hub frame).
+local function turnAbout(parts, frame, axisPoint, degreesPerSecond)
+ for _, part in parts do
+  local point = (frame * CFrame.new(axisPoint.X, part.Position.Y - frame.Position.Y, axisPoint.Z)).Position
+  part:SetAttribute("Spin", degreesPerSecond)
+  part:SetAttribute("SpinAxis", part.CFrame:VectorToObjectSpace(frame.UpVector))
+  part:SetAttribute("SpinPivot", part.CFrame:PointToObjectSpace(point))
+ end
+end
+
+-- The event piece: a giant brass wind-up key standing in a keyhole collar, its bow slowly turning.
+-- About 11 studs tall with an open bow, so the view to the portal passes through and over it.
+local function windUpKey(k, frame, center)
+ k.disc("KeyCollarRim", center, 9, TRIM_WOOD, M.Wood, 2)
+ k.disc("KeyCollar", center, 8, BRASS4, M.Metal, 3)
+ k.patch("KeyholeSlot", center.X - 1.2, center.X + 1.2, center.Z - 4, center.Z + 4, Color3.fromRGB(40, 30, 24), M.SmoothPlastic, 4)
+ local turning = {}
+ table.insert(turning, k.column("KeyShaft", center, 1.2, 0, 5, BRASS4, M.Metal, true))
+ table.insert(turning, k.column("KeyCollarRing", center, 2.2, 4.4, 5.4, BRASS4, M.Metal, false))
+ local hub = k.box("KeyHub", Vector3.one * 3.4, center + Vector3.new(0, 7, 0), BRASS4, M.Metal, false)
+ hub.Shape = Enum.PartType.Ball
+ table.insert(turning, hub)
+ -- The bow: two rings of segments either side of the hub, in the plane facing the spawn.
+ for _, side in {-1, 1} do
+  local loopCenter = center + Vector3.new(side * 4.6, 7, 0)
+  for i = 1, 14 do
+   local angle = 2 * math.pi * i / 14
+   local position = loopCenter + Vector3.new(math.cos(angle), math.sin(angle), 0) * 3.4
+   table.insert(turning, k.box("KeyBow", Vector3.new(1.2, 1.7, 1.2), position, BRASS4, M.Metal, false, CFrame.Angles(0, 0, angle)))
+  end
+ end
+ turnAbout(turning, frame, center, 18)
+end
+
+-- A matchbox house: the sleeve with dark striker strips, the drawer pushed out a little, a door and
+-- windows, and a little chimney.
+local function matchbox(k, base, turn, color)
+ local rotation = CFrame.Angles(0, turn, 0)
+ local function at(offset) return (CFrame.new(base) * rotation * CFrame.new(offset)).Position end
+ local w, d, h = 20, 13, 9
+ k.box("MatchboxSleeve", Vector3.new(w, h, d), at(Vector3.new(0, h / 2, 0)), color, M.SmoothPlastic, true, rotation)
+ for _, side in {-1, 1} do
+  k.box("MatchboxStriker", Vector3.new(w - 1, h - 2, 0.2), at(Vector3.new(0, h / 2, side * (d / 2 + 0.1))), Color3.fromRGB(110, 70, 50),
+   M.Sand, false, rotation)
+ end
+ k.box("MatchboxDrawer", Vector3.new(6, h - 1, d - 1), at(Vector3.new(w / 2 + 2.6, (h - 1) / 2, 0)), Color3.fromRGB(240, 226, 196),
+  M.SmoothPlastic, true, rotation)
+ k.box("MatchboxDoor", Vector3.new(0.2, 5, 3), at(Vector3.new(-w / 2 - 0.1, 2.5, 0)), Color3.fromRGB(90, 56, 34), M.Wood, false, rotation)
+ for _, z in {-4, 4} do
+  k.box("MatchboxWindow", Vector3.new(0.2, 2.4, 2.4), at(Vector3.new(-w / 2 - 0.1, 5.6, z)), Color3.fromRGB(255, 226, 140), M.Neon, false,
+   rotation)
+ end
+ k.box("MatchboxChimney", Vector3.new(2, 4, 2), at(Vector3.new(4, h + 2, 3)), Color3.fromRGB(200, 90, 70), M.Brick, true, rotation)
+end
+
+-- A thread-spool tower: one or two spools stacked, wooden flanges round coloured thread.
+local function spoolTower(k, base, count, colorIndex)
+ local y = base.Y
+ for i = 1, count do
+  k.column("SpoolFlange", base, 7, y, y + 1.4, TRIM_WOOD, M.Wood, true)
+  k.column("SpoolThread", base, 5.4, y + 1.4, y + 12.6, TOY[(colorIndex + i) % #TOY + 1], M.Fabric, true)
+  k.column("SpoolFlange", base, 7, y + 12.6, y + 14, TRIM_WOOD, M.Wood, true)
+  y += 14
+ end
+ k.column("SpoolHole", base, 1.6, y, y + 0.1, Color3.fromRGB(60, 40, 26), M.Wood, false)
+end
+
+-- A thimble fountain on an upturned bottle cap, with water bubbling up from the top.
+local function thimbleFountain(k, center)
+ k.column("FountainCap", center, 10, 0, 1.4, TOY[1], M.SmoothPlastic, true)
+ k.column("FountainPool", center, 8.6, 1.4, 1.6, WATER, M.Glass, false).Transparency = 0.25
+ for i = 0, 8 do
+  local y = 1.6 + i
+  local radius = 5 - i * 0.12
+  k.column(i % 3 == 2 and "ThimbleBand" or "Thimble", center, radius, y, y + 1, i % 3 == 2 and Color3.fromRGB(176, 180, 190) or SILVER,
+   M.Metal, true)
+ end
+ k.column("ThimbleTop", center, 3.9, 10.6, 11.2, SILVER, M.Metal, true)
+ local spout = k.column("FountainSpout", center, 1.1, 11.2, 14.5, WATER, M.Glass, false)
+ spout.Transparency = 0.35
+ for i = 1, 3 do
+  local drop = k.box("FountainDrop", Vector3.one * 1.2, center + Vector3.new(math.cos(i * 2.1) * 2.6, 13.5, math.sin(i * 2.1) * 2.6), WATER,
+   M.Glass, false)
+  drop.Shape, drop.Transparency = Enum.PartType.Ball, 0.3
+  drop:SetAttribute("Bob", 1.2)
+  drop:SetAttribute("BobSpeed", 2.2)
+  drop:SetAttribute("Phase", i)
+ end
+end
+
+-- The mouse hole in the baseboard behind the portal: a white wall with a wooden skirting, an arched
+-- dark opening with a trim, a pair of glowing eyes inside, and the World's sign above it.
+local function mouseHole(k, z, width)
+ local y0 = BERM_TOP
+ k.block("Baseboard", -width / 2, width / 2, y0, y0 + 48, z, z + 3, BASEBOARD, M.SmoothPlastic)
+ k.block("Skirting", -width / 2, width / 2, y0, y0 + 3, z - 0.6, z, TRIM_WOOD, M.Wood)
+ k.block("SkirtingTop", -width / 2, width / 2, y0 + 46, y0 + 48, z - 0.8, z, TRIM_WOOD, M.Wood)
+ local holeWidth, holeHeight = 40, 22
+ local dark = Color3.fromRGB(26, 18, 14)
+ k.box("MouseHole", Vector3.new(holeWidth, holeHeight, 0.3), Vector3.new(0, y0 + holeHeight / 2, z - 0.9), dark, M.SmoothPlastic, false)
+ local arch = k.box("MouseHoleArch", Vector3.new(0.3, holeWidth, holeWidth), Vector3.new(0, y0 + holeHeight, z - 0.9), dark,
+  M.SmoothPlastic, false, CFrame.Angles(0, math.pi / 2, 0))
+ arch.Shape = Enum.PartType.Cylinder
+ for i = 0, 16 do
+  local angle = math.pi * i / 16
+  local position = Vector3.new(math.cos(angle) * (holeWidth / 2 + 1), y0 + holeHeight + math.sin(angle) * (holeWidth / 2 + 1), z - 1.2)
+  k.box("MouseHoleTrim", Vector3.new(2.4, 4.4, 1.2), position, TRIM_WOOD, M.Wood, false, CFrame.Angles(0, 0, angle))
+ end
+ for _, side in {-1, 1} do
+  k.block("MouseHoleTrim", side * (holeWidth / 2 + 1) - 1.2, side * (holeWidth / 2 + 1) + 1.2, y0, y0 + holeHeight, z - 1.8, z - 0.6,
+   TRIM_WOOD, M.Wood, false)
+  local eye = k.box("MouseEye", Vector3.one * 2.2, Vector3.new(side * 3.2, y0 + 12, z - 1.2), Color3.fromRGB(255, 236, 140), M.Neon, false)
+  eye.Shape = Enum.PartType.Ball
+  eye:SetAttribute("Pulse", 0.3)
+ end
+ local board = k.box("TinyTownSign", Vector3.new(34, 9, 0.6), Vector3.new(0, y0 + holeHeight + holeWidth / 2 + 8, z - 0.9), Color3.fromRGB(255, 236, 190),
+  M.Wood, false)
+ local gui = Instance.new("SurfaceGui")
+ gui.Face, gui.SizingMode, gui.PixelsPerStud, gui.LightInfluence = Enum.NormalId.Front, Enum.SurfaceGuiSizingMode.PixelsPerStud, 20, 0
+ gui.Parent = board
+ for _, line in {{"TINY TOWN", 0.06, 0.56, TOY[1]}, {"WORLD 4", 0.62, 0.32, TRIM_WOOD}} do
+  local label = Instance.new("TextLabel")
+  label.BackgroundTransparency, label.Font, label.TextScaled = 1, Enum.Font.FredokaOne, true
+  label.Text, label.TextColor3 = line[1], line[4]
+  label.Position, label.Size = UDim2.fromScale(0.05, line[2]), UDim2.fromScale(0.9, line[3])
+  label.Parent = gui
+ end
+end
+
+local function tinyTown(k, folder, frame, config, worldId)
+ local depth = config.depth
+
+ -- The floor: long floorboards running into the hub with dark seams, bottle caps set into them.
+ local plank = 8
+ local x = config.minX
+ local index = 0
+ while x < config.maxX - 0.01 do
+  local x1 = math.min(config.maxX, x + plank)
+  k.block("Floorboard", x, x1, -Field.GroundThickness, 0, 0, depth, index % 2 == 0 and PLANK_A or PLANK_B, M.WoodPlanks)
+  if x1 < config.maxX then k.patch("FloorSeam", x1 - 0.15, x1 + 0.15, 0, depth, PLANK_SEAM, M.Wood, 1) end
+  x, index = x1, index + 1
+ end
+ local rng = Random.new(4040)
+ for i = 1, 26 do
+  local center = Vector3.new(rng:NextNumber(-22, 20), 0, rng:NextNumber(46, 196))
+  local clear = math.abs(center.X) > 9 and (center - Vector3.new(0, 0, 118)).Magnitude > 26 and (center - Vector3.new(14, 0, 165)).Magnitude > 14
+  if clear then bottleCap(k, center, rng:NextNumber(2.4, 3.6), TOY[i % #TOY + 1]) end
+ end
+
+ -- Matchstick paths (the shared layout's), a button ring round the batting area and a button at
+ -- the spawn.
+ k.disc("BatterRing", Vector3.new(0, 0, 10), 10.8, TOY[3], M.SmoothPlastic, 2)
+ k.disc("BatterCircle", Vector3.new(0, 0, 10), 10, PATH_WOOD, M.Wood, 3)
+ hubPaths(config, worldId, function(name, x0, x1, z0, z1) matchPath(k, name, x0, x1, z0, z1) end)
+ local spawnZ = config.spawn.Z
+ k.disc("SpawnButton", Vector3.new(0, 0, spawnZ), 4.2, TOY[1], M.SmoothPlastic, 4)
+ for _, offset in {Vector3.new(-1, 0, -1), Vector3.new(1, 0, -1), Vector3.new(-1, 0, 1), Vector3.new(1, 0, 1)} do
+  k.disc("SpawnButtonHole", Vector3.new(0, 0, spawnZ) + offset * 1.1, 0.5, Color3.fromRGB(120, 24, 20), M.SmoothPlastic, 5)
+ end
+
+ -- The wind-up key for events, the thimble fountain, the portal's pad (a big button), and a spool
+ -- at each of the two spots either side of the portal that World 1 fills with its leaderboards.
+ local event = config.eventArea
+ if event then windUpKey(k, frame, event.center) end
+ thimbleFountain(k, Vector3.new(14, 0, 165))
+ local portal = config.portalPad
+ if portal then
+  k.disc("PortalPadRim", portal.center, portal.radius + 1, TOY[2], M.SmoothPlastic, 3)
+  k.disc("PortalPad", portal.center, portal.radius, Color3.fromRGB(255, 232, 120), M.SmoothPlastic, 4)
+  for _, offset in {Vector3.new(-2.4, 0, -2.4), Vector3.new(2.4, 0, -2.4), Vector3.new(-2.4, 0, 2.4), Vector3.new(2.4, 0, 2.4)} do
+   k.disc("PortalPadHole", portal.center + offset, 1, Color3.fromRGB(190, 140, 30), M.SmoothPlastic, 5)
+  end
+  for _, side in {-1, 1} do spoolTower(k, Vector3.new(side * 30, 0, portal.center.Z + 2), 1, side > 0 and 0 or 2) end
+ end
+
+ -- The baseboard bowl, the mouse hole behind the portal, matchbox houses and spool towers on the
+ -- floorboards outside, and World 4's runway models (each standing in with its placeholder until
+ -- the Tiny Town models are imported).
+ local outer, backFar = bowl(k, config, TINY_BOWL)
+ mouseHole(k, backFar + 6, outer[-1] + outer[1] + 120)
+ for i = 1, 10 do
+  local sign = i % 2 == 0 and 1 or -1
+  matchbox(k, Vector3.new(sign * (outer[sign] + 22 + (i % 3) * 34), BERM_TOP, 24 + i * 30), rng:NextNumber(-0.5, 0.5) + (sign > 0 and math.pi or 0),
+   TOY[i % #TOY + 1])
+ end
+ for i = 1, 6 do
+  local sign = i % 2 == 0 and 1 or -1
+  spoolTower(k, Vector3.new(sign * (outer[sign] + 120 + (i % 3) * 40), BERM_TOP, 60 + i * 50), 1 + i % 2, i)
+ end
+ local yard = {color = Color3.fromRGB(92, 182, 72), accent = Color3.fromRGB(232, 64, 56)}
+ local toys = {color = Color3.fromRGB(70, 132, 230), accent = Color3.fromRGB(255, 206, 50)}
+ local bath = {color = Color3.fromRGB(150, 214, 236), accent = Color3.fromRGB(255, 220, 60)}
+ RunwayDecor.PlaceMesh(folder, frame, "grassBlade", Vector3.new(-(outer[-1] + 10), BERM_TOP, 12), 2.6, 1, yard)
+ RunwayDecor.PlaceMesh(folder, frame, "grassBlade", Vector3.new(outer[1] + 10, BERM_TOP, 16), 2.4, 2, yard)
+ RunwayDecor.PlaceMesh(folder, frame, "alphabetBlock", Vector3.new(outer[1] + 70, BERM_TOP, 110), 2.4, 1, toys)
+ RunwayDecor.PlaceMesh(folder, frame, "brickTower", Vector3.new(-(outer[-1] + 80), BERM_TOP, 200), 2.6, 2, toys)
+ RunwayDecor.PlaceMesh(folder, frame, "trainTrack", Vector3.new(-(outer[-1] + 60), BERM_TOP, 90), 2.2, 3, toys)
+ RunwayDecor.PlaceMesh(folder, frame, "rubberDuck", Vector3.new(outer[1] + 140, BERM_TOP, 250), 3, 1, bath)
+ RunwayDecor.PlaceMesh(folder, frame, "crayon", Vector3.new(-(outer[-1] + 150), BERM_TOP, 320), 3, 2, toys)
+ RunwayDecor.PlaceMesh(folder, frame, "giantDie", Vector3.new(outer[1] + 60, BERM_TOP, 330), 2.4, 1, toys)
+end
+
+local THEMES = {HomeField = homeField, TimeTravel = timeTravel, Future = future, TinyTown = tinyTown}
 
 -- Builds the hub's theme into hub.Decor (rebuilt each time). Returns true when a theme was built,
 -- in which case it supplies the hub's floor.
