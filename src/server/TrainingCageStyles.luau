@@ -249,6 +249,48 @@ Styles.CavemanCampCage = {
  tint = {color = rgb(255, 242, 224), brightness = 0, contrast = 0.06, saturation = 0.08},
 }
 
+local TOMB_SAND, TOMB_LAPIS = rgb(220, 190, 140), rgb(30, 64, 170)
+Styles.PharaohsTombCage = {
+ parts = {
+  TombSandstone = style(TOMB_SAND, M.Sandstone), TombBlocks = style(rgb(204, 172, 122), M.Sandstone),
+  TombPylons = style(rgb(222, 194, 146), M.Sandstone), TombSphinx = style(rgb(218, 190, 140), M.Sandstone),
+  TombObelisks = style(rgb(226, 200, 150), M.Sandstone),
+  TombPaintBlue = style(rgb(30, 70, 170), M.SmoothPlastic), TombPaintRed = style(rgb(180, 50, 36), M.SmoothPlastic),
+  TombPaintTeal = style(rgb(40, 170, 166), M.SmoothPlastic),
+  TombGlyphs = style(TOMB_LAPIS, M.SmoothPlastic), TombGlyphsOuter = style(TOMB_LAPIS, M.SmoothPlastic),
+  TombObeliskGlyphs = style(TOMB_LAPIS, M.SmoothPlastic),
+  TombGold = style(GOLD, M.Metal), TombRoofFrame = style(GOLD, M.Metal), TombScarab = style(GOLD, M.Metal),
+  TombCoffin = style(GOLD, M.Metal), TombCoins = style(GOLD, M.Metal), TombFloorGold = style(GOLD, M.Metal),
+  TombRoofCap = style(rgb(255, 214, 90), M.Metal, {light = {rgb(255, 220, 140), 20, 1}}),
+  TombNet = style(rgb(236, 226, 200), M.Fabric), TombNetRoof = style(rgb(236, 226, 200), M.Fabric),
+  TombNetRoofEnds = style(rgb(236, 226, 200), M.Fabric),
+  TombFloor = style(rgb(236, 230, 212), M.Limestone), TombPlate = style(rgb(244, 240, 228), M.Limestone),
+  TombLapis = style(rgb(28, 60, 160), M.Marble), TombScarabInlay = style(rgb(28, 60, 160), M.SmoothPlastic),
+  TombCoffinPaint = style(TOMB_LAPIS, M.SmoothPlastic), TombLidSky = style(rgb(24, 48, 140), M.SmoothPlastic),
+  TombCoffinInside = style(rgb(24, 20, 22), M.SmoothPlastic),
+  TombMummy = style(rgb(230, 222, 196), M.Fabric), TombMummyWraps = style(rgb(196, 182, 150), M.Fabric),
+  TombEyes = style(rgb(90, 255, 140), M.Neon, {pulse = 0.8, light = {rgb(100, 255, 150), 6, 1}}),
+  TombBall = style(rgb(248, 248, 244), M.SmoothPlastic),
+  TombFlames = style(CAMPFIRE, M.Neon, {pulse = 2, shadow = false, light = {rgb(255, 160, 70), 14, 1.5}}),
+  TombChest = style(rgb(110, 70, 40), M.WoodPlanks), TombGems = style(rgb(230, 30, 60), M.Neon),
+  TombJars = style(rgb(240, 232, 210), M.Marble), TombObsidian = style(rgb(16, 16, 22), M.Glass),
+  -- The scarab's sun disc turns slowly on its axis (Blender +Y); the censers swing on their chains.
+  TombSunDisc = style(rgb(230, 70, 30), M.Neon, {spin = 20, spinAxis = Vector3.zAxis, light = {rgb(255, 140, 60), 14, 1.5}}),
+  TombCenserA = style(GOLD, M.Metal, {sway = 3, swaySpeed = 1.1}),
+  TombCenserB = style(GOLD, M.Metal, {sway = 3, swaySpeed = 1.3, phase = 1.2}),
+ },
+ effects = {
+  {kind = "Flame", position = b(-14.65, 2, 7.4), size = Vector3.new(0.5, 0.3, 0.5)},
+  {kind = "Flame", position = b(-14.65, 18, 7.4), size = Vector3.new(0.5, 0.3, 0.5)},
+  {kind = "Flame", position = b(12.65, 2, 7.4), size = Vector3.new(0.5, 0.3, 0.5)},
+  {kind = "Flame", position = b(12.65, 18, 7.4), size = Vector3.new(0.5, 0.3, 0.5)},
+  {kind = "Incense", position = b(-12.2, 30.5, 8.9), size = Vector3.new(0.4, 0.3, 0.4)},
+  {kind = "Incense", position = b(10.2, 30.5, 8.9), size = Vector3.new(0.4, 0.3, 0.4)},
+  {kind = "GoldDust", position = b(-1, 10, 6), size = Vector3.new(26, 9, 44)},
+ },
+ tint = {color = rgb(255, 238, 210), brightness = 0.02, contrast = 0.06, saturation = 0.1},
+}
+
 -- ---------- World 3 (Future World) ----------
 -- From tools/blender/solar_rooftop_cage.py, robo_factory_cage.py, biodome_lab_cage.py,
 -- lunar_base_cage.py and quantum_lab_cage.py, more intricate down the row.
@@ -627,6 +669,11 @@ Styles.Emitters = {
  CampSmoke = {Texture = SMOKE, Color = ColorSequence.new(rgb(150, 144, 138)), LightEmission = 0, Size = grow(0.8, 3.5),
   Transparency = grow(0.55, 1), Rate = 5, Lifetime = range(3, 5), Speed = range(1.5, 2.5), SpreadAngle = Vector2.new(10, 10),
   Acceleration = Vector3.new(0.3, 0.6, 0), RotSpeed = range(-20, 20)},
+ Incense = {Texture = SMOKE, Color = ColorSequence.new(rgb(236, 230, 220)), LightEmission = 0.1, Size = grow(0.3, 1.6),
+  Transparency = grow(0.6, 1), Rate = 4, Lifetime = range(3, 5), Speed = range(0.6, 1.2), SpreadAngle = Vector2.new(8, 8),
+  Acceleration = Vector3.new(0.15, 0.3, 0), RotSpeed = range(-30, 30)},
+ GoldDust = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 226, 150)), LightEmission = 0.6, Size = fade(0.18),
+  Transparency = NumberSequence.new(0.3), Rate = 8, Lifetime = range(5, 8), Speed = range(0.05, 0.3), SpreadAngle = Vector2.new(180, 180)},
  -- World 3
  SunMotes = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 238, 180)), LightEmission = 0.8, Size = fade(0.25),
   Transparency = NumberSequence.new(0.25), Rate = 8, Lifetime = range(4, 7), Speed = range(0.1, 0.4),

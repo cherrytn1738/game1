@@ -47,7 +47,7 @@ local Training = {
     accent = Color3.fromRGB(232, 222, 196), frame = Color3.fromRGB(112, 78, 48), net = Color3.fromRGB(86, 104, 52),
     banner = Color3.fromRGB(196, 104, 40), lights = false, decorations = {}}},
   {id = "pharaohs_tomb", displayName = "Pharaoh's Tomb", requiredRebirths = 8, powerMultiplier = 35, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(230, 200, 136), turfMaterial = M.Sand,
+   theme = {template = "PharaohsTombCage", turf = Color3.fromRGB(230, 200, 136), turfMaterial = M.Sand,
     lane = Color3.fromRGB(214, 170, 92), laneMaterial = M.Sandstone,
     accent = Color3.fromRGB(240, 190, 50), frame = Color3.fromRGB(206, 170, 110), net = Color3.fromRGB(36, 70, 150),
     banner = Color3.fromRGB(30, 60, 140), lights = true, decorations = {}}},
