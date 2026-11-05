@@ -96,7 +96,7 @@ local SURFACES = {
  hard = {bounce = "BallBounceHardSound", grass = 0, bedPitch = 1.15, bedHigh = -15},
  glassy = {bounce = "BallBounceHardSound", accent = "BallBounceGlassySound", grass = 0, bedPitch = 1.3, bedHigh = -11},
 }
--- The themed runway sections of both Worlds (WorldConfig); anything else goes by the floor's material,
+-- The themed runway sections of every World (WorldConfig); anything else goes by the floor's material,
 -- then falls back to soft.
 local SECTION_SURFACES = {
  grass = "soft", jungle = "soft", desert = "soft",
@@ -110,6 +110,10 @@ local SECTION_SURFACES = {
  biodome = "soft", lunar = "soft", mars = "soft",
  solar = "hard", maglev = "hard", metropolis = "hard", robotics = "hard", spaceport = "hard",
  virtual = "glassy", singularity = "glassy",
+ -- World 4.
+ backyard = "soft", picnic = "soft", pillowfort = "soft",
+ kitchen = "hard", blocktown = "hard", boardgame = "hard", crafttable = "hard", bookshelf = "hard", attic = "hard",
+ bathtub = "glassy",
 }
 local MATERIAL_SURFACES = {
  [Enum.Material.Glass] = "glassy", [Enum.Material.Ice] = "glassy", [Enum.Material.Glacier] = "glassy",

@@ -85,16 +85,27 @@ return function(sources)
   check(Field.GetSection(distance,first).rewardMultiplier==expected,"new themes preserve existing reward tiers")
  end
  local third = Worlds.Get("world_3")
- check(second.nextWorldId=="world_3" and third and third.order==3 and third.endDistance==7000 and third.nextWorldId==nil,
-  "World 2 leads to World 3, the last World for now (7000 studs)")
- check(third.endPortal and third.endPortal.finale and third.endPortal.finale.title~=nil,"World 3's end portal has the temporary finale")
- check(#third.sections==10 and Field.GetWidth(third)==160,"World 3 has ten runway themes on a 160-stud runway")
- local previousEnd=0
- for index,section in third.sections do
-  check(section.order==index and section.startDistance==previousEnd,"World 3's sections are consecutive")
-  previousEnd=section.endDistance
+ local fourth = Worlds.Get("world_4")
+ check(second.nextWorldId=="world_3" and third and third.order==3 and third.endDistance==7000 and third.nextWorldId=="world_4",
+  "World 2 leads to World 3 (7000 studs), which leads to World 4")
+ check(third.endPortal and third.endPortal.finale==nil,"World 3's end portal is a trip again, not the finale")
+ check(fourth and fourth.order==4 and fourth.endDistance==8000 and fourth.nextWorldId==nil and fourth.cashMultiplier==1000
+  and fourth.offset==Vector3.new(24000,0,0) and Worlds.Worlds[#Worlds.Worlds]==fourth,
+  "World 4 (Tiny Town) is the last World for now (8000 studs, x1000 Cash, offset 24000)")
+ check(fourth.endPortal and fourth.endPortal.finale and fourth.endPortal.finale.title~=nil,"World 4's end portal has the temporary finale")
+ for _, world in {third, fourth} do
+  check(#world.sections==10 and Field.GetWidth(world)==160,world.id .. " has ten runway themes on a 160-stud runway")
+  local previousEnd=0
+  for index,section in world.sections do
+   check(section.order==index and section.startDistance==previousEnd,world.id .. "'s sections are consecutive")
+   previousEnd=section.endDistance
+  end
+  check(previousEnd==world.endDistance,world.id .. "'s last section ends at its endpoint")
  end
- check(previousEnd==third.endDistance,"World 3's last section ends at its endpoint")
+ for _,distance in {0,699,700,2099,2100,6800,7999,9000} do
+  local expected=distance<700 and 1 or distance<2100 and 1.15 or 1.35
+  check(Field.GetSection(distance,fourth).rewardMultiplier==expected,"World 4's sections follow the reward tiers")
+ end
  -- The shared compact hub layout, seen from the spawn looking into the hub (+Z): Training
  -- Grounds on the left (+X), item displays on the right (-X), the event piece in the middle
  -- and the portal at the back, all inside the hub and clear of each other.
@@ -104,7 +115,8 @@ return function(sources)
  local firstHub = first.hub
  for _, world in Worlds.Worlds do
   local hub = world.hub
-  check(hub and hub.minX < 0 and hub.maxX > 0 and hub.depth > 0 and hub.theme ~= nil, world.id .. " has a themed hub")
+  -- World 4's Mouse-Hole Plaza theme is not built yet (WORLD4_DESIGN.md, Phase 6): plain floor.
+  check(hub and hub.minX < 0 and hub.maxX > 0 and hub.depth > 0 and (hub.theme ~= nil or world.id == "world_4"), world.id .. " has a themed hub")
   check(hub.minX == firstHub.minX and hub.maxX == firstHub.maxX and hub.depth == firstHub.depth
    and hub.portalPad.center == firstHub.portalPad.center and hub.eventArea.center == firstHub.eventArea.center,
    world.id .. " shares World 1's hub layout")

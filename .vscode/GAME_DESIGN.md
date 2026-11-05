@@ -74,7 +74,7 @@ The server derives every multiplier from the authoritative equipped IDs through 
 - **Training Power** = the Training base (5 at every Level) × ground multiplier × Ball × (Rebirths + 1) × any Power juice.
 - **Hit Power** = the Training base × `HitPowerPerSecond` (0.37) × seconds the ball was in play, rounded, × Ball × (Rebirths + 1) × any Power juice. No ground multiplier: counting the time between hits, batting earns about 50-70% of Basic Training's Power, so Training stays the best Power source.
 - **Offline Power** = 25% of the best usable ground's Training rate (no Level term; up to 8 hours) × the saved equipped Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (the run cap, below).
-- **Hit Cash** = (distance / 80)^1.5 × the World's `cashMultiplier` (1, 10, 100) × section multiplier × Bat × any Cash juice, rounded, at least $1 (about $1 for an early hit).
+- **Hit Cash** = (distance / 80)^1.5 × the World's `cashMultiplier` (1, 10, 100, 1,000) × section multiplier × Bat × any Cash juice, rounded, at least $1 (about $1 for an early hit).
 
 A hit snapshots the Ball ID and the Bat's Cash multiplier when the swing is accepted, so swapping equipment mid-flight (which is blocked anyway) cannot change that hit's rewards.
 
@@ -258,8 +258,8 @@ A giant time portal (the hub portal's model, 360 studs tall, `WorldConfig` `endP
   5. Plunge (6.0–6.85 s): a wide shot as they spiral into the swirl (an energy whoosh peaks as they vanish), then white with a last boom.
   6. Arrival: at 8.6 s the server moves them to the next World through the normal travel step; the white fades there with a shockwave, a sparkle burst, a magic chime and the World's title, and the HUD returns.
   Audio (Roblox-licensed): APM "New World Anthem Link 4" (music); Pro Sound Effects vortex blast, thunder, rushing pass-by and energy whoosh, the rare hits' launch boom and riser, and "Magic Transformation 17" (arrival). The rest of the mix ducks under it (the Cinematic duck), and the HUD skips its own World-unlock sting for portal hits. Dying, leaving or travelling cancels the trip.
-- Already-completed Worlds still capture the ball (normal rewards), without the trip. World 1's portal leads to World 2 and World 2's to World 3.
-- **Finale (temporary, World 3):** World 3 is the last World for now, so its portal has a `finale` (`WorldConfig` `endPortal.finale`) instead of a next World. A first completion through it (or any portal hit with `ForcePortalJourney` in Studio) holds the batter the same way, sets `GameFinale`, and plays about 12 s on their client (`PortalJourneyClient`): the impact as above with APM's "A Winner's Anthem"; a push-in on the portal as "YOU FINISHED THE GAME! / MORE WORLDS COMING SOON" slams in; a crane shot over the runway's end as fireworks burst round the portal (Pro Sound Effects fireworks); then back at the tee, the batter in a shower of confetti and fireworks with a cheering crowd as "THANKS FOR PLAYING! / WORLD 3 COMPLETE" lands; then white, and at 11.8 s the server returns them to World 3's hub. World 3 still saves as completed, so a future World 4 can unlock from it: to add one, give World 3 a `nextWorldId` and remove the `finale`.
+- Already-completed Worlds still capture the ball (normal rewards), without the trip. World 1's portal leads to World 2, World 2's to World 3 and World 3's to World 4.
+- **Finale (temporary, World 4):** World 4 (Tiny Town) is the last World for now (World 3 had the finale until World 4 was added), so its portal has a `finale` (`WorldConfig` `endPortal.finale`) instead of a next World. A first completion through it (or any portal hit with `ForcePortalJourney` in Studio) holds the batter the same way, sets `GameFinale`, and plays about 12 s on their client (`PortalJourneyClient`): the impact as above with APM's "A Winner's Anthem"; a push-in on the portal as "YOU FINISHED THE GAME! / MORE WORLDS COMING SOON" slams in; a crane shot over the runway's end as fireworks burst round the portal (Pro Sound Effects fireworks); then back at the tee, the batter in a shower of confetti and fireworks with a cheering crowd as "THANKS FOR PLAYING! / WORLD 3 COMPLETE" lands; then white, and at 11.8 s the server returns them to World 3's hub. World 3 still saves as completed, so a future World 4 can unlock from it: to add one, give World 3 a `nextWorldId` and remove the `finale`.
 - **Testing in Studio:** the Workspace attribute `ForcePortalJourney` plays the trip on every portal hit, not only the first completion; `StudioLaunchLevel` launches hits as that Level (80 reaches either portal; the saved Level is untouched); `StudioWalkSpeed` sets the playtest walk speed (e.g. to run down a runway). Live servers ignore all three.
 - The giant portals' gears, hands and swirl turn on each client (`PortalJourneyClient`).
 
@@ -273,7 +273,10 @@ World 1
 → unlock World 2
 → progress through World 2
 → reach World 2 end
-→ unlock World 3 (Future World, the last World for now)
+→ unlock World 3 (Future World)
+→ progress through World 3
+→ reach World 3 end
+→ unlock World 4 (Tiny Town, the last World for now)
 
 Unlocked worlds remain available permanently and players may return to previously unlocked worlds.
 
@@ -521,6 +524,10 @@ World 3 (Future World) is a trip from a near-future city out to the edge of real
 - **Models:** two generators share World 2's helpers: `tools/blender/runway_world3_city.py` (sections 1–5, `assets/models/RunwayWorld3City.fbx`) and `runway_world3_space.py` (sections 6–10 plus the black hole, `RunwayWorld3Space.fbx`), each with a JSON manifest for grouping the import into `ServerStorage.RunwayAssets`. Fillers are new planters, cargo crates and voxel bushes plus World 1's flowers, ferns, bushes and rocks. Sky taxis are the hover car lifted high; the Mars habitats are the lunar pod dusted red; the glowing mushrooms are World 1's mushroom in neon.
 - **Floor patterns** (`RunwayDecor`, flags on the section): `floorLanes` (a glowing centre line and dashed lane lines), `floorHazard` (yellow and black warning bands along both edges) and `floorCraters` (crater rings scattered deterministically), alongside the earlier tiles, grid and cracks.
 - **Landmark:** `runway.landmarks` places single giant meshes by their centre. World 3 has one, a black hole with a glowing accretion disc looming above and behind its end portal (7550 studs downfield, 760 up, about 670 studs across).
+
+## World 4 (Tiny Town)
+
+World 4 is being built in phases from `.vscode/WORLD4_DESIGN.md` (concept, sections, hub, grounds, Balls, portal trip and the phase checklist). Phase 1 is in: `world_4` in `WorldConfig` (offset 24,000, end 8,000, Cash ×1,000, ten sections from Giant Backyard to Pillow Fort with reward tiers 1.0× to 700, 1.15× to 2,100 and 1.35× beyond), the finale at its end portal (World 3's portal now leads to World 4), its row of grounds (Sandbox Diamond, Pinball Cage, Cereal Bowl Stadium, Toy Soldier Fort, Snow Globe, Dragon's Lair) on the standard cage, and its ten Balls as the `world_4` series. Until the later phases its runway uses existing primitive props tinted in its colours, its hub the plain floor and its Balls their `EquipmentConfig` colours. Balance: `.vscode/ECONOMY.md`.
 
 ## Hubs
 

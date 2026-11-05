@@ -35,8 +35,14 @@ local Progression = {
   {fromLevel = 320, start = 1_500_000_000_000, growth = 1.02},
   {fromLevel = 340, start = 2_700_000_000_000, growth = 1.02},
   {fromLevel = 360, start = 4_900_000_000_000, growth = 1.02},
-  {fromLevel = 380, start = 8_900_000_000_000, growth = 1.02},
-  {fromLevel = 400, start = 16_000_000_000_000, growth = 1.02},
+  -- World 4's runs (Rebirths 19-24; solved with keepBands = 18, so Worlds 1-3 are unchanged).
+  {fromLevel = 380, start = 19_000_000_000_000, growth = 1.02},
+  {fromLevel = 400, start = 53_000_000_000_000, growth = 1.02},
+  {fromLevel = 420, start = 130_000_000_000_000, growth = 1.02},
+  {fromLevel = 440, start = 260_000_000_000_000, growth = 1.02},
+  {fromLevel = 460, start = 520_000_000_000_000, growth = 1.02},
+  {fromLevel = 480, start = 940_000_000_000_000, growth = 1.02},
+  {fromLevel = 500, start = 1_700_000_000_000_000, growth = 1.02},
  },
  -- Bands past the last listed one: 20 Levels each, starting this many times above the band before.
  LevelBandTailGrowth = 1.8,
@@ -64,6 +70,10 @@ local Progression = {
  --  * From Level 141, each a speed measured twice to land in its range: World 1's end (5,000) is
  --    reached from Level 150, World 2's (6,000) from 250 and World 3's (7,000) from 370, matching
  --    the Training Ground Rebirth gates (Rebirths 7, 12 and 18 reach those Levels).
+ --  * From Level 371 (World 4), each a speed measured three times in World 4's longer field, rising
+ --    evenly from Level 370's 7,195 there to World 4's end (8,000) at Level 490 (Rebirth 24, its
+ --    last Training Ground's gate). Levels 370-398 and 462-482 share a distance: no measured
+ --    speed lands between.
  -- Re-measure and re-solve with tools/balance after any physics change.
  LaunchSpeedSteps = {
   {22, 86}, {23, 84}, {24, 84}, {25, 90}, {26, 92}, {27, 88}, {28, 108}, {29, 108}, {30, 106},
@@ -86,13 +96,18 @@ local Progression = {
   {230, 648}, {240, 687}, -- ~5,100 rising to 5,820 studs
   {250, 665}, {263, 667}, {276, 705}, {290, 714}, {303, 719}, {316, 679}, {330, 702}, {343, 685},
   {356, 699}, -- ~6,140 rising to 6,820 studs
-  {370, 716}}, -- reaches World 3's end (and every earlier World's)
+  {370, 716}, -- reaches World 3's end (and every earlier World's); 7,195 in World 4
+  {399, 651}, {406, 720}, {420, 698}, {435, 713}, {446, 780}, {457, 750}, {462, 762}, {483, 683},
+  -- ~7,380 / 7,425 / 7,520 / 7,620 / 7,700 / 7,775 / 7,805 / 7,955 studs
+  {490, 717}}, -- reaches World 4's end (and every earlier World's)
  -- About how far a hit at a Level lands (studs), from the same measured hits: {Level, distance}
  -- points, rising evenly in proportion between them. For estimates only (the Cash packs'
  -- "normal hits", MonetizationConfig); real hits are always measured.
  ExpectedHitDistances = {{1, 81}, {21, 146}, {30, 228}, {40, 347}, {50, 516}, {60, 755}, {70, 1002},
   {80, 1363}, {90, 1677}, {100, 2053}, {110, 2347}, {120, 2789}, {130, 3397}, {140, 3906},
-  {141, 4050}, {144, 4450}, {147, 4770}, {150, 5100}, {249, 5820}, {250, 6140}, {369, 6820}, {370, 7000}},
+  {141, 4050}, {144, 4450}, {147, 4770}, {150, 5100}, {249, 5820}, {250, 6140}, {369, 6820}, {370, 7000},
+  {371, 7195}, {398, 7195}, {399, 7380}, {406, 7425}, {420, 7520}, {435, 7620}, {446, 7700}, {457, 7775},
+  {462, 7805}, {482, 7805}, {483, 7955}, {490, 8000}},
  LaunchAngleDegrees = 38,
  -- The first Levels' hits: at the table's 55 studs/s a 38-degree hit only rises ~2 studs and lands
  -- ~20 studs out (Roblox gravity, 196 studs/s^2), then rolls, so it looks like a grounder. Level 1
@@ -230,14 +245,24 @@ end
 -- Shared pure arithmetic; only PlayerData may grant authoritative Power.
 -- Requirements are consumed and multiple levels can advance. At the Level Cap, Level stops but
 -- Power keeps building (up to MaxPower) until the player Rebirths.
+-- A grant can be bigger than MaxPower late in the game (an offline return or the Welcome Back 3x
+-- in World 4): it is added in pieces that each fit, levelling up between them, so none of it is
+-- lost before the Level Cap. Power itself never goes past MaxPower.
 function Progression.Advance(state, amount)
- state.Power = math.min(Progression.MaxPower, state.Power + amount)
- while state.Level < state.LevelCap do
-  local required = Progression.PowerRequiredForNextLevel(state.Level)
-  if state.Power < required then break end
-  state.Power -= required
-  state.Level += 1
- end
+ local remaining = amount
+ repeat
+  local piece = math.min(remaining, Progression.MaxPower - state.Power)
+  state.Power += piece
+  remaining -= piece
+  local levelled = false
+  while state.Level < state.LevelCap do
+   local required = Progression.PowerRequiredForNextLevel(state.Level)
+   if state.Power < required then break end
+   state.Power -= required
+   state.Level += 1
+   levelled = true
+  end
+ until remaining <= 0 or not levelled
 end
 
 -- Power still needed to reach the Level Cap from this state: the rest of the current run (0 at

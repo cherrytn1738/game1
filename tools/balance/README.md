@@ -46,7 +46,7 @@ There is no command-line Luau here, so the simulator runs in Studio (Edit mode, 
 | Option | Meaning |
 |---|---|
 | `mode = "report"` | Tutorial, Training-only, active, spender, casual and offline archetypes, Worlds (with the wait from each World's last purchase), purchases, batting vs Training, Level bands |
-| `mode = "solveBands"` | Solve the Level bands for a pace: `pace = "FAST" / "MEDIUM" / "LONG"` (run k takes 3 + 1/2/4 x (k - 1) minutes), `bands = 20` |
+| `mode = "solveBands"` | Solve the Level bands for a pace: `pace = "FAST" / "MEDIUM" / "LONG"` (run k takes 3 + 1/2/4 x (k - 1) minutes), `bands = 20`; `keepBands = n` keeps the configured bands of the first n Rebirths and solves only the rest (World 4: `bands = 25, keepBands = 18`) |
 | `mode = "designSpeed"` | Build `LaunchSpeedTable` from the measurements (`speedPlan` overrides the plan) |
 | `distanceShape = {r21, r140, floorFrom}` | A distance curve for Levels 21-140: each Level adds a share of distance falling linearly from `r21` (at 21) to `r140` (at 140), or with `floorFrom` to a floor (solved so Level 140 lands at 505's measurement) held from that Level to 140. Alone it builds an interpolated `LaunchSpeedTable` (`distanceStep` 5 spaces the points); the shipped curve is `{0.05, 0, 100}` |
 | `measuredSteps = {tolerance, repeatTolerance, wideTolerance}` | With `distanceShape`: give each Level 22-139 a speed from `HitMeasurements.sweep` whose average lands on the curve (within `tolerance` 0.035, preferring speeds whose hits agree within `repeatTolerance` 0.06, then within `wideTolerance` 0.06), always farther than the Level before; prints the `LaunchSpeedSteps` head (Levels 22-140) and the `ExpectedHitDistances` head. This is how the shipped steps were chosen |
@@ -80,3 +80,10 @@ exactly, at least twice where possible. To re-measure a range, sweep it from a s
 sets `StudioLaunchSpeed` (and `StudioLaunchLevel` 60 for the 38-degree loft) while the ball is
 on the tee, with a client loop pressing Swing once it has sat there a moment, then add the hits
 to `sweep` and re-run `measuredSteps`. A sweep of 213 speeds takes about 40 minutes.
+
+Hits that reach a World's end are captured by its portal at that distance, so speeds that land
+past 7,000 were measured in World 4's field (end 8,000): `far` in `HitMeasurements.luau`. Set the
+player's `CurrentWorldId` to `world_4` and stand them on `BattingArea4`'s pad from the server
+loop (a fresh save also needs `WorldUnlocked_world_4`), and turn `ForcePortalJourney` off so a
+portal hit does not move them. About 21 s a hit at these distances; the first World 4
+completion plays the finale (an 11.8 s hold) once.

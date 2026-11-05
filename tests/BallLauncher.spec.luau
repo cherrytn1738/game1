@@ -405,9 +405,9 @@ return function(sources)
  check(firstHit.distanceResult.worldCompletionMessage==completionMessage,"the portal hit completes the World")
  check(#journeys==1 and journeys[1].who==player and journeys[1].to.id==world.nextWorldId,"a first completion starts the trip to the next World")
  completionMessage=nil
- -- Through the last World's portal (World 3 for now) a first completion plays the finale
+ -- Through the last World's portal (World 4 for now) a first completion plays the finale
  -- instead of a trip.
- local last=Worlds.Get("world_3")
+ local last=Worlds.Worlds[#Worlds.Worlds]
  workspaceFake[last.fieldName]:SetAttribute("GateCenter",Vector3.new(0,150,-last.endDistance))
  local finales={}
  Launcher.OnGameFinale=function(who,from) table.insert(finales,{who=who,from=from}) end
@@ -426,7 +426,7 @@ return function(sources)
  local repeatLast=lastPortalHit(960)
  check(repeatLast.distanceResult and repeatLast.distanceResult.finishReason=="portal" and repeatLast.distanceResult.distanceStuds==last.endDistance
   and #finales==0,"a repeat completion of the last World plays no finale")
- completionMessage="World 3 Complete!"
+ completionMessage="World 4 Complete!"
  lastPortalHit(961)
  check(#finales==1 and finales[1].who==player and finales[1].from.id==last.id and #journeys==1,
   "a first completion of the last World plays the finale, not a trip")

@@ -103,6 +103,7 @@ local Equipment = {
    series = {
     {id = "world_2", startingId = "dino_egg_ball", requiredWorld = "world_2"},
     {id = "world_3", startingId = "solar_cell_ball", requiredWorld = "world_3"},
+    {id = "world_4", startingId = "dandelion_puff_ball", requiredWorld = "world_4"},
    },
    items = {
     -- World 1's series: intended Power balance. The Sandlot Ball's $2 is the tutorial's first
@@ -297,6 +298,70 @@ local Equipment = {
      powerGainMultiplier = 11000000,
      modelPath = "Workspace.BattingArea.Baseball",
      appearance = {color = Color3.fromRGB(20, 16, 30), material = Enum.Material.Neon},
+    },
+    -- World 4 (Tiny Town) series, one ball per runway section. Each ball beats the one before
+    -- and the whole series beats World 3's. Prices rise gently (about 1.1-1.25x a step): no new Bat
+    -- raises Cash in World 4, so each Ball costs a similar number of hits (tools/balance).
+    -- Placeholder colours until their models are made (WORLD4_DESIGN.md, Phase 4).
+    dandelion_puff_ball = {
+     id = "dandelion_puff_ball", displayName = "Dandelion Puff", price = 500000000,
+     powerGainMultiplier = 16000000, nextId = "blueberry_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(250, 250, 240), material = Enum.Material.Fabric},
+    },
+    blueberry_ball = {
+     id = "blueberry_ball", displayName = "Blueberry", price = 800000000,
+     powerGainMultiplier = 24000000, nextId = "meatball_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(70, 80, 170), material = Enum.Material.SmoothPlastic},
+    },
+    meatball_ball = {
+     id = "meatball_ball", displayName = "Meatball", price = 1000000000,
+     powerGainMultiplier = 36000000, nextId = "bouncy_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(130, 70, 50), material = Enum.Material.Pebble},
+    },
+    bouncy_ball = {
+     id = "bouncy_ball", displayName = "Bouncy Ball", price = 1200000000,
+     powerGainMultiplier = 54000000, nextId = "lucky_dice_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(255, 90, 160), material = Enum.Material.SmoothPlastic},
+    },
+    lucky_dice_ball = {
+     id = "lucky_dice_ball", displayName = "Lucky Dice", price = 1500000000,
+     powerGainMultiplier = 80000000, nextId = "yarn_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(245, 245, 245), material = Enum.Material.SmoothPlastic},
+    },
+    yarn_ball = {
+     id = "yarn_ball", displayName = "Yarn Ball", price = 1700000000,
+     powerGainMultiplier = 120000000, nextId = "bath_bomb_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(236, 90, 110), material = Enum.Material.Fabric},
+    },
+    bath_bomb_ball = {
+     id = "bath_bomb_ball", displayName = "Bath Bomb", price = 1900000000,
+     powerGainMultiplier = 180000000, nextId = "mini_globe_ball",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(190, 140, 255), material = Enum.Material.Sand},
+    },
+    mini_globe_ball = {
+     id = "mini_globe_ball", displayName = "Mini Globe", price = 2100000000,
+     powerGainMultiplier = 270000000, nextId = "cats_eye_marble",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(60, 140, 220), material = Enum.Material.SmoothPlastic},
+    },
+    cats_eye_marble = {
+     id = "cats_eye_marble", displayName = "Cat's-Eye Marble", price = 2300000000,
+     powerGainMultiplier = 400000000, nextId = "dream_orb",
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(150, 230, 210), material = Enum.Material.Glass},
+    },
+    dream_orb = {
+     id = "dream_orb", displayName = "Dream Orb", price = 2500000000,
+     powerGainMultiplier = 600000000,
+     modelPath = "Workspace.BattingArea.Baseball",
+     appearance = {color = Color3.fromRGB(255, 226, 150), material = Enum.Material.Neon},
     },
    },
   },

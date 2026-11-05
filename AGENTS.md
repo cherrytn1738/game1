@@ -189,11 +189,11 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 
 ### Power / Level
 
-- Power requirements come in bands (`ProgressionConfig.LevelBands`), solved for the LONG pace (Rebirth k's run takes about 3 + 4 × (k - 1) minutes): `10 + 1.5 × (Level - 1)` below Level 20 (the tutorial band: 10, 11, 13, 14, ...; its Level 20 climb takes about 54 s of Training), then one band for each Rebirth's 20 new Levels (90 at Level 20, 3,200 at 40, 48,000 at 60, 470,000 at 80, ...), each Level 1.02x the one before inside its band; bands past the listed ones start 1.8x above the band before.
+- Power requirements come in bands (`ProgressionConfig.LevelBands`), solved for the LONG pace (Rebirth k's run takes about 3 + 4 × (k - 1) minutes): `10 + 1.5 × (Level - 1)` below Level 20 (the tutorial band: 10, 11, 13, 14, ...; its Level 20 climb takes about 54 s of Training), then one band for each Rebirth's 20 new Levels (90 at Level 20, 3,200 at 40, 48,000 at 60, 470,000 at 80, ...), each Level 1.02x the one before inside its band, listed to Level 500 (World 4's runs, Rebirths 19-24, solved without changing the earlier bands); bands past the listed ones start 1.8x above the band before, and a Level never needs more than `MaxPower` (9 quadrillion, from about Level 555). A grant bigger than `MaxPower` levels through in pieces (`Progression.Advance`), so none is lost before the Level Cap.
 - Level Cap currently scales as `20 * (Rebirths + 1)` (20, 40, 60, ...; the first Rebirth is at Level 20).
 - Rebirth Power multiplier currently scales as `Rebirths + 1`.
 - The Training base (Power per practice hit at Basic Training) is 5 at every Level; Level never scales Power gain.
-- Launch speed comes from a Level -> speed table built from measured hits (`tools/balance/HitMeasurements`), at a 38-degree loft. Distance is erratic in speed (bounces), so from Level 22 each Level uses its own measured speed (`LaunchSpeedSteps`) chosen to land on a curve that grows 5% a Level from Level 21 (~146 studs), easing to 1.65% at Level 100 and staying there to Level 140 (3,906 studs): about 347 studs at Level 40, 755 at 60, 1,363 at 80, 2,053 at 100; below ~200 studs/s single hits still vary (up to ~40%). World 1's end is still reached at Level 150. The first Levels use an early launch curve (`ProgressionConfig.EarlyLaunch`: Level 1 at 61.6 studs/s and 48.3 degrees, falling at 0.57x gravity until its first landing; speed and loft blend evenly, and the gravity eases, into the table, 38 degrees and normal gravity by Level 21) so a new player's hit rises and hangs in a light arc instead of skimming into the ground. Bounces and rolling always use normal gravity.
+- Launch speed comes from a Level -> speed table built from measured hits (`tools/balance/HitMeasurements`), at a 38-degree loft. Distance is erratic in speed (bounces), so from Level 22 each Level uses its own measured speed (`LaunchSpeedSteps`) chosen to land on a curve that grows 5% a Level from Level 21 (~146 studs), easing to 1.65% at Level 100 and staying there to Level 140 (3,906 studs): about 347 studs at Level 40, 755 at 60, 1,363 at 80, 2,053 at 100; below ~200 studs/s single hits still vary (up to ~40%). World 1's end is still reached at Level 150, World 2's at 250, World 3's at 370 and World 4's (8,000, measured in World 4's longer field) at 490. The first Levels use an early launch curve (`ProgressionConfig.EarlyLaunch`: Level 1 at 61.6 studs/s and 48.3 degrees, falling at 0.57x gravity until its first landing; speed and loft blend evenly, and the gravity eases, into the table, 38 degrees and normal gravity by Level 21) so a new player's hit rises and hangs in a light arc instead of skimming into the ground. Bounces and rolling always use normal gravity.
 - These are implementation/balance values, not immutable design decisions; `tools/balance` simulates and re-solves them (`.vscode/ECONOMY.md`).
 - Level is the sole long-term determinant of batting distance.
 
@@ -213,7 +213,7 @@ Formulas (whole Power is rounded down once, after all bonuses):
 - Training Power = Training base (5) × ground multiplier × Ball × (Rebirths + 1) × purchased Power multiplier × any Power juice
 - Hit Power = Training base × 0.37 per second in play (rounded) × Ball × (Rebirths + 1) × purchased Power multiplier × any Power juice (no ground; about 50-70% of Basic Training's rate)
 - Offline Power = 25% of the best usable ground's Training rate (no Level term), for up to 8 hours, × Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held to half the Power still needed for the Level Cap (Welcome Back's 3x adds it twice more, up to all of it)
-- Hit Cash = (distance / 80)^1.5 × World Cash multiplier (1, 10, 100) × section multiplier × Bat × purchased Cash multiplier × any Cash juice, rounded, at least $1
+- Hit Cash = (distance / 80)^1.5 × World Cash multiplier (1, 10, 100, 1,000) × section multiplier × Bat × purchased Cash multiplier × any Cash juice, rounded, at least $1
 
 ### Bat
 
@@ -254,7 +254,7 @@ World 1's Balls (intended balance; the Sandlot Ball's $2 is the tutorial's first
 - Dragonfire Ball: 1,250x, $14,000
 - Supernova Ball: 3,500x, $40,000
 
-Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball), World 2's ten (Dino Egg to Chrono Orb, 5,000x-200,000x for $150K-$2.2M) and World 3's ten (Solar Cell to Singularity Orb, 300,000x-11,000,000x for $10M-$108M). Every ball beats the one before it and every ball of an earlier series (about 1.5x a step from World 2 on). A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
+Balls are sold in purchase series, each bought in order: World 1's ten (Baseball to Supernova Ball), World 2's ten (Dino Egg to Chrono Orb, 5,000x-200,000x for $150K-$2.2M), World 3's ten (Solar Cell to Singularity Orb, 300,000x-11,000,000x for $10M-$108M) and World 4's ten (Dandelion Puff to Dream Orb, 16,000,000x-600,000,000x for $500M-$2.5B; prices rise gently because World 4 has no new Bat). Every ball beats the one before it and every ball of an earlier series (about 1.5x a step from World 2 on). A later World's series needs that World unlocked but none of the earlier series' balls. Each series has its own server-issued purchase token. Owned balls of any series stay equippable everywhere.
 
 ### Training Grounds
 
@@ -284,13 +284,21 @@ World 3 (Future World; placeholder values continuing on from World 2's):
 - Lunar Base: 18 Rebirths, 210x
 - Quantum Lab: opened by Cosmic Rift's 500 Robux pass, 120x
 
+World 4 (Tiny Town; the design's starting values, kept by the balance pass):
+
+- Sandbox Diamond: free once World 4 is unlocked, 270x
+- Pinball Cage: 20 Rebirths, 350x
+- Cereal Bowl Stadium: 22 Rebirths, 450x
+- Toy Soldier Fort: 24 Rebirths, 580x
+- Snow Globe: opened by Cosmic Rift's 500 Robux pass, 400x
+
 Every World:
 
 - Dragon's Lair: 1000 Robux game pass, 30x (the most expensive ground)
 
 Multipliers apply to the first ground's base Power. A ground can only be used once a World it stands in is unlocked; World 1 grounds stay usable after reaching World 2. Paid grounds need no Rebirths. Game-pass ownership is checked by the server through MarketplaceService, never saved and never trusted from the client.
 
-World 1's grounds 2-6 are fantasy themed and World 3's grounds 1-5 futuristic, each with its own cage model, getting more intricate down the row; World 2's use the standard cage in era colors for now. The themes are visual only and never affect Power.
+World 1's grounds 2-6 are fantasy themed and World 3's grounds 1-5 futuristic, each with its own cage model, getting more intricate down the row; World 2's use the standard cage in era colors for now, and World 4's the standard cage in toy colors until their models are made. The themes are visual only and never affect Power.
 
 Unlock requirements and multipliers are configurable and should not be treated as final balance.
 
@@ -416,7 +424,7 @@ Sold for Robux (`.vscode/MONETIZATION.md`; ids in `MonetizationConfig` and `Trai
   - Multipliers: the Power and Cash cards, each showing its next tier as the change it makes ("POWER 2x → 2.5x"), MAXED at the top
   - Cash Packs (developer products, 25 / 59 / 115 / 229 Robux): Cash worth 15 / 50 / 125 / 300 normal hits for the player now (Level, current World, equipped Bat, purchased Cash multiplier; `MonetizationConfig.GetCashPackReward`)
   - Boosts (developer products): Boost Bundle (2 Power Punch + 2 Cash Splash, 95 Robux), Power Punch or Cash Splash (39 Robux each), added to the Inventory, never started
-  - Training Grounds: Dragon's Lair always, plus the World's premium ground (Cosmic Rift / Time Machine Lab / Quantum Lab, one shared pass), through the existing passes, each with a 3D preview of its cage (`ReplicatedStorage.TrainingGroundModels`)
+  - Training Grounds: Dragon's Lair always, plus the World's premium ground (Cosmic Rift / Time Machine Lab / Quantum Lab / Snow Globe, one shared pass), through the existing passes, each with a 3D preview of its cage (`ReplicatedStorage.TrainingGroundModels`)
   - Gifts: every Shop item can be bought for another player in the server (Gift button → player picker → confirm) through a gift developer product at the same price (`MonetizationConfig.GiftProducts`). The server saves the recipient (and a Cash pack's amount from the recipient's progression) in the buyer's `PendingGifts` before the prompt; the receipt queues the gift in the recipient's saved `GiftInbox`, applied once (`ReceivedGifts`), even after they leave. A gifted ground is a saved `GiftedEntitlements` entry counted exactly like owning its pass
 - Bats and Balls are bought for Cash only at their hub display pedestals (each pedestal's ProximityPrompt); there is no Cash equipment menu, and the Shop is the game's only shop menu
 
@@ -433,7 +441,7 @@ Hub / batting area
 
 World completion is based on authoritative final forward distance.
 
-Completing a World permanently unlocks the next World. World 3 (Future World) is the last World for now: its end portal plays a temporary "you finished the game" finale instead of a trip.
+Completing a World permanently unlocks the next World. World 4 (Tiny Town; being built in phases, `.vscode/WORLD4_DESIGN.md`) is the last World for now: its end portal plays a temporary "you finished the game" finale instead of a trip. World 3's portal leads to World 4. A save that completed World 3 before World 4 existed has World 4 unlocked on load.
 
 Every hub shares one compact layout (`WorldConfig` `hubLayout`), named from the spawn, which looks into the hub with the batting area and runway behind it: Training Grounds on the left, item displays on the right, an open plaza with the World's event piece in the middle, and the World portal at the back. World 1's four global leaderboards (Level, Time Played, Robux Spent, Cash) stand either side of its portal. Only the art differs between Worlds.
 

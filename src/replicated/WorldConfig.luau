@@ -196,16 +196,13 @@ local Worlds = {
    stationName = "BattingArea3", fieldName = "LongRangeField3",
    -- The shared hub layout (above): a sunken spaceport plaza with glowing seams, a hologram
    -- stage, a beacon tower and the skyline of the future on the berm (HubDecor "Future").
-   offset = Vector3.new(16000, 0, 0), arrival = arrival(Vector3.new(16000, 0, 0)),
+   offset = Vector3.new(16000, 0, 0), arrival = arrival(Vector3.new(16000, 0, 0)), nextWorldId = "world_4",
    hub = hubLayout("World3Hub", "Future", "world_3", "FUTURE BALLS"),
    preview = {image = "rbxassetid://135986912788694", sky = Color3.fromRGB(150, 220, 255), ground = Color3.fromRGB(226, 234, 244)},
    runoutDistance = 2000,
    cashMultiplier = 100,
-   -- The last World for now. Its portal completes it as usual, then plays a temporary finale
-   -- (PortalJourneyClient) instead of a trip. To add World 4: give World 3 a nextWorldId and
-   -- remove the finale.
-   endPortal = {height = 360, finale = {title = "YOU FINISHED THE GAME!", subtitle = "MORE WORLDS COMING SOON",
-    closing = "THANKS FOR PLAYING!"}},
+   -- The same portal ends World 3 and pulls the batter through the singularity to World 4.
+   endPortal = {height = 360},
    -- Cosmetic only (RunwayDecor), as the other Worlds. Landmarks are single giant meshes
    -- (here a black hole looming behind the end portal); distance is downfield, height above
    -- the ground.
@@ -260,6 +257,71 @@ local Worlds = {
      order = 10, rewardMultiplier = 1.35, color = Color3.fromRGB(40, 26, 72), accent = Color3.fromRGB(222, 160, 255),
      material = Enum.Material.Glass, deckMaterial = Enum.Material.SmoothPlastic, props = {"energyRing", "quantumShard", "riftRock"},
      backdrop = "voidShards", fillers = {"rock"}, floorCracks = true},
+   }},
+  {id = "world_4", displayName = "World 4", title = "Tiny Town", order = 4, endDistance = 8000,
+   stationName = "BattingArea4", fieldName = "LongRangeField4",
+   -- The shared hub layout (above). Mouse-Hole Plaza (HubDecor "TinyTown") is not built yet, so
+   -- the hub uses the plain floor (.vscode/WORLD4_DESIGN.md, Phase 6).
+   offset = Vector3.new(24000, 0, 0), arrival = arrival(Vector3.new(24000, 0, 0)),
+   hub = hubLayout("World4Hub", nil, "world_4", "TINY TOWN BALLS"),
+   -- No card image yet: the painted scene in the sky and ground colours.
+   preview = {sky = Color3.fromRGB(255, 214, 150), ground = Color3.fromRGB(120, 196, 90)},
+   runoutDistance = 2000,
+   cashMultiplier = 1000,
+   -- The last World for now. Its portal completes it as usual, then plays a temporary finale
+   -- (PortalJourneyClient) instead of a trip. To add World 5: give World 4 a nextWorldId and
+   -- move the finale.
+   endPortal = {height = 360, finale = {title = "YOU FINISHED THE GAME!", subtitle = "MORE WORLDS COMING SOON",
+    closing = "THANKS FOR PLAYING!"}},
+   -- Cosmetic only (RunwayDecor), as the other Worlds.
+   runway = {width = 160, wallHeight = 12, wallThickness = 6, wallTileLength = 12,
+    deckWidth = 72, outerGroundWidth = 260, propSpacing = 60, backdropSpacing = 90,
+    propScale = 1.8, fillerScale = 1.5},
+   -- Shrunk to bug size across a giant house and yard, in the order of the World 4 balls
+   -- (Dandelion Puff to Dream Orb). The Cash multipliers follow the earlier Worlds' pattern (x1 to
+   -- 700, x1.15 to 2100, x1.35 beyond). The props and backdrops are placeholders from the
+   -- primitive kinds above until the Tiny Town meshes are made (WORLD4_DESIGN.md, Phases 2-3).
+   sections = {
+    {id = "backyard", displayName = "Giant Backyard", startDistance = 0, endDistance = 700,
+     order = 1, rewardMultiplier = 1, color = Color3.fromRGB(92, 182, 72), accent = Color3.fromRGB(232, 64, 56),
+     material = Enum.Material.Grass, deckMaterial = Enum.Material.LeafyGrass, props = {"jungleTree", "fern", "mushroom"},
+     backdrop = "canopy", fillers = {"rock", "bush"}},
+    {id = "picnic", displayName = "Picnic Blanket", startDistance = 700, endDistance = 1400,
+     order = 2, rewardMultiplier = 1.15, color = Color3.fromRGB(214, 70, 70), accent = Color3.fromRGB(255, 244, 236),
+     material = Enum.Material.Fabric, deckMaterial = Enum.Material.Grass, deckColor = Color3.fromRGB(100, 184, 80),
+     props = {"cake", "gumdrops", "flowers"}, backdrop = "hills", fillers = {"rock"}, floorTiles = true},
+    {id = "kitchen", displayName = "Kitchen Counter", startDistance = 1400, endDistance = 2100,
+     order = 3, rewardMultiplier = 1.15, color = Color3.fromRGB(226, 220, 206), accent = Color3.fromRGB(240, 172, 60),
+     material = Enum.Material.Marble, deckMaterial = Enum.Material.WoodPlanks, deckColor = Color3.fromRGB(196, 150, 100),
+     props = {"cake", "lollipop", "dunes"}, backdrop = "mesas", fillers = {"rock"}, floorTiles = true},
+    {id = "blocktown", displayName = "Block Town", startDistance = 2100, endDistance = 2800,
+     order = 4, rewardMultiplier = 1.35, color = Color3.fromRGB(70, 132, 230), accent = Color3.fromRGB(255, 206, 50),
+     material = Enum.Material.SmoothPlastic, deckMaterial = Enum.Material.WoodPlanks, deckColor = Color3.fromRGB(206, 160, 108),
+     props = {"beacon", "crystals", "gumdrops"}, backdrop = "towers", fillers = {"rock"}, floorPlanks = true},
+    {id = "boardgame", displayName = "Board Game Boulevard", startDistance = 2800, endDistance = 3500,
+     order = 5, rewardMultiplier = 1.35, color = Color3.fromRGB(60, 56, 64), accent = Color3.fromRGB(236, 232, 220),
+     material = Enum.Material.SmoothPlastic, deckMaterial = Enum.Material.Wood, deckColor = Color3.fromRGB(150, 96, 60),
+     props = {"neonArch", "geode", "beacon"}, backdrop = "spires", fillers = {"rock"}, floorTiles = true},
+    {id = "crafttable", displayName = "Craft Table", startDistance = 3500, endDistance = 4200,
+     order = 6, rewardMultiplier = 1.35, color = Color3.fromRGB(236, 222, 196), accent = Color3.fromRGB(236, 90, 160),
+     material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.SmoothPlastic, props = {"candyCane", "lollipop", "crystals"},
+     backdrop = "candyHills", fillers = {"rock"}, floorPlanks = true},
+    {id = "bathtub", displayName = "Bathtub Bay", startDistance = 4200, endDistance = 4900,
+     order = 7, rewardMultiplier = 1.35, color = Color3.fromRGB(150, 214, 236), accent = Color3.fromRGB(255, 220, 60),
+     material = Enum.Material.Marble, deckMaterial = Enum.Material.Marble, deckColor = Color3.fromRGB(236, 244, 250),
+     props = {"cloud", "iceShards", "gumdrops"}, backdrop = "bigClouds", fillers = {"bush"}, floorTiles = true},
+    {id = "bookshelf", displayName = "Bookshelf Cliffs", startDistance = 4900, endDistance = 5700,
+     order = 8, rewardMultiplier = 1.35, color = Color3.fromRGB(140, 92, 62), accent = Color3.fromRGB(80, 150, 220),
+     material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.WoodPlanks, props = {"mesa", "pine", "planet"},
+     backdrop = "mountains", fillers = {"rock"}, floorPlanks = true},
+    {id = "attic", displayName = "Attic Treasures", startDistance = 5700, endDistance = 6800,
+     order = 9, rewardMultiplier = 1.35, color = Color3.fromRGB(96, 80, 96), accent = Color3.fromRGB(196, 214, 255),
+     material = Enum.Material.WoodPlanks, deckMaterial = Enum.Material.WoodPlanks, deckColor = Color3.fromRGB(110, 86, 70),
+     props = {"moon", "geode", "star"}, backdrop = "towers", fillers = {"rock"}, floorPlanks = true},
+    {id = "pillowfort", displayName = "Pillow Fort", startDistance = 6800, endDistance = 8000,
+     order = 10, rewardMultiplier = 1.35, color = Color3.fromRGB(70, 74, 140), accent = Color3.fromRGB(255, 226, 150),
+     material = Enum.Material.Fabric, deckMaterial = Enum.Material.Fabric, deckColor = Color3.fromRGB(150, 140, 210),
+     props = {"cloud", "star", "moon"}, backdrop = "bigClouds", fillers = {"bush"}},
    }},
  },
 }

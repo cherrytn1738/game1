@@ -339,12 +339,12 @@ return function(sources)
  local over = Progression.Normalize({Level=2, Power=100, Rebirths=0},false)
  check(over.Level == 8 and over.Power == 10, "saved excess Power normalizes consistently")
  check(Worlds.Get("world_1").endDistance == 5000 and Worlds.Get("world_2").endDistance == 6000
-  and Worlds.Get("world_3").endDistance == 7000, "world endpoints unchanged")
+  and Worlds.Get("world_3").endDistance == 7000 and Worlds.Get("world_4").endDistance == 8000, "world endpoints unchanged")
  -- Physical grounds: access derives from private Rebirths or a Roblox pass, and offline
  -- grants use the best usable ground inside the atomic login transaction.
  local multipliers = {}
  for _, entry in Training.Grounds do table.insert(multipliers, entry.powerMultiplier) end
- check(table.concat(multipliers, ",") == "1,5,10,20,10,25,35,50,70,35,90,120,160,210,120,30",
+ check(table.concat(multipliers, ",") == "1,5,10,20,10,25,35,50,70,35,90,120,160,210,120,270,350,450,580,400,30",
   "ground multipliers on the first ground's Power")
  check(Training.Get("sky_temple").requiredRebirths == 6 and Training.IsPaid(Training.Get("cosmic_rift"))
   and not Training.IsUnlocked("cosmic_rift", 1000), "Rebirth and paid ground requirements")
@@ -357,7 +357,7 @@ return function(sources)
  -- Per-World hubs: a ground needs a World it stands in to be unlocked; Dragon's Lair stands in
  -- every hub; Time Machine Lab is opened by Cosmic Rift's pass.
  local bothWorlds = {world_1=true, world_2=true}
- check(table.concat(Training.Get("dragons_lair").worlds, ",") == "world_1,world_2,world_3"
+ check(table.concat(Training.Get("dragons_lair").worlds, ",") == "world_1,world_2,world_3,world_4"
   and table.concat(Training.Get("caveman_camp").worlds, ",") == "world_2"
   and table.concat(Training.Get("solar_rooftop").worlds, ",") == "world_3", "grounds know the Worlds they stand in")
  check(Training.GetPlatePosition(Training.Get("dragons_lair"), "world_1") == Training.GetPlatePosition(Training.Get("dragons_lair"), "world_2")
@@ -389,6 +389,22 @@ return function(sources)
   "Quantum Lab uses Cosmic Rift's pass in World 3")
  check(Training.GetBestGround(0, nil, allWorlds).id == "solar_rooftop" and Training.GetBestGround(18, nil, allWorlds).id == "lunar_base"
   and Training.GetBestGround(0, {cosmic_rift=true}, allWorlds).id == "quantum_lab", "best ground looks across all three Worlds")
+ -- World 4's grounds: the same pattern again (Snow Globe on Cosmic Rift's pass).
+ local fourWorlds = {world_1=true, world_2=true, world_3=true, world_4=true}
+ check(table.concat(Training.GetHub("world_4").grounds, ",") == "sandbox_diamond,pinball_cage,cereal_bowl_stadium,toy_soldier_fort,snow_globe,dragons_lair"
+  and Training.GetPlatePosition(Training.Get("sandbox_diamond"), "world_4") == Training.GetPlatePosition(Training.Get("basic_training"), "world_1"),
+  "World 4's hub has its row of six, Dragon's Lair last")
+ check(not Training.CanUse("sandbox_diamond", 99, nil, allWorlds) and Training.CanUse("sandbox_diamond", 0, nil, fourWorlds),
+  "World 4 grounds wait for World 4")
+ check(Training.IsUnlocked("pinball_cage", 20, fourWorlds) and not Training.IsUnlocked("pinball_cage", 19, fourWorlds)
+  and Training.IsUnlocked("cereal_bowl_stadium", 22, fourWorlds) and not Training.IsUnlocked("cereal_bowl_stadium", 21, fourWorlds)
+  and Training.IsUnlocked("toy_soldier_fort", 24, fourWorlds) and not Training.IsUnlocked("toy_soldier_fort", 23, fourWorlds),
+  "World 4 Rebirth tiers continue on")
+ check(Training.CanUse("snow_globe", 0, {cosmic_rift=true}, fourWorlds) and not Training.CanUse("snow_globe", 0, {cosmic_rift=true}, allWorlds)
+  and Training.GetPassGround(Training.Get("snow_globe")).id == "cosmic_rift" and #Training.PassGrounds == 2,
+  "Snow Globe uses Cosmic Rift's pass in World 4")
+ check(Training.GetBestGround(0, nil, fourWorlds).id == "sandbox_diamond" and Training.GetBestGround(24, nil, fourWorlds).id == "toy_soldier_fort",
+  "best ground looks across all four Worlds")
  local trainee = join(30)
  check(trainee:GetAttribute("OfflinePowerEarned")==0 and trainee:GetAttribute("OfflineTrainingGround")==Training.DefaultGround,"new player has no historical reward")
  check(Data.CanUseTrainingGround(trainee,"basic_training") and not Data.CanUseTrainingGround(trainee,"enchanted_grove"),"Rebirth grounds start locked")
@@ -620,7 +636,7 @@ return function(sources)
    and ball.series == "world_2"
  end
  check(#worldTwoBalls == 10 and worldTwoBalls[1].id == "dino_egg_ball" and worldTwoBalls[10].id == "chrono_orb" and aboveWorldOne
-  and #worldOneBalls == 10 and #Equipment.GetItems("Ball") == 30, "World 2 sells ten balls above World 1's best")
+  and #worldOneBalls == 10 and #Equipment.GetItems("Ball") == 40, "World 2 sells ten balls above World 1's best")
  local worldThreeBalls = Equipment.GetSeriesItems("Ball", "world_3")
  local chrono = worldTwoBalls[#worldTwoBalls]
  local aboveChrono = true
@@ -628,8 +644,18 @@ return function(sources)
   aboveChrono = aboveChrono and ball.powerGainMultiplier > chrono.powerGainMultiplier and ball.price > chrono.price
    and ball.series == "world_3"
  end
+ local worldFourBalls = Equipment.GetSeriesItems("Ball", "world_4")
+ local singularity = worldThreeBalls[#worldThreeBalls]
+ local aboveSingularity = true
+ for _, ball in worldFourBalls do
+  aboveSingularity = aboveSingularity and ball.powerGainMultiplier > singularity.powerGainMultiplier and ball.price > singularity.price
+   and ball.series == "world_4"
+ end
+ check(#worldFourBalls == 10 and worldFourBalls[1].id == "dandelion_puff_ball" and worldFourBalls[10].id == "dream_orb" and aboveSingularity
+  and Equipment.GetSeriesInfo("Ball", "world_4").requiredWorld == "world_4" and worldFourBalls[10].price < 9000000000000,
+  "World 4 sells ten balls above the Singularity Orb, below the Cash cap")
  -- Each series rises in Power and price, so later Balls are always upgrades.
- for _, series in {worldOneBalls, worldTwoBalls, worldThreeBalls} do
+ for _, series in {worldOneBalls, worldTwoBalls, worldThreeBalls, worldFourBalls} do
   for index = 2, #series do
    check(series[index].powerGainMultiplier > series[index - 1].powerGainMultiplier and series[index].price > series[index - 1].price,
     series[index].id .. " beats " .. series[index - 1].id .. " and costs more")
@@ -1144,13 +1170,33 @@ return function(sources)
  check(Progression.GetPowerGrant(3,1,1.5)==9 and Progression.GetPowerGrant(1,0,1.5)==1,
   "whole Power rounds only after composing bonuses")
  -- Balance shapes (tools/balance tunes the numbers; these keep the relationships).
- local previousRequirement, requirementsRise = 0, true
+ -- Past World 4's end the tail bands reach MaxPower (about Level 555), where requirements stop.
+ local previousRequirement, requirementsRise, clampedFrom = 0, true, nil
  for level = 1, 600 do
   local required = Progression.PowerRequiredForNextLevel(level)
-  requirementsRise = requirementsRise and required > previousRequirement
+  if previousRequirement == Progression.MaxPower then
+   requirementsRise = requirementsRise and required == Progression.MaxPower
+  else
+   requirementsRise = requirementsRise and required > previousRequirement
+  end
+  if required == Progression.MaxPower and not clampedFrom then clampedFrom = level end
   previousRequirement = required
  end
- check(requirementsRise, "every Level needs more Power than the one before, across band breakpoints")
+ check(requirementsRise and (clampedFrom == nil or clampedFrom > 520),
+  "every Level needs more Power than the one before, across band breakpoints, until MaxPower (past World 4)")
+ -- A grant bigger than MaxPower (a late offline return or 3x) levels through in pieces, none lost.
+ local big = {Power = 0, Level = 500, LevelCap = 520, Rebirths = 25}
+ local grant = 2 * Progression.MaxPower
+ Progression.Advance(big, grant)
+ local consumed = big.Power
+ for level = 500, big.Level - 1 do consumed += Progression.PowerRequiredForNextLevel(level) end
+ local single = {Power = 0, Level = 500, LevelCap = 520, Rebirths = 25}
+ Progression.Advance(single, Progression.MaxPower)
+ check(big.Level > single.Level and big.Power < Progression.MaxPower and math.abs(consumed - grant) < 64,
+  "a grant above MaxPower keeps levelling instead of being cut off")
+ local capped = {Power = 0, Level = 519, LevelCap = 520, Rebirths = 25}
+ Progression.Advance(capped, grant)
+ check(capped.Level == 520 and capped.Power == Progression.MaxPower, "at the Level Cap Power still banks only up to MaxPower")
  check(Progression.GetLevelCap(0) == 20 and Progression.GetLevelCap(1) == 40 and Progression.GetLevelCap(5) == 120,
   "Level Cap is 20 x (Rebirths + 1)")
  check(Progression.TrainingBase == 5 and Progression.GetTrainingBase == nil and Progression.TrainingBasePerLevel == nil,
@@ -1229,13 +1275,15 @@ return function(sources)
   if point[1] >= early.untilLevel then tableKept = tableKept and Progression.GetLaunchSpeed(point[1]) == point[2] end
  end
  -- The table ends at untilLevel; from there every Level is a measured step: one per Level to 140
- -- (the last smooth measurement, 505), then the high-speed steps from 141 (660 ... 716).
+ -- (the last smooth measurement, 505), then the high-speed steps from 141 (660 ... 716 at World 3's
+ -- end, Level 370), then World 4's to its end at Level 490 (717).
  local stepAt = {}
  for _, step in speedSteps do stepAt[step[1]] = step[2] end
  local perLevel = true
  for level = early.untilLevel + 1, 140 do perLevel = perLevel and stepAt[level] ~= nil end
  check(tableKept and speedTable[#speedTable][1] == early.untilLevel and perLevel and stepAt[140] == 505 and stepAt[141] == 660
-  and speedSteps[#speedSteps][2] == 716, "the table hands over to measured steps at untilLevel; 140 = 505, 141 = 660, the last 716")
+  and stepAt[370] == 716 and speedSteps[#speedSteps][1] == 490 and speedSteps[#speedSteps][2] == 717,
+  "the table hands over to measured steps at untilLevel; 140 = 505, 141 = 660, 370 = 716, the last 490 = 717")
  check(Progression.GetHitCash(81, 1, 1, 1) == 1 and Progression.GetHitCash(95, 1, 1, 1) == 1 and Progression.GetHitCash(0, 1, 1, 1) == 1,
   "early hits pay $1, so the tutorial's $2 takes two hits")
  check(Progression.GetHitCash(4000, 1, 1, 1) > Progression.GetHitCash(2000, 1, 1, 1)
@@ -1677,7 +1725,7 @@ return function(sources)
   == Progression.GetHitCash(distance30, world1.cashMultiplier, Field.GetRewardSection(distance30, world1).rewardMultiplier, 2.5),
   "a normal hit's Cash follows the Level, World and Bat")
  check(Progression.GetExpectedHitDistance(1) == 81 and math.abs(Progression.GetExpectedHitDistance(140) - 3906) < 1e-6
-  and Progression.GetExpectedHitDistance(1000) == 7000 and Progression.GetExpectedHitDistance(70) > Progression.GetExpectedHitDistance(69),
+  and Progression.GetExpectedHitDistance(370) == 7000 and Progression.GetExpectedHitDistance(1000) == 8000 and Progression.GetExpectedHitDistance(70) > Progression.GetExpectedHitDistance(69),
   "expected hit distances follow the measured hits")
  saved.Player_523 = {SchemaVersion = 11, Cash = 100, Level = 30, Power = 0, Rebirths = 1, TutorialCompleted = true}
  local cashBuyer = join(523)
@@ -1871,8 +1919,9 @@ return function(sources)
  check(Monetization.GetGroundGift(Training.Get("cosmic_rift")).id == "GiftPremiumTraining"
   and Monetization.GetGroundGift(Training.Get("time_machine_lab")).id == "GiftPremiumTraining"
   and Monetization.GetGroundGift(Training.Get("quantum_lab")).id == "GiftPremiumTraining"
-  and Monetization.GetGroundGift(Training.Get("dragons_lair")).id == "GiftDragonsLair",
-  "the three World premium grounds share one gift (their shared pass); Dragon's Lair has its own")
+  and Monetization.GetGroundGift(Training.Get("dragons_lair")).id == "GiftDragonsLair"
+  and Monetization.GetGroundGift(Training.Get("snow_globe")).id == "GiftPremiumTraining",
+  "the four World premium grounds share one gift (their shared pass); Dragon's Lair has its own")
  local function giftIndex(id) for index, gift in Monetization.GiftProducts do if gift.id == id then return index end end end
  local function giftReceipt(buyerId, purchaseId, id)
   return {PlayerId = buyerId, PurchaseId = purchaseId, ProductId = 730 + giftIndex(id),
@@ -2013,8 +2062,8 @@ return function(sources)
  leave(drinker)
  check(saved.Player_524.OwnedJuices.power_punch == 3 and saved.Player_524.OwnedJuices.cash_splash == 3, "bought juices are saved")
  -- Training Grounds: Dragon's Lair always, plus the premium ground in the player's World, each
- -- through its existing pass (one shared pass for the three World grounds).
- for worldId, expected in {world_1 = "cosmic_rift", world_2 = "time_machine_lab", world_3 = "quantum_lab"} do
+ -- through its existing pass (one shared pass for the four World grounds).
+ for worldId, expected in {world_1 = "cosmic_rift", world_2 = "time_machine_lab", world_3 = "quantum_lab", world_4 = "snow_globe"} do
   local listed = Monetization.GetShopGrounds(worldId)
   check(#listed == 2 and listed[1].id == expected and listed[2].id == "dragons_lair", worldId .. " lists " .. expected .. " and Dragon's Lair")
   check(Training.GetPassGround(listed[1]).id == "cosmic_rift" and Training.GetPassGround(listed[2]).id == "dragons_lair",

@@ -76,6 +76,20 @@ return function(sources, options)
  local measuredSpeeds = {}
  for speed, trials in Measured.sweep or {} do measuredSpeeds[speed] = trials end
  for speed, trials in Measured.erratic or {} do measuredSpeeds[speed] = trials end
+ -- Speeds measured in the longest field (World 4, to 8,000 studs): where an earlier field cut a hit
+ -- short at its own end (7,000), these trials replace that speed's; otherwise they join them.
+ for speed, trials in Measured.far or {} do
+  local earlier = measuredSpeeds[speed]
+  local capped = false
+  for _, trial in earlier or {} do capped = capped or trial[1] >= 7000 end
+  if not earlier or capped then
+   measuredSpeeds[speed] = trials
+  else
+   local merged = table.clone(earlier)
+   for _, trial in trials do table.insert(merged, trial) end
+   measuredSpeeds[speed] = merged
+  end
+ end
  for speed, trials in measuredSpeeds do
   local sum, time, low, high = 0, 0, math.huge, -math.huge
   for _, trial in trials do
@@ -288,6 +302,33 @@ return function(sources, options)
   for key, inner in value do result[key] = copy(inner) end
   return result
  end
+ -- The set of Worlds up to and including worldId (in order), as unlocked Worlds.
+ local function worldsThrough(worldId)
+  local set = {}
+  for _, world in Worlds.Worlds do
+   set[world.id] = true
+   if world.id == worldId then break end
+  end
+  return set
+ end
+ -- The furthest World a hit at this Level has unlocked (each World's end opens the next).
+ local function worldForLevel(level)
+  local distance = (hitAt(P.GetLaunchSpeed(level)))
+  local id = Worlds.StartingWorldId
+  for _, world in Worlds.Worlds do
+   if world.id == id and world.nextWorldId and distance >= world.endDistance then id = world.nextWorldId end
+  end
+  return id
+ end
+ -- "World 2 <time> | World 3 <time> | ...": when each World after the first opened (at(id) gives
+ -- the time the World before it was completed).
+ local function unlockTimes(at)
+  local parts = {}
+  for index = 2, #Worlds.Worlds do
+   table.insert(parts, string.format("World %d %8s", index, at(Worlds.Worlds[index - 1].id)))
+  end
+  return table.concat(parts, " | ")
+ end
  local function cap(s) return P.GetLevelCap(s.rebirths) end
  local function advance(s, amount)
   local state = {Power = s.power, Level = s.level, LevelCap = cap(s)}
@@ -296,7 +337,9 @@ return function(sources, options)
  end
  -- The best ground only changes with Rebirths, World unlocks and passes, so it is cached.
  local function bestGround(s)
-  local key = s.rebirths .. (s.unlocked.world_2 and "b" or "") .. (s.unlocked.world_3 and "c" or "") .. (next(s.passes) and "p" or "")
+  local key = tostring(s.rebirths)
+  for _, world in Worlds.Worlds do key ..= s.unlocked[world.id] and "+" or "-" end
+  key ..= next(s.passes) and "p" or ""
   if s.groundKey ~= key then s.groundKey, s.groundId = key, Training.GetBestGround(s.rebirths, s.passes, s.unlocked).id end
   return Training.Get(s.groundId)
  end
@@ -568,12 +611,26 @@ return function(sources, options)
   return math.floor(value / unit + 0.5) * unit
  end
  local originalBands = P.LevelBands
+ -- keepBands = n keeps the configured bands of the first n Rebirths and solves only the ones
+ -- after them (e.g. for a new World past the last one).
  local function solveBands(slope, count)
   local starts = {}
+  local kept = options.keepBands or 0
+  for k = 1, kept do
+   for _, band in originalBands do
+    if band.fromLevel == P.LevelsPerRebirth * k then starts[k] = band.start end
+   end
+   assert(starts[k], "keepBands: no configured band at Level " .. P.LevelsPerRebirth * k)
+  end
   local s = tutorial()
   for k = 1, count do
    local target = targetMinutes(slope, k) * 60
-   local low, high = math.log(1), math.log(1e15)
+   local low, high = math.log(1), math.log(P.MaxPower)
+   if k <= kept then
+    setBands(starts)
+    if k == 1 then runTrainingOnly(s) else runActive(s) end
+    continue
+   end
    for _ = 1, 30 do
     if task and task.wait then task.wait() end -- keep Studio responsive
     local mid = (low + high) / 2
@@ -598,8 +655,9 @@ return function(sources, options)
   -- around the targets (the report shows the real ones).
   local logs = {}
   for k, start in starts do logs[k] = math.log(start) end
+  local first = math.max(2, kept + 1)
   local blocks = {}
-  for k = 2, #logs do
+  for k = first, #logs do
    table.insert(blocks, {sum = logs[k], count = 1})
    while #blocks > 1 and blocks[#blocks - 1].sum / blocks[#blocks - 1].count > blocks[#blocks].sum / blocks[#blocks].count do
     local top = table.remove(blocks)
@@ -607,15 +665,15 @@ return function(sources, options)
     blocks[#blocks].count += top.count
    end
   end
-  local k = 2
+  local k = first
   for _, block in blocks do
    for _ = 1, block.count do logs[k] = block.sum / block.count k += 1 end
   end
   local averaged = table.clone(logs)
-  for index = 3, #logs - 1 do averaged[index] = (logs[index - 1] + logs[index] + logs[index + 1]) / 3 end
+  for index = math.max(3, first), #logs - 1 do averaged[index] = (logs[index - 1] + logs[index] + logs[index + 1]) / 3 end
   local minRatio = math.log(options.minBandRatio or 1.8)
-  for index = 2, #averaged do averaged[index] = math.max(averaged[index], averaged[index - 1] + minRatio) end
-  for index, value in averaged do starts[index] = round2(math.exp(value)) end
+  for index = first, #averaged do averaged[index] = math.max(averaged[index], averaged[index - 1] + minRatio) end
+  for index, value in averaged do if index >= first then starts[index] = round2(math.exp(value)) end end
   return starts
  end
 
@@ -797,7 +855,7 @@ return function(sources, options)
    local function at(id) local reached = p.worldTimes[id] return reached and clock(reached.time) or "-" end
    local finale = p.worldTimes[finaleWorld] and p.worldTimes[finaleWorld].time
    freeFinale = freeFinale or finale
-   say("  %-42s World 2 %8s | World 3 %8s | finale %8s%s | %d Robux of tiers", scenario.name, at("world_1"), at("world_2"),
+   say("  %-42s %s | finale %8s%s | %d Robux of tiers", scenario.name, unlockTimes(at),
     at(finaleWorld), finale and freeFinale and finale < freeFinale and string.format(" (%.0f%% faster)", 100 * (1 - finale / freeFinale)) or "",
     tierRobux(scenario))
   end
@@ -837,15 +895,15 @@ return function(sources, options)
   -- Batting vs Training.
   say("")
   say("BATTING vs TRAINING (Power per minute, same Level/Ball/Rebirth)")
-  for _, level in {1, 3, 20, 40, 80, 140, 150, 250, 370} do
+  for _, level in {1, 3, 20, 40, 80, 140, 150, 250, 370, 430, 490} do
    local probe = newState()
    probe.level = level
    probe.rebirths = math.max(0, math.ceil(level / P.LevelsPerRebirth) - 1)
-   probe.world = level >= 250 and "world_3" or level >= 150 and "world_2" or "world_1"
+   probe.world = worldForLevel(level)
    local _, distance, seconds = landing(probe)
    local batting = P.GetHitPowerBase(seconds - A.launchDelay) / (seconds + A.cycleOverhead) * 60
    local basic = P.TrainingBase / A.contact * 60
-   local ground = Training.GetBestGround(probe.rebirths, {}, {world_1 = true, world_2 = level >= 150, world_3 = level >= 250})
+   local ground = Training.GetBestGround(probe.rebirths, {}, worldsThrough(probe.world))
    say("  Level %3d  hit %5.0f studs %4.1fs: batting %6.1f vs Basic Training %6.1f (%3.0f%%) vs %s x%d (%4.1f%%)", level,
     distance, seconds, batting, basic, 100 * batting / basic, ground.displayName, ground.powerMultiplier,
     100 * batting / (basic * ground.powerMultiplier))
@@ -869,11 +927,11 @@ return function(sources, options)
   local durations = {15, 60, 240, 480}
   local offlineRows = {"rebirths,logout_level,ball,ground,minutes_away,remaining,time_power,power,triple_power,time_share,share,triple_share,power_training_minutes,run_training_minutes"}
   for _, run in a.runs do
-   if ({[1] = true, [3] = true, [6] = true, [9] = true, [12] = true, [15] = true, [18] = true})[run.rebirths] then
+   if ({[1] = true, [3] = true, [6] = true, [9] = true, [12] = true, [15] = true, [18] = true, [21] = true, [24] = true})[run.rebirths] then
     for _, logoutLevel in {P.LevelsPerRebirth * run.rebirths, P.StartingLevel} do
      local probe = newState()
      probe.rebirths, probe.ball, probe.level = run.rebirths, run.ball, logoutLevel
-     probe.unlocked = {world_1 = true, world_2 = run.world ~= "world_1", world_3 = run.world == "world_3"}
+     probe.unlocked = worldsThrough(run.world)
      local ground = bestGround(probe)
      local parts, remaining, runMinutes, lastMinutes = {}, nil, nil, nil
      for _, duration in durations do
@@ -969,7 +1027,7 @@ return function(sources, options)
     local guard2 = 0
     while probe.rebirths < (options.bands or 20) and guard2 < 200 do guard2 += 1 runActive(probe) end
     local function at(id) local reached = probe.worldTimes[id] return reached and clock(reached.time) or "-" end
-    say("  %-6s World 2 unlock %8s | World 3 unlock %8s | finale %8s | Rebirth 20 at %s", pace, at("world_1"), at("world_2"), at("world_3"), clock(probe.time))
+    say("  %-6s %s | finale %8s | Rebirth %d at %s", pace, unlockTimes(at), at(finaleWorld), options.bands or 20, clock(probe.time))
    end
    P.LevelBands = originalBands
   end

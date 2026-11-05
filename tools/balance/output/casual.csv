@@ -15,4 +15,16 @@ day,rebirths,level,world,ball,bat,play_minutes
 14,17,284,world_3,moon_rock_ball,dragon_bone_bat,420
 15,17,353,world_3,red_planet_ball,dragon_bone_bat,450
 16,18,336,world_3,red_planet_ball,dragon_bone_bat,480
-17,19,1,world_3,singularity_orb,dragon_bone_bat,510
+17,19,308,world_4,singularity_orb,celestial_bat,510
+18,19,394,world_4,blueberry_ball,celestial_bat,540
+19,20,383,world_4,blueberry_ball,celestial_bat,570
+20,20,416,world_4,meatball_ball,celestial_bat,600
+21,21,401,world_4,bouncy_ball,celestial_bat,630
+22,21,433,world_4,lucky_dice_ball,celestial_bat,660
+23,22,409,world_4,lucky_dice_ball,celestial_bat,690
+24,22,453,world_4,yarn_ball,celestial_bat,720
+25,23,417,world_4,yarn_ball,celestial_bat,750
+26,23,470,world_4,bath_bomb_ball,celestial_bat,780
+27,24,420,world_4,bath_bomb_ball,celestial_bat,810
+28,24,489,world_4,mini_globe_ball,celestial_bat,840
+29,25,1,world_4,mini_globe_ball,celestial_bat,870

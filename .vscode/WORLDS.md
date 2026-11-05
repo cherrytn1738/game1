@@ -214,8 +214,20 @@ Environment art, terrain, props, effects, and other cosmetic work should be impl
 
 ### Current World Layouts
 
-- **World 1** uses a 160-stud-wide themed runway with ten sections (Meadow Run through Starlight Finish). The themes are cosmetic and keep the original reward tiers: 1.0× (0–300), 1.15× (300–800), 1.35× (800–5000 and runout). See `GAME_DESIGN.md` → World 1 Runway Themes.
-- **World 2** still uses the original wide field with three generic sections (Section 1–3). It has no runway theme yet.
+Every World uses a 160-stud-wide themed runway with ten sections, a 2,000-stud runout and an end portal (`WorldConfig`). The themes are cosmetic; each World keeps the reward tiers 1.0×, 1.15× and 1.35× (the last also in the runout).
+
+| World | Title | End | Cash | Offset (X) | Sections | Reward tiers |
+|---|---|---|---|---|---|---|
+| World 1 | Home Field | 5,000 | ×1 | 0 | Meadow Run → Starlight Finish | 1.0× to 300, 1.15× to 800, 1.35× beyond |
+| World 2 | Time Travel | 6,000 | ×10 | 8,000 | Prehistoric Valley → Chrono Nexus | 1.0× to 500, 1.15× to 1,500, 1.35× beyond |
+| World 3 | Future World | 7,000 | ×100 | 16,000 | Solar Suburbs → Quantum Singularity | 1.0× to 600, 1.15× to 2,000, 1.35× beyond |
+| World 4 | Tiny Town | 8,000 | ×1,000 | 24,000 | Giant Backyard → Pillow Fort | 1.0× to 700, 1.15× to 2,100, 1.35× beyond |
+
+Each World's end portal pulls the batter through to the next World (World 3's through the singularity into Tiny Town). **World 4 is the last World for now:** its end portal completes it as usual, then plays the temporary "you finished the game" finale instead of a trip. To add a World 5, give World 4 a `nextWorldId` and move the finale (`endPortal.finale`) to the new last World.
+
+World 4 is being built in phases (`.vscode/WORLD4_DESIGN.md`). Its configuration, unlock, Training Grounds and Ball series are in place; its runway props, Balls, cages and Mouse-Hole Plaza hub use primitive placeholders until their models are made.
+
+A save that completed a World always has the next World unlocked when it loads (`PlayerData` validate), so players who finished World 3 before World 4 existed find World 4 open on their next visit; their next World 3 portal hit does not replay the finale.
 
 ## Current Balance
 

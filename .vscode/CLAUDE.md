@@ -211,7 +211,7 @@ The physical batting tee still exists in the world.
 - Training Power = Training base (5) × ground multiplier × Ball × (Rebirths + 1) × purchased Power multiplier (× Power juice)
 - Hit Power = Training base × `HitPowerPerSecond` (0.37) × seconds in play, rounded, × Ball × (Rebirths + 1) × purchased Power multiplier (× Power juice); no ground
 - Offline Power = 25% of the best usable ground's rate, no Level term (8 h cap) × saved Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held to half the Power still needed for the Level Cap (Welcome Back's 3x: twice more, up to all of it)
-- Hit Cash = (distance / 80)^1.5 × World `cashMultiplier` (1, 10, 100) × section multiplier × Bat × purchased Cash multiplier (× Cash juice), rounded, at least $1
+- Hit Cash = (distance / 80)^1.5 × World `cashMultiplier` (1, 10, 100, 1,000) × section multiplier × Bat × purchased Cash multiplier (× Cash juice), rounded, at least $1
 - Purchased multipliers (`MonetizationConfig.Multipliers`, Robux tiers; saved `PowerMultiplierTier` / `CashMultiplierTier`): Power 2x-4x in 5 tiers, Cash 2x-5x in 7 (+0.5x a tier); 1x with none; never distance
 - Juices (`JuiceConfig`): Power Punch (2x Power) and Cash Splash (2x Cash), 600 s each, on real time (saved expiry times, so they run while offline); a repeat drink adds 600 s (never 4x); never offline Training; a hit snapshots its juices when its swing is accepted. Sold in the Shop and one in the Starter Pack (Studio: `StudioGrantJuice` on a `StudioFreshSave` save, `StudioJuiceSeconds`)
 
@@ -277,6 +277,7 @@ Current Grounds (Power multiplier on the Training base, one practice hit every ~
 - World 1: Basic Training (start, 1x), Enchanted Grove (2 Rebirths, 5x), Sunken Atlantis (4 Rebirths, 10x), Sky Temple (6 Rebirths, 20x), Cosmic Rift (500 Robux game pass, 10x)
 - World 2 (placeholder values): Caveman Camp (free once World 2 is unlocked, 25x), Pharaoh's Tomb (8 Rebirths, 35x), Gladiator Colosseum (10 Rebirths, 50x), Samurai Dojo (12 Rebirths, 70x), Time Machine Lab (Cosmic Rift's pass, 35x)
 - World 3 (placeholder values): Solar Rooftop (free once World 3 is unlocked, 90x), Robo Factory (14 Rebirths, 120x), Biodome Lab (16 Rebirths, 160x), Lunar Base (18 Rebirths, 210x), Quantum Lab (Cosmic Rift's pass, 120x)
+- World 4 (Tiny Town): Sandbox Diamond (free once World 4 is unlocked, 270x), Pinball Cage (20 Rebirths, 350x), Cereal Bowl Stadium (22 Rebirths, 450x), Toy Soldier Fort (24 Rebirths, 580x), Snow Globe (Cosmic Rift's pass, 400x); the standard cage in toy colors for now
 - Every World: Dragon's Lair (1000 Robux game pass, 30x, most expensive)
 
 A ground needs a World it stands in to be unlocked. Paid grounds need no Rebirths. Pass ownership is server-checked through MarketplaceService and is never saved; a shared pass (`sharesPass`) is keyed by its owning ground. `gamePassId` is 0 until the passes are created. Offline Training and the Training teleport use the best ground the player can use in any unlocked World.
@@ -613,5 +614,7 @@ After Milestone 18, the following were implemented:
 World 2 (Time Travel): per-World Training Grounds with World 2's row, the Time Travel hub, World portals that open the Worlds menu, cross-World Training teleport and offline Training, World 2's ten balls as their own purchase series, and its themed runway. Still NOT implemented: World 2 cage models (it uses the standard cage in era colors).
 
 World 3 (Future World): its themed runway (ten sections and a black-hole landmark), ten balls as the third purchase series, five futuristic cage models, the Future hub, and the temporary finale at its end portal. The Blender models live in ServerStorage.RunwayAssets once imported (sources in tools/blender/, exports in assets/models/).
+
+World 4 (Tiny Town), Phase 1 of `.vscode/WORLD4_DESIGN.md`: World 4's config (offset 24,000, end 8,000, Cash x1,000, ten runway sections with placeholder primitive props, the finale moved to its end portal, World 3's portal now leading there), its row of five grounds plus Dragon's Lair (standard cage), ten balls as the fourth purchase series, launch steps measured in World 4's field, and Level bands to 500. Its runway meshes, Balls, cages, Mouse-Hole Plaza hub and shrinking trip are later phases.
 
 Always inspect the current code before acting on those planned features.

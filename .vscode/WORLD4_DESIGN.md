@@ -126,6 +126,10 @@ of the earlier series. Every Ball beats the one before and the Singularity Orb (
 | 9 | Cat's-Eye Marble | `cats_eye_marble` | 400M | $4B | glass with a glowing swirl |
 | 10 | Dream Orb | `dream_orb` | 600M | $5.4B | soft night-light glow, fading stars |
 
+These are the design's starting prices. Phase 1's balance pass kept the Power values and set the
+prices to $500M, $800M, $1B, $1.2B, $1.5B, $1.7B, $1.9B, $2.1B, $2.3B and $2.5B (no new Bat raises
+Cash in World 4; see `ECONOMY.md`). `EquipmentConfig` holds the live values.
+
 The Lucky Dice's number is cosmetic, chosen by the client; it never changes a result. Effects
 use `BallStyles` (flight layers, landing effects, idle emitters) like World 3's Balls, and models
 come from one Blender batch (`tools/blender/balls_world4.py` → `assets/models/BallsWorld4.fbx`).
@@ -168,22 +172,24 @@ No new Bats: the Bat series is shared by every World and is unchanged.
 - [x] Add it to the docs list in `AGENTS.md`
 
 ### Phase 1: game setup (playable with primitive fallbacks)
-- [ ] `WorldConfig`: `world_4` (offset, station, field, hub, 10 sections with placeholder
+- [x] `WorldConfig`: `world_4` (offset, station, field, hub, 10 sections with placeholder
       primitive props, end portal with the finale, preview colors); `world_3.nextWorldId =
       "world_4"` and its finale removed
-- [ ] `TrainingConfig`: the five new grounds (standard cage in toy colors) and World 4's hub row
-- [ ] `EquipmentConfig`: the `world_4` Ball series (10 Balls)
-- [ ] `ProgressionConfig`: launch speeds that carry hits from World 3's end to World 4's end
-      (measured in World 4's field, since no hit past 7,000 studs had been measured), the Level
-      bands past Level 400 if the pace needs them, and `ExpectedHitDistances`
-- [ ] Save data: check whether a change is needed (expected: none; World unlocks are keyed by
-      World id)
-- [ ] Balance simulator: World 4 included; re-run with the current multiplier ladders; tune
-      ground multipliers, Ball Power and prices; report the times (shown before committing)
-- [ ] Tests pass
-- [ ] `ECONOMY.md` and `WORLDS.md` updated (plus `AGENTS.md` and `GAME_DESIGN.md` where they
-      list Worlds, grounds or Balls)
-- [ ] Commit
+- [x] `TrainingConfig`: the five new grounds (standard cage in toy colors) and World 4's hub row
+- [x] `EquipmentConfig`: the `world_4` Ball series (10 Balls)
+- [x] `ProgressionConfig`: launch speeds that carry hits from World 3's end to World 4's end
+      (measured in World 4's field, `HitMeasurements.far`, since no hit past 7,000 studs had been
+      measured; World 4 ends at Level 490), the Level bands for Levels 380-519 (LONG pace,
+      `keepBands = 18`) and `ExpectedHitDistances`
+- [x] Save data: no change needed (World unlocks are keyed by World id; a save that completed
+      World 3 gets World 4 unlocked on load). `Progression.Advance` now adds a grant bigger than
+      `MaxPower` in pieces, so late-World-4 offline grants and the 3x are not cut off
+- [x] Balance simulator: World 4 included; re-run with the current multiplier ladders; Ball
+      prices flattened ($500M-$2.5B), ground multipliers and Ball Power kept; times in `ECONOMY.md`
+- [x] Tests pass
+- [x] `ECONOMY.md` and `WORLDS.md` updated (plus `AGENTS.md`, `CLAUDE.md`, `GAME_DESIGN.md` and
+      `tools/balance/README.md`)
+- [x] Commit
 
 ### Phase 2: runway props, sections 1-5 (Blender)
 - [ ] `tools/blender/runway_world4_home.py` (Giant Backyard to Board Game Boulevard), exported to

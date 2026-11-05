@@ -24,7 +24,7 @@ multipliers** (Robux, permanent tiers) multiply Power gain and batting Cash, nev
 - **Level requirement:** in bands. Levels 1-19 need `10 + 1.5 × (Level − 1)`, rounded down (10,
   11, 13, 14, ... 37; 442 in all). From Level 20 each Rebirth's 20 new Levels are one band: the
   band's first Level needs `start`, and each Level after it 1.02× the one before (the band's last
-  Level needs ~1.46× its first). Past Level 419 each band starts 1.8× above the one before.
+  Level needs ~1.46× its first). Past Level 519 each band starts 1.8× above the one before.
 - **Level Cap:** `20 × (Rebirths + 1)`: 20, 40, 60, ... Power keeps banking at the cap until the
   Rebirth, which resets Level and Power.
 - **Training base:** Power per practice hit at Basic Training: 5 at every Level (Level never
@@ -36,7 +36,7 @@ multipliers** (Robux, permanent tiers) multiply Power gain and batting Cash, nev
   8 hours, × the saved Ball × (Rebirths + 1) × purchased Power (never a juice), held to half the
   Power still needed for the Level Cap (the run cap). Welcome Back's 3x product adds it twice
   more, up to all of it.
-- **Hit Cash** = `(distance / 80)^1.5` × World (1, 10, 100) × section (1, 1.15, 1.35) × Bat ×
+- **Hit Cash** = `(distance / 80)^1.5` × World (1, 10, 100, 1,000) × section (1, 1.15, 1.35) × Bat ×
   purchased Cash × Cash juice, rounded, at least $1. An early hit (80-100 studs) pays $1.
 - **Distance:** Level → launch speed (`LaunchSpeedTable` to Level 140, then `LaunchSpeedSteps`),
   built from measured hits (see Hit physics below).
@@ -71,9 +71,11 @@ active player.
 | Whole tutorial | 1.5-2 min | 1 min 44 s | to re-measure |
 | Second run, Training only, Level 1 → 40 | ~3 min | 3.0 min | to re-measure |
 | Batting vs Basic Training | 50-70% | 49-69% | 11 Power a hit at Level 3 |
-| Free-to-play World 2 / World 3 / finale | ~1h 40m / ~4h 45m / ~10h 30m | 1h 41m / 4h 44m / 10h 27m | |
-| One tier of each multiplier | 30-35% faster finale | 49% (5h 19m): stronger on purpose, see Decisions to review | |
-| Every tier | finale no sooner than half of free-to-play (~5h 15m) | 2h 33m (76% faster): stronger on purpose | |
+| Free-to-play World 2 / World 3 / World 4 | ~1h 40m / ~4h 45m / ~10h 30m | 1h 41m / 4h 44m / 10h 27m | |
+| World 4's runs (Rebirths 19-24) | LONG pace: 75-95 min | 72-91 min; finale 18h 28m | |
+| World 4's Balls | all ten before the finale, no long gap | 27-67 min apart; the Dream Orb 26 min before the end | |
+| One tier of each multiplier | 30-35% faster finale | 49% (9h 22m): stronger on purpose, see Decisions to review | |
+| Every tier | finale no sooner than half of free-to-play | 4h 21m (76% faster): stronger on purpose | |
 
 Tutorial step 3 is mostly walking and clicking, so balance cannot move it.
 
@@ -104,9 +106,18 @@ is solved separately so its Level 20 climb takes ~54 s of Training (`solveTutori
 | 320-339 | 1.5T | 36.4T | ×1.2 |
 | 340-359 | 2.7T | 65.6T | ×1.2 |
 | 360-379 | 4.9T | 119T | ×1.2 |
-| 380-399 | 8.9T | 216T | ×1.2 |
-| 400-419 | 16T | 389T | ×1.2 |
-| 420+ | ×1.8 a band | | |
+| 380-399 | 19T | 462T | ×2.7 |
+| 400-419 | 53T | 1.29Qa | ×1.9 |
+| 420-439 | 130T | 3.16Qa | ×1.7 |
+| 440-459 | 260T | 6.32Qa | ×1.4 |
+| 460-479 | 520T | 12.6Qa | ×1.4 |
+| 480-499 | 940T | 22.8Qa | ×1.2 |
+| 500-519 | 1.7Qa | 41.3Qa | ×1.2 |
+| 520+ | ×1.8 a band (each Level at most `MaxPower`, 9Qa, from about Level 555) | | |
+
+**World 4's bands** (Levels 380-519, Rebirths 19-24) were solved for the LONG pace with
+`keepBands = 18`, which keeps every band before them, so Worlds 1-3 play exactly as before (no
+player reached Level 380 before the old finale at Level 370). (Qa = quadrillion.)
 
 The big steps at Levels 40 and 60 are the second and third runs' bands: from run 2 the active
 player has the Enchanted Grove (5x), better Balls and two Rebirths, many times run 1's Power rate.
@@ -119,8 +130,9 @@ field migrates for a band change.
 
 ## Training Grounds
 
-Unchanged by this pass (multipliers and gates already rise in order). Power a practice hit at any
-Level, before Ball, Rebirth and purchased multiplier:
+Multipliers and gates rise in order; World 4's are the design's starting values, kept as they
+are because the bands were solved around them. Power a practice hit at any Level, before Ball,
+Rebirth and purchased multiplier:
 
 | Ground | World | Unlock | × | Power a hit |
 |---|---|---|---:|---:|
@@ -139,6 +151,11 @@ Level, before Ball, Rebirth and purchased multiplier:
 | Biodome Lab | 3 | 16 Rebirths | 160 | 800 |
 | Lunar Base | 3 | 18 Rebirths | 210 | 1,050 |
 | Quantum Lab | 3 | Cosmic Rift's pass | 120 | 600 |
+| Sandbox Diamond | 4 | World 4 | 270 | 1,350 |
+| Pinball Cage | 4 | 20 Rebirths | 350 | 1,750 |
+| Cereal Bowl Stadium | 4 | 22 Rebirths | 450 | 2,250 |
+| Toy Soldier Fort | 4 | 24 Rebirths | 580 | 2,900 |
+| Snow Globe | 4 | Cosmic Rift's pass | 400 | 2,000 |
 | Dragon's Lair | every | 1000 R$ pass | 30 | 150 |
 
 Free-to-play never needs a paid ground. Game-pass ids stay 0 until the passes are created.
@@ -179,6 +196,25 @@ Dragonfire 1,250x $14,000, Supernova 3,500x $40,000.
 | Red Planet | 7,500,000 | $83M |
 | Singularity Orb | 11,000,000 | $108M |
 
+**World 4 Balls** (×1.5 a step, all above the Singularity Orb; priced for World 4's ×1,000 Cash).
+Prices rise gently because no new Bat raises Cash in World 4: a hit pays about $28M-$38M (Celestial
+Bat) all the way through, so each Ball costs a similar number of hits. The design's starting
+prices ($500M to $5.4B, ×1.3 a step) left the last three Balls until after the finale, with gaps of
+up to 1h 49m.
+
+| Ball | × | Price | Design start |
+|---|---:|---:|---:|
+| Dandelion Puff | 16,000,000 | $500M | $500M |
+| Blueberry | 24,000,000 | $800M | $650M |
+| Meatball | 36,000,000 | $1B | $850M |
+| Bouncy Ball | 54,000,000 | $1.2B | $1.1B |
+| Lucky Dice | 80,000,000 | $1.5B | $1.4B |
+| Yarn Ball | 120,000,000 | $1.7B | $1.8B |
+| Bath Bomb | 180,000,000 | $1.9B | $2.4B |
+| Mini Globe | 270,000,000 | $2.1B | $3.1B |
+| Cat's-Eye Marble | 400,000,000 | $2.3B | $4B |
+| Dream Orb | 600,000,000 | $2.5B | $5.4B |
+
 **Bats** (Cash ×1.5 a step; same identities, order and models):
 
 | Bat | Cash × | Price |
@@ -203,7 +239,7 @@ Bat pedestals show the whole series in every hub.
 
 One formula for every World: `(distance / 80)^1.5 × World × section × Bat` (× purchased Cash and
 juice). The 1.5 power makes farther hits worth more than their distance; the World multiplier
-(1, 10, 100) lets each World's prices sit a tier above the last without changing the formula.
+(1, 10, 100, 1,000) lets each World's prices sit a tier above the last without changing the formula.
 Examples (Wood Bat, no multiplier):
 
 | Hit | Distance | Cash |
@@ -218,6 +254,8 @@ Examples (Wood Bat, no multiplier):
 | Level 150, World 2 | 5,104 | ~$6,900 |
 | Level 250, World 3 | 6,136 | ~$91,000 |
 | Level 370, World 3 (the end) | 7,000 | ~$110,000 |
+| Level 370, World 4 | 7,195 | ~$1.15M |
+| Level 490, World 4 (the end) | 8,000 | $1.35M |
 
 ## Affordability (active player)
 
@@ -263,11 +301,22 @@ purchase, its price in hits at that moment, and for Bats the hits until the extr
 | 8h 10m | Red Planet | $83M | 7,500,000 | 1.5 | 44 | 43 | |
 | 9h 05m | Singularity Orb | $108M | 11,000,000 | 1.47 | 56 | 55 | |
 | 10h 06m | Celestial Bat | $120M | 28 | 1.47 | 61 | 60 | 126 |
+| 10h 42m | Dandelion Puff | $500M | 16M | 1.45 | 36 | 18 | |
+| 11h 09m | Blueberry | $800M | 24M | 1.5 | 27 | 25 | |
+| 11h 39m | Meatball | $1B | 36M | 1.5 | 31 | 31 | |
+| 12h 16m | Bouncy Ball | $1.2B | 54M | 1.5 | 38 | 37 | |
+| 13h 02m | Lucky Dice | $1.5B | 80M | 1.48 | 45 | 44 | |
+| 13h 53m | Yarn Ball | $1.7B | 120M | 1.5 | 51 | 49 | |
+| 14h 50m | Bath Bomb | $1.9B | 180M | 1.5 | 56 | 56 | |
+| 15h 49m | Mini Globe | $2.1B | 270M | 1.5 | 59 | 58 | |
+| 16h 55m | Cat's-Eye Marble | $2.3B | 400M | 1.48 | 66 | 63 | |
+| 18h 02m | Dream Orb | $2.5B | 600M | 1.5 | 69 | 69 | |
 
-The Dino Egg and Solar Cell cost few hits because they are bought just after a new World raises
-Cash ×10; everything else costs 2-60 hits, rising slowly through the game. The longest stretch
-with nothing to buy is the end of World 2: the Chrono Orb at 3h 39m, then World 3 at 4h 44m
-(72 hits, 65 minutes; see Decisions to review).
+The Dino Egg, Solar Cell and Dandelion Puff cost few hits because they are bought just after a new
+World raises Cash ×10; everything else costs 2-70 hits, rising slowly through the game. The
+longest stretches with nothing to buy are the end of World 2 (the Chrono Orb at 3h 39m, then
+World 3 at 4h 44m: 72 hits, 65 minutes; see Decisions to review) and World 4's last Balls (57-67
+minutes apart). World 4 sells no Bat.
 
 ## Results: progression (active player, LONG)
 
@@ -277,18 +326,23 @@ with nothing to buy is the end of World 2: the Chrono Orb at 3h 39m, then World 
 | Second Rebirth | 4m 26s (Training only: 4m 43s) | 1 → 2 at Level 40 |
 | World 2 unlock (World 1's end, 5,000) | 1h 41m | Rebirth 7, Level 150 |
 | World 3 unlock (World 2's end, 6,000) | 4h 44m | Rebirth 12, Level 250 |
-| Finale (World 3's end, 7,000) | 10h 27m | Rebirth 18, Level 370 |
+| World 4 unlock (World 3's end, 7,000) | 10h 27m | Rebirth 18, Level 370 |
+| Finale (World 4's end, 8,000) | 18h 28m | Rebirth 24, Level 490 |
 
 Run lengths (Rebirth k → k+1): 2.7, 6.4, 12.7, 11.3, 20.3, 22.3, 31.8, 20.5, 32.2, 36.0, 43.0,
-55.4, 45.0, 53.1, 60.5, 52.8, 64.6, 70.3 minutes for runs 1-18 (target 3 + 4 × (k − 1)); run 8
-is short because World 2's first ground and Balls arrive with it. After the finale nothing new is
-bought, so run 19 takes 123 minutes. Over the playthrough batting gives 0.2% of the Power.
+55.4, 45.0, 53.1, 60.6, 52.8, 64.6, 67.2, 72.3, 72.0, 87.1, 81.6, 90.8, 80.5 minutes for runs 1-24
+(target 3 + 4 × (k − 1)); run 8 is short because World 2's first ground and Balls arrive with it,
+and runs 19-20 a little short as World 4's first Balls arrive. After the finale nothing new is
+bought, so run 25 takes 120 minutes. Over the playthrough batting gives well under 0.1% of the
+Power.
 
 **Training only** (no Cash, so no new Balls): runs take 3.0, 12.0, 139 and 563 minutes, then days.
 Cash comes only from batting, so a player who never bats stalls after about Rebirth 3.
 
 **Casual returning** (30 minutes a day): World 2 on day 4 (1h 35m of play), World 3 on day 9
-(4h 09m), the finale on day 17 (8h 31m of play). Offline Training gives 44% of their Power.
+(4h 09m), World 4 on day 17 (8h 31m), the finale on day 29 (14h 26m of play). Offline Training
+gives 60% of their Power (44% before World 4: its runs are long, so a day away fills a bigger
+share of the active session's work).
 
 **Before** (the flat Training base on the MEDIUM bands): tutorial 4m 36s (226 s of Training for
 the Level 20 climb), Training-only run 1 17.7 min, World 2 2h 31m, World 3 6h 27m, finale 12h 42m;
@@ -304,42 +358,46 @@ the earlier Training base, before it was flat, so only their order of size still
 |---|---:|---|---|---|
 | FAST | 1 min | 41m | 1h 38m | 3h 28m |
 | MEDIUM | 2 min | 1h 04m | 2h 48m | 5h 53m |
-| **LONG** (chosen) | 4 min | 1h 41m | 4h 44m | 10h 27m |
+| **LONG** (chosen) | 4 min | 1h 41m | 4h 44m | 10h 27m (World 4 unlock; the finale is now 18h 28m) |
 
 ## Purchased multipliers (Robux)
 
 Two permanent ladders (`MonetizationConfig.Multipliers`), each tier its own developer product,
 bought in order. Both start at 2x and add 0.5x a tier: Power 2x-4x (5 tiers), Cash 2x-5x (7
-tiers). The ladders are intentionally stronger than the spender targets below (one tier of each
-about 30-35% faster, every tier no sooner than ~5h 15m) because a World 4 is planned; see
-Decisions to review.
+tiers). The ladders are intentionally stronger than the spender targets (one tier of each about
+30-35% faster, every tier no sooner than half of free-to-play); see Decisions to review. World 4
+was balanced with them in place: its bands are solved for the free player, so spenders keep the
+same share of time saved.
+
+Finale = World 4's end (with World 3's end, the old finale, in brackets where it differs):
 
 | Tier | Power | Robux | Finale with only this Power tier | Cash | Robux | Finale with only this Cash tier |
 |---|---|---:|---|---|---:|---|
-| 1 | 2x | 129 | 7h 47m (−2h 40m) | 2x | 129 | 7h 50m (−2h 36m) |
-| 2 | 2.5x | 169 | 7h 08m (−39m) | 2.5x | 159 | 7h 18m (−32m) |
-| 3 | 3x | 219 | 6h 40m (−28m) | 3x | 199 | 6h 52m (−26m) |
-| 4 | 3.5x | 279 | 6h 17m (−23m) | 3.5x | 249 | 6h 40m (−13m) |
-| 5 | 4x | 359 | 6h 01m (−15m) | 4x | 309 | 6h 25m (−14m) |
-| 6 | | | | 4.5x | 389 | 6h 18m (−7m) |
-| 7 | | | | 5x | 489 | 6h 11m (−8m) |
+| 1 | 2x | 129 | 14h 15m (−4h 13m) | 2x | 129 | 13h 01m (−5h 26m) |
+| 2 | 2.5x | 169 | 13h 05m (−1h 09m) | 2.5x | 159 | 11h 54m (−1h 06m) |
+| 3 | 3x | 219 | 12h 15m (−50m) | 3x | 199 | 11h 04m (−50m) |
+| 4 | 3.5x | 279 | 11h 35m (−39m) | 3.5x | 249 | 10h 34m (−30m) |
+| 5 | 4x | 359 | 11h 02m (−33m) | 4x | 309 | 10h 07m (−27m) |
+| 6 | | | | 4.5x | 389 | 9h 50m (−17m) |
+| 7 | | | | 5x | 489 | 9h 35m (−15m) |
 | All | | 1,155 | | | 1,923 | |
 
 Prices are unchanged from the earlier 1.5x-2.1x ladders: both start at 129, Power rises ~30% a
-tier and Cash ~25%.
+tier and Cash ~25%. Cash tiers are worth more than Power tiers in World 4, where Cash per hit
+stops growing (no new Bat) and Balls gate the pace.
 
-| Player | World 2 | World 3 | Finale | vs free-to-play | Casual (World 2 / 3 / finale) |
-|---|---|---|---|---|---|
-| Free to play | 1h 41m | 4h 44m | 10h 27m | | day 4 / 9 / 17 |
-| Light, 1 tier each (258 Robux) | 53m | 2h 27m | 5h 19m | 49% faster | day 2 / 5 / 10 |
-| Light, 2 tiers each (586 Robux) | 44m | 1h 59m | 4h 17m | 59% faster | day 2 / 4 / 8 |
-| Heavy, every tier (3,078 Robux) | 29m | 1h 13m | 2h 33m | 76% faster | day 1 / 3 / 5 |
-| Heavy + both juices nonstop | 18m | 42m | 1h 24m | 87% faster | day 1 / 2 / 3 |
-| Whale (+ Starter Pack, both paid grounds) | 16m | 39m | 1h 21m | 87% faster | day 1 / 2 / 3 |
+| Player | World 2 | World 3 | World 4 | Finale | vs free-to-play | Casual (World 2 / 3 / 4 / finale) |
+|---|---|---|---|---|---|---|
+| Free to play | 1h 41m | 4h 44m | 10h 27m | 18h 28m | | day 4 / 9 / 17 / 29 |
+| Light, 1 tier each (258 Robux) | 53m | 2h 27m | 5h 19m | 9h 22m | 49% faster | day 2 / 5 / 10 / 16 |
+| Light, 2 tiers each (586 Robux) | 44m | 1h 59m | 4h 17m | 7h 32m | 59% faster | day 2 / 4 / 8 / 14 |
+| Heavy, every tier (3,078 Robux) | 29m | 1h 13m | 2h 33m | 4h 21m | 76% faster | day 1 / 3 / 5 / 8 |
+| Heavy + both juices nonstop | 18m | 42m | 1h 24m | 2h 19m | 87% faster | day 1 / 2 / 3 / 5 |
+| Whale (+ Starter Pack, both paid grounds) | 16m | 39m | 1h 21m | 2h 15m | 88% faster | day 1 / 2 / 3 / 5 |
 
-Worst case (every tier and both juices): 4 × 2 = 8x Power and 5 × 2 = 10x Cash. At finale gear
-that is ~1.8e12 Power a practice hit (5 × 210 × 11M × 19 × 8) and ~$31M a hit at 7,000 studs with
-the Celestial Bat in World 3, far below `MaxPower` (9e15) and Cash's 9e12 limit. Offline gets the
+Worst case (every tier and both juices): 4 × 2 = 8x Power and 5 × 2 = 10x Cash. At World 4's
+finale gear that is ~3.5e14 Power a practice hit (5 × 580 × 600M × 25 × 8) and ~$380M a hit at
+8,000 studs with the Celestial Bat, below `MaxPower` (9e15) and far below Cash's 9e12 limit. Offline gets the
 Power tier but no juice, and the run cap (applied after every multiplier) still holds. The Power
 products and the Starter Pack's Power are never multiplied.
 
@@ -358,7 +416,9 @@ Ball and Rebirths:
 | 140 | 3,906 | 69% | 3.4% (Sky Temple) |
 | 150 | 5,104 | 68% | 2.7% (Caveman Camp) |
 | 250 | 6,136 | 69% | 0.8% (Solar Rooftop) |
-| 370 | 7,000 | 68% | 0.3% (Lunar Base) |
+| 370 | 7,195 (World 4) | 69% | 0.3% (Sandbox Diamond) |
+| 430 | 7,520 | 70% | 0.2% (Pinball Cage) |
+| 490 | 8,000 | 68% | 0.1% (Toy Soldier Fort) |
 
 Batting never uses the ground (design), so once better grounds open it is a Cash activity; over a
 whole active playthrough it gives well under 1% of the Power. Batting Power is already "periodic":
@@ -394,7 +454,9 @@ Logged out at the first Level of the run's new band (Power 0):
 | 9 (Knight's Ball, Pharaoh's Tomb) | 34B (11.4 min) | 33 / 99% | 50 / 100% | 50 / 100% | 50 / 100% | 5.7 min |
 | 12 (Solar Cell, Solar Rooftop) | 632B (12.0 min) | 31 / 94% | 50 / 100% | 50 / 100% | 50 / 100% | 6.0 min |
 | 15 (Moon Rock, Robo Factory) | 20.2T (14.0 min) | 27 / 80% | 50 / 100% | 50 / 100% | 50 / 100% | 7.0 min |
-| 18 (Singularity Orb, Lunar Base) | 119T (18.1 min) | 21 / 62% | 50 / 100% | 50 / 100% | 50 / 100% | 9.1 min |
+| 18 (Singularity Orb, Sandbox Diamond) | 119T (14.1 min) | 27 / 80% | 50 / 100% | 50 / 100% | 50 / 100% | 7.0 min |
+| 21 (Yarn Ball, Pinball Cage) | 3.16Qa (22.8 min) | 16 / 49% | 50 / 100% | 50 / 100% | 50 / 100% | 11.4 min |
+| 24 (Dream Orb, Toy Soldier Fort) | 22.8Qa (17.5 min) | 21 / 64% | 50 / 100% | 50 / 100% | 50 / 100% | 8.8 min |
 
 Logged out at Level 1, just after the Rebirth (Training base 5, so the time-based reward is small):
 
@@ -406,16 +468,25 @@ Logged out at Level 1, just after the Rebirth (Training base 5, so the time-base
 | 9 | 43.3B (14.5 min) | 26 / 78% | 50 / 100% | 50 / 100% | 50 / 100% | 7.2 min |
 | 12 | 991B (18.8 min) | 20 / 60% | 50 / 100% | 50 / 100% | 50 / 100% | 9.4 min |
 | 15 | 30.8T (21.4 min) | 18 / 53% | 50 / 100% | 50 / 100% | 50 / 100% | 10.7 min |
-| 18 | 252T (38.3 min) | 10 / 29% | 39 / 100% | 50 / 100% | 50 / 100% | 19.1 min |
+| 18 | 252T (29.8 min) | 13 / 38% | 50 / 100% | 50 / 100% | 50 / 100% | 14.9 min |
+| 21 | 5.16Qa (37.2 min) | 10 / 30% | 40 / 100% | 50 / 100% | 50 / 100% | 18.6 min |
+| 24 | 47Qa (36.0 min) | 10 / 31% | 42 / 100% | 50 / 100% | 50 / 100% | 18.0 min |
 
 The run cap binds within the first hour away almost everywhere, so longer absences add nothing
-more; the 8-hour limit never binds.
+more; the 8-hour limit never binds. (Rebirth 18's rows changed because World 4 now opens in that
+run: its best ground is the Sandbox Diamond.)
+
+Late in World 4 a single offline grant (and the 3x) can be bigger than `MaxPower` (an 8-hour
+return at Rebirth 24, Level 1 grants ~2.3e16). `Progression.Advance` adds such a grant in pieces
+that each fit, levelling up between them, so none of it is lost before the Level Cap; Power itself
+never passes `MaxPower`. (Before World 4 it clamped the whole grant to `MaxPower` first, which no
+earlier World's grants reached.)
 
 ## Hit physics and the launch table
 
 Distance comes from Roblox physics (flight, bounces, roll), and it is erratic in launch speed at
 every speed (measured 2026-11-04: a sweep of every 2 studs/s from 80 to 504, each Level's speed
-re-hit, about 380 hits; 	ools/balance/HitMeasurements sweep). The bounces make a sawtooth:
+re-hit, about 380 hits; `tools/balance/HitMeasurements` sweep). The bounces make a sawtooth:
 along a run of speeds distance falls (110 → 304, 112 → 286, 114 → 265, 116 → 255), then jumps
 (118 → 354), so a smooth interpolation between a few measured speeds is wrong between them (the
 old table's Levels landed anywhere from 30% short to 70% long of their model). Below about 200
@@ -456,34 +527,58 @@ World's end is reached exactly at its Level:
 | 141-149 | ~4,050 → 4,770 (World 1, short of its 5,000 end) |
 | 150-249 | ~5,100 → 5,820 (past World 1's end, short of World 2's 6,000) |
 | 250-369 | ~6,140 → 6,820 (past World 2's end, short of World 3's 7,000) |
-| 370+ | reaches 7,000 (speed 716, which also reaches World 1's and 2's ends) |
+| 370-398 | 7,195 in World 4 (speed 716, which reaches every earlier World's end) |
+| 399-489 | ~7,380 → 7,955 in World 4, in 8 steps (399, 406, 420, 435, 446, 457, 462, 483) |
+| 490+ | reaches World 4's 8,000 end (speed 717) |
 
 The ~2% margins around each end cover the trial-to-trial spread. Launch speed is not shown
 anywhere, so speeds that are not in rising order are invisible; only the distance shows.
+
+**World 4 (2026-11-05):** hits past 7,000 had never been measured, because World 3's end portal
+captured them at 7,000. A sweep in World 4's field (end 8,000) of the capped speeds and every 2
+from 722 to 800, then the useful speeds re-hit twice and 13 odd speeds (about 100 hits;
+`HitMeasurements.far`), shows the same sawtooth (716 → 7,195, 722 → 6,295, 724 → 4,965) and
+repeats within ~1%. World 4's steps rise evenly in proportion from Level 370's 7,195 to 8,000 at
+Level 490 (Rebirth 24, its last Training Ground's gate). No measured speed lands between 7,195
+and 7,365 or between 7,805 and 7,940, so Levels 370-398 and 462-482 share a distance. The
+simulator uses these hits in place of the capped ones (and adds them to older uncapped trials).
 
 ## Decisions to review
 
 - **The multiplier ladders are intentionally stronger than the spender targets** (2x-4x Power,
   2x-5x Cash, +0.5x a tier). One tier of each finishes 49% faster (target 30-35%) and every tier
-  in 2h 33m (floor ~5h 15m). This is on purpose because a World 4 is planned: World 4's balance
-  (its bands, prices and the finale) should account for players holding these ladders, rather
-  than the ladders being cut back to today's three Worlds.
+  76% faster (floor: half of free-to-play). This was on purpose with World 4 planned. With World 4
+  in, the shares hold (49% / 76%): the bands are solved for the free player, and the multipliers
+  scale every World alike, so a longer game does not dilute them. Every tier now finishes in
+  4h 21m against free-to-play's 18h 28m. Bringing spenders back to the targets would need smaller
+  ladders, not World balance.
+- **World 4 has no Bat**, so Cash per hit barely grows there (distance only rises 7,195 → 8,000)
+  and its Ball prices rise only ~1.1x a step (the design's ×1.3 steps priced the last three Balls
+  out of the game). A World 4 Bat (or a bigger distance gain) would let prices rise like the
+  earlier Worlds'. Its last Balls are 57-67 minutes apart.
+- **World 4's distances are flat:** Levels 370-398 and 462-482 hit the same distance (no measured
+  speed lands between), and the whole World only spans 7,195 → 8,000, so most of its runway
+  (sections 1-9, 0-6,800) is never landed in. Worlds 2 and 3 work the same way (players arrive
+  hitting most of the way). A wider distance gain would need faster launches that the physics
+  only gives erratically.
+- **`MaxPower` is close:** requirements reach it (9 quadrillion) at about Level 555 (Rebirth 27,
+  three runs past World 4's end); World 5 needs a bigger Power scale (or slower band growth).
+- **The casual finale is day 29** (about 4 weeks; 14h 26m of play), and Offline Training gives
+  60% of a casual player's Power.
 - **The end of World 2** has the longest stretch with nothing to buy: the Chrono Orb at 3h 39m,
   then World 3 at 4h 44m (65 minutes). A cheaper Dragon Bone Bat ($3.5M) only cuts it to 37
   minutes and makes the finale 31 minutes faster (9h 58m), so it needs its own pass (perhaps
   with a re-solve of the World 2 bands).
 - **Juices are the strongest Robux lever:** both running nonstop on top of every tier take the
-  finale from 2h 33m to 1h 24m. They are consumables (39 Robux for 10 minutes), so that would
+  finale from 4h 21m to 2h 19m. They are consumables (39 Robux for 10 minutes), so that would
   cost far more than the tiers; revisit if juices get cheaper or longer.
-- **The casual finale is day 17** (about 2.4 weeks; ~3 weeks was hoped for). Offline Training
-  gives 44% of a casual player's Power; lowering `OfflineRunShare` would stretch it.
 - **The Magma Bat** used to be World 2's first Bat (the ×20 price jump from Frostbite followed the
   World Cash tiers); now the big jump sits between Magma ($50K) and Lightning ($1.5M), bought in
   World 2.
 - **Starter Pack / +10K Power** reach the Level Cap of an early run on their own (the first bands
   are much smaller now), so a buyer mid-tutorial goes straight to its Rebirth step.
-- **After the finale** nothing new is bought and bands keep growing 1.8×, so runs double (123 min
-  for run 19). Requirements reach `MaxPower` (9 quadrillion) around Level 600 (Rebirth ~29).
+- **After the finale** nothing new is bought and bands keep growing 1.8×, so runs grow fast (120
+  min for run 25).
 - **Training-only stalls** after about Rebirth 3: Balls cost Cash and only batting earns it.
 - **Batting gives almost no Power** past the first grounds, by the no-ground rule.
 - **Paid grounds:** Dragon's Lair (30x) is the best ground until Pharaoh's Tomb (35x, Rebirth 8);
@@ -501,7 +596,8 @@ anywhere, so speeds that are not in rising order are invisible; only the distanc
 
 1. Change config values; run the simulator report and compare with the targets above.
 2. Bands: `mode = "solveBands"` with the pace, paste the result into `LevelBands`; the tutorial
-   band with `solveTutorial`.
+   band with `solveTutorial`. For a new World, `keepBands` keeps the bands before it (World 4:
+   `bands = 25, keepBands = 18`).
 3. Distance: `distanceShape` + `measuredSteps` print the `LaunchSpeedSteps` for Levels 22-140 (from the
    sweep) and the `ExpectedHitDistances` head to paste.
 4. After any change to hit physics, the runway or `HitTimeScale`: re-measure (README), then
