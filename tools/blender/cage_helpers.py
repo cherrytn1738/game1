@@ -1,5 +1,5 @@
-# Shared layout and builders for the Training Ground cages (the standard cage and the five
-# fantasy cages). Load inside Blender with: exec(open(CAGE_HELPERS, encoding="utf-8").read())
+# Shared layout and builders for the Training Ground cages (the standard cage and every custom
+# cage of Worlds 1-4). Load inside Blender with: exec(open(CAGE_HELPERS, encoding="utf-8").read())
 # Units are studs around the training plate centre: +X toward the pitch line (the batter
 # stands at x = 0 facing +X), +Y toward the machine (Roblox -Z), +Z up. Every cage is exported
 # at 1/4 scale to stay under Roblox's 2048-stud import limit (FBX arrives at 100x);

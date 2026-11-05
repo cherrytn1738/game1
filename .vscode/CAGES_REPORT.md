@@ -21,7 +21,7 @@ early.
 | 6 | Sandbox Diamond | SandboxDiamondCage | `0a0d5d6` | 42 meshes, about 50K triangles |
 | 7 | Pinball Cage | PinballCage | `aa2d9d9` | 46 meshes, about 40K triangles |
 | 8 | Cereal Bowl Stadium | CerealBowlCage | `38c567d` | 36 meshes, about 118K triangles |
-| 9 | Toy Soldier Fort | ToySoldierCage | | |
+| 9 | Toy Soldier Fort | ToySoldierCage | `29a7d01` | 49 meshes, about 46K triangles |
 | 10 | Snow Globe | SnowGlobeCage | | |
 
 ## Decisions I made on my own
@@ -226,5 +226,83 @@ early.
   gate, alphabet blocks (A, B, C), barrels and crates.
 - **Outside:** six soldiers on guard along the front.
 
+### Snow Globe (World 4's showpiece)
+- **Enclosure:** the glass dome itself, with no nets: a rounded-square superellipsoid that clears the
+  cage's corners. A doorway is cut through it in a wooden frame, and two highlights streak down the
+  glass.
+- **Music-box base:** a moulded walnut ring round the dome, open at the door, with gold bands,
+  gold-framed panels carved with scrolls, ball feet and a plaque. Its wind-up key is on the front;
+  the sides have no room inside the side limits. The key turns.
+- **Village:**
+  - six cottages with lit windows, snowy roofs and chimneys (four smoke);
+  - a red chapel with a steeple;
+  - pines with snow caps, two snowmen and drifts round the inside of the glass;
+  - three candy-cane lampposts with glowing lanterns.
+- **Moving centrepieces:**
+  - **Skaters:** four skaters circle a frozen pond.
+  - **Carousel:** it has a striped canopy, and its horses rise and fall as it turns. I added it as the
+    showpiece's centrepiece.
+  - **Snowflake ornaments:** three drift and turn under the dome.
+- **Christmas tree:** a decorated tree between the cottages, with ornaments, a garland, a glowing star
+  and gifts.
+- **Sleigh:** a red sleigh with gold runners, gifts and a sack. The ball rests on its curled front at
+  PITCH.
+- **Screen:** the design didn't name one, so I chose an ice snowflake with the window at its hub,
+  frosted rims and icicles.
+- **Snow:** the snow swirl practice effect is unchanged (`TrainingConfig` `practiceHitEffect`), and
+  the falling snow stays.
+
+### Tidying
+- **Old helpers:** `tools/blender/tiny_cage_helpers.py` is removed; nothing uses it now. Its generic
+  helpers (the curved-wall sweep, the rounded-rectangle outline, battlements, pines) and its toy
+  colours moved into `cage_helpers.py`.
+- **Comments:** the header comments in `TrainingCageStyles` and `cage_helpers.py` now cover all four
+  Worlds.
+
+## Import 3D steps for all ten cages
+1. Open the place in Studio with Rojo connected.
+2. Remove the five old World 4 cage models: in the Explorer, under ServerStorage → RunwayAssets,
+   delete SandboxDiamondCage, PinballCage, CerealBowlCage, ToySoldierCage and SnowGlobeCage. Only
+   those five; World 1's and World 3's cages and `TrainingCage` stay.
+3. For each of these ten files in `assets/models/`, use Import 3D with the default settings, and leave
+   the result in the Workspace under its file name:
+   - `CavemanCampCage.fbx`
+   - `PharaohsTombCage.fbx`
+   - `GladiatorColosseumCage.fbx`
+   - `SamuraiDojoCage.fbx`
+   - `TimeMachineLabCage.fbx`
+   - `SandboxDiamondCage.fbx`
+   - `PinballCage.fbx`
+   - `CerealBowlCage.fbx`
+   - `ToySoldierCage.fbx`
+   - `SnowGlobeCage.fbx`
+4. Tell me they're imported. I'll then:
+   - run `tools/studio/group_item_imports.luau`, which turns each cage, scales it to 0.01, moves it
+     into RunwayAssets and prints its home plate next to the standard cage's;
+   - check the plates, then playtest and check each cage;
+   - remove the legacy styles and update the docs.
+
+   To group them yourself instead, paste that script into the command bar. Its BallsWorld4 and
+   BatsWorld4 lines will just say "not imported".
+5. Save the place: the grouped models live in the place file, not in Git.
+
 ## Things that didn't work or were skipped
-(none yet)
+- **Not checked in Studio:** none of the ten models has been seen there yet, because they aren't
+  imported. I checked them from Blender preview renders instead (the batter's view, the outside, and
+  close-ups of the pitcher and screen).
+  - **Blender checks:** every mesh is under 18,000 triangles, each cage stays inside the side limits,
+    and every spinning mesh sits on its axis.
+  - **Studio checks:** every mesh name has a style, every emitter exists, every old World 4 model
+    stays coloured, and the game loads with only the expected "not imported yet" warnings.
+- **Tests:** every commit ran all nine suites. Eight pass. UIModal fails only because Studio was in
+  the background, which stops Edit-mode animations; it passes 17/17 with the tween stand-in.
+- **Door side:** most cages reach a little past the usual 20 studs from the plate on the door side.
+  Gladiator Colosseum reaches y -20.4, Samurai Dojo -20.7, Snow Globe -21.0, Cereal Bowl -22.6 and the
+  Fort -20.1. The side limits and the import limit hold. After the import, check in each hub that
+  nothing crowds the plaza.
+- **Spill-over scenery:** some cages put scenery outside the cage bounds, as the World 3 cages do. The
+  Colosseum's crowd stands, the Dojo's cherry tree, the Pinball head and the Snow Globe's key all
+  reach to about y 42-47 on the machine end, inside the usual 57.
+- **Chariot wheels:** the Colosseum's chariot wheels don't turn, since the chariot is parked.
+- **Stood-in pitchers:** the client motion has no hinges, so the sarcophagus lid, the catapults, the
+  ballista and the spoon are shown in their loaded poses rather than moving.
