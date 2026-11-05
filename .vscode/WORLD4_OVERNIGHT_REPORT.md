@@ -12,7 +12,7 @@ This file is updated after every phase.
 | 3 | Runway props, sections 6-10; keyhole end portal | `012bd89` | Done; the models need importing by hand |
 | 4 | The ten World 4 Balls and the Rolling Pin Bat | `5227bcf` | Done; the models need importing by hand |
 | 5 | The five World 4 cages and the Snow Globe swirl | `fc93964` | Done; the models need importing by hand |
-| 6 | Mouse-Hole Plaza hub, wind-up key, shrinking trip | (this commit) | Done, except the Worlds-menu card image (needs a Studio capture) |
+| 6 | Mouse-Hole Plaza hub, wind-up key, shrinking trip | `13626a9` | Done, except the Worlds-menu card image (needs a Studio capture) |
 
 ## What was finished
 
