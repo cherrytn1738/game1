@@ -202,6 +202,53 @@ Styles.CosmicRiftCage = {
  },
 }
 
+-- ---------- World 2 (Time Travel) ----------
+-- From tools/blender/caveman_camp_cage.py, pharaohs_tomb_cage.py, gladiator_colosseum_cage.py,
+-- samurai_dojo_cage.py and time_machine_lab_cage.py, one era each, more intricate down the row.
+local IVORY, BONE_WHITE, LOG_BROWN, ROPE_TAN = rgb(238, 224, 190), rgb(228, 218, 192), rgb(104, 72, 44), rgb(176, 140, 90)
+local CAMPFIRE = rgb(255, 150, 40)
+-- The sleeping mammoth breathes: every piece of it bobs together.
+local function mammoth(color, material, extra)
+ local entry = style(color, material, extra)
+ entry.bob, entry.bobSpeed = 0.07, 1.1
+ return entry
+end
+Styles.CavemanCampCage = {
+ parts = {
+  CaveTusks = style(IVORY, M.SmoothPlastic), CaveBones = style(BONE_WHITE, M.SmoothPlastic),
+  CaveLogs = style(LOG_BROWN, M.Wood), CaveScreen = style(LOG_BROWN, M.Wood),
+  CaveRope = style(ROPE_TAN, M.Fabric), CaveLacing = style(ROPE_TAN, M.Fabric),
+  CaveNet = style(rgb(150, 116, 72), M.Fabric), CaveNetEnds = style(rgb(150, 116, 72), M.Fabric),
+  CaveHides = style(rgb(168, 118, 72), M.Leather), CaveHideSpots = style(rgb(104, 70, 42), M.Leather),
+  CaveStones = style(rgb(150, 146, 136), M.Slate), CaveRocks = style(rgb(112, 108, 102), M.Rock),
+  CaveDark = style(rgb(26, 22, 20), M.SmoothPlastic),
+  CavePaintRed = style(rgb(190, 72, 36), M.SmoothPlastic), CavePaintBlack = style(rgb(28, 24, 22), M.SmoothPlastic),
+  CaveDirt = style(rgb(104, 76, 50), M.Ground), CaveStraw = style(rgb(212, 180, 100), M.SmoothPlastic),
+  CaveFerns = style(rgb(78, 134, 52), M.SmoothPlastic), CavePots = style(rgb(170, 104, 60), M.Concrete),
+  CaveFeathers = style(rgb(220, 84, 52), M.SmoothPlastic),
+  CavePlate = style(rgb(232, 226, 206), M.SmoothPlastic), CaveBall = style(rgb(248, 248, 244), M.SmoothPlastic),
+  CaveFlames = style(CAMPFIRE, M.Neon, {pulse = 2, shadow = false, light = {rgb(255, 150, 60), 16, 2}}),
+  CaveTorchFlames = style(CAMPFIRE, M.Neon, {pulse = 2.5, shadow = false, light = {rgb(255, 150, 60), 10, 1.2}}),
+  CaveEmbers = style(rgb(255, 84, 16), M.Neon, {pulse = 0.6}),
+  -- The roast and its bone ends turn together on the spit (Blender +Y).
+  CaveSpitRoast = style(rgb(140, 66, 30), M.SmoothPlastic, {spin = 40, spinAxis = Vector3.zAxis}),
+  CaveSpitBone = style(BONE_WHITE, M.SmoothPlastic, {spin = 40, spinAxis = Vector3.zAxis}),
+  MammothFur = mammoth(rgb(122, 76, 44), M.Fabric), MammothFurDark = mammoth(rgb(82, 50, 28), M.Fabric),
+  MammothTusks = mammoth(IVORY, M.SmoothPlastic), MammothFace = mammoth(rgb(26, 22, 20), M.SmoothPlastic),
+  MammothEarLeft = mammoth(rgb(82, 50, 28), M.Fabric, {sway = 6, swaySpeed = 0.9}),
+  MammothEarRight = mammoth(rgb(82, 50, 28), M.Fabric, {sway = 6, swaySpeed = 0.9, phase = 1.6}),
+ },
+ effects = {
+  {kind = "Flame", position = b(17.6, 13, 0.9), size = Vector3.new(0.9, 0.4, 0.9)},
+  {kind = "Embers", position = b(17.6, 13, 1.2), size = Vector3.new(1.6, 0.5, 1.6)},
+  {kind = "CampSmoke", position = b(17.6, 13, 2.6), size = Vector3.new(0.8, 0.4, 0.8)},
+  {kind = "Flame", position = b(-14.4, -15.4, 4.3), size = Vector3.new(0.5, 0.3, 0.5)},
+  {kind = "Flame", position = b(-5.6, -15.4, 4.3), size = Vector3.new(0.5, 0.3, 0.5)},
+  {kind = "Dust", position = b(-1, 10, 6), size = Vector3.new(26, 9, 44)},
+ },
+ tint = {color = rgb(255, 242, 224), brightness = 0, contrast = 0.06, saturation = 0.08},
+}
+
 -- ---------- World 3 (Future World) ----------
 -- From tools/blender/solar_rooftop_cage.py, robo_factory_cage.py, biodome_lab_cage.py,
 -- lunar_base_cage.py and quantum_lab_cage.py, more intricate down the row.
@@ -576,6 +623,10 @@ Styles.Emitters = {
  BlueFlame = {Texture = FIRE, Color = ColorSequence.new(rgb(150, 230, 255), rgb(60, 140, 255)), LightEmission = 1,
   Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 0.1)}),
   Rate = 24, Lifetime = range(0.4, 0.8), Speed = range(1, 2.5), SpreadAngle = Vector2.new(12, 12)},
+ -- World 2
+ CampSmoke = {Texture = SMOKE, Color = ColorSequence.new(rgb(150, 144, 138)), LightEmission = 0, Size = grow(0.8, 3.5),
+  Transparency = grow(0.55, 1), Rate = 5, Lifetime = range(3, 5), Speed = range(1.5, 2.5), SpreadAngle = Vector2.new(10, 10),
+  Acceleration = Vector3.new(0.3, 0.6, 0), RotSpeed = range(-20, 20)},
  -- World 3
  SunMotes = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 238, 180)), LightEmission = 0.8, Size = fade(0.25),
   Transparency = NumberSequence.new(0.25), Rate = 8, Lifetime = range(4, 7), Speed = range(0.1, 0.4),

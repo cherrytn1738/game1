@@ -39,9 +39,10 @@ local Training = {
     accent = Color3.fromRGB(90, 220, 255), frame = Color3.fromRGB(150, 156, 180), net = Color3.fromRGB(120, 80, 220),
     banner = Color3.fromRGB(50, 24, 110), lights = true, decorations = {}}},
   -- World 2 (Time Travel). Its Rebirth tiers continue on from World 1's; the first cage is
-  -- free once World 2 is unlocked. They use the standard cage in era colors for now.
+  -- free once World 2 is unlocked. Each has its own era cage (tools/blender/*_cage.py,
+  -- TrainingCageStyles); until it is imported, the standard cage stands in, in the era colors below.
   {id = "caveman_camp", displayName = "Caveman Camp", requiredRebirths = 0, powerMultiplier = 25, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(150, 112, 74), turfMaterial = M.Ground,
+   theme = {template = "CavemanCampCage", turf = Color3.fromRGB(150, 112, 74), turfMaterial = M.Ground,
     lane = Color3.fromRGB(214, 180, 104), laneMaterial = M.Fabric,
     accent = Color3.fromRGB(232, 222, 196), frame = Color3.fromRGB(112, 78, 48), net = Color3.fromRGB(86, 104, 52),
     banner = Color3.fromRGB(196, 104, 40), lights = false, decorations = {}}},

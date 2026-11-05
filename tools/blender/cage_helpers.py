@@ -337,6 +337,211 @@ def begin(collection):
     return coll
 
 
+# ---------- builders shared by the fully custom cages (World 2 and World 4) ----------
+# A custom cage script keeps a LOOKS table {mesh name: (preview rgb, shading)}, builds into
+# m = meshes(LOOKS) and finishes with build_looks: "hard" smooths by angle, "smooth" shades smooth,
+# "soft" keeps double-sided pieces as built. A spinning part is its own mesh, built symmetric about
+# its axis, because a MeshPart turns about its bounding-box centre (check_centred reports it).
+TOY_RED, TOY_YELLOW, TOY_BLUE, TOY_GREEN = (0.9, 0.18, 0.16), (1.0, 0.8, 0.12), (0.16, 0.42, 0.9), (0.22, 0.7, 0.32)
+TOY_WOOD, CREAMY = (0.82, 0.62, 0.38), (0.97, 0.95, 0.9)
+BALL_RADIUS = 0.37                     # the practice ball held at PITCH
+
+
+def meshes(looks):
+    return {name: bmesh.new() for name in looks}
+
+
+def build_looks(coll, m, looks):
+    objects = []
+    for name, (rgb, shading) in looks.items():
+        bm = m[name]
+        if not bm.verts:
+            bm.free()
+            print("empty mesh skipped:", name)
+            continue
+        objects.append(soft(coll, name, bm, rgb) if shading == "soft" else finish(coll, name, bm, rgb, hard=shading == "hard"))
+    return objects
+
+
+def rrect(w, h, r, n=3):
+    """A closed rounded-rectangle profile (u, v) centred on the origin."""
+    points = []
+    for cx, cy, start in ((w / 2 - r, h / 2 - r, 0), (r - w / 2, h / 2 - r, 90), (r - w / 2, r - h / 2, 180),
+                          (w / 2 - r, r - h / 2, 270)):
+        for k in range(n + 1):
+            a = math.radians(start + 90 * k / n)
+            points.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return points
+
+
+def circle_profile(r, n=8):
+    return [(r * math.cos(2 * math.pi * k / n), r * math.sin(2 * math.pi * k / n)) for k in range(n)]
+
+
+def extrude(bm, a, b, profile, up=(0, 0, 1)):
+    """A straight member from a to b with a closed profile whose v axis leans toward up."""
+    a, b = Vector(a), Vector(b)
+    t = (b - a).normalized()
+    v = Vector(up) - t * Vector(up).dot(t)
+    if v.length < 1e-6:
+        v = Vector((0, 1, 0)) - t * t.y
+        if v.length < 1e-6:
+            v = Vector((1, 0, 0)) - t * t.x
+    v.normalize()
+    u = t.cross(v)
+    rings = [[bm.verts.new(p + u * pu + v * pv) for pu, pv in profile] for p in (a, b)]
+    for k in range(len(profile)):
+        j = (k + 1) % len(profile)
+        bm.faces.new((rings[0][k], rings[0][j], rings[1][j], rings[1][k]))
+    bm.faces.new(tuple(reversed(rings[0])))
+    bm.faces.new(tuple(rings[1]))
+
+
+def slab(bm, points, thickness, normal=None):
+    """A flat plate through points (a convex or star-shaped outline), thickened evenly to both sides."""
+    points = [Vector(p) for p in points]
+    if normal is None:
+        normal = (points[1] - points[0]).cross(points[2] - points[0])
+    half = Vector(normal).normalized() * thickness / 2
+    low, high = [bm.verts.new(p - half) for p in points], [bm.verts.new(p + half) for p in points]
+    bm.faces.new(tuple(reversed(low)))
+    bm.faces.new(tuple(high))
+    for i in range(len(points)):
+        j = (i + 1) % len(points)
+        bm.faces.new((low[i], low[j], high[j], high[i]))
+
+
+def axes_of(axis):
+    """Two unit vectors perpendicular to axis (and to each other)."""
+    n = Vector(axis).normalized()
+    helper = Vector((0, 0, 1)) if abs(n.z) < 0.9 else Vector((1, 0, 0))
+    e1 = n.cross(helper).normalized()
+    return e1, n.cross(e1).normalized()
+
+
+def ring_points(center, axis, radius, count, a0=0.0):
+    e1, e2 = axes_of(axis)
+    c = Vector(center)
+    return [c + (e1 * math.cos(a0 + 2 * math.pi * k / count) + e2 * math.sin(a0 + 2 * math.pi * k / count)) * radius
+            for k in range(count)]
+
+
+def disc(bm, center, axis, radius, thickness, segments=32):
+    """A capped cylinder centred on center along axis."""
+    n = Vector(axis).normalized()
+    cylinder(bm, Vector(center) - n * thickness / 2, n, thickness, radius, segments=segments)
+
+
+def annulus(bm, center, axis, r0, r1, thickness, segments=32):
+    """A flat ring (washer) centred on center, normal to axis."""
+    t = thickness / 2
+    lathe(bm, [(r0, -t), (r1, -t), (r1, t), (r0, t), (r0, -t)], segments,
+          transform=Matrix.Translation(Vector(center)) @ align_z(Vector(axis)))
+
+
+def gear(bm, center, axis, radius, teeth, thickness, tooth=0.4, rim=0.45, spokes=6, hub=0.45, segments=None):
+    """A spur gear normal to axis: a rim with teeth, spokes and a hub. Use an even tooth and spoke
+    count so the gear is symmetric about its centre (it can then spin as its own mesh)."""
+    c, n = Vector(center), Vector(axis).normalized()
+    e1, e2 = axes_of(n)
+    annulus(bm, c, n, radius - rim, radius, thickness, segments or max(24, teeth * 2))
+    width = 2 * math.pi * radius / teeth * 0.5
+    for k in range(teeth):
+        a = 2 * math.pi * k / teeth
+        d = e1 * math.cos(a) + e2 * math.sin(a)
+        s = n.cross(d)
+        base, top = c + d * (radius - 0.05), c + d * (radius + tooth)
+        outline = [base - s * width / 2, base + s * width / 2, top + s * width * 0.32, top - s * width * 0.32]
+        slab(bm, outline, thickness, n)
+    for k in range(spokes):
+        a = 2 * math.pi * k / spokes + math.pi / spokes
+        d = e1 * math.cos(a) + e2 * math.sin(a)
+        extrude(bm, c + d * hub * 0.8, c + d * (radius - rim + 0.05), rrect(max(0.12, rim * 0.7), thickness * 0.8, 0.04), up=n)
+    if hub:
+        disc(bm, c, n, hub, thickness * 1.4, segments=20)
+
+
+def outline_radius(outline, center, direction):
+    """Distance from center along direction (2D) to a closed (x, z) outline, or outline(angle)."""
+    if callable(outline):
+        return outline(math.atan2(direction[1], direction[0]))
+    cx, cz = center
+    dx, dz = direction
+    best = None
+    for (x0, z0), (x1, z1) in zip(outline, outline[1:] + outline[:1]):
+        ex, ez = x1 - x0, z1 - z0
+        det = dx * (-ez) - dz * (-ex)
+        if abs(det) < 1e-12:
+            continue
+        rx, rz = x0 - cx, z0 - cz
+        t = (rx * (-ez) - rz * (-ex)) / det
+        s = (dx * rz - dz * rx) / det
+        if t > 0 and -1e-6 <= s <= 1 + 1e-6 and (best is None or t < best):
+            best = t
+    return best or 0.0
+
+
+def window_panel(bm, outline, y, thickness, center=None, radius=None, segments=56, plane="xz"):
+    """A flat screen panel in the XZ plane at y: outer edge is outline (closed (x, z) points
+    star-shaped round the window, or a function of the angle), with a round window of radius
+    round center (default the pitch window at PITCH)."""
+    center = center or (PITCH.x, PITCH.z)
+    radius = radius or WINDOW + 0.06
+    cx, cz = center
+    half = thickness / 2
+    outer, inner = [], []
+    for k in range(segments):
+        a = 2 * math.pi * k / segments
+        d = (math.cos(a), math.sin(a))
+        r = outline_radius(outline, center, d)
+        outer.append((cx + d[0] * r, cz + d[1] * r))
+        inner.append((cx + d[0] * radius, cz + d[1] * radius))
+    rings = []
+    for offset in (-half, half):
+        rings.append(([bm.verts.new((x, y + offset, z)) for x, z in outer], [bm.verts.new((x, y + offset, z)) for x, z in inner]))
+    (fo, fi), (bo, bi) = rings
+    for k in range(segments):
+        j = (k + 1) % segments
+        bm.faces.new((fo[k], fo[j], fi[j], fi[k]))
+        bm.faces.new((bo[j], bo[k], bi[k], bi[j]))
+        bm.faces.new((fo[j], fo[k], bo[k], bo[j]))
+        bm.faces.new((fi[k], fi[j], bi[j], bi[k]))
+
+
+def pitch_ball(bm, radius=BALL_RADIUS, center=None):
+    ball(bm, center or PITCH, radius, subdivisions=3)
+
+
+def tiles(bm, x0, x1, y0, y1, size, gap, z0, z1, rng=None, jitter=0.0, keep=lambda x, y: True):
+    """Floor tiles over a rectangle; keep(x, y) drops tiles by their centre."""
+    nx, ny = max(1, round((x1 - x0) / size)), max(1, round((y1 - y0) / size))
+    sx, sy = (x1 - x0) / nx, (y1 - y0) / ny
+    for i in range(nx):
+        for j in range(ny):
+            cx, cy = x0 + sx * (i + 0.5), y0 + sy * (j + 0.5)
+            if not keep(cx, cy):
+                continue
+            h = z1 - z0 + (rng.uniform(-jitter, jitter) if rng else 0.0)
+            box(bm, (cx, cy, z0 + h / 2), (sx - gap, sy - gap, h))
+
+
+def check_centred(objects, spins):
+    """spins: {mesh name: (axis point, axis)}. Prints how far each spinning mesh's bounding-box
+    centre sits off its axis (it should be ~0)."""
+    by_name = {o.name: o for o in objects}
+    for name, (point, axis) in spins.items():
+        o = by_name.get(name)
+        if not o:
+            print("spin check: no mesh", name)
+            continue
+        lo = Vector((min(v.co.x for v in o.data.vertices), min(v.co.y for v in o.data.vertices), min(v.co.z for v in o.data.vertices)))
+        hi = Vector((max(v.co.x for v in o.data.vertices), max(v.co.y for v in o.data.vertices), max(v.co.z for v in o.data.vertices)))
+        c = (lo + hi) / 2 - Vector(point)
+        n = Vector(axis).normalized()
+        off = (c - n * c.dot(n)).length
+        print("spin check %s: %.3f off its axis%s" % (name, off, "  <-- PROBLEM" if off > 0.05 else ""))
+
+
 def report_and_export(objects, path, export=True):
     """Print triangle counts and extents, enforce the limits, then export at 1/4 scale."""
     counts = {o.name: triangles(o) for o in objects}

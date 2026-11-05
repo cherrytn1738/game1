@@ -1,8 +1,11 @@
--- Studio command-bar script (not Rojo-managed): sorts World 4's imported Ball, Bat and cage FBX files into
--- ServerStorage.RunwayAssets (items in DisplayItems, one Model per item id), the way World 3's were.
+-- Studio command-bar script (not Rojo-managed): sorts World 4's imported Ball and Bat FBX files and
+-- the custom cages of World 2 and World 4 into ServerStorage.RunwayAssets (items in DisplayItems, one
+-- Model per item id; cages as templates), the way World 3's were. Imports that are not in the
+-- Workspace are reported as "not imported" and skipped.
 --
--- 1. In Studio, Import 3D assets/models/BallsWorld4.fbx, BatsWorld4.fbx and the five World 4 cages (default
---    settings), leaving each result in the Workspace under its file name.
+-- 1. In Studio, Import 3D assets/models/BallsWorld4.fbx, BatsWorld4.fbx and/or any of the cage FBX
+--    files listed in CAGES below (default settings), leaving each result in the Workspace under its
+--    file name.
 -- 2. Paste this whole file into the command bar and press Enter (or run it through MCP).
 -- 3. Save the place.
 --
@@ -69,11 +72,16 @@ for importName, spec in IMPORTS do
  if left == 0 then imported:Destroy() end
  table.insert(out, importName .. " parts left: " .. left)
 end
--- The five World 4 cages (Phase 5): each import is kept whole as a template of the same name, turned a
--- half turn and scaled back by 0.01 like World 3's cages (TrainingStadium scales templates up 4x). The
--- home plate's position (x4) should match the standard TrainingCage's, printed last.
-local CAGES = {SandboxDiamondCage = "SandHomePlate", PinballCage = "PinHomePlate", CerealBowlCage = "BowlHomePlate",
- ToySoldierCage = "FortHomePlate", SnowGlobeCage = "GlobeHomePlate"}
+-- The custom cages of World 2 and World 4: each import is kept whole as a template of the same name,
+-- turned a half turn and scaled back by 0.01 like World 3's cages (TrainingStadium scales templates up
+-- 4x). An existing template of that name is replaced. The home plate's position (x4) should match the
+-- standard TrainingCage's, printed last.
+local CAGES = {
+ CavemanCampCage = "CavePlate", PharaohsTombCage = "TombPlate", GladiatorColosseumCage = "ArenaPlate",
+ SamuraiDojoCage = "DojoPlate", TimeMachineLabCage = "ChronoPlate",
+ SandboxDiamondCage = "SandPlate", PinballCage = "PinPlate", CerealBowlCage = "BowlPlate",
+ ToySoldierCage = "FortPlate", SnowGlobeCage = "GlobePlate",
+}
 for name, plateName in CAGES do
  local cage = workspace:FindFirstChild(name)
  if not cage then
