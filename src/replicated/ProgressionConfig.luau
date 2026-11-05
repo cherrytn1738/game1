@@ -11,31 +11,32 @@ local Progression = {
  LevelsPerRebirth = 20,
  -- Power to go from a Level to the next, in bands. Each band starts at fromLevel (a breakpoint)
  -- and rises smoothly to the next band: by `add` per Level (linear) or x`growth` per Level.
- -- Band 1 is the tutorial (10, 19, 28, ...). Bands from Level 20 match the Level Caps, so each
- -- Rebirth's new 20 Levels are one band, sized so Rebirth k's run takes about 3 + 2 x (k - 1)
- -- minutes for an active player (the MEDIUM pace, solved with tools/balance).
+ -- Band 1 is the tutorial (10, 11.5, 13, ...: its Level 20 climb takes about 54 s of Training with
+ -- the Sandlot Ball). Bands from Level 20 match the Level Caps, so each Rebirth's new 20 Levels
+ -- are one band, sized so Rebirth k's run takes about 3 + 4 x (k - 1) minutes for an active
+ -- player (the LONG pace, solved with tools/balance).
  LevelBands = {
-  {fromLevel = 1, start = 10, add = 9},
-  {fromLevel = 20, start = 580, growth = 1.02},
-  {fromLevel = 40, start = 12_000, growth = 1.02},
-  {fromLevel = 60, start = 67_000, growth = 1.02},
-  {fromLevel = 80, start = 380_000, growth = 1.02},
-  {fromLevel = 100, start = 2_900_000, growth = 1.02},
-  {fromLevel = 120, start = 14_000_000, growth = 1.02},
-  {fromLevel = 140, start = 98_000_000, growth = 1.02},
-  {fromLevel = 160, start = 390_000_000, growth = 1.02},
-  {fromLevel = 180, start = 1_900_000_000, growth = 1.02},
-  {fromLevel = 200, start = 4_600_000_000, growth = 1.02},
-  {fromLevel = 220, start = 14_000_000_000, growth = 1.02},
-  {fromLevel = 240, start = 42_000_000_000, growth = 1.02},
-  {fromLevel = 260, start = 150_000_000_000, growth = 1.02},
-  {fromLevel = 280, start = 380_000_000_000, growth = 1.02},
-  {fromLevel = 300, start = 880_000_000_000, growth = 1.02},
-  {fromLevel = 320, start = 1_600_000_000_000, growth = 1.02},
-  {fromLevel = 340, start = 3_700_000_000_000, growth = 1.02},
-  {fromLevel = 360, start = 6_700_000_000_000, growth = 1.02},
-  {fromLevel = 380, start = 12_000_000_000_000, growth = 1.02},
-  {fromLevel = 400, start = 22_000_000_000_000, growth = 1.02},
+  {fromLevel = 1, start = 10, add = 1.5},
+  {fromLevel = 20, start = 90, growth = 1.02},
+  {fromLevel = 40, start = 3_200, growth = 1.02},
+  {fromLevel = 60, start = 48_000, growth = 1.02},
+  {fromLevel = 80, start = 470_000, growth = 1.02},
+  {fromLevel = 100, start = 3_200_000, growth = 1.02},
+  {fromLevel = 120, start = 13_000_000, growth = 1.02},
+  {fromLevel = 140, start = 64_000_000, growth = 1.02},
+  {fromLevel = 160, start = 300_000_000, growth = 1.02},
+  {fromLevel = 180, start = 1_400_000_000, growth = 1.02},
+  {fromLevel = 200, start = 4_000_000_000, growth = 1.02},
+  {fromLevel = 220, start = 9_000_000_000, growth = 1.02},
+  {fromLevel = 240, start = 26_000_000_000, growth = 1.02},
+  {fromLevel = 260, start = 86_000_000_000, growth = 1.02},
+  {fromLevel = 280, start = 310_000_000_000, growth = 1.02},
+  {fromLevel = 300, start = 830_000_000_000, growth = 1.02},
+  {fromLevel = 320, start = 1_500_000_000_000, growth = 1.02},
+  {fromLevel = 340, start = 2_700_000_000_000, growth = 1.02},
+  {fromLevel = 360, start = 4_900_000_000_000, growth = 1.02},
+  {fromLevel = 380, start = 8_900_000_000_000, growth = 1.02},
+  {fromLevel = 400, start = 16_000_000_000_000, growth = 1.02},
  },
  -- Bands past the last listed one: 20 Levels each, starting this many times above the band before.
  LevelBandTailGrowth = 1.8,
@@ -48,30 +49,50 @@ local Progression = {
  -- earns about 50-70% of Basic Training's Power (Training gives half the base per second) and
  -- never uses the Ground, so Training is always the best Power source.
  HitPowerPerSecond = 0.37,
- -- Launch speed by Level, built from measured hits (tools/balance/HitMeasurements). Levels 1-140:
- -- linear between these {Level, speed} points; distance rises ~2.8% a Level, from ~81 studs at
- -- Level 1 to 3,906 at 140.
- LaunchSpeedTable = {{1, 55}, {11, 64.6}, {21, 78}, {31, 97.3}, {41, 119.1}, {51, 135.8}, {61, 157.8},
-  {71, 178.1}, {81, 211.8}, {91, 284.7}, {101, 338.3}, {111, 393.3}, {121, 437.8}, {131, 475.9},
-  {140, 505}},
- -- From Level 141: {Level, speed} steps, each speed used from its Level until the next. Above
- -- about 505 studs/s the landing bounces make distance jump from one speed to the next (649 lands
- -- at 7,000, 650 at 5,959), so each step is a speed measured twice to land in its range, and the
- -- distances rise step by step (not the speeds). World 1's end (5,000) is reached from Level 150,
- -- World 2's (6,000) from 250 and World 3's (7,000) from 370, matching the Training Ground Rebirth
- -- gates (Rebirths 7, 12 and 18 reach those Levels). Re-solve with tools/balance after any
- -- physics change.
- LaunchSpeedSteps = {{141, 660}, {144, 693}, {147, 655}, -- ~4,050 / 4,450 / 4,770 studs
+ -- Launch speed by Level, built from measured hits (tools/balance/HitMeasurements). Levels 1-21:
+ -- linear between these {Level, speed} points (with EarlyLaunch below).
+ LaunchSpeedTable = {{1, 55}, {11, 64.6}, {21, 78}},
+ -- From Level 22: {Level, speed} steps, each speed used from its Level until the next. The landing
+ -- bounces make distance jump around from one speed to the next at every speed (110 lands ~300
+ -- studs, 112 ~280, 118 ~350; 649 lands at 7,000, 650 at 5,959), so each step is a measured speed
+ -- chosen for where it lands, and distances rise with Level (not the speeds).
+ --  * Levels 22-140, one step each: distance grows 5% a Level from Level 21 (~146 studs), easing
+ --    to 1.7% at Level 100 and staying there to 140 (3,906), so mid-game hits grow fast and
+ --    Levels 100-140 grow evenly (tools/balance `distanceShape` + `measuredSteps`). A Level with
+ --    no measured speed on the curve repeats the Level before. Below ~200 studs/s a speed varies
+ --    from hit to hit (up to ~40%), so early hits spread around the curve.
+ --  * From Level 141, each a speed measured twice to land in its range: World 1's end (5,000) is
+ --    reached from Level 150, World 2's (6,000) from 250 and World 3's (7,000) from 370, matching
+ --    the Training Ground Rebirth gates (Rebirths 7, 12 and 18 reach those Levels).
+ -- Re-measure and re-solve with tools/balance after any physics change.
+ LaunchSpeedSteps = {
+  {22, 86}, {23, 84}, {24, 84}, {25, 90}, {26, 92}, {27, 88}, {28, 108}, {29, 108}, {30, 106},
+  {31, 115}, {32, 104}, {33, 114}, {34, 105.4}, {35, 111.1}, {36, 116}, {37, 122}, {38, 126},
+  {39, 136}, {40, 124}, {41, 133}, {42, 134}, {43, 132}, {44, 142}, {45, 162}, {46, 160}, {47, 156},
+  {48, 154}, {49, 152}, {50, 205.6}, {51, 174}, {52, 196}, {53, 210}, {54, 164}, {55, 168},
+  {56, 206}, {57, 169}, {58, 222}, {59, 184}, {60, 252}, {61, 204}, {62, 282}, {63, 280}, {64, 234},
+  {65, 246}, {66, 262}, {67, 248}, {68, 198}, {69, 294}, {70, 278}, {71, 226}, {72, 244}, {73, 358},
+  {74, 342}, {75, 274}, {76, 322}, {77, 290}, {78, 272}, {79, 240}, {80, 372}, {81, 352}, {82, 302},
+  {83, 404}, {84, 370}, {85, 304}, {86, 413.8}, {87, 268}, {88, 402}, {89, 424.5}, {90, 283.9},
+  {91, 368}, {92, 423.2}, {93, 284}, {94, 400}, {95, 466}, {96, 432}, {97, 452}, {98, 380},
+  {99, 455.5}, {100, 398}, {101, 346}, {102, 430}, {103, 364}, {104, 390.8}, {105, 444}, {106, 496},
+  {107, 489.6}, {108, 462}, {109, 456.8}, {110, 489.4}, {111, 480}, {112, 455.1}, {113, 344},
+  {114, 408}, {115, 488.9}, {116, 500}, {117, 394}, {118, 460}, {119, 360}, {120, 484}, {121, 492},
+  {122, 478}, {123, 392}, {124, 458}, {125, 502}, {126, 470.8}, {127, 406}, {128, 438}, {129, 472},
+  {130, 486}, {131, 456}, {132, 424}, {133, 390}, {134, 390}, {135, 422}, {136, 470}, {137, 470},
+  {138, 470}, {139, 470}, {140, 505},
+  {141, 660}, {144, 693}, {147, 655}, -- ~4,050 / 4,450 / 4,770 studs
   {150, 690}, {160, 677}, {170, 686}, {180, 669}, {190, 652}, {200, 695}, {210, 704}, {220, 680},
   {230, 648}, {240, 687}, -- ~5,100 rising to 5,820 studs
   {250, 665}, {263, 667}, {276, 705}, {290, 714}, {303, 719}, {316, 679}, {330, 702}, {343, 685},
   {356, 699}, -- ~6,140 rising to 6,820 studs
   {370, 716}}, -- reaches World 3's end (and every earlier World's)
  -- About how far a hit at a Level lands (studs), from the same measured hits: {Level, distance}
- -- points, rising evenly in proportion between them (~2.8% a Level up to 140). For estimates
- -- only (the Cash packs' "normal hits", MonetizationConfig); real hits are always measured.
- ExpectedHitDistances = {{1, 81}, {140, 3906}, {141, 4050}, {144, 4450}, {147, 4770}, {150, 5100},
-  {249, 5820}, {250, 6140}, {369, 6820}, {370, 7000}},
+ -- points, rising evenly in proportion between them. For estimates only (the Cash packs'
+ -- "normal hits", MonetizationConfig); real hits are always measured.
+ ExpectedHitDistances = {{1, 81}, {21, 146}, {30, 228}, {40, 347}, {50, 516}, {60, 755}, {70, 1002},
+  {80, 1363}, {90, 1677}, {100, 2053}, {110, 2347}, {120, 2789}, {130, 3397}, {140, 3906},
+  {141, 4050}, {144, 4450}, {147, 4770}, {150, 5100}, {249, 5820}, {250, 6140}, {369, 6820}, {370, 7000}},
  LaunchAngleDegrees = 38,
  -- The first Levels' hits: at the table's 55 studs/s a 38-degree hit only rises ~2 studs and lands
  -- ~20 studs out (Roblox gravity, 196 studs/s^2), then rolls, so it looks like a grounder. Level 1

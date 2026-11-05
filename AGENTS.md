@@ -189,11 +189,11 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 
 ### Power / Level
 
-- Power requirements come in bands (`ProgressionConfig.LevelBands`): `9 * Level + 1` below Level 20 (the quick early band: 10, 19, 28, ...), then one band for each Rebirth's 20 new Levels (580 at Level 20, 12,000 at 40, 67,000 at 60, ...), each Level 1.02x the one before inside its band; bands past the listed ones start 1.8x above the band before.
+- Power requirements come in bands (`ProgressionConfig.LevelBands`), solved for the LONG pace (Rebirth k's run takes about 3 + 4 × (k - 1) minutes): `10 + 1.5 × (Level - 1)` below Level 20 (the tutorial band: 10, 11, 13, 14, ...; its Level 20 climb takes about 54 s of Training), then one band for each Rebirth's 20 new Levels (90 at Level 20, 3,200 at 40, 48,000 at 60, 470,000 at 80, ...), each Level 1.02x the one before inside its band; bands past the listed ones start 1.8x above the band before.
 - Level Cap currently scales as `20 * (Rebirths + 1)` (20, 40, 60, ...; the first Rebirth is at Level 20).
 - Rebirth Power multiplier currently scales as `Rebirths + 1`.
 - The Training base (Power per practice hit at Basic Training) is 5 at every Level; Level never scales Power gain.
-- Launch speed comes from a Level -> speed table built from measured hits (`tools/balance/HitMeasurements`), at a 38-degree loft. The first Levels use an early launch curve (`ProgressionConfig.EarlyLaunch`: Level 1 at 61.6 studs/s and 48.3 degrees, falling at 0.57x gravity until its first landing; speed and loft blend evenly, and the gravity eases, into the table, 38 degrees and normal gravity by Level 21) so a new player's hit rises and hangs in a light arc instead of skimming into the ground. Bounces and rolling always use normal gravity.
+- Launch speed comes from a Level -> speed table built from measured hits (`tools/balance/HitMeasurements`), at a 38-degree loft. Distance is erratic in speed (bounces), so from Level 22 each Level uses its own measured speed (`LaunchSpeedSteps`) chosen to land on a curve that grows 5% a Level from Level 21 (~146 studs), easing to 1.65% at Level 100 and staying there to Level 140 (3,906 studs): about 347 studs at Level 40, 755 at 60, 1,363 at 80, 2,053 at 100; below ~200 studs/s single hits still vary (up to ~40%). World 1's end is still reached at Level 150. The first Levels use an early launch curve (`ProgressionConfig.EarlyLaunch`: Level 1 at 61.6 studs/s and 48.3 degrees, falling at 0.57x gravity until its first landing; speed and loft blend evenly, and the gravity eases, into the table, 38 degrees and normal gravity by Level 21) so a new player's hit rises and hangs in a light arc instead of skimming into the ground. Bounces and rolling always use normal gravity.
 - These are implementation/balance values, not immutable design decisions; `tools/balance` simulates and re-solves them (`.vscode/ECONOMY.md`).
 - Level is the sole long-term determinant of batting distance.
 
@@ -204,15 +204,16 @@ If a visual/cosmetic issue does not block the current gameplay milestone, prefer
 - Level: solely determines hit distance.
 - Training Ground: multiplies Training Power only.
 - Rebirth: multiplies Power gain.
+- Purchased Power / Cash multipliers (Robux, see Monetization): multiply Power gain / batting Cash; never distance.
 
-The server derives every multiplier from the authoritative equipped IDs through `EquipmentConfig`; a hit snapshots the Ball ID and Bat Cash multiplier when the swing is accepted.
+The server derives every multiplier from the authoritative equipped IDs through `EquipmentConfig`, and the purchased ones from the saved tier counts through `MonetizationConfig`; a hit snapshots the Ball ID, the Bat Cash multiplier, its juices and the purchased multipliers when the swing is accepted.
 
 Formulas (whole Power is rounded down once, after all bonuses):
 
-- Training Power = Training base (5) × ground multiplier × Ball × (Rebirths + 1) × any Power juice
-- Hit Power = Training base × 0.37 per second in play (rounded) × Ball × (Rebirths + 1) × any Power juice (no ground; about 50-70% of Basic Training's rate)
-- Offline Power = 25% of the best usable ground's Training rate (no Level term), for up to 8 hours, × Ball × (Rebirths + 1), held to half the Power still needed for the Level Cap (Welcome Back's 3x adds it twice more, up to all of it)
-- Hit Cash = (distance / 80)^1.5 × World Cash multiplier (1, 10, 100) × section multiplier × Bat × any Cash juice, rounded, at least $1
+- Training Power = Training base (5) × ground multiplier × Ball × (Rebirths + 1) × purchased Power multiplier × any Power juice
+- Hit Power = Training base × 0.37 per second in play (rounded) × Ball × (Rebirths + 1) × purchased Power multiplier × any Power juice (no ground; about 50-70% of Basic Training's rate)
+- Offline Power = 25% of the best usable ground's Training rate (no Level term), for up to 8 hours, × Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held to half the Power still needed for the Level Cap (Welcome Back's 3x adds it twice more, up to all of it)
+- Hit Cash = (distance / 80)^1.5 × World Cash multiplier (1, 10, 100) × section multiplier × Bat × purchased Cash multiplier × any Cash juice, rounded, at least $1
 
 ### Bat
 
@@ -226,7 +227,7 @@ Current Cash multipliers and prices (each Bat about 1.5x the one before):
 - Amethyst: 3x, $600
 - Candy Cane: 4x, $3,000
 - Frostbite: 6x, $15,000
-- Magma: 9x, $300,000
+- Magma: 9x, $50,000 (World 1's last purchase, before World 2 opens)
 - Lightning: 13x, $1.5M
 - Dragon Bone: 19x, $25M
 - Celestial: 28x, $120M
@@ -406,12 +407,14 @@ Two consumable drinks (`JuiceConfig`, stored in the existing `OwnedJuices` / `Ac
 
 Sold for Robux (`.vscode/MONETIZATION.md`; ids in `MonetizationConfig` and `TrainingConfig`, 0 until created on the Creator Dashboard, when the button reads SOON):
 
-- Three Power developer products in a row under the Level bar (the Batting button below them): +10K / +100K / +1M Power for 11 / 45 / 95 Robux, added exactly (no multipliers) through the normal Level path (`PlayerData.ClaimPowerProduct`)
+- Three Power developer products in a row under the Level bar (the Batting button below them): +10K / +100K / +1M Power for 11 / 45 / 95 Robux, added exactly (no multipliers, purchased ones included) through the normal Level path (`PlayerData.ClaimPowerProduct`)
+- Permanent Power and Cash multipliers (`MonetizationConfig.Multipliers`), bought one tier at a time in the Shop, each tier its own developer product: Power 1.5x / 1.6x / 1.7x / 1.8x / 1.9x for 129 / 169 / 219 / 279 / 359 Robux, Cash 1.5x / 1.6x / 1.7x / 1.8x / 1.9x / 2x / 2.1x for 129 / 159 / 199 / 249 / 309 / 389 / 489 Robux. The server prompts only the next tier ("BuyMultiplier"); the receipt (`PlayerData.ClaimMultiplier`) raises the saved `PowerMultiplierTier` / `CashMultiplierTier` (at least one tier per receipt, up to the top), never from the client. Power multiplies Training, hit and offline Power (and the 3x), never the Power products or the Starter Pack's Power; Cash multiplies batting Cash and a Cash pack's "normal hit". Both stack with juices, are kept through Rebirths, are not giftable and never change launch or distance. Balanced so a player with every tier still takes at least half a free player's time to the finale (`.vscode/ECONOMY.md`)
 - Auto Bat game pass (25 Robux), a top-centre ON/OFF button: while ON, the Bat client presses the normal Swing whenever a manual swing would be accepted and the last hit has settled; the server checks every swing as usual
 - The Training Ground passes and the Welcome Back 3x product (above)
 - The Shop (HUD Shop tile; `ShopClient`, menu "Store"), one scrolling window:
   - Starter Pack (game pass, 39 Robux, once): +10K Power, +1 Rebirth (a bonus one: Rebirths and the Level Cap rise, nothing resets), 1 Power Punch and the exclusive Catastrophe Bat; given once ever (saved `StarterPackGranted`)
-  - Cash Packs (developer products, 25 / 59 / 115 / 229 Robux): Cash worth 15 / 50 / 125 / 300 normal hits for the player now (Level, current World, equipped Bat; `MonetizationConfig.GetCashPackReward`)
+  - Multipliers: the Power and Cash cards, each showing its next tier as the change it makes ("POWER 1.5x → 1.6x"), MAXED at the top
+  - Cash Packs (developer products, 25 / 59 / 115 / 229 Robux): Cash worth 15 / 50 / 125 / 300 normal hits for the player now (Level, current World, equipped Bat, purchased Cash multiplier; `MonetizationConfig.GetCashPackReward`)
   - Boosts (developer products): Boost Bundle (2 Power Punch + 2 Cash Splash, 95 Robux), Power Punch or Cash Splash (39 Robux each), added to the Inventory, never started
   - Training Grounds: Dragon's Lair always, plus the World's premium ground (Cosmic Rift / Time Machine Lab / Quantum Lab, one shared pass), through the existing passes, each with a 3D preview of its cage (`ReplicatedStorage.TrainingGroundModels`)
   - Gifts: every Shop item can be bought for another player in the server (Gift button → player picker → confirm) through a gift developer product at the same price (`MonetizationConfig.GiftProducts`). The server saves the recipient (and a Cash pack's amount from the recipient's progression) in the buyer's `PendingGifts` before the prompt; the receipt queues the gift in the recipient's saved `GiftInbox`, applied once (`ReceivedGifts`), even after they leave. A gifted ground is a saved `GiftedEntitlements` entry counted exactly like owning its pass
@@ -486,7 +489,7 @@ Preserve existing protections:
 - validation/sanitization
 - bounded retry behavior
 
-Current confirmed schema is Schema 11 (Schema 6 removed Tee equipment, Schema 7 added Juice, Schema 8 retired the saved Training Ground selection, Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards, Schema 10 added the new-player tutorial: TutorialCompleted, and while unfinished TutorialStep and TutorialProgress, Schema 11 added StarterPackGranted, CashPackQuotes and the gift fields: PendingGifts, GiftInbox, ReceivedGifts, GiftedEntitlements).
+Current confirmed schema is Schema 12 (Schema 6 removed Tee equipment, Schema 7 added Juice, Schema 8 retired the saved Training Ground selection, Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards, Schema 10 added the new-player tutorial: TutorialCompleted, and while unfinished TutorialStep and TutorialProgress, Schema 11 added StarterPackGranted, CashPackQuotes and the gift fields: PendingGifts, GiftInbox, ReceivedGifts, GiftedEntitlements, Schema 12 added the purchased multiplier tier counts PowerMultiplierTier and CashMultiplierTier: 0 for older saves).
 
 The global leaderboards' OrderedDataStores are mirrors of saved values, written from successful saves; PlayerData remains canonical.
 
@@ -575,7 +578,7 @@ Unless asked, do not add:
 - crates
 - quests
 - daily rewards
-- monetization (the approved exceptions are listed under Monetization: the Training Ground passes, the Welcome Back 3x, the three Power products, Auto Bat, and the Shop's Starter Pack, Cash Packs and Boosts)
+- monetization (the approved exceptions are listed under Monetization: the Training Ground passes, the Welcome Back 3x, the three Power products, Auto Bat, the permanent Power and Cash multipliers, and the Shop's Starter Pack, Cash Packs and Boosts)
 - leaderboards (World 1's four global boards are the approved exception)
 - trading
 - rarity systems

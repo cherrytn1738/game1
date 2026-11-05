@@ -10,16 +10,23 @@ local Monetization = require(game.ReplicatedStorage:WaitForChild("MonetizationCo
 local PlayerData = require(script.Parent:WaitForChild("PlayerData"))
 
 -- Client to server: ("AutoBat", on) asks to turn Auto Bat on or off; ("BuyCash", pack id) asks to
--- buy a Cash pack (the server fixes its reward, then prompts). Server to client:
--- ("PowerGranted", amount) after a Power purchase is added; ("Granted", product name, {cash} or
--- {juices}) after a Shop product; ("StarterPack") once its rewards are given;
--- ("AutoBatRefused", message). Gifts: ("Gift", gift id, recipient UserId) from the client;
+-- buy a Cash pack (the server fixes its reward, then prompts); ("BuyMultiplier", "Power" or
+-- "Cash") asks to buy the next tier of that multiplier (the server picks the tier). Server to
+-- client: ("PowerGranted", amount) after a Power purchase is added; ("Granted", product name,
+-- {cash} or {juices}) after a Shop product; ("MultiplierGranted", kind, tier count) after a
+-- multiplier tier; ("StarterPack") once its rewards are given; ("AutoBatRefused", message).
+-- Gifts: ("Gift", gift id, recipient UserId) from the client;
 -- ("GiftRefused", message), ("GiftSent", gift id, recipient name) and ("GiftReceived", gift id,
 -- sender name, Cash amount) back.
 local Remote = ReplicatedStorage:FindFirstChild("Monetization") or Instance.new("RemoteEvent")
 Remote.Name, Remote.Parent = "Monetization", ReplicatedStorage
 local TOGGLE_SECONDS = 0.3 -- requests closer together than this are ignored
 local lastToggle = {}
+-- A multiplier tier's prompt blocks another prompt of the same kind until Roblox reports it
+-- cancelled, or its receipt is granted (or this many seconds pass), so the same tier is never
+-- prompted twice while a purchase is on its way. [player] = {[kind] = os.clock() it ends}.
+local MULTIPLIER_PROMPT_SECONDS = 60
+local multiplierPrompts = {}
 
 MarketplaceService.ProcessReceipt = function(receipt)
  local player = Players:GetPlayerByUserId(receipt.PlayerId)
@@ -34,6 +41,15 @@ MarketplaceService.ProcessReceipt = function(receipt)
  if power then
   local decision, added = PlayerData.ClaimPowerProduct(player, receipt, power.powerAmount)
   if added and player.Parent == Players then Remote:FireClient(player, "PowerGranted", added) end
+  return decision
+ end
+ local kind, tier = Monetization.GetMultiplierProduct(receipt.ProductId)
+ if kind then
+  local decision, owned = PlayerData.ClaimMultiplier(player, receipt, kind, tier)
+  if owned then
+   if multiplierPrompts[player] then multiplierPrompts[player][kind] = nil end
+   if player.Parent == Players then Remote:FireClient(player, "MultiplierGranted", kind, owned) end
+  end
   return decision
  end
  local cashPack = Monetization.GetCashProduct(receipt.ProductId)
@@ -73,6 +89,9 @@ local function startGift(player, giftId, recipientId)
 end
 
 MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, purchased)
+ local kind = Monetization.GetMultiplierProduct(productId)
+ local buyer = kind and not purchased and Players:GetPlayerByUserId(userId)
+ if buyer and multiplierPrompts[buyer] then multiplierPrompts[buyer][kind] = nil end
  local gift = Monetization.GetGiftProduct(productId)
  local player = gift and Players:GetPlayerByUserId(userId)
  if player then PlayerData.GiftPromptFinished(player, gift, purchased == true) end
@@ -103,8 +122,25 @@ local function buyCashPack(player, id)
  end
 end
 
+-- ("BuyMultiplier", kind): prompts the next tier of that multiplier the player doesn't own yet
+-- (the server's own tier count picks it; the client never names a tier), one prompt at a time.
+local function buyMultiplier(player, kind)
+ if type(kind) ~= "string" or not Monetization.Multipliers[kind] then return end
+ local now = os.clock()
+ if now - (lastBuy[player] or -math.huge) < BUY_SECONDS then return end
+ lastBuy[player] = now
+ local open = multiplierPrompts[player] or {}
+ if now < (open[kind] or -math.huge) then return end
+ local tier, entry = PlayerData.GetNextMultiplierTier(player, kind)
+ if not tier or entry.developerProductId <= 0 then return end
+ open[kind] = now + MULTIPLIER_PROMPT_SECONDS
+ multiplierPrompts[player] = open
+ MarketplaceService:PromptProductPurchase(player, entry.developerProductId)
+end
+
 Remote.OnServerEvent:Connect(function(player, action, on, extra)
  if action == "BuyCash" then buyCashPack(player, on) return end
+ if action == "BuyMultiplier" then buyMultiplier(player, on) return end
  if action == "Gift" then startGift(player, on, extra) return end
  if action ~= "AutoBat" or type(on) ~= "boolean" then return end
  local now = os.clock()
@@ -119,7 +155,7 @@ Remote.OnServerEvent:Connect(function(player, action, on, extra)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
- lastToggle[player], lastBuy[player], lastGift[player] = nil, nil, nil
+ lastToggle[player], lastBuy[player], lastGift[player], multiplierPrompts[player] = nil, nil, nil, nil
 end)
 
 -- The Starter Pack is a game pass; PlayerData gives its rewards. Tell the player once it has.

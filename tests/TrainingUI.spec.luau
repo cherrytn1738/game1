@@ -75,8 +75,13 @@ return function(sources)
  local modules={UICommon=UI,HubInterfaces=Interfaces,
   EquipmentConfig=compile(sources.EquipmentConfig)(),TrainingConfig=trainingConfig,
   ProgressionConfig=compile(sources.ProgressionConfig)(),SwingConfig={},WorldConfig=compile(sources.WorldConfig)(),
-  JuiceConfig=compile(sources.JuiceConfig)(),
+  JuiceConfig=compile(sources.JuiceConfig)(),FieldConfig=compile(sources.FieldConfig)(),
   GameAudio={Play=function() end,Preload=function() end}}
+ -- MonetizationConfig requires the other configs; it gets these copies.
+ local monetization=compile(sources.MonetizationConfig)
+ setfenv(monetization,setmetatable({game={GetService=function() return {WaitForChild=function(_,name) return name end} end},
+  require=function(name) return assert(modules[name],name) end},{__index=getfenv()}))
+ modules.MonetizationConfig=monetization()
  local storage={}
  -- The real client fetches its RemoteEvents directly rather than requiring them.
  function storage:WaitForChild(name)
@@ -103,6 +108,10 @@ return function(sources)
  check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  125 Power / second", "ground, Ball and Rebirth compose once in preview")
  player:SetAttribute("Level",20)
  check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  125 Power / second", "the preview is the same at every Level")
+ -- The purchased Power multiplier (the server's tier count) is in the preview too: 1.5x.
+ player:SetAttribute("PowerMultiplierTier",1)
+ check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  187.5 Power / second", "the purchased Power multiplier is in the preview")
+ player:SetAttribute("PowerMultiplierTier",nil)
  player:SetAttribute("Level",4)
  check(buttons.basic_training.Active and buttons.basic_training.Text == "GO","unlocked ground offers a teleport")
  check(not buttons.enchanted_grove.Active and buttons.enchanted_grove.Text == "REQUIRES 2 REBIRTHS","locked Rebirth ground stays disabled")

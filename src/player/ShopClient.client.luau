@@ -1,6 +1,7 @@
--- The Shop (the HUD's Shop tile): one scrolling window of Robux offers, in four sections: the
--- Starter Pack, Cash packs, Boosts (juices) and Training Grounds (Dragon's Lair, plus the premium
--- ground in the player's World). Everything shown comes from config (MonetizationConfig,
+-- The Shop (the HUD's Shop tile): one scrolling window of Robux offers, in five sections: the
+-- Starter Pack, Multipliers (the next tier of the permanent Power and Cash multipliers), Cash
+-- packs, Boosts (juices) and Training Grounds (Dragon's Lair, plus the premium ground in the
+-- player's World). Everything shown comes from config (MonetizationConfig,
 -- TrainingConfig) and server-set attributes; this only opens Roblox's purchase prompts (or the
 -- Training Ground "Buy" request) and shows what the server confirms. Ids still 0 read SOON.
 -- (Bats and Balls are bought with Cash only at their hub display pedestals.)
@@ -26,6 +27,8 @@ local CASH_GOLD = Color3.fromRGB(255, 214, 60)
 local CARD_FACES = {
  starter = {Color3.fromRGB(255, 120, 200), Color3.fromRGB(130, 70, 230)},
  cash = {Color3.fromRGB(90, 210, 110), Color3.fromRGB(30, 140, 70)},
+ powerMultiplier = {Color3.fromRGB(255, 190, 60), Color3.fromRGB(225, 100, 30)},
+ cashMultiplier = {Color3.fromRGB(60, 200, 175), Color3.fromRGB(25, 115, 140)},
  bundle = {Color3.fromRGB(110, 120, 255), Color3.fromRGB(60, 170, 90)},
  juice = {Color3.fromRGB(80, 130, 230), Color3.fromRGB(40, 70, 170)},
  ground = {Color3.fromRGB(255, 150, 60), Color3.fromRGB(200, 50, 50)},
@@ -145,7 +148,7 @@ local function batPicture(parent, closeUp)
 end
 
 -- A Robux buy button: green with the Robux icon and price, grey SOON while the id is 0, grey
--- OWNED once bought. set(id, price, owned).
+-- OWNED (or ownedText) once bought. set(id, price, owned, ownedText).
 local buttons = {}
 local function robuxButton(parent, name, onBuy)
  local button = UI.ShowcaseButton(parent, name)
@@ -159,11 +162,11 @@ local function robuxButton(parent, name, onBuy)
  end
  caption:GetPropertyChangedSignal("TextBounds"):Connect(placeIcon)
  local state = {}
- local function set(id, price, owned)
+ local function set(id, price, owned, ownedText)
   state.id, state.owned = id, owned
   icon.Visible = not owned and id > 0
   if owned then
-   UI.SetShowcaseButton(button, "OWNED", "Grey", false)
+   UI.SetShowcaseButton(button, ownedText or "OWNED", "Grey", false)
   elseif id <= 0 then
    UI.SetShowcaseButton(button, "SOON", "Grey", true)
   else
@@ -283,9 +286,57 @@ table.insert(refreshers, function()
 end)
 loadPrice(PACK.gamePassId, Enum.InfoType.GamePass)
 
+-- Multipliers -------------------------------------------------------------------------
+-- One card per permanent multiplier, showing the next tier as the change it makes ("1.5x → 1.6x")
+-- from the server-set tier count (PowerMultiplierTier / CashMultiplierTier). Buy only asks the
+-- server for the next tier; the server picks it and opens the prompt. Not giftable.
+local function multiplierText(value) return string.format("%gx", value) end
+local MULTIPLIER_CARDS = {
+ {kind = "Power", title = "POWER MULTIPLIER", icon = UI.Icons.Power, faces = CARD_FACES.powerMultiplier,
+  effect = "Training, hit & offline Power"},
+ {kind = "Cash", title = "CASH MULTIPLIER", icon = UI.Icons.Cash, faces = CARD_FACES.cashMultiplier,
+  effect = "Cash from every hit & Cash Pack"},
+}
+heading(3, "MULTIPLIERS")
+local multiplierGrid = grid(4, "Multipliers", 200, {2, 2, 1})
+for index, info in MULTIPLIER_CARDS do
+ local ladder = Monetization.Multipliers[info.kind]
+ local frame = card(multiplierGrid, info.kind .. "Multiplier", info.faces)
+ frame.LayoutOrder = index
+ local art = UI.Icon(frame, "Icon", info.icon)
+ art.AnchorPoint, art.Position, art.Size, art.ZIndex = Vector2.zero, UDim2.fromOffset(12, 14), UDim2.fromOffset(78, 78), 3
+ local name = label(frame, "Name", info.title, 28)
+ name.Position, name.Size, name.ZIndex = UDim2.fromOffset(102, 10), UDim2.new(1, -112, 0, 32), 3
+ local change = label(frame, "Change", "", 34, PRICE_GREEN)
+ change.Position, change.Size, change.ZIndex = UDim2.fromOffset(102, 44), UDim2.new(1, -112, 0, 36), 3
+ local tierLine = label(frame, "Tier", "", 18, CASH_GOLD)
+ tierLine.Position, tierLine.Size, tierLine.ZIndex = UDim2.fromOffset(102, 82), UDim2.new(1, -112, 0, 22), 3
+ local effect = label(frame, "Effect", info.effect, 16, UI.Colors.Muted)
+ effect.Position, effect.Size, effect.ZIndex = UDim2.fromOffset(12, 106), UDim2.new(1, -24, 0, 20), 3
+ local button, set = robuxButton(frame, "Buy", function()
+  Remote:FireServer("BuyMultiplier", info.kind)
+ end)
+ button.AnchorPoint, button.Position, button.Size = Vector2.new(1, 1), UDim2.new(1, -10, 1, -10), UDim2.new(1, -20, 0, 54)
+ table.insert(refreshers, function()
+  local owned = Player:GetAttribute(info.kind .. "MultiplierTier") or 0
+  local current = Monetization.GetMultiplier(info.kind, owned)
+  local number, nextTier = Monetization.GetNextMultiplierTier(info.kind, owned)
+  if nextTier then
+   change.Text = multiplierText(current) .. " → " .. multiplierText(nextTier.multiplier)
+   tierLine.Text = string.format("TIER %d OF %d • PERMANENT", number, #ladder)
+   set(nextTier.developerProductId, price(nextTier.developerProductId, nextTier.robuxPrice), false)
+  else
+   change.Text = "MAX " .. multiplierText(current)
+   tierLine.Text = string.format("ALL %d TIERS OWNED", #ladder)
+   set(0, 0, true, "MAXED")
+  end
+ end)
+ for _, tier in ladder do loadPrice(tier.developerProductId, Enum.InfoType.Product) end
+end
+
 -- Cash Packs --------------------------------------------------------------------------
-heading(3, "CASH PACKS")
-local cashGrid = grid(4, "CashPacks", 214, {4, 2, 1})
+heading(5, "CASH PACKS")
+local cashGrid = grid(6, "CashPacks", 214, {4, 2, 1})
 for index, product in Monetization.CashProducts do
  local frame = card(cashGrid, product.id, CARD_FACES.cash)
  frame.LayoutOrder = index
@@ -308,14 +359,14 @@ for index, product in Monetization.CashProducts do
   -- The same formula the server pays with, from the server's display copies.
   local level = Player:GetAttribute("Level") or 1
   amount.Text = "+$" .. UI.Compact(Monetization.GetCashPackReward(product, level, Player:GetAttribute("CurrentWorldId"),
-   Player:GetAttribute("EquippedBat")))
+   Player:GetAttribute("EquippedBat"), Monetization.GetMultiplier("Cash", Player:GetAttribute("CashMultiplierTier") or 0)))
   set(product.developerProductId, price(product.developerProductId, product.robuxPrice), false)
  end)
  loadPrice(product.developerProductId, Enum.InfoType.Product)
 end
 
 -- Boosts --------------------------------------------------------------------------------
-heading(5, "BOOSTS")
+heading(7, "BOOSTS")
 local bundleProduct, singles = nil, {}
 for _, product in Monetization.JuiceProducts do
  local kinds = 0
@@ -325,7 +376,7 @@ end
 local bundle
 if bundleProduct then
  bundle = card(scroll, bundleProduct.id, CARD_FACES.bundle)
- bundle.LayoutOrder = 6
+ bundle.LayoutOrder = 8
  local art = Instance.new("Frame")
  art.Name, art.BackgroundTransparency, art.Position, art.Size = "Art", 1, UDim2.fromOffset(10, 8), UDim2.new(0, 190, 1, -16)
  art.Parent = bundle
@@ -350,7 +401,7 @@ if bundleProduct then
  end)
  loadPrice(bundleProduct.developerProductId, Enum.InfoType.Product)
 end
-local juiceGrid = grid(7, "Juices", 170, {2, 2, 1})
+local juiceGrid = grid(9, "Juices", 170, {2, 2, 1})
 for index, product in singles do
  local id = next(product.juices)
  local definition = Juice.Get(id)
@@ -378,9 +429,9 @@ for index, product in singles do
 end
 
 -- Training Grounds ------------------------------------------------------------------------
-heading(8, "TRAINING GROUNDS")
+heading(10, "TRAINING GROUNDS")
 local PREVIEW_HEIGHT = 176
-local groundGrid = grid(9, "TrainingGrounds", PREVIEW_HEIGHT + 184, {2, 2, 1})
+local groundGrid = grid(11, "TrainingGrounds", PREVIEW_HEIGHT + 184, {2, 2, 1})
 local groundCards, groundRefreshers = {}, {}
 local trainingRemote
 table.insert(refreshers, function()
@@ -693,7 +744,7 @@ end)
 Player:GetAttributeChangedSignal("CurrentWorldId"):Connect(function() if visible then buildGrounds() end end)
 Player.AttributeChanged:Connect(function(name)
  if visible and (name == "Level" or name == "EquippedBat" or name == "CurrentWorldId" or name == "StarterPackOwned"
-  or name:sub(1, 14) == "TrainingPass_") then
+  or name == "PowerMultiplierTier" or name == "CashMultiplierTier" or name:sub(1, 14) == "TrainingPass_") then
   refresh()
  end
 end)
@@ -716,6 +767,10 @@ Remote.OnClientEvent:Connect(function(kind, name, granted)
    end
    UI.Notify(table.concat(parts, " • ") .. "\nUse it from your Inventory.", "success")
   end
+ elseif kind == "MultiplierGranted" and Monetization.Multipliers[name] and type(granted) == "number" then
+  GameAudio.Play("Purchase")
+  UI.Notify(string.format("%s MULTIPLIER %s!\nPermanent • Tier %d of %d", string.upper(name),
+   multiplierText(Monetization.GetMultiplier(name, granted)), granted, #Monetization.Multipliers[name]), "success")
  elseif kind == "GiftRefused" and type(name) == "string" then
   UI.Notify(name, "error")
  elseif kind == "GiftSent" then

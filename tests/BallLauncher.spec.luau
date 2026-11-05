@@ -69,8 +69,8 @@ return function(sources)
  local completionMessage = nil
  local modules={EquipmentConfig=Equipment,ProgressionConfig=Progression,FieldConfig=Field,WorldConfig=Worlds,SwingConfig=Swing,
   WorldProgress={Complete=function() return completionMessage end},
-  PlayerData={IsReady=function() return true end,RecordBattingCash=function(_,amount) table.insert(cashReports,amount) end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,ballId,boost)
-   table.insert(grants,{base=base,source=source,ballId=ballId,boost=boost})
+  PlayerData={IsReady=function() return true end,RecordBattingCash=function(_,amount) table.insert(cashReports,amount) end,GetJuiceMultiplier=function(_,effect) return effect=="Cash" and juiceCash or 1 end,GrantPower=function(_,base,source,ballId,boost,tier)
+   table.insert(grants,{base=base,source=source,ballId=ballId,boost=boost,tier=tier})
    return true,{powerGranted=Progression.GetPowerGrant(base,1,Equipment.Get("Ball",ballId).powerGainMultiplier)}
   end}}
  local storage={WaitForChild=function(_,name) return name end,BattingTiming={FireClient=function() end}}
@@ -136,9 +136,10 @@ return function(sources)
  -- Juices count as the swing's snapshot (taken when it was accepted): a Cash Splash and Power
  -- Punch running at the swing still pay this hit after they end mid-flight (the live juice is
  -- 1 by then), and one drunk mid-flight (live 2) adds nothing to a hit swung without it.
- local function juicedHit(swingId, cashJuice, powerJuice, liveCash)
+ local function juicedHit(swingId, cashJuice, powerJuice, liveCash, extra)
   local hit={worldId=world.id,session=1,swingId=swingId,launchLevel=5,ballId="baseball",batCashMultiplier=1,
    cashJuiceMultiplier=cashJuice,powerJuiceMultiplier=powerJuice}
+  for key, value in extra or {} do hit[key] = value end
   check(Launcher.TryLaunch(player,hit,tool),"juiced hit accepted")
   local launch=table.remove(delayed,1)
   launch.fn(table.unpack(launch.args,1,launch.args.n))
@@ -162,6 +163,13 @@ return function(sources)
  local _, splashCash, splashGrant = juicedHit(702, 2, 1, 2)
  check(splashCash==Progression.GetHitCash(100,world.cashMultiplier,1,1,2) and splashGrant.boost==1,
   "Cash Splash alone leaves the hit's Power alone")
+ -- The purchased multipliers are in the snapshot too: they pay that hit's Cash and Power, stacked
+ -- with juices, and never change its distance. Without them (older snapshots) they count as 1.
+ local tiered, tieredCash, tieredGrant = juicedHit(703, 2, 1, 1, {cashTierMultiplier=1.6, powerTierMultiplier=1.5})
+ check(tieredCash==Progression.GetHitCash(100,world.cashMultiplier,1,1,2*1.6) and tieredCash>splashCash
+  and tieredGrant.boost==1 and tieredGrant.tier==1.5 and tiered.distanceResult.distanceStuds==100,
+  "the purchased Cash and Power multipliers at the swing pay that hit, with juices, at the same distance")
+ check(splashGrant.tier==1, "a snapshot without purchased multipliers grants at 1x")
  -- Worked Cash formula: (distance / 80)^1.5 x World x section x Bat, rounded once. A 3x Bat
  -- landing in a 1.35x section; swapping the Ball (a Power item) changes nothing.
  local tierDistance=100

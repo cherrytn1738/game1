@@ -36,11 +36,18 @@ return function(sources)
    check(Field.GetSectionAtPosition(origin-forward,origin,forward,world)==nil, "behind tee excluded spatially")
   end
  end
- local priorSpeed = 0
- for _,level in {1,5,10,20,30,40,50,60,70} do
+ -- Distance, not speed, is what rises with Level: from Level 22 each Level uses a measured speed
+ -- chosen for where it lands (bounces make distance erratic in speed), so speeds may dip.
+ local priorSpeed, priorDistance = 0, 0
+ for _,level in {1,5,10,20} do
   local speed = Progression.GetLaunchSpeed(level)
-  check(speed > priorSpeed, "Level alone monotonically increases launch strength")
+  check(speed > priorSpeed, "the early Levels' launch strength rises with Level")
   priorSpeed = speed
+ end
+ for _,level in {1,5,10,20,30,40,50,60,70,100,140,150,250,370} do
+  local distance = Progression.GetExpectedHitDistance(level)
+  check(distance > priorDistance, "Level alone monotonically increases hit distance")
+  priorDistance = distance
  end
 
  local function player()

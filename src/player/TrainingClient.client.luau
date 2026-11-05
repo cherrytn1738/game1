@@ -10,6 +10,7 @@ local Config = require(Storage:WaitForChild("TrainingConfig"))
 local Progression = require(Storage:WaitForChild("ProgressionConfig"))
 local Equipment = require(Storage:WaitForChild("EquipmentConfig"))
 local Juice = require(Storage:WaitForChild("JuiceConfig"))
+local Monetization = require(Storage:WaitForChild("MonetizationConfig"))
 local Swing = require(Storage:WaitForChild("SwingConfig"))
 local Worlds = require(Storage:WaitForChild("WorldConfig"))
 local Remote = Storage:WaitForChild("TrainingRequest")
@@ -74,8 +75,9 @@ Remote.OnClientEvent:Connect(function(ok,message) UI.Notify(message,ok and "succ
 
 -- "+Power" popup each time the bat meets a practice ball, like the Cash popup after a real hit:
 -- the Power bolt and the amount, popping in above the batter, rising and fading. The amount is
--- what each Training tick grants (the server's own formula: ground, Ball, Rebirths and any Power
--- juice), granted by the server at that same moment, at the Level Cap too.
+-- what each Training tick grants (the server's own formula: ground, Ball, Rebirths, any Power
+-- juice and the purchased Power multiplier), granted by the server at that same moment, at the
+-- Level Cap too.
 local POPUP_SECONDS, POPUP_RISE = 1.4, 50
 local popupGui = UI.Screen("TrainingPopups", 12)
 popupGui.IgnoreGuiInset = true
@@ -85,6 +87,7 @@ local function powerPerHit()
  local ball = Equipment.Get("Ball", Player:GetAttribute("EquippedBall"))
  local active = Player:FindFirstChild("ActiveJuices")
  local boost = active and Juice.GetMultiplier(active:GetAttributes(), "Power", workspace:GetServerTimeNow()) or 1
+ boost *= Monetization.GetMultiplier("Power", Player:GetAttribute("PowerMultiplierTier") or 0)
  local base = Progression.TrainingBase * ground.powerMultiplier
  return Progression.GetPowerGrant(base, Player:GetAttribute("Rebirths") or 0, ball and ball.powerGainMultiplier or 1, boost)
 end
@@ -187,6 +190,7 @@ function refresh()
  local rebirths = Player:GetAttribute("Rebirths") or 0
  local ball = Equipment.Get("Ball", Player:GetAttribute("EquippedBall"))
  local ballMultiplier = ball and ball.powerGainMultiplier or 1
+ local purchased = Monetization.GetMultiplier("Power", Player:GetAttribute("PowerMultiplierTier") or 0)
  local trainingBase = Progression.TrainingBase
  local trainingAt = Player:GetAttribute("TrainingActive") and Player:GetAttribute("TrainingGround")
  for _, ground in Config.Grounds do
@@ -197,7 +201,7 @@ function refresh()
   local home = Worlds.Get(ground.worlds[1])
   local inReach = reachable(ground)
   row.rate.Text = "x" .. UI.Number(ground.powerMultiplier) .. " POWER  |  "
-   .. UI.Number(Progression.GetPowerGrant(trainingBase * ground.powerMultiplier, rebirths, ballMultiplier)/ground.interval,1) .. " Power / second"
+   .. UI.Number(Progression.GetPowerGrant(trainingBase * ground.powerMultiplier, rebirths, ballMultiplier, purchased)/ground.interval,1) .. " Power / second"
   row.status.Text = whereText(ground) .. " | " .. (trainingAt == ground.id and "Training here now"
    or open and (paid and "Pass owned" or "Unlocked")
    or not inReach and "Locked | Unlock " .. home.displayName .. " first"
@@ -216,7 +220,7 @@ function refresh()
  if not Config.Get(Player:GetAttribute("TrainingGround")) then stopPresentation() return end
  startPresentation()
 end
-for _, name in {"DataLoaded","TrainingActive","TrainingGround","BattingActive","HitActive","EquippedBall","Rebirths","Level","LevelCap","Power","WorldTraveling"} do
+for _, name in {"DataLoaded","TrainingActive","TrainingGround","BattingActive","HitActive","EquippedBall","Rebirths","Level","LevelCap","Power","WorldTraveling","PowerMultiplierTier"} do
  Player:GetAttributeChangedSignal(name):Connect(refresh)
 end
 for _, ground in Config.PassGrounds do

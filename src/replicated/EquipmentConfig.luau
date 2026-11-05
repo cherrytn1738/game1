@@ -58,7 +58,7 @@ local Equipment = {
      appearance = batLook(Color3.fromRGB(150, 215, 255), Color3.fromRGB(230, 245, 255), Enum.Material.Ice),
     },
     magma_bat = {
-     id = "magma_bat", displayName = "Magma Bat", price = 300000,
+     id = "magma_bat", displayName = "Magma Bat", price = 50000,
      cashMultiplier = 9, nextId = "lightning_bat",
      modelPath = "StarterPack.Bat",
      appearance = batLook(Color3.fromRGB(40, 30, 30), Color3.fromRGB(255, 110, 25), Enum.Material.Basalt),

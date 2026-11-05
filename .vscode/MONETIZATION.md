@@ -19,6 +19,8 @@ server confirms.
 | Tiny / Small / Medium / Large Cash Pack | Developer product | 25 / 59 / 115 / 229 Robux | Cash worth 15 / 50 / 125 / 300 normal hits | `MonetizationConfig.CashProducts` |
 | Boost Bundle | Developer product | 95 Robux | 2 Power Punch + 2 Cash Splash | `MonetizationConfig.JuiceProducts` |
 | Power Punch / Cash Splash | Developer product | 39 Robux each | 1 juice (into the Inventory) | `MonetizationConfig.JuiceProducts` |
+| Power multiplier tiers 1-5 | Developer product per tier | 129 / 169 / 219 / 279 / 359 Robux | Permanent Power 1.5x / 1.6x / 1.7x / 1.8x / 1.9x | `MonetizationConfig.Multipliers.Power` |
+| Cash multiplier tiers 1-7 | Developer product per tier | 129 / 159 / 199 / 249 / 309 / 389 / 489 Robux | Permanent Cash 1.5x / 1.6x / 1.7x / 1.8x / 1.9x / 2x / 2.1x | `MonetizationConfig.Multipliers.Cash` |
 
 Nothing else is sold. Prices in config are only what the buttons show until Roblox's live price
 loads (`GetProductInfo`); Roblox charges the price set on the Creator Dashboard.
@@ -34,7 +36,11 @@ loads (`GetProductInfo`); Roblox charges the price set on the Creator Dashboard.
    `JuiceProducts`.
 5. (Already pending: the Training Ground passes in `TrainingConfig`, Cosmic Rift's at 500 and
    Dragon's Lair's at 1000, and the Welcome Back 3x product's `productId` and `robuxPrice`.)
-6. Create the ten gift developer products below and paste each id into its `developerProductId`
+6. Create twelve multiplier developer products, one per tier: Power tiers 1-5 (129 / 169 / 219 /
+   279 / 359) and Cash tiers 1-7 (129 / 159 / 199 / 249 / 309 / 389 / 489), and paste each id into
+   its tier's `developerProductId` in `MonetizationConfig.Multipliers` (in tier order; a tier
+   whose id is 0 shows SOON when it is the next one).
+7. Create the ten gift developer products below and paste each id into its `developerProductId`
    in `MonetizationConfig.GiftProducts`. A gifted Training Ground is NOT Roblox game pass
    ownership: the gift product buys the recipient a saved in-game entitlement that opens the same
    grounds.
@@ -86,9 +92,9 @@ for a permanent item they have). While a gift's id is 0 the button is grey with 
 
 ## The Shop
 
-The HUD's Shop tile opens it (`ShopClient`): ~ PACK ~, ~ CASH PACKS ~, ~ BOOSTS ~ and
-~ TRAINING GROUNDS ~ in one scrolling window (the game's only shop menu; Bats and Balls are bought
-for Cash only at the hub display pedestals).
+The HUD's Shop tile opens it (`ShopClient`): ~ PACK ~, ~ MULTIPLIERS ~, ~ CASH PACKS ~,
+~ BOOSTS ~ and ~ TRAINING GROUNDS ~ in one scrolling window (the game's only shop menu; Bats and
+Balls are bought for Cash only at the hub display pedestals).
 - **Starter Pack:** owned at login (also bought elsewhere) or bought in game (the server's
   `PromptGamePassPurchaseFinished`), its rewards are given once ever, in this order, then saved at
   once: the Catastrophe Bat, one Power Punch, a bonus Rebirth (Rebirths and the Level Cap rise; it
@@ -97,10 +103,14 @@ for Cash only at the hub display pedestals).
   never give it again. Its bonus Rebirth is not the tutorial's Rebirth: only the player's own
   Rebirth (`TryRebirth`, reason "ManualRebirth") completes the tutorial. In Studio only,
   `StudioOwnStarterPack` on a `StudioFreshSave` save owns it.
+- **Multipliers:** two cards, Power and Cash, each showing its next tier as the change it makes
+  ("1.5x → 1.6x", "TIER 2 OF 5 • PERMANENT", that tier's price), and MAX / MAXED once every tier
+  is owned. See "Purchased multipliers" below. No Gift button (not giftable for now).
 - **Cash Packs:** a Buy asks the server ("BuyCash"), which fixes the pack's reward first
   (`PlayerData.QuoteCashPack`: `hits` x the Cash of one normal hit for the player then, from
   `MonetizationConfig.GetCashPackReward`: their Level's usual hit distance, at most their current
-  World's end, that section, their equipped Bat; no juice) and only then opens Roblox's prompt.
+  World's end, that section, their equipped Bat and purchased Cash multiplier; no juice) and only
+  then opens Roblox's prompt. A gifted pack uses the recipient's Cash multiplier.
   The quote is saved with the player (`CashPackQuotes`, Schema 11), so the receipt, a retry, a
   delayed receipt or one after a rejoin all pay that amount; the next Buy of that pack replaces it.
   A receipt with no quote (bought some other way) pays the amount at processing time. The card
@@ -126,11 +136,38 @@ While an id is 0 its button reads SOON, never opens a prompt, and a tap says it 
 - The receipt goes to `ProductServer`, the game's one `ProcessReceipt` handler. It finds the
   product from the receipt's `ProductId` in its own config and calls
   `PlayerData.ClaimPowerProduct(player, receipt, powerAmount)`.
-- The Power is added exactly as listed: no Ball, Rebirth or juice multiplier. It goes through
+- The Power is added exactly as listed: no Ball, Rebirth, juice or purchased multiplier. It goes through
   `Progression.Advance`, like every other grant, so Level-ups, the Level Cap (Power banks there
   until a Rebirth; no Rebirth ever happens by itself), the tutorial's Power step and saving all
   follow. It works while Training, batting or in a menu.
 - The client is then told (`Monetization` RemoteEvent, "PowerGranted") and shows "+10K POWER".
+
+## Purchased multipliers
+
+- **Tiers:** two permanent ladders (`MonetizationConfig.Multipliers`), each tier its own
+  developer product, bought in order. The saved tier count (`PowerMultiplierTier`,
+  `CashMultiplierTier`; Schema 12, 0 for older saves) picks the multiplier: 1x with none,
+  then 1.5x, 1.6x, ... Kept through Rebirths. Balance in `.vscode/ECONOMY.md` ("Purchased
+  multipliers"): one tier of each finishes the game ~33% faster, every tier ~49% faster.
+- **Buying:** the card's Buy sends only ("BuyMultiplier", "Power" or "Cash"). `ProductServer`
+  looks up the player's next tier itself (`PlayerData.GetNextMultiplierTier`) and prompts that
+  tier's product; nothing happens at the top tier, while its id is 0, within 0.5 s of another
+  Buy, or while a prompt of that kind is still on its way (until Roblox reports it cancelled, the
+  receipt is granted, or 60 s pass).
+- **The receipt** (`PlayerData.ClaimMultiplier`): the product id gives the kind and tier from the
+  server's config. The count becomes `max(owned + 1, that tier)`, capped at the ladder, so a late
+  or repeated purchase still adds a tier and none is lost; it is saved straight away, then
+  `PurchaseGranted`. The client is told ("MultiplierGranted", kind, tier count) and shows
+  "POWER MULTIPLIER 1.6x!".
+- **Where they apply:** Power multiplies Training, real-hit and offline Power (and the Welcome
+  Back 3x), never the +10K / +100K / +1M products or the Starter Pack's Power. Cash multiplies
+  batting Cash and a Cash pack's "normal hit". Both stack with juices (juices never apply
+  offline); a hit snapshots both when its swing is accepted. They never change launch strength,
+  distance, the Level Cap or World unlocks. The HUD's "× Multiplier" and the Training rate
+  previews include the Power tier.
+- **Studio:** on a `StudioFreshSave` save, the Workspace attributes `StudioPowerTier` /
+  `StudioCashTier` start the player with that many tiers (to test the cards and multipliers
+  before the products exist).
 
 ## Receipts and duplicates
 
@@ -140,8 +177,9 @@ While an id is 0 its button reads SOON, never opens a prompt, and a tap says it 
   with the player's data; the same list RobuxSpent uses). A receipt already in it is answered
   `PurchaseGranted` without granting again, in the same session or after a rejoin.
 - After a grant the player is saved straight away, then Roblox is told `PurchaseGranted`.
-- The same path serves the Welcome Back 3x (`PlayerData.ClaimOfflineTriple`) and the Shop's
-  developer products (`PlayerData.ClaimProduct`: Power, Cash packs and juices).
+- The same path serves the Welcome Back 3x (`PlayerData.ClaimOfflineTriple`), the Shop's
+  developer products (`PlayerData.ClaimProduct`: Power, Cash packs and juices) and the multiplier
+  tiers (`PlayerData.ClaimMultiplier`).
 
 ## Auto Bat
 

@@ -14,7 +14,7 @@ local Tutorial = require(game.ReplicatedStorage:WaitForChild("TutorialConfig"))
 local Monetization = require(game.ReplicatedStorage:WaitForChild("MonetizationConfig"))
 
 local STORE_NAME = "PlayerProgression"
-local SCHEMA_VERSION = 11
+local SCHEMA_VERSION = 12
 local AUTOSAVE_SECONDS = 60
 local IMPORTANT_SAVE_SECONDS = 5 -- Rebirth joins the existing serialized save loop.
 local LEASE_SECONDS = 180
@@ -27,6 +27,8 @@ local MAX_COUNTER = 9000000000000 -- the same limit for TimePlayed (seconds) and
 local MAX_RECEIPTS = 50 -- recent developer product receipts remembered, so none counts twice
 local MAX_RECEIVED_GIFTS = 100 -- recent gifts a player has been given (and their queue), so none applies twice
 local CATEGORIES = Equipment.CategoryOrder
+-- The saved tier count of each purchased multiplier (MonetizationConfig.Multipliers).
+local MULTIPLIER_FIELDS = {Power = "PowerMultiplierTier", Cash = "CashMultiplierTier"}
 
 local PlayerData = {}
 local sessions = {}
@@ -197,6 +199,18 @@ local function validate(record)
   if clean then pending[id] = clean end
  end
  data.PendingGifts = pending
+ -- Schema 12 adds the purchased multipliers: how many tiers of each the player has bought. Older
+ -- saves have none; a malformed count fails closed; a count past the ladder (a shorter ladder
+ -- than when it was bought) keeps the top tier.
+ for kind, field in MULTIPLIER_FIELDS do
+  if data[field] == nil then
+   data[field] = 0
+  elseif not validCounter(data[field]) then
+   return nil, "invalid " .. field
+  else
+   data[field] = math.min(data[field], #Monetization.Multipliers[kind])
+  end
+ end
  data.UnlockedWorlds[Worlds.StartingWorldId] = true
  -- A recorded completion always implies ownership of that world and its next one.
  for _, world in Worlds.Worlds do
@@ -257,7 +271,8 @@ end
 
 -- Single grant path, also used on the private save snapshot during atomic login.
 -- The equipped Ball (ballId) multiplies the Power; the Bat never does.
--- boost is the active Juice Power multiplier (online grants only; offline passes none).
+-- boost is the active Juice Power multiplier times the purchased Power multiplier (offline
+-- Training passes only the purchased one: juices never apply offline).
 -- limit (offline only) caps the whole Power granted, after every multiplier.
 local function grantProgression(state, baseAmount, source, ballId, boost, limit)
  if not Progression.IsInteger(baseAmount, 0, Progression.MaxBaseGrant)
@@ -309,17 +324,43 @@ function PlayerData.RecordBattingCash(player, amount)
  updateTutorial(player, sessions[player], "Cash", amount)
 end
 
-function PlayerData.GrantPower(player, baseAmount, source, hitBallId, hitPowerBoost)
+-- Purchased multipliers (MonetizationConfig.Multipliers): session.multiplierTiers holds the tier
+-- count of each kind; the PowerMultiplierTier / CashMultiplierTier attributes are display copies.
+local function publishMultipliers(player, session)
+ for kind, field in MULTIPLIER_FIELDS do player:SetAttribute(field, session.multiplierTiers[kind]) end
+end
+
+-- The player's purchased multiplier of a kind ("Power" or "Cash"); 1 with none or when not ready.
+function PlayerData.GetPurchasedMultiplier(player, kind)
+ if not PlayerData.IsReady(player) or not MULTIPLIER_FIELDS[kind] then return 1 end
+ return Monetization.GetMultiplier(kind, sessions[player].multiplierTiers[kind])
+end
+
+-- The next multiplier tier this player can buy: its number and MonetizationConfig entry, or nil
+-- (at the top tier, or data not ready).
+function PlayerData.GetNextMultiplierTier(player, kind)
+ if not PlayerData.IsReady(player) or not MULTIPLIER_FIELDS[kind] then return nil end
+ return Monetization.GetNextMultiplierTier(kind, sessions[player].multiplierTiers[kind])
+end
+
+local function validSnapshotMultiplier(value)
+ return type(value) == "number" and value >= 1 and value < math.huge
+end
+
+function PlayerData.GrantPower(player, baseAmount, source, hitBallId, hitPowerBoost, hitPowerTier)
  if not PlayerData.IsReady(player) then return false, "Player data is not ready." end
- -- The optional ID and Power juice multiplier are a server-created hit snapshot (taken when the
- -- swing was accepted), never client values. Without them, the equipped Ball and juices now count.
+ -- The optional ID, Power juice multiplier and purchased Power multiplier are a server-created hit
+ -- snapshot (taken when the swing was accepted), never client values. Without them, the equipped
+ -- Ball, juices and purchased multiplier now count.
  local ballId = hitBallId or player:GetAttribute("EquippedBall")
  if not PlayerData.OwnsEquipment(player, "Ball", ballId) then return false, "Invalid equipped Ball." end
  local session = sessions[player]
  local state = session.progression
- local snapshot = type(hitPowerBoost) == "number" and hitPowerBoost >= 1 and hitPowerBoost < math.huge
- local boost = snapshot and hitPowerBoost or Juice.GetMultiplier(session.juices.active, "Power", os.time())
- local ok, result = grantProgression(state, baseAmount, source, ballId, boost)
+ local boost = validSnapshotMultiplier(hitPowerBoost) and hitPowerBoost
+  or Juice.GetMultiplier(session.juices.active, "Power", os.time())
+ local tier = validSnapshotMultiplier(hitPowerTier) and hitPowerTier
+  or Monetization.GetMultiplier("Power", session.multiplierTiers.Power)
+ local ok, result = grantProgression(state, baseAmount, source, ballId, boost * tier)
  if ok then
   publishProgression(player, state)
   updateTutorial(player, session, "Power", result.powerGranted)
@@ -730,6 +771,7 @@ local function snapshot(player)
  data.RobuxPurchases = {Passes = table.clone(session.robux.passes), Receipts = table.clone(session.robux.receipts)}
  data.StarterPackGranted = session.starterPack.granted
  data.CashPackQuotes = table.clone(session.cashQuotes)
+ for kind, field in MULTIPLIER_FIELDS do data[field] = session.multiplierTiers[kind] end
  -- GiftInbox is not here: save() keeps what other servers have queued, minus what this session
  -- has applied (ReceivedGifts).
  data.GiftedEntitlements = table.clone(session.gifts.entitlements)
@@ -821,7 +863,7 @@ end
 
 -- Welcome Back's 3x offer, from the developer product's receipt (ProductServer): adds this
 -- login's offline Training reward twice more (3x in all) through the normal grant path, with the
--- Ball that earned it, up to the offer's limit (the rest of the run the player had at login) and
+-- Ball and purchased Power multiplier that earned it, up to the offer's limit (the rest of the run the player had at login) and
 -- never past the Level Cap now. Once per login. Returns Roblox's ProductPurchaseDecision:
 --   PurchaseGranted  granted now (and saved straight away), or this receipt was already granted
 --   NotProcessedYet  the player's data isn't ready, there is no offer to fill, or the player is
@@ -837,7 +879,7 @@ function PlayerData.ClaimOfflineTriple(player, receipt)
  local limit = math.min(offer.limit, Progression.GetPowerToLevelCap(session.progression))
  if limit <= 0 then return decision.NotProcessedYet end
  local extra = offer.baseAmount * (Training.OfflineTriple.multiplier - 1)
- local granted, result = grantProgression(session.progression, extra, "OfflineTriple", offer.ballId, nil, limit)
+ local granted, result = grantProgression(session.progression, extra, "OfflineTriple", offer.ballId, offer.boost, limit)
  if not granted then return decision.NotProcessedYet end
  session.offlineTriple = nil
  player:SetAttribute("OfflineTriplePower", offer.power + result.powerGranted)
@@ -854,7 +896,7 @@ end
 -- A developer product's receipt (ProductServer, from MonetizationConfig): grants the reward the
 -- server's config names for that product, once per receipt (its PurchaseId joins the saved
 -- receipt list that RobuxSpent uses), never a client value. reward is one of:
---   {power = n}       exactly n Power (no Ball, Rebirth or juice multiplier) through the normal
+--   {power = n}       exactly n Power (no Ball, Rebirth, juice or purchased multiplier) through the normal
 --                     Level path, so Level-ups, the Level Cap (it banks there) and the tutorial follow
 --   {cashPack = id, cashHits = n}  a Cash pack: the Cash fixed for that pack when the player asked to
 --                     buy it (QuoteCashPack), so a delayed or retried receipt pays the same; only with
@@ -891,7 +933,8 @@ function PlayerData.ClaimProduct(player, receipt, reward)
   local cash = player.leaderstats.Cash
   local amount = type(reward.cashPack) == "string" and session.cashQuotes[reward.cashPack]
    or Monetization.GetCashPackReward({hits = hits}, session.progression.Level,
-   player:GetAttribute("CurrentWorldId"), player:GetAttribute("EquippedBat"))
+   player:GetAttribute("CurrentWorldId"), player:GetAttribute("EquippedBat"),
+   Monetization.GetMultiplier("Cash", session.multiplierTiers.Cash))
   amount = math.min(amount, MAX_CASH - cash.Value)
   cash.Value += amount
   granted.cash = amount
@@ -912,7 +955,8 @@ function PlayerData.ClaimProduct(player, receipt, reward)
 end
 
 -- Fixes what a Cash pack pays before its purchase prompt opens (ProductServer): its hits x one
--- normal hit for the player now (their Level, current World and equipped Bat, all server state).
+-- normal hit for the player now (their Level, current World, equipped Bat and purchased Cash
+-- multiplier, all server state).
 -- Saved with the player, so a receipt that arrives late, is retried or comes after a rejoin pays
 -- this same amount; asking again (the next Buy) replaces it. Returns the amount, or nil.
 function PlayerData.QuoteCashPack(player, productId)
@@ -920,7 +964,8 @@ function PlayerData.QuoteCashPack(player, productId)
  if not product or not PlayerData.IsReady(player) then return nil end
  local session = sessions[player]
  local amount = Monetization.GetCashPackReward(product, session.progression.Level,
-  player:GetAttribute("CurrentWorldId"), player:GetAttribute("EquippedBat"))
+  player:GetAttribute("CurrentWorldId"), player:GetAttribute("EquippedBat"),
+  Monetization.GetMultiplier("Cash", session.multiplierTiers.Cash))
  session.cashQuotes[product.id] = math.min(MAX_CASH, amount)
  scheduleImportantSave(session)
  return session.cashQuotes[product.id]
@@ -931,6 +976,28 @@ end
 function PlayerData.ClaimPowerProduct(player, receipt, powerAmount)
  local decision, granted = PlayerData.ClaimProduct(player, receipt, {power = powerAmount})
  return decision, granted and granted.power
+end
+
+-- A purchased multiplier tier's receipt (MonetizationConfig.Multipliers; kind and tier come from
+-- the server's config for the receipt's product id). Tiers are bought in order and the server
+-- only prompts the next one, so this normally adds one tier; a late or repeated purchase still
+-- adds at least one (max(owned + 1, tier), up to the top tier), so none is ever lost. Saved
+-- before Roblox is told. Returns the decision and the player's tier count when this call granted it.
+function PlayerData.ClaimMultiplier(player, receipt, kind, tier)
+ local decision = Enum.ProductPurchaseDecision
+ local ladder = Monetization.Multipliers[kind]
+ if not PlayerData.IsReady(player) or not validReceipt(player, receipt) or not ladder or not MULTIPLIER_FIELDS[kind]
+  or not Progression.IsInteger(tier, 1, #ladder) then
+  return decision.NotProcessedYet
+ end
+ local session = sessions[player]
+ if table.find(session.robux.receipts, receipt.PurchaseId) then return decision.PurchaseGranted end
+ session.multiplierTiers[kind] = math.min(#ladder, math.max(session.multiplierTiers[kind] + 1, tier))
+ publishMultipliers(player, session)
+ PlayerData.RecordRobuxReceipt(player, receipt)
+ while session.saving do task.wait(0.1) end
+ save(player, session, false)
+ return decision.PurchaseGranted, session.multiplierTiers[kind]
 end
 
 -- Starter Pack ------------------------------------------------------------------------
@@ -1083,7 +1150,8 @@ function PlayerData.PrepareGift(buyer, giftId, recipient)
  local amount
  if gift.item.cashPack then
   amount = math.min(MAX_CASH, Monetization.GetCashPackReward(Monetization.GetCashProductById(gift.item.cashPack),
-   target.progression.Level, recipient:GetAttribute("CurrentWorldId"), recipient:GetAttribute("EquippedBat")))
+   target.progression.Level, recipient:GetAttribute("CurrentWorldId"), recipient:GetAttribute("EquippedBat"),
+   Monetization.GetMultiplier("Cash", target.multiplierTiers.Cash)))
  end
  session.gifts.pending[gift.id] = {recipient = recipient.UserId, recipientName = recipient.DisplayName,
   store = target.storeName or STORE_NAME, key = target.key, amount = amount, at = os.time(), state = "prompted"}
@@ -1193,7 +1261,7 @@ local function loadPlayer(player)
  player:SetAttribute("DataLoadState", "Loading")
  local rejection, repairs
  local newRecord = false
- local offlineResult, offlineSeconds, offlineGround, offlineBase, offlineBall, offlineTripleExtra
+ local offlineResult, offlineSeconds, offlineGround, offlineBase, offlineBall, offlineBoost, offlineTripleExtra
  -- Pass ownership is needed before the atomic login: offline Training uses the best
  -- ground the player can use, including paid ones.
  local passes = fetchTrainingPasses(player)
@@ -1229,12 +1297,14 @@ local function loadPlayer(player)
    local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), offlineGround,
     Progression.TrainingBase)
    local remaining = Progression.GetPowerToLevelCap(progression)
-   local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBall, nil,
+   -- The purchased Power multiplier applies offline too (juices never do).
+   local boost = Monetization.GetMultiplier("Power", data[MULTIPLIER_FIELDS.Power])
+   local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBall, boost,
     Training.GetOfflinePowerLimit(remaining))
    if not granted then rejection = "invalid offline reward configuration" return nil end
    for field, value in progression do data[field] = value end
    offlineResult, offlineSeconds = result, seconds
-   offlineBase, offlineBall = baseAmount, data.EquippedBall
+   offlineBase, offlineBall, offlineBoost = baseAmount, data.EquippedBall, boost
    offlineTripleExtra = Training.GetOfflineTripleExtra(result.powerGranted, remaining)
   end
   -- Reward and timestamp consumption commit WITH the session claim. A response-loss
@@ -1278,6 +1348,20 @@ local function loadPlayer(player)
   receipts = table.clone(record.RobuxPurchases.Receipts)}
  session.starterPack = {owned = starterPackOwned, granted = record.StarterPackGranted}
  session.cashQuotes = table.clone(record.CashPackQuotes)
+ session.multiplierTiers = {}
+ for kind, field in MULTIPLIER_FIELDS do session.multiplierTiers[kind] = record[field] end
+ -- In Studio only, on a StudioFreshSave throwaway record, the Workspace attributes StudioPowerTier
+ -- / StudioCashTier start the player with that many tiers of each purchased multiplier (to test
+ -- them before their products exist). Real saves and live servers never get them.
+ if session.fresh and RunService:IsStudio() then
+  for kind in MULTIPLIER_FIELDS do
+   local tiers = workspace:GetAttribute("Studio" .. kind .. "Tier")
+   if type(tiers) == "number" and tiers >= 1 then
+    session.multiplierTiers[kind] = math.min(#Monetization.Multipliers[kind], math.floor(tiers))
+   end
+  end
+ end
+ publishMultipliers(player, session)
  player:SetAttribute("StarterPackOwned", starterPackOwned or record.StarterPackGranted)
  local offlinePower = offlineResult and offlineResult.powerGranted or 0
  player:SetAttribute("OfflinePowerEarned", offlinePower)
@@ -1290,7 +1374,7 @@ local function loadPlayer(player)
  -- twice more, up to limit (the rest of the run at login). Offered whenever there was a reward
  -- (at the Level Cap there is none). OfflineTriplePower is the total with the 3x, for its button.
  local tripleEligible = offlinePower > 0 and offlineTripleExtra ~= nil and offlineTripleExtra > 0
- session.offlineTriple = tripleEligible and {baseAmount = offlineBase, ballId = offlineBall,
+ session.offlineTriple = tripleEligible and {baseAmount = offlineBase, ballId = offlineBall, boost = offlineBoost,
   limit = offlineTripleExtra, power = offlinePower} or nil
  player:SetAttribute("OfflineTriplePower", offlinePower + (tripleEligible and offlineTripleExtra or 0))
  player:SetAttribute("OfflineTripleAvailable", tripleEligible)

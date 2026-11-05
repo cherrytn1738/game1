@@ -8,6 +8,7 @@ local Field = require(ReplicatedStorage:WaitForChild("FieldConfig"))
 local Progression = require(ReplicatedStorage:WaitForChild("ProgressionConfig"))
 local Equipment = require(ReplicatedStorage:WaitForChild("EquipmentConfig"))
 local Juice = require(ReplicatedStorage:WaitForChild("JuiceConfig"))
+local Monetization = require(ReplicatedStorage:WaitForChild("MonetizationConfig"))
 local Remote = ReplicatedStorage:WaitForChild("BattingTiming")
 local GameAudio = require(ReplicatedStorage:WaitForChild("GameAudio"))
 GameAudio.Preload({"CashReward", "WorldUnlock"})
@@ -227,10 +228,13 @@ local function refresh()
  powerLabel.TextColor3 = UI.Colors.Text
  rebirthLabel.Text = ready and UI.Number(rebirths) or ""
  local ball = Equipment.Get("Ball", Player:GetAttribute("EquippedBall"))
- -- Includes any active Power juice (display copy of the server timers).
+ -- Includes any active Power juice (display copy of the server timers) and the purchased Power
+ -- multiplier (the server's tier count).
  local activeFolder = Player:FindFirstChild("ActiveJuices")
  local juiceBoost = activeFolder and Juice.GetMultiplier(activeFolder:GetAttributes(), "Power", workspace:GetServerTimeNow()) or 1
- multiplierLabel.Text = ready and "×" .. UI.Number(Progression.GetPowerMultiplier(rebirths) * ball.powerGainMultiplier * juiceBoost, 2) .. " Multiplier" or ""
+ local purchased = Monetization.GetMultiplier("Power", Player:GetAttribute("PowerMultiplierTier") or 0)
+ multiplierLabel.Text = ready and "×" .. UI.Number(Progression.GetPowerMultiplier(rebirths) * ball.powerGainMultiplier * juiceBoost * purchased, 2)
+  .. " Multiplier" or ""
  powerTrack.Visible = ready
  local fill = ready and (capped and 1 or math.clamp(power / Progression.PowerRequiredForNextLevel(level),0,1)) or 0
  if fill ~= lastFill then
@@ -357,7 +361,7 @@ Player:GetAttributeChangedSignal("HitActive"):Connect(function()
  distanceBall, distanceOrigin, distanceForward = nil,nil,nil
  if Player:GetAttribute("HitActive") then hideCashPopup() end
 end)
-for _, name in {"Power","Level","LevelCap","Rebirths","EquippedBall","TutorialStep","TutorialBoughtBall"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
+for _, name in {"Power","Level","LevelCap","Rebirths","EquippedBall","TutorialStep","TutorialBoughtBall","PowerMultiplierTier"} do Player:GetAttributeChangedSignal(name):Connect(refresh) end
 Player:GetAttributeChangedSignal("CurrentWorldId"):Connect(clearTransient)
 Player.CharacterRemoving:Connect(clearTransient)
 local function characterAdded(character)

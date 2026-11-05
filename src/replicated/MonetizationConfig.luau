@@ -1,6 +1,6 @@
 -- Robux purchases, granted by the server (ProductServer, PlayerData): the HUD's three Power
--- products and Auto Bat pass (MonetizationClient), and the Shop's Starter Pack, Cash packs and
--- juices (ShopClient).
+-- products and Auto Bat pass (MonetizationClient), and the Shop's Starter Pack, Power and Cash
+-- multipliers, Cash packs and juices (ShopClient).
 --
 -- PASTE THE REAL IDS HERE from the Creator Dashboard (developerProductId / gamePassId). While an
 -- id is 0 its button reads SOON and never opens a purchase prompt.
@@ -79,6 +79,41 @@ Monetization.PowerProducts = {
  {id = "Power1M", developerProductId = 0, robuxPrice = 95, powerAmount = 1000000},
 }
 
+-- Permanent multipliers, bought one tier at a time: each tier is its own developer product,
+-- bought in order (the server only offers the next one), and the saved tier count
+-- (PowerMultiplierTier / CashMultiplierTier) picks the multiplier: 1x with none, tier 1's with
+-- one, and so on. Power multiplies Training, real-hit and offline Power (never the Power products
+-- or the Starter Pack's Power); Cash multiplies batting Cash (and a Cash pack's "normal hit").
+-- Both stack with juices; neither changes launch strength or distance. Kept through Rebirths.
+-- Tiers and prices are balance values (tools/balance; .vscode/ECONOMY.md): a heavy spender with
+-- every tier should still take at least half a free player's time to finish the game.
+Monetization.MultiplierKinds = {"Power", "Cash"}
+Monetization.Multipliers = {
+ Power = {
+  {developerProductId = 0, robuxPrice = 129, multiplier = 1.5},
+  {developerProductId = 0, robuxPrice = 169, multiplier = 1.6},
+  {developerProductId = 0, robuxPrice = 219, multiplier = 1.7},
+  {developerProductId = 0, robuxPrice = 279, multiplier = 1.8},
+  {developerProductId = 0, robuxPrice = 359, multiplier = 1.9},
+ },
+ Cash = {
+  {developerProductId = 0, robuxPrice = 129, multiplier = 1.5},
+  {developerProductId = 0, robuxPrice = 159, multiplier = 1.6},
+  {developerProductId = 0, robuxPrice = 199, multiplier = 1.7},
+  {developerProductId = 0, robuxPrice = 249, multiplier = 1.8},
+  {developerProductId = 0, robuxPrice = 309, multiplier = 1.9},
+  {developerProductId = 0, robuxPrice = 389, multiplier = 2},
+  {developerProductId = 0, robuxPrice = 489, multiplier = 2.1},
+ },
+}
+for _, kind in Monetization.MultiplierKinds do
+ local previous = 1
+ for number, tier in Monetization.Multipliers[kind] do
+  assert(tier.multiplier > previous, kind .. " multiplier tier " .. number .. " must beat the one before")
+  previous = tier.multiplier
+ end
+end
+
 -- Game pass (a permanent unlock; Roblox's ownership record is the source of truth).
 Monetization.AutoBat = {
  gamePassId = 0,
@@ -100,6 +135,33 @@ local function findProduct(list, developerProductId)
  if type(developerProductId) ~= "number" or developerProductId <= 0 then return nil end
  for _, product in list do
   if product.developerProductId == developerProductId then return product end
+ end
+ return nil
+end
+
+-- The multiplier for owning `tiers` tiers of a kind ("Power" or "Cash"): 1 with none.
+function Monetization.GetMultiplier(kind, tiers)
+ local ladder = Monetization.Multipliers[kind]
+ if not ladder or type(tiers) ~= "number" or tiers < 1 then return 1 end
+ local tier = ladder[math.min(math.floor(tiers), #ladder)]
+ return tier and tier.multiplier or 1
+end
+
+-- The next tier on sale for a player owning `tiers` tiers: its number and entry, or nil at the top.
+function Monetization.GetNextMultiplierTier(kind, tiers)
+ local ladder = Monetization.Multipliers[kind]
+ local number = (type(tiers) == "number" and math.max(0, math.floor(tiers)) or 0) + 1
+ if not ladder or not ladder[number] then return nil end
+ return number, ladder[number]
+end
+
+-- The multiplier tier sold under this developer product id: its kind and tier number, or nil.
+function Monetization.GetMultiplierProduct(developerProductId)
+ if type(developerProductId) ~= "number" or developerProductId <= 0 then return nil end
+ for _, kind in Monetization.MultiplierKinds do
+  for number, tier in Monetization.Multipliers[kind] do
+   if tier.developerProductId == developerProductId then return kind, number end
+  end
  end
  return nil
 end
@@ -164,20 +226,22 @@ function Monetization.GetJuiceProduct(developerProductId)
  return findProduct(Monetization.JuiceProducts, developerProductId)
 end
 
--- The Cash of one normal hit for a player at this Level, in this World, with this Bat: a hit
--- landing at the Level's usual distance (Progression.GetExpectedHitDistance, at most the World's
--- end) in the section there, before any juice. Server state only (the client previews the same).
-function Monetization.GetCashPerHit(level, worldId, batId)
+-- The Cash of one normal hit for a player at this Level, in this World, with this Bat and Cash
+-- multiplier (GetMultiplier("Cash", tiers); 1 when omitted): a hit landing at the Level's usual
+-- distance (Progression.GetExpectedHitDistance, at most the World's end) in the section there,
+-- before any juice. Server state only (the client previews the same).
+function Monetization.GetCashPerHit(level, worldId, batId, cashMultiplier)
  local world = Worlds.Get(worldId) or Worlds.Get(Worlds.StartingWorldId)
  local bat = Equipment.Get("Bat", batId) or Equipment.Get("Bat")
  local distance = math.min(Progression.GetExpectedHitDistance(level), world.endDistance)
  local section = Field.GetRewardSection(distance, world)
- return Progression.GetHitCash(distance, world.cashMultiplier, section and section.rewardMultiplier or 1, bat.cashMultiplier)
+ return Progression.GetHitCash(distance, world.cashMultiplier, section and section.rewardMultiplier or 1, bat.cashMultiplier,
+  cashMultiplier)
 end
 
 -- The whole Cash a Cash pack pays (at least 1).
-function Monetization.GetCashPackReward(product, level, worldId, batId)
- return math.max(1, math.floor(product.hits * Monetization.GetCashPerHit(level, worldId, batId) + 0.5))
+function Monetization.GetCashPackReward(product, level, worldId, batId, cashMultiplier)
+ return math.max(1, math.floor(product.hits * Monetization.GetCashPerHit(level, worldId, batId, cashMultiplier) + 0.5))
 end
 
 -- The Training Grounds the Shop lists in a World: the World's own premium ground first (the paid

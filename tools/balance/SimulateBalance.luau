@@ -1,13 +1,16 @@
 -- Balance simulator. Loads the game's real config modules (ProgressionConfig, EquipmentConfig,
--- TrainingConfig, WorldConfig, FieldConfig, TutorialConfig) from their sources, plus measured hits
--- (HitMeasurements), and plays model players through the progression:
+-- TrainingConfig, WorldConfig, FieldConfig, TutorialConfig, JuiceConfig, MonetizationConfig) from
+-- their sources, plus measured hits (HitMeasurements), and plays model players through the
+-- progression:
 --   tutorial        the four tutorial steps, with measured walking/clicking times
 --   trainingOnly    after the tutorial, only Trains at the best free ground; Rebirths at the cap
 --   active          Trains, bats in blocks, buys upgrades as Cash allows; Rebirths at the cap
+--   spenders        the active player with purchased multiplier tiers, juices and paid grounds
 --   offline         Offline Training rewards at progression snapshots
 --   casual          one active session a day, Offline Training between
--- It can also design tuning: the Level -> launch speed table (designSpeedTable) and the Level
--- requirement bands for a pacing (solveBands). See tools/balance/README.md.
+-- It can also design tuning: the Level -> launch speed table (designSpeedTable, or a distance
+-- curve with distanceShape), the tutorial band (solveTutorial) and the Level requirement bands
+-- for a pacing (solveBands). See tools/balance/README.md.
 --
 -- Usage (any Luau with loadstring, e.g. Studio): require/loadstring this file to get
 -- run(sources, options) -> {report = string, csv = {[name] = text}, bands = {...}, speedTable = {...}}
@@ -37,7 +40,15 @@ return function(sources, options)
  local Worlds = load("WorldConfig")
  local Field = load("FieldConfig")
  local Tutorial = load("TutorialConfig")
+ local Juice = load("JuiceConfig")
+ local Monetization = load("MonetizationConfig")
  local Measured = load("HitMeasurements")
+ -- What-if prices: {{category, id, price}, ...} (this run's copy of the config only).
+ for _, override in options.prices or {} do Equipment.Get(override[1], override[2]).price = override[3] end
+ -- What-if tutorial band: {start, add} for Levels 1-19.
+ if options.tutorialBand then
+  P.LevelBands[1] = {fromLevel = 1, start = options.tutorialBand.start, add = options.tutorialBand.add}
+ end
 
  -- Assumptions (seconds), from Studio playtests --------------------------------------------
  local A = {
@@ -60,8 +71,12 @@ return function(sources, options)
  local gap = Measured.erraticFrom and {from = Measured.erraticFrom, to = math.huge}
  local warnings = {}
  -- Speeds in the erratic range were measured one at a time: each trial is {distance, seconds}.
+ -- The sweep below 505 (one speed at a time, too) is looked up exactly the same way.
  local erratic = {}
- for speed, trials in Measured.erratic or {} do
+ local measuredSpeeds = {}
+ for speed, trials in Measured.sweep or {} do measuredSpeeds[speed] = trials end
+ for speed, trials in Measured.erratic or {} do measuredSpeeds[speed] = trials end
+ for speed, trials in measuredSpeeds do
   local sum, time, low, high = 0, 0, math.huge, -math.huge
   for _, trial in trials do
    sum, time = sum + trial[1], time + trial[2]
@@ -169,6 +184,92 @@ return function(sources, options)
   return table_, steps, distanceAt
  end
 
+ -- A distance curve for Levels 21-140 (Levels 1-21 and the steps from 141 stay as configured):
+ -- shape = {r21, r140, floorFrom}. Each Level adds a share of distance that falls linearly from
+ -- r21 at Level 21 to r140 at Level 140; with floorFrom, it falls to a floor at that Level and
+ -- stays there to 140 (the floor is solved so 140 lands where the last smooth measurement does,
+ -- and r140 is then ignored). Builds a LaunchSpeedTable point every `step` Levels (5) and returns
+ -- it with the ExpectedHitDistances head to paste into ProgressionConfig.
+ local function designDistanceShape(shape, step)
+  local fixed = P.LaunchSpeedTable
+  local startLevel, endLevel = 21, 140
+  local r1, r2, floorLevel = shape[1], shape[2], shape[3]
+  local d0 = (hitAt(fixed[3][2]))
+  local last = usable[#usable]
+  local span = endLevel - startLevel
+  local floorAt = floorLevel and floorLevel - startLevel or span
+  if floorLevel then r2 = (math.log(last.distance / d0) - floorAt * r1 / 2) / (floorAt / 2 + span - floorAt) end
+  local function rawAt(x)
+   if x <= floorAt then return r1 * x + (r2 - r1) * x * x / (2 * floorAt) end
+   return r1 * floorAt + (r2 - r1) * floorAt / 2 + r2 * (x - floorAt)
+  end
+  local total = rawAt(span)
+  local function distanceAt(level)
+   return d0 * math.exp(math.log(last.distance / d0) * rawAt(level - startLevel) / total)
+  end
+  local table_ = {fixed[1], fixed[2], fixed[3]}
+  for level = startLevel + step, endLevel - 1, step do
+   local speed = assert(speedFor(distanceAt(level)), "no measured speed lands " .. distanceAt(level) .. " studs")
+   table.insert(table_, {level, math.floor(speed * 10 + 0.5) / 10})
+  end
+  table.insert(table_, {endLevel, last.speed})
+  return table_, floorLevel and r2 or nil, distanceAt
+ end
+
+ -- Measured steps for Levels 22-140: below 505 distance is erratic in speed too (Studio,
+ -- 2026-11-04: nearby speeds land far apart, and below ~200 studs/s the same speed varies from
+ -- hit to hit), so instead of interpolating, each Level gets a speed from the sweep
+ -- (HitMeasurements.sweep) whose average distance lands near the curve's distance for that
+ -- Level and beyond the Level before (distance always rises). In order of preference: a speed
+ -- hit at least twice whose trials agree within `repeatTolerance`, within `tolerance` of the
+ -- curve; any speed hit twice within `tolerance`; a speed hit once within `tolerance`; then the
+ -- same with `wideTolerance`. A Level with no candidate repeats the Level before. Level 140 keeps
+ -- the last smooth measurement (505). Returns the steps (to prepend to LaunchSpeedSteps) and the
+ -- chosen distances.
+ local function designMeasuredSteps(distanceAt, tolerance, repeatTolerance, wideTolerance)
+  local candidates = {}
+  for speed, trials in Measured.sweep or {} do
+   local sum, time, low, high = 0, 0, math.huge, -math.huge
+   for _, trial in trials do
+    sum, time = sum + trial[1], time + trial[2]
+    low, high = math.min(low, trial[1]), math.max(high, trial[1])
+   end
+   local distance = sum / #trials
+   table.insert(candidates, {speed = speed, distance = distance, seconds = time / #trials, trials = #trials,
+    spread = (high - low) / distance})
+  end
+  local steps, distances = {}, {}
+  local previous = (hitAt(P.LaunchSpeedTable[3][2]))
+  for level = 22, 139 do
+   local target = distanceAt(level)
+   local best
+   for _, rule in {{tolerance, 2, repeatTolerance}, {tolerance, 2, math.huge}, {tolerance, 1, math.huge},
+    {wideTolerance, 2, repeatTolerance}, {wideTolerance, 2, math.huge}, {wideTolerance, 1, math.huge}} do
+    local bestOff
+    for _, candidate in candidates do
+     local off = math.abs(math.log(candidate.distance / target))
+     if candidate.distance > previous and off <= rule[1] and candidate.trials >= rule[2] and candidate.spread <= rule[3]
+      and (not bestOff or off < bestOff) then
+      best, bestOff = candidate, off
+     end
+    end
+    if best then break end
+   end
+   if best then
+    table.insert(steps, {level, best.speed})
+    distances[level] = best.distance
+    previous = best.distance
+   else
+    table.insert(steps, {level, steps[#steps] and steps[#steps][2] or P.LaunchSpeedTable[3][2]})
+    distances[level] = previous
+   end
+  end
+  local last = usable[#usable]
+  table.insert(steps, {140, last.speed})
+  distances[140] = last.distance
+  return steps, distances
+ end
+
  -- Player state ------------------------------------------------------------------------------
  local function ballMultiplier(s) return Equipment.Get("Ball", s.ball).powerGainMultiplier end
  local function batMultiplier(s) return Equipment.Get("Bat", s.bat).cashMultiplier end
@@ -177,7 +278,9 @@ return function(sources, options)
    ownedBalls = {baseball = true}, ownedBats = {wood_bat = true}, world = Worlds.StartingWorldId,
    unlocked = {[Worlds.StartingWorldId] = true}, completed = {}, hits = 0, contacts = 0,
    runStart = 0, runs = {}, purchases = {}, worldTimes = {}, hitsSincePurchase = 0,
-   trainingPower = 0, battingPower = 0, earned = 0}
+   trainingPower = 0, battingPower = 0, earned = 0,
+   -- Spenders (applyScenario): purchased multipliers, juices (online only) and owned passes.
+   powerBoost = 1, cashBoost = 1, juicePower = 1, juiceCash = 1, passes = {}}
  end
  local function copy(value)
   if type(value) ~= "table" then return value end
@@ -191,15 +294,15 @@ return function(sources, options)
   P.Advance(state, amount)
   s.power, s.level = state.Power, state.Level
  end
- -- The best free ground only changes with Rebirths and World unlocks, so it is cached.
+ -- The best ground only changes with Rebirths, World unlocks and passes, so it is cached.
  local function bestGround(s)
-  local key = s.rebirths .. (s.unlocked.world_2 and "b" or "") .. (s.unlocked.world_3 and "c" or "")
-  if s.groundKey ~= key then s.groundKey, s.groundId = key, Training.GetBestGround(s.rebirths, {}, s.unlocked).id end
+  local key = s.rebirths .. (s.unlocked.world_2 and "b" or "") .. (s.unlocked.world_3 and "c" or "") .. (next(s.passes) and "p" or "")
+  if s.groundKey ~= key then s.groundKey, s.groundId = key, Training.GetBestGround(s.rebirths, s.passes, s.unlocked).id end
   return Training.Get(s.groundId)
  end
  local function trainContact(s)
   local ground = bestGround(s)
-  local grant = P.GetPowerGrant(P.TrainingBase * ground.powerMultiplier, s.rebirths, ballMultiplier(s))
+  local grant = P.GetPowerGrant(P.TrainingBase * ground.powerMultiplier, s.rebirths, ballMultiplier(s), s.powerBoost * s.juicePower)
   s.time += A.contact
   s.contacts += 1
   s.trainingPower += grant
@@ -215,8 +318,8 @@ return function(sources, options)
   local world, distance, seconds = landing(s)
   local landed = math.min(distance, world.endDistance)
   local section = Field.GetSection(landed, world)
-  local cash = P.GetHitCash(landed, world.cashMultiplier, section.rewardMultiplier, batMultiplier(s))
-  local power = P.GetPowerGrant(P.GetHitPowerBase(seconds - A.launchDelay), s.rebirths, ballMultiplier(s))
+  local cash = P.GetHitCash(landed, world.cashMultiplier, section.rewardMultiplier, batMultiplier(s), s.cashBoost * s.juiceCash)
+  local power = P.GetPowerGrant(P.GetHitPowerBase(seconds - A.launchDelay), s.rebirths, ballMultiplier(s), s.powerBoost * s.juicePower)
   s.cash += cash
   s.earned += cash
   s.battingPower += power
@@ -226,7 +329,7 @@ return function(sources, options)
   s.hitsSincePurchase += 1
   if distance >= world.endDistance and not s.completed[world.id] then
    s.completed[world.id] = true
-   s.worldTimes[world.id] = {time = s.time, rebirths = s.rebirths, level = s.level}
+   s.worldTimes[world.id] = {time = s.time, rebirths = s.rebirths, level = s.level, day = s.day}
    if world.nextWorldId then
     s.unlocked[world.nextWorldId] = true
     s.world = world.nextWorldId
@@ -253,7 +356,8 @@ return function(sources, options)
  local function cashPerHit(s)
   local world = Worlds.Get(s.world)
   local landed = math.min(hitAt(P.GetLaunchSpeed(s.level)), world.endDistance)
-  return P.GetHitCash(landed, world.cashMultiplier, Field.GetSection(landed, world).rewardMultiplier, batMultiplier(s))
+  return P.GetHitCash(landed, world.cashMultiplier, Field.GetSection(landed, world).rewardMultiplier, batMultiplier(s),
+   s.cashBoost * s.juiceCash)
  end
  -- improvement: the new multiplier over the equipped one. costHits: the price in hits at the
  -- current Cash per hit. paybackHits (Bats): hits for the extra Cash to repay the price.
@@ -327,8 +431,10 @@ return function(sources, options)
   steps.BuyBall = s.time - steps.EarnPower - steps.EarnCash
   local before = s.time
   s.time += 7.7 + A.firstContact - A.contact -- back to Basic Training
+  local trainingFrom = s.time
   while s.level < cap(s) do trainContact(s) end
   steps.ReachLevel = s.time - before
+  steps.Training = s.time - trainingFrom -- the practice hits alone
   rebirth(s)
   steps.total = s.time
   s.runs = {}
@@ -363,26 +469,82 @@ return function(sources, options)
  -- the Power left before the return.
  local function offlinePower(s, seconds)
   local base = Training.GetOfflineReward(1, 1 + seconds, bestGround(s).id, P.TrainingBase)
-  local timed = P.GetPowerGrant(base, s.rebirths, ballMultiplier(s))
+  -- The purchased Power multiplier applies offline; juices never do.
+  local timed = P.GetPowerGrant(base, s.rebirths, ballMultiplier(s), s.powerBoost)
   local remaining = P.GetPowerToLevelCap({Level = s.level, Power = s.power, LevelCap = cap(s)})
   return math.min(timed, Training.GetOfflinePowerLimit(remaining)), timed, remaining
  end
  -- Casual returning player: one active session a day; Offline Training (granted once on
  -- return, from the time away, under the run cap) covers the rest. s.time counts play time only.
+ -- Stops after the day the last World is completed (the finale).
+ local finaleWorld = Worlds.Worlds[#Worlds.Worlds].id
  local function runCasual(s, days, sessionMinutes)
   local rows = {}
   local away = 24 * 3600 - sessionMinutes * 60
   for day = 1, days do
+   s.day = day
    if day > 1 then
     local grant = offlinePower(s, away)
     s.offlinePower = (s.offlinePower or 0) + grant
     advance(s, grant)
    end
    local sessionEnd = s.time + sessionMinutes * 60
-   while s.time < sessionEnd do runActive(s, sessionEnd - s.time) end
+   while s.time < sessionEnd and not s.completed[finaleWorld] do runActive(s, sessionEnd - s.time) end
    table.insert(rows, {day = day, rebirths = s.rebirths, level = s.level, world = s.world, ball = s.ball, bat = s.bat})
+   if s.completed[finaleWorld] then break end
+   if task and task.wait and day % 2 == 0 then task.wait() end
   end
   return rows
+ end
+
+ -- Spenders: a scenario sets the purchased multiplier tiers (MonetizationConfig.Multipliers),
+ -- juices running all the time (juices = true), both paid grounds' passes (passes = true) and the
+ -- Starter Pack (starterPack = true, given right after the tutorial).
+ local function applyScenario(s, scenario)
+  s.powerBoost = Monetization.GetMultiplier("Power", scenario.powerTiers or 0)
+  s.cashBoost = Monetization.GetMultiplier("Cash", scenario.cashTiers or 0)
+  s.juicePower = scenario.juices and Juice.Get("power_punch").multiplier or 1
+  s.juiceCash = scenario.juices and Juice.Get("cash_splash").multiplier or 1
+  if scenario.passes then
+   -- (This run's config copy only: a pass with no id can't be used.)
+   for _, ground in Training.PassGrounds do
+    ground.gamePassId = math.max(ground.gamePassId, 1)
+    s.passes[ground.id] = true
+   end
+   s.groundKey = nil
+  end
+  if scenario.starterPack then
+   local pack = Monetization.StarterPack
+   s.rebirths += pack.rebirths
+   s.groundKey = nil
+   s.ownedBats[pack.batId] = true
+   equipBest(s)
+   advance(s, pack.power)
+  end
+ end
+ -- Robux for a scenario's multiplier tiers.
+ local function tierRobux(scenario)
+  local total = 0
+  for _, kind in Monetization.MultiplierKinds do
+   for number = 1, scenario[string.lower(kind) .. "Tiers"] or 0 do total += Monetization.Multipliers[kind][number].robuxPrice end
+  end
+  return total
+ end
+ -- Plays an active (or, with casualMinutes, casual) player through to the finale.
+ local function playToFinale(start, scenario, casualMinutes)
+  local s = copy(start)
+  applyScenario(s, scenario)
+  if casualMinutes then
+   runCasual(s, options.casualDays or 60, casualMinutes)
+  else
+   local guard = 0
+   while not s.completed[finaleWorld] and guard < 3000 do
+    guard += 1
+    runActive(s, 900)
+    if task and task.wait and guard % 4 == 0 then task.wait() end
+   end
+  end
+  return s
  end
 
  -- Pacing targets and band solving -------------------------------------------------------------
@@ -474,6 +636,58 @@ return function(sources, options)
  if options.bandStarts then setBands(options.bandStarts) originalBands = P.LevelBands end
  local mode = options.mode or "report"
  local result = {}
+ -- What-if distance curve (designDistanceShape): used for the rest of this run, and printed to paste.
+ if options.distanceShape then
+  local table_, floor, distanceAt = designDistanceShape(options.distanceShape, options.distanceStep or 5)
+  P.LaunchSpeedTable = table_
+  -- measuredSteps = {tolerance, repeatTolerance}: Levels 22-140 from measured sweep speeds instead.
+  local chosen
+  if options.measuredSteps then
+   local steps
+   steps, chosen = designMeasuredSteps(distanceAt, options.measuredSteps.tolerance or 0.035,
+    options.measuredSteps.repeatTolerance or 0.06, options.measuredSteps.wideTolerance or 0.06)
+   P.LaunchSpeedTable = {table_[1], table_[2], table_[3]}
+   local merged = table.clone(steps)
+   for _, step in P.LaunchSpeedSteps do if step[1] > 140 then table.insert(merged, step) end end
+   P.LaunchSpeedSteps = merged
+   local parts = {}
+   for _, step in steps do table.insert(parts, string.format("{%d, %s}", step[1], tostring(step[2]))) end
+   say("LaunchSpeedSteps head (Levels 22-140) = {%s}", table.concat(parts, ", "))
+   local misses = {}
+   for level = 22, 140 do
+    local off = chosen[level] / distanceAt(level) - 1
+    if math.abs(off) > (options.measuredSteps.tolerance or 0.035) + 1e-9 then table.insert(misses, string.format("L%d %+.0f%%", level, 100 * off)) end
+   end
+   say("  Levels off the curve by more than the tolerance: %s", #misses > 0 and table.concat(misses, ", ") or "none")
+   result.speedSteps = steps
+  end
+  local parts = {}
+  for _, point in P.LaunchSpeedTable do table.insert(parts, string.format("{%d, %s}", point[1], tostring(point[2]))) end
+  say("LaunchSpeedTable = {%s}", table.concat(parts, ", "))
+  parts = {}
+  for _, level in {1, 21, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140} do
+   table.insert(parts, string.format("{%d, %.0f}", level, (hitAt(P.GetLaunchSpeed(level)))))
+  end
+  say("ExpectedHitDistances head = {%s}", table.concat(parts, ", "))
+  if floor then say("  (the curve grows %.2f%% a Level from Level %d to 140)", 100 * floor, options.distanceShape[3]) end
+  say("")
+  result.speedTable = P.LaunchSpeedTable
+ end
+ -- Solve the tutorial band's per-Level step so its Level 20 climb takes `target` seconds of
+ -- Training (solveTutorial = {start, target}); used for the rest of this run.
+ if options.solveTutorial then
+  local start, low, high = options.solveTutorial.start or 10, 0, 20
+  for _ = 1, 30 do
+   local mid = (low + high) / 2
+   P.LevelBands[1] = {fromLevel = 1, start = start, add = mid}
+   local _, steps = tutorial()
+   if steps.Training > options.solveTutorial.target then high = mid else low = mid end
+  end
+  P.LevelBands[1] = {fromLevel = 1, start = start, add = (low + high) / 2}
+  say("Tutorial band: start %d, add %.3f a Level (Level 20 climb %.0f s of Training)", start, (low + high) / 2, options.solveTutorial.target)
+  say("")
+  result.tutorialAdd = (low + high) / 2
+ end
  if mode == "designSpeed" then
   -- Margins around each World's end allow for the ~1-2% trial-to-trial spread of a hit.
   local plan = options.speedPlan or {gapLevel = 140, minPlateau = 10, minTrials = 2, ranges = {
@@ -514,7 +728,7 @@ return function(sources, options)
   say("  Get 30 Power      %5.1f s   (target ~15)", steps.EarnPower)
   say("  Earn $2 batting   %5.1f s   (target 15-20)", steps.EarnCash)
   say("  Buy Sandlot Ball  %5.1f s   (target 10-15)", steps.BuyBall)
-  say("  Level 20 + Rebirth%6.1f s   (target 45-60 of Training)", steps.ReachLevel)
+  say("  Level 20 + Rebirth%6.1f s   (%.1f s of it Training; target 45-60)", steps.ReachLevel, steps.Training)
   say("  Whole tutorial    %5.1f s   (target 90-120)", steps.total)
   local afterTutorial = copy(s)
 
@@ -552,11 +766,53 @@ return function(sources, options)
    short(a.trainingPower), short(a.battingPower))
 
   say("")
-  say("WORLDS (active player)")
+  say("WORLDS (active player; the wait from the last purchase before each World's end)")
   for _, world in Worlds.Worlds do
    local reached = a.worldTimes[world.id]
-   say("  %-10s end %5d studs: %s", world.title, world.endDistance,
-    reached and string.format("completed at %s (Rebirth %d, Level %d)", clock(reached.time), reached.rebirths, reached.level) or "not completed")
+   local lastBuy
+   for _, purchase in a.purchases do
+    if reached and purchase.time <= reached.time then lastBuy = purchase end
+   end
+   say("  %-10s end %5d studs: %s%s", world.title, world.endDistance,
+    reached and string.format("completed at %s (Rebirth %d, Level %d)", clock(reached.time), reached.rebirths, reached.level) or "not completed",
+    reached and lastBuy and string.format(", %s at %s (%s before)", lastBuy.name, clock(lastBuy.time), clock(reached.time - lastBuy.time)) or "")
+  end
+
+  -- Spenders.
+  say("")
+  say("SPENDERS (active player with purchased multipliers; 'faster' is the finale against free to play)")
+  local powerTiers, cashTiers = #Monetization.Multipliers.Power, #Monetization.Multipliers.Cash
+  local scenarios = options.scenarios or {
+   {name = "Free to play"},
+   {name = "Light (1 tier each)", powerTiers = 1, cashTiers = 1},
+   {name = "Light (2 tiers each)", powerTiers = 2, cashTiers = 2},
+   {name = "Heavy (every tier)", powerTiers = powerTiers, cashTiers = cashTiers},
+   {name = "Heavy + juices nonstop", powerTiers = powerTiers, cashTiers = cashTiers, juices = true},
+   {name = "Whale (+ both paid grounds, Starter Pack)", powerTiers = powerTiers, cashTiers = cashTiers, juices = true,
+    passes = true, starterPack = true},
+  }
+  local freeFinale
+  for _, scenario in scenarios do
+   local p = playToFinale(afterTutorial, scenario)
+   local function at(id) local reached = p.worldTimes[id] return reached and clock(reached.time) or "-" end
+   local finale = p.worldTimes[finaleWorld] and p.worldTimes[finaleWorld].time
+   freeFinale = freeFinale or finale
+   say("  %-42s World 2 %8s | World 3 %8s | finale %8s%s | %d Robux of tiers", scenario.name, at("world_1"), at("world_2"),
+    at(finaleWorld), finale and freeFinale and finale < freeFinale and string.format(" (%.0f%% faster)", 100 * (1 - finale / freeFinale)) or "",
+    tierRobux(scenario))
+  end
+  -- Each tier on its own (tierValues = true): its finale and what it saves over the tier before.
+  if options.tierValues then
+   for _, kind in Monetization.MultiplierKinds do
+    local previous = freeFinale
+    for number, tier in Monetization.Multipliers[kind] do
+     local p = playToFinale(afterTutorial, {[string.lower(kind) .. "Tiers"] = number})
+     local finale = p.worldTimes[finaleWorld].time
+     say("  %-5s tier %d (%gx, %d Robux) alone: finale %s (saves %s)", kind, number, tier.multiplier, tier.robuxPrice, clock(finale),
+      clock(previous - finale))
+     previous = finale
+    end
+   end
   end
 
   say("")
@@ -647,18 +903,29 @@ return function(sources, options)
   say("CASUAL RETURNING (one %d-minute active session a day, Offline Training between)", sessionMinutes)
   local casual = copy(afterTutorial)
   local casualRows = {"day,rebirths,level,world,ball,bat,play_minutes"}
-  for _, row in runCasual(casual, options.casualDays or 14, sessionMinutes) do
+  for _, row in runCasual(casual, options.casualDays or 60, sessionMinutes) do
    say("  Day %2d: Rebirth %2d, Level %3d, %-8s %-18s %s", row.day, row.rebirths, row.level, row.world,
     Equipment.Get("Ball", row.ball).displayName, Equipment.Get("Bat", row.bat).displayName)
    table.insert(casualRows, string.format("%d,%d,%d,%s,%s,%s,%d", row.day, row.rebirths, row.level, row.world, row.ball, row.bat, row.day * sessionMinutes))
   end
-  local casualWorlds = {}
-  for _, world in Worlds.Worlds do
-   local reached = casual.worldTimes[world.id]
-   if reached then table.insert(casualWorlds, string.format("%s after %s of play", world.title, clock(reached.time))) end
+  local function casualWorlds(p)
+   local parts = {}
+   for _, world in Worlds.Worlds do
+    local reached = p.worldTimes[world.id]
+    if reached then table.insert(parts, string.format("%s day %d (%s of play)", world.title, reached.day, clock(reached.time))) end
+   end
+   return #parts > 0 and table.concat(parts, "; ") or "no World yet"
   end
-  say("  Completed: %s", #casualWorlds > 0 and table.concat(casualWorlds, "; ") or "no World yet")
+  say("  Completed: %s", casualWorlds(casual))
+  say("  Offline Training gave %.0f%% of the Power", 100 * (casual.offlinePower or 0)
+   / math.max(1, (casual.offlinePower or 0) + casual.trainingPower + casual.battingPower))
   csv["casual.csv"] = table.concat(casualRows, "\n")
+  -- The same casual player with each spender scenario (casualSpenders = true).
+  if options.casualSpenders then
+   for index, scenario in scenarios do
+    if index > 1 then say("  %-42s %s", scenario.name, casualWorlds(playToFinale(afterTutorial, scenario, sessionMinutes))) end
+   end
+  end
 
   -- Requirement bands.
   say("")
