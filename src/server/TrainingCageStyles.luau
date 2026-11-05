@@ -727,6 +727,11 @@ local function withParts(base, extra)
  return base
 end
 local TOY_RED, TOY_YELLOW, TOY_BLUE, TOY_GREEN = rgb(232, 60, 54), rgb(255, 206, 44), rgb(52, 122, 234), rgb(66, 186, 90)
+-- The pop bumper caps glow out of step, each with its own light.
+local function bumperCap(index)
+ local colors = {rgb(255, 80, 184), rgb(80, 230, 255), rgb(255, 214, 50), rgb(255, 80, 184), rgb(90, 255, 120)}
+ return style(colors[index], M.Neon, {pulse = 1.6, phase = index * 1.3, light = {colors[index], 10, 1.2}})
+end
 
 -- Sandbox Diamond: a hexagonal plank sandbox under shade sails. The beach ball's four meshes (its
 -- opposite gores share a mesh, so each is centred on the ball) turn and bob together; the pinwheel's
@@ -770,19 +775,54 @@ Styles.SandboxDiamondCage = {
  tint = {color = rgb(255, 248, 232), brightness = 0.03, contrast = 0.04, saturation = 0.12},
 }
 
+-- Pinball Cage: the cage is a pinball machine under a sloping glass top. Pop bumper caps glow out of
+-- step, the two banks of chase lights blink in turn, the spinners turn on their axles (Blender X)
+-- and the star turntable turns.
+local PIN_PINK, PIN_CYAN, PIN_YELLOW, PIN_CHROME = rgb(255, 80, 184), rgb(80, 230, 255), rgb(255, 214, 50), rgb(214, 218, 228)
+local function insert(color, pulse, phase)
+ return style(color, M.Neon, {pulse = pulse, phase = phase, shadow = false})
+end
 Styles.PinballCage = {
- parts = withParts(standardParts("Pin", {frame = rgb(214, 218, 230), pads = rgb(214, 218, 230), net = rgb(90, 60, 200),
+ -- Legacy entries keep the previous model (built on the standard cage) styled until the new one is
+ -- imported over it; drop them after the import.
+ parts = withParts(withParts(standardParts("Pin", {frame = rgb(214, 218, 230), pads = rgb(214, 218, 230), net = rgb(90, 60, 200),
   machine = rgb(255, 80, 180), trim = rgb(255, 80, 180), lens = rgb(255, 200, 240)}), {
-  PinCabinet = style(rgb(96, 40, 160), M.SmoothPlastic), PinGlass = style(rgb(200, 220, 255), M.Glass, {transparency = 0.82, shadow = false}),
   PinBumpers = style(rgb(240, 60, 80), M.SmoothPlastic), PinBumperRings = style(rgb(90, 240, 255), M.Neon, {pulse = 1.2}),
-  PinFlippers = style(rgb(250, 250, 250), M.SmoothPlastic), PinKickers = style(rgb(255, 214, 50), M.SmoothPlastic),
-  PinPlunger = style(rgb(220, 224, 232), M.Metal), PinBackbox = style(rgb(40, 20, 80), M.SmoothPlastic),
+  PinKickers = style(rgb(255, 214, 50), M.SmoothPlastic), PinPlunger = style(rgb(220, 224, 232), M.Metal),
   PinMarquee = style(rgb(255, 90, 200), M.Neon, {pulse = 0.9, light = {rgb(255, 120, 220), 16, 1.2}}),
   PinArrows = style(rgb(255, 90, 200), M.Neon, {pulse = 0.7}),
+ }), {
+  PinCabinet = style(rgb(96, 40, 160), M.SmoothPlastic), PinCabinetTrim = style(rgb(26, 16, 44), M.SmoothPlastic),
+  PinBackbox = style(rgb(96, 40, 160), M.SmoothPlastic), PinBackglass = style(rgb(20, 12, 40), M.Glass),
+  PinArtPink = style(PIN_PINK, M.SmoothPlastic), PinArtYellow = style(PIN_YELLOW, M.SmoothPlastic), PinArtCyan = style(PIN_CYAN, M.SmoothPlastic),
+  PinChrome = style(PIN_CHROME, M.Metal), PinChromeRails = style(PIN_CHROME, M.Metal), PinCoinDoor = style(PIN_CHROME, M.Metal),
+  PinPosts = style(PIN_CHROME, M.Metal), PinRampRails = style(PIN_CHROME, M.Metal), PinSpring = style(PIN_CHROME, M.Metal),
+  PinGlass = style(rgb(200, 220, 255), M.Glass, {transparency = 0.82, shadow = false}),
+  PinRamp = style(rgb(180, 225, 255), M.Glass, {transparency = 0.5, shadow = false}),
+  PinCoinSlots = style(rgb(255, 60, 40), M.Neon, {pulse = 1.2}),
+  PinFlippers = style(rgb(250, 250, 250), M.SmoothPlastic), PinRubber = style(rgb(230, 40, 50), M.Rubber),
+  PinSlings = style(rgb(250, 250, 250), M.SmoothPlastic), PinTargets = style(PIN_YELLOW, M.SmoothPlastic),
+  PinBumperBases = style(rgb(26, 16, 44), M.SmoothPlastic), PinBumperSkirts = style(rgb(250, 250, 250), M.SmoothPlastic),
+  PinInsertsPink = insert(PIN_PINK, 1.1, 0), PinInsertsYellow = insert(PIN_YELLOW, 0.8, 1), PinInsertsCyan = insert(PIN_CYAN, 1.4, 2),
+  PinInsertsGreen = insert(rgb(90, 255, 120), 0.9, 3),
+  PinFloorArt = style(rgb(70, 36, 120), M.SmoothPlastic), PinWallGlow = style(PIN_CYAN, M.Neon, {pulse = 0.5}),
+  PinChaseA = style(rgb(255, 236, 150), M.Neon, {pulse = 2, phase = 0}),
+  PinChaseB = style(rgb(255, 140, 210), M.Neon, {pulse = 2, phase = math.pi}),
+  PinShooterLane = style(rgb(244, 238, 224), M.WoodPlanks), PinPlungerKnob = style(rgb(230, 40, 50), M.SmoothPlastic),
+  PinScore = style(rgb(255, 140, 30), M.Neon, {pulse = 0.4}), PinSpeakers = style(rgb(38, 38, 46), M.Fabric),
+  PinSpinnerA = style(PIN_CHROME, M.Metal, {spin = 200, spinAxis = Vector3.xAxis}),
+  PinSpinnerB = style(PIN_CHROME, M.Metal, {spin = -160, spinAxis = Vector3.xAxis}),
+  PinTurntable = style(PIN_PINK, M.SmoothPlastic, {spin = 45, spinAxis = Vector3.yAxis}),
+  PinTurntableStar = style(PIN_YELLOW, M.Neon, {spin = 45, spinAxis = Vector3.yAxis}),
+  PinPlate = style(rgb(250, 250, 246), M.SmoothPlastic), PinBall = style(rgb(236, 238, 242), M.Metal),
  }),
- effects = {{kind = "PinSparkles", position = b(-1, 10, 8), size = Vector3.new(26, 10, 44)}},
+ effects = {{kind = "PinSparkles", position = b(-1, 12, 8), size = Vector3.new(26, 10, 50)}},
  tint = {color = rgb(240, 230, 255), brightness = 0.02, contrast = 0.08, saturation = 0.2},
 }
+
+for index, letter in {"A", "B", "C", "D", "E"} do
+ Styles.PinballCage.parts["PinBumper" .. letter] = bumperCap(index)
+end
 
 Styles.CerealBowlCage = {
  parts = withParts(standardParts("Bowl", {frame = rgb(70, 150, 230), pads = rgb(255, 150, 40), net = rgb(214, 224, 236),

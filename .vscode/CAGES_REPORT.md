@@ -18,7 +18,7 @@ early.
 | 3 | Gladiator Colosseum | GladiatorColosseumCage | `8c6130f` | 44 meshes, about 107K triangles |
 | 4 | Samurai Dojo | SamuraiDojoCage | `23a06cf` | 53 meshes, about 98K triangles |
 | 5 | Time Machine Lab | TimeMachineLabCage | `9ac7256` | 58 meshes, about 91K triangles, 25 moving parts |
-| 6 | Sandbox Diamond | SandboxDiamondCage | | |
+| 6 | Sandbox Diamond | SandboxDiamondCage | `0a0d5d6` | 42 meshes, about 50K triangles |
 | 7 | Pinball Cage | PinballCage | | |
 | 8 | Cereal Bowl Stadium | CerealBowlCage | | |
 | 9 | Toy Soldier Fort | ToySoldierCage | | |
@@ -173,6 +173,25 @@ early.
   also starfish moulds, shells, a toy dump truck, a rake and spare pails.
 - **Beach ball:** it bobs and turns. Its opposite gores share a mesh, so each mesh is centred on the
   ball.
+
+### Pinball Cage
+- **Cabinet:** a painted purple cabinet with a rounded top arch past the machine end, so its plan
+  isn't a rectangle. Its walls rise with the playfield's tilt to a sloping glass top (the roof), with
+  chrome side rails, a lockdown bar, chrome legs and lightning-and-star side art.
+- **Head:** the backbox head stands up at the top arch end, with art (a ringed planet, a rocket and
+  stars), a marquee and a border of chase lights. It makes the silhouette read as pinball from the hub.
+- **Door:** the entrance is the coin door: a chrome frame, with a coin panel beside it whose slots glow.
+- **Playfield:** glowing inserts pulse at four rates, and there are painted arrows and a starburst
+  behind the batter's ground. Rollover lanes sit under the top arch, and an apron lies at the batter's
+  end.
+- **Toys:** two pairs of flippers with red rubbers along the sides, slingshots with lane guides, five
+  pop bumpers whose caps glow out of step, two spinners that turn, a six-point star turntable that
+  turns, a bank of drop targets and a clear wire ramp.
+- **Lights:** chase lights along the top rails blink in turn (two meshes, half a cycle apart), and
+  light strips glow inside the walls.
+- **Plunger:** the spring plunger sits in a raised shooter lane, with the ball against its tip at PITCH.
+- **Screen:** the scoreboard backglass, with a seven-segment score ("1450980"), the ball count and
+  credits, speaker grilles and art on dark glass.
 
 ## Things that didn't work or were skipped
 (none yet)
