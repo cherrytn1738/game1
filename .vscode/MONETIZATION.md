@@ -19,8 +19,8 @@ server confirms.
 | Tiny / Small / Medium / Large Cash Pack | Developer product | 25 / 59 / 115 / 229 Robux | Cash worth 15 / 50 / 125 / 300 normal hits | `MonetizationConfig.CashProducts` |
 | Boost Bundle | Developer product | 95 Robux | 2 Power Punch + 2 Cash Splash | `MonetizationConfig.JuiceProducts` |
 | Power Punch / Cash Splash | Developer product | 39 Robux each | 1 juice (into the Inventory) | `MonetizationConfig.JuiceProducts` |
-| Power multiplier tiers 1-5 | Developer product per tier | 129 / 169 / 219 / 279 / 359 Robux | Permanent Power 1.5x / 1.6x / 1.7x / 1.8x / 1.9x | `MonetizationConfig.Multipliers.Power` |
-| Cash multiplier tiers 1-7 | Developer product per tier | 129 / 159 / 199 / 249 / 309 / 389 / 489 Robux | Permanent Cash 1.5x / 1.6x / 1.7x / 1.8x / 1.9x / 2x / 2.1x | `MonetizationConfig.Multipliers.Cash` |
+| Power multiplier tiers 1-5 | Developer product per tier | 129 / 169 / 219 / 279 / 359 Robux | Permanent Power 2x / 2.5x / 3x / 3.5x / 4x | `MonetizationConfig.Multipliers.Power` |
+| Cash multiplier tiers 1-7 | Developer product per tier | 129 / 159 / 199 / 249 / 309 / 389 / 489 Robux | Permanent Cash 2x / 2.5x / 3x / 3.5x / 4x / 4.5x / 5x | `MonetizationConfig.Multipliers.Cash` |
 
 Nothing else is sold. Prices in config are only what the buttons show until Roblox's live price
 loads (`GetProductInfo`); Roblox charges the price set on the Creator Dashboard.
@@ -104,7 +104,7 @@ Balls are bought for Cash only at the hub display pedestals).
   Rebirth (`TryRebirth`, reason "ManualRebirth") completes the tutorial. In Studio only,
   `StudioOwnStarterPack` on a `StudioFreshSave` save owns it.
 - **Multipliers:** two cards, Power and Cash, each showing its next tier as the change it makes
-  ("1.5x → 1.6x", "TIER 2 OF 5 • PERMANENT", that tier's price), and MAX / MAXED once every tier
+  ("2x → 2.5x", "TIER 2 OF 5 • PERMANENT", that tier's price), and MAX / MAXED once every tier
   is owned. See "Purchased multipliers" below. No Gift button (not giftable for now).
 - **Cash Packs:** a Buy asks the server ("BuyCash"), which fixes the pack's reward first
   (`PlayerData.QuoteCashPack`: `hits` x the Cash of one normal hit for the player then, from
@@ -147,8 +147,9 @@ While an id is 0 its button reads SOON, never opens a prompt, and a tap says it 
 - **Tiers:** two permanent ladders (`MonetizationConfig.Multipliers`), each tier its own
   developer product, bought in order. The saved tier count (`PowerMultiplierTier`,
   `CashMultiplierTier`; Schema 12, 0 for older saves) picks the multiplier: 1x with none,
-  then 1.5x, 1.6x, ... Kept through Rebirths. Balance in `.vscode/ECONOMY.md` ("Purchased
-  multipliers"): one tier of each finishes the game ~33% faster, every tier ~49% faster.
+  then 2x, 2.5x, ... (+0.5x a tier: Power to 4x, Cash to 5x). Kept through Rebirths. Balance in `.vscode/ECONOMY.md` ("Purchased
+  multipliers"): one tier of each finishes the game ~49% faster, every tier ~76% faster,
+  intentionally stronger than the spender targets because a World 4 is planned.
 - **Buying:** the card's Buy sends only ("BuyMultiplier", "Power" or "Cash"). `ProductServer`
   looks up the player's next tier itself (`PlayerData.GetNextMultiplierTier`) and prompts that
   tier's product; nothing happens at the top tier, while its id is 0, within 0.5 s of another

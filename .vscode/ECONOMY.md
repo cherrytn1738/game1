@@ -72,8 +72,8 @@ active player.
 | Second run, Training only, Level 1 → 40 | ~3 min | 3.0 min | to re-measure |
 | Batting vs Basic Training | 50-70% | 49-69% | 11 Power a hit at Level 3 |
 | Free-to-play World 2 / World 3 / finale | ~1h 40m / ~4h 45m / ~10h 30m | 1h 41m / 4h 44m / 10h 27m | |
-| One tier of each multiplier | 30-35% faster finale | 33% (7h 02m) | |
-| Every tier | finale no sooner than half of free-to-play (~5h 15m) | 5h 19m (49% faster) | |
+| One tier of each multiplier | 30-35% faster finale | 49% (5h 19m): stronger on purpose, see Decisions to review | |
+| Every tier | finale no sooner than half of free-to-play (~5h 15m) | 2h 33m (76% faster): stronger on purpose | |
 
 Tutorial step 3 is mostly walking and clicking, so balance cannot move it.
 
@@ -309,41 +309,39 @@ the earlier Training base, before it was flat, so only their order of size still
 ## Purchased multipliers (Robux)
 
 Two permanent ladders (`MonetizationConfig.Multipliers`), each tier its own developer product,
-bought in order. Tier 1 is the big step (it should feel worth buying next to a 39-Robux 2x juice
-that lasts 10 minutes); later tiers add 0.1x each. A player with every tier must still take at
-least half a free player's time to the finale, which sets the caps: Power 1.9x (5 tiers) and Cash
-2.1x (7 tiers). With Power at 1.9x, Cash at 2.2x (8 tiers) finished in 5h 13m and 2.3x (9 tiers)
-in 5h 07m, both under the floor (solved on the interpolated table; the measured one is within a
-few minutes of it).
+bought in order. Both start at 2x and add 0.5x a tier: Power 2x-4x (5 tiers), Cash 2x-5x (7
+tiers). The ladders are intentionally stronger than the spender targets below (one tier of each
+about 30-35% faster, every tier no sooner than ~5h 15m) because a World 4 is planned; see
+Decisions to review.
 
 | Tier | Power | Robux | Finale with only this Power tier | Cash | Robux | Finale with only this Cash tier |
 |---|---|---:|---|---|---:|---|
-| 1 | 1.5x | 129 | 8h 43m (−1h 43m) | 1.5x | 129 | 8h 42m (−1h 45m) |
-| 2 | 1.6x | 169 | 8h 28m (−15m) | 1.6x | 159 | 8h 28m (−14m) |
-| 3 | 1.7x | 219 | 8h 18m (−10m) | 1.7x | 199 | 8h 20m (−8m) |
-| 4 | 1.8x | 279 | 8h 07m (−12m) | 1.8x | 249 | 8h 09m (−11m) |
-| 5 | 1.9x | 359 | 8h 01m (−6m) | 1.9x | 309 | 7h 59m (−10m) |
-| 6 | | | | 2x | 389 | 7h 50m (−9m) |
-| 7 | | | | 2.1x | 489 | 7h 42m (−9m) |
+| 1 | 2x | 129 | 7h 47m (−2h 40m) | 2x | 129 | 7h 50m (−2h 36m) |
+| 2 | 2.5x | 169 | 7h 08m (−39m) | 2.5x | 159 | 7h 18m (−32m) |
+| 3 | 3x | 219 | 6h 40m (−28m) | 3x | 199 | 6h 52m (−26m) |
+| 4 | 3.5x | 279 | 6h 17m (−23m) | 3.5x | 249 | 6h 40m (−13m) |
+| 5 | 4x | 359 | 6h 01m (−15m) | 4x | 309 | 6h 25m (−14m) |
+| 6 | | | | 4.5x | 389 | 6h 18m (−7m) |
+| 7 | | | | 5x | 489 | 6h 11m (−8m) |
 | All | | 1,155 | | | 1,923 | |
 
-A Cash tier is worth about as much as a Power tier, because Cash buys the Balls, so both start at
-the same price; Power rises ~30% a tier and Cash ~25%.
+Prices are unchanged from the earlier 1.5x-2.1x ladders: both start at 129, Power rises ~30% a
+tier and Cash ~25%.
 
 | Player | World 2 | World 3 | Finale | vs free-to-play | Casual (World 2 / 3 / finale) |
 |---|---|---|---|---|---|
 | Free to play | 1h 41m | 4h 44m | 10h 27m | | day 4 / 9 / 17 |
-| Light, 1 tier each (258 Robux) | 1h 08m | 3h 11m | 7h 02m | 33% faster | day 3 / 6 / 13 |
-| Light, 2 tiers each (586 Robux) | 1h 03m | 2h 59m | 6h 35m | 37% faster | day 2 / 6 / 12 |
-| Heavy, every tier (3,078 Robux) | 54m | 2h 26m | 5h 19m | 49% faster | day 2 / 5 / 10 |
-| Heavy + both juices nonstop | 32m | 1h 19m | 2h 49m | 73% faster | day 1 / 3 / 6 |
-| Whale (+ Starter Pack, both paid grounds) | 22m | 1h 09m | 2h 39m | 75% faster | day 1 / 3 / 5 |
+| Light, 1 tier each (258 Robux) | 53m | 2h 27m | 5h 19m | 49% faster | day 2 / 5 / 10 |
+| Light, 2 tiers each (586 Robux) | 44m | 1h 59m | 4h 17m | 59% faster | day 2 / 4 / 8 |
+| Heavy, every tier (3,078 Robux) | 29m | 1h 13m | 2h 33m | 76% faster | day 1 / 3 / 5 |
+| Heavy + both juices nonstop | 18m | 42m | 1h 24m | 87% faster | day 1 / 2 / 3 |
+| Whale (+ Starter Pack, both paid grounds) | 16m | 39m | 1h 21m | 87% faster | day 1 / 2 / 3 |
 
-Worst case (every tier and both juices): 1.9 × 2 = 3.8x Power and 2.1 × 2 = 4.2x Cash. At finale
-gear that is ~8.3e11 Power a practice hit (5 × 210 × 11M × 19 × 3.8) and ~$13M a hit at 7,000
-studs with the Celestial Bat in World 3, far below `MaxPower` (9e15) and Cash's 9e12 limit.
-Offline gets the Power tier but no juice, and the run cap (applied after every multiplier) still
-holds. The Power products and the Starter Pack's Power are never multiplied.
+Worst case (every tier and both juices): 4 × 2 = 8x Power and 5 × 2 = 10x Cash. At finale gear
+that is ~1.8e12 Power a practice hit (5 × 210 × 11M × 19 × 8) and ~$31M a hit at 7,000 studs with
+the Celestial Bat in World 3, far below `MaxPower` (9e15) and Cash's 9e12 limit. Offline gets the
+Power tier but no juice, and the run cap (applied after every multiplier) still holds. The Power
+products and the Starter Pack's Power are never multiplied.
 
 ## Batting vs Training
 
@@ -465,12 +463,17 @@ anywhere, so speeds that are not in rising order are invisible; only the distanc
 
 ## Decisions to review
 
+- **The multiplier ladders are intentionally stronger than the spender targets** (2x-4x Power,
+  2x-5x Cash, +0.5x a tier). One tier of each finishes 49% faster (target 30-35%) and every tier
+  in 2h 33m (floor ~5h 15m). This is on purpose because a World 4 is planned: World 4's balance
+  (its bands, prices and the finale) should account for players holding these ladders, rather
+  than the ladders being cut back to today's three Worlds.
 - **The end of World 2** has the longest stretch with nothing to buy: the Chrono Orb at 3h 39m,
   then World 3 at 4h 44m (65 minutes). A cheaper Dragon Bone Bat ($3.5M) only cuts it to 37
   minutes and makes the finale 31 minutes faster (9h 58m), so it needs its own pass (perhaps
   with a re-solve of the World 2 bands).
 - **Juices are the strongest Robux lever:** both running nonstop on top of every tier take the
-  finale from 5h 19m to 2h 49m. They are consumables (39 Robux for 10 minutes), so that would
+  finale from 2h 33m to 1h 24m. They are consumables (39 Robux for 10 minutes), so that would
   cost far more than the tiers; revisit if juices get cheaper or longer.
 - **The casual finale is day 17** (about 2.4 weeks; ~3 weeks was hoped for). Offline Training
   gives 44% of a casual player's Power; lowering `OfflineRunShare` would stretch it.

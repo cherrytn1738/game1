@@ -85,25 +85,25 @@ Monetization.PowerProducts = {
 -- one, and so on. Power multiplies Training, real-hit and offline Power (never the Power products
 -- or the Starter Pack's Power); Cash multiplies batting Cash (and a Cash pack's "normal hit").
 -- Both stack with juices; neither changes launch strength or distance. Kept through Rebirths.
--- Tiers and prices are balance values (tools/balance; .vscode/ECONOMY.md): a heavy spender with
--- every tier should still take at least half a free player's time to finish the game.
+-- Tiers and prices are balance values (tools/balance; .vscode/ECONOMY.md). The ladders are
+-- intentionally stronger than the spender targets: World 4's balance should account for them.
 Monetization.MultiplierKinds = {"Power", "Cash"}
 Monetization.Multipliers = {
  Power = {
-  {developerProductId = 0, robuxPrice = 129, multiplier = 1.5},
-  {developerProductId = 0, robuxPrice = 169, multiplier = 1.6},
-  {developerProductId = 0, robuxPrice = 219, multiplier = 1.7},
-  {developerProductId = 0, robuxPrice = 279, multiplier = 1.8},
-  {developerProductId = 0, robuxPrice = 359, multiplier = 1.9},
+  {developerProductId = 0, robuxPrice = 129, multiplier = 2},
+  {developerProductId = 0, robuxPrice = 169, multiplier = 2.5},
+  {developerProductId = 0, robuxPrice = 219, multiplier = 3},
+  {developerProductId = 0, robuxPrice = 279, multiplier = 3.5},
+  {developerProductId = 0, robuxPrice = 359, multiplier = 4},
  },
  Cash = {
-  {developerProductId = 0, robuxPrice = 129, multiplier = 1.5},
-  {developerProductId = 0, robuxPrice = 159, multiplier = 1.6},
-  {developerProductId = 0, robuxPrice = 199, multiplier = 1.7},
-  {developerProductId = 0, robuxPrice = 249, multiplier = 1.8},
-  {developerProductId = 0, robuxPrice = 309, multiplier = 1.9},
-  {developerProductId = 0, robuxPrice = 389, multiplier = 2},
-  {developerProductId = 0, robuxPrice = 489, multiplier = 2.1},
+  {developerProductId = 0, robuxPrice = 129, multiplier = 2},
+  {developerProductId = 0, robuxPrice = 159, multiplier = 2.5},
+  {developerProductId = 0, robuxPrice = 199, multiplier = 3},
+  {developerProductId = 0, robuxPrice = 249, multiplier = 3.5},
+  {developerProductId = 0, robuxPrice = 309, multiplier = 4},
+  {developerProductId = 0, robuxPrice = 389, multiplier = 4.5},
+  {developerProductId = 0, robuxPrice = 489, multiplier = 5},
  },
 }
 for _, kind in Monetization.MultiplierKinds do

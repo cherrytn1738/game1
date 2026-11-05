@@ -287,7 +287,7 @@ end)
 loadPrice(PACK.gamePassId, Enum.InfoType.GamePass)
 
 -- Multipliers -------------------------------------------------------------------------
--- One card per permanent multiplier, showing the next tier as the change it makes ("1.5x → 1.6x")
+-- One card per permanent multiplier, showing the next tier as the change it makes ("2x → 2.5x")
 -- from the server-set tier count (PowerMultiplierTier / CashMultiplierTier). Buy only asks the
 -- server for the next tier; the server picks it and opens the prompt. Not giftable.
 local function multiplierText(value) return string.format("%gx", value) end

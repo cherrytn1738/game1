@@ -212,7 +212,7 @@ The physical batting tee still exists in the world.
 - Hit Power = Training base × `HitPowerPerSecond` (0.37) × seconds in play, rounded, × Ball × (Rebirths + 1) × purchased Power multiplier (× Power juice); no ground
 - Offline Power = 25% of the best usable ground's rate, no Level term (8 h cap) × saved Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held to half the Power still needed for the Level Cap (Welcome Back's 3x: twice more, up to all of it)
 - Hit Cash = (distance / 80)^1.5 × World `cashMultiplier` (1, 10, 100) × section multiplier × Bat × purchased Cash multiplier (× Cash juice), rounded, at least $1
-- Purchased multipliers (`MonetizationConfig.Multipliers`, Robux tiers; saved `PowerMultiplierTier` / `CashMultiplierTier`): Power 1.5x-1.9x in 5 tiers, Cash 1.5x-2.1x in 7; 1x with none; never distance
+- Purchased multipliers (`MonetizationConfig.Multipliers`, Robux tiers; saved `PowerMultiplierTier` / `CashMultiplierTier`): Power 2x-4x in 5 tiers, Cash 2x-5x in 7 (+0.5x a tier); 1x with none; never distance
 - Juices (`JuiceConfig`): Power Punch (2x Power) and Cash Splash (2x Cash), 600 s each, on real time (saved expiry times, so they run while offline); a repeat drink adds 600 s (never 4x); never offline Training; a hit snapshots its juices when its swing is accepted. Sold in the Shop and one in the Starter Pack (Studio: `StudioGrantJuice` on a `StudioFreshSave` save, `StudioJuiceSeconds`)
 
 A hit snapshots the Ball ID, the Bat's Cash multiplier, its juices and the purchased multipliers at swing acceptance.

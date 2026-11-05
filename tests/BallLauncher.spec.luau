@@ -165,9 +165,9 @@ return function(sources)
   "Cash Splash alone leaves the hit's Power alone")
  -- The purchased multipliers are in the snapshot too: they pay that hit's Cash and Power, stacked
  -- with juices, and never change its distance. Without them (older snapshots) they count as 1.
- local tiered, tieredCash, tieredGrant = juicedHit(703, 2, 1, 1, {cashTierMultiplier=1.6, powerTierMultiplier=1.5})
- check(tieredCash==Progression.GetHitCash(100,world.cashMultiplier,1,1,2*1.6) and tieredCash>splashCash
-  and tieredGrant.boost==1 and tieredGrant.tier==1.5 and tiered.distanceResult.distanceStuds==100,
+ local tiered, tieredCash, tieredGrant = juicedHit(703, 2, 1, 1, {cashTierMultiplier=2.5, powerTierMultiplier=2})
+ check(tieredCash==Progression.GetHitCash(100,world.cashMultiplier,1,1,2*2.5) and tieredCash>splashCash
+  and tieredGrant.boost==1 and tieredGrant.tier==2 and tiered.distanceResult.distanceStuds==100,
   "the purchased Cash and Power multipliers at the swing pay that hit, with juices, at the same distance")
  check(splashGrant.tier==1, "a snapshot without purchased multipliers grants at 1x")
  -- Worked Cash formula: (distance / 80)^1.5 x World x section x Bat, rounded once. A 3x Bat

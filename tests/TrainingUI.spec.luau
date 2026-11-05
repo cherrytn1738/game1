@@ -108,9 +108,9 @@ return function(sources)
  check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  125 Power / second", "ground, Ball and Rebirth compose once in preview")
  player:SetAttribute("Level",20)
  check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  125 Power / second", "the preview is the same at every Level")
- -- The purchased Power multiplier (the server's tier count) is in the preview too: 1.5x.
+ -- The purchased Power multiplier (the server's tier count) is in the preview too: 2x.
  player:SetAttribute("PowerMultiplierTier",1)
- check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  187.5 Power / second", "the purchased Power multiplier is in the preview")
+ check(labels["enchanted_grove.Rate"].Text == "x5 POWER  |  250 Power / second", "the purchased Power multiplier is in the preview")
  player:SetAttribute("PowerMultiplierTier",nil)
  player:SetAttribute("Level",4)
  check(buttons.basic_training.Active and buttons.basic_training.Text == "GO","unlocked ground offers a teleport")

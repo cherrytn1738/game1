@@ -1753,13 +1753,13 @@ return function(sources)
   end
   return table.concat(parts, ",")
  end
- check(ladderText("Power") == "1.5:129:0,1.6:169:0,1.7:219:0,1.8:279:0,1.9:359:0"
-  and ladderText("Cash") == "1.5:129:0,1.6:159:0,1.7:199:0,1.8:249:0,1.9:309:0,2:389:0,2.1:489:0",
-  "Power 1.5x-1.9x in 5 tiers and Cash 1.5x-2.1x in 7, at their prices, no real ids yet")
- check(Monetization.GetMultiplier("Power", 0) == 1 and Monetization.GetMultiplier("Power", 1) == 1.5
-  and Monetization.GetMultiplier("Cash", 7) == 2.1 and Monetization.GetMultiplier("Cash", 99) == 2.1
+ check(ladderText("Power") == "2:129:0,2.5:169:0,3:219:0,3.5:279:0,4:359:0"
+  and ladderText("Cash") == "2:129:0,2.5:159:0,3:199:0,3.5:249:0,4:309:0,4.5:389:0,5:489:0",
+  "Power 2x-4x in 5 tiers and Cash 2x-5x in 7 (+0.5x a tier), at their prices, no real ids yet")
+ check(Monetization.GetMultiplier("Power", 0) == 1 and Monetization.GetMultiplier("Power", 1) == 2
+  and Monetization.GetMultiplier("Cash", 7) == 5 and Monetization.GetMultiplier("Cash", 99) == 5
   and Monetization.GetMultiplier("Luck", 3) == 1 and Monetization.GetNextMultiplierTier("Power", 5) == nil
-  and select(2, Monetization.GetNextMultiplierTier("Cash", 0)).multiplier == 1.5 and shipped.GetMultiplierProduct(0) == nil,
+  and select(2, Monetization.GetNextMultiplierTier("Cash", 0)).multiplier == 2 and shipped.GetMultiplierProduct(0) == nil,
   "the tier count picks the multiplier (1x with none); the top tier has no next one; id 0 matches nothing")
  local foundKind, foundTier = Monetization.GetMultiplierProduct(763)
  check(foundKind == "Power" and foundTier == 3 and select(2, Monetization.GetMultiplierProduct(777)) == 7,
@@ -1789,12 +1789,12 @@ return function(sources)
   "a cancelled prompt can be opened again")
  local _, unboosted = Data.GrantPower(tierBuyer, 10, "ActiveTraining")
  check(marketplace.ProcessReceipt(tierReceipt("tier-1", 761)) == decisions.PurchaseGranted
-  and tierBuyer:GetAttribute("PowerMultiplierTier") == 1 and Data.GetPurchasedMultiplier(tierBuyer, "Power") == 1.5
+  and tierBuyer:GetAttribute("PowerMultiplierTier") == 1 and Data.GetPurchasedMultiplier(tierBuyer, "Power") == 2
   and shop.replies[tierBuyer][1] == "MultiplierGranted" and shop.replies[tierBuyer][2] == "Power" and shop.replies[tierBuyer][3] == 1,
   "the receipt grants tier 1 and tells the client")
  check(saved.Player_530.PowerMultiplierTier == 1 and saved.Player_530.RobuxSpent == 129, "a tier is saved straight away with its Robux")
  local _, boosted = Data.GrantPower(tierBuyer, 10, "ActiveTraining")
- check(unboosted.powerGranted == 20 and boosted.powerGranted == 30, "the Power multiplier applies to Training Power (10 x 2 x 1.5)")
+ check(unboosted.powerGranted == 20 and boosted.powerGranted == 40, "the Power multiplier applies to Training Power (10 x 2 x 2)")
  check(marketplace.ProcessReceipt(tierReceipt("tier-1", 761)) == decisions.PurchaseGranted
   and tierBuyer:GetAttribute("PowerMultiplierTier") == 1 and saved.Player_530.RobuxSpent == 129, "a repeated receipt grants nothing more")
  now += 1
@@ -1805,8 +1805,8 @@ return function(sources)
  check(marketplace.ProcessReceipt(tierReceipt("tier-2b", 762)) == decisions.PurchaseGranted
   and tierBuyer:GetAttribute("PowerMultiplierTier") == 3, "a second purchase of the same tier still adds one")
  for number = 4, 5 do marketplace.ProcessReceipt(tierReceipt("tier-" .. number, 760 + number)) end
- check(tierBuyer:GetAttribute("PowerMultiplierTier") == 5 and Data.GetPurchasedMultiplier(tierBuyer, "Power") == 1.9
-  and Data.GetNextMultiplierTier(tierBuyer, "Power") == nil, "five tiers reach the top, 1.9x")
+ check(tierBuyer:GetAttribute("PowerMultiplierTier") == 5 and Data.GetPurchasedMultiplier(tierBuyer, "Power") == 4
+  and Data.GetNextMultiplierTier(tierBuyer, "Power") == nil, "five tiers reach the top, 4x")
  now += 1
  local promptsAtTop = #marketplace.prompts
  shop.OnServerEvent:Fire(tierBuyer, "BuyMultiplier", "Power")
@@ -1814,7 +1814,7 @@ return function(sources)
  -- A hit's snapshot is used instead of the live multiplier; without one the live one counts.
  check(select(2, Data.GrantPower(tierBuyer, 10, "CompletedHit", nil, 1, 1)).powerGranted == 20
   and select(2, Data.GrantPower(tierBuyer, 10, "CompletedHit", nil, 2, 1.5)).powerGranted == 60
-  and select(2, Data.GrantPower(tierBuyer, 10, "CompletedHit")).powerGranted == 38, "a hit uses its snapshot (with juices)")
+  and select(2, Data.GrantPower(tierBuyer, 10, "CompletedHit")).powerGranted == 80, "a hit uses its snapshot (with juices)")
  local exact = Data.GetProgression(tierBuyer)
  Progression.Advance(exact, 10000)
  check(marketplace.ProcessReceipt(receipt(530, "power-530", 1)) == decisions.PurchaseGranted
@@ -1832,7 +1832,7 @@ return function(sources)
  now += 1
  shop.OnServerEvent:Fire(tierBuyer, "BuyCash", "CashTiny")
  local packLevel = Data.GetProgression(tierBuyer).Level
- local tieredQuote = Monetization.GetCashPackReward(Monetization.CashProducts[1], packLevel, "world_1", "wood_bat", 1.5)
+ local tieredQuote = Monetization.GetCashPackReward(Monetization.CashProducts[1], packLevel, "world_1", "wood_bat", 2)
  leave(tierBuyer)
  check(saved.Player_530.CashPackQuotes.CashTiny == tieredQuote
   and tieredQuote > Monetization.GetCashPackReward(Monetization.CashProducts[1], packLevel, "world_1", "wood_bat"),
@@ -1841,24 +1841,24 @@ return function(sources)
   "both tier counts are saved")
  tierBuyer = join(530)
  Data.GrantPower(tierBuyer, 1000000, "Test")
- check(Data.TryRebirth(tierBuyer) and Data.GetPurchasedMultiplier(tierBuyer, "Power") == 1.9
-  and Data.GetPurchasedMultiplier(tierBuyer, "Cash") == 1.5, "tiers survive a rejoin and a Rebirth")
+ check(Data.TryRebirth(tierBuyer) and Data.GetPurchasedMultiplier(tierBuyer, "Power") == 4
+  and Data.GetPurchasedMultiplier(tierBuyer, "Cash") == 2, "tiers survive a rejoin and a Rebirth")
  leave(tierBuyer)
  saved.Player_531 = {SchemaVersion = 12, Cash = 1, PowerMultiplierTier = 1.5}
  check(not Data.IsReady(join(531)) and saved.Player_531.PowerMultiplierTier == 1.5, "a malformed tier count fails closed")
  saved.Player_532 = {SchemaVersion = 12, Cash = 1, CashMultiplierTier = 99}
  local clamped = join(532)
- check(clamped:GetAttribute("CashMultiplierTier") == 7 and Data.GetPurchasedMultiplier(clamped, "Cash") == 2.1,
+ check(clamped:GetAttribute("CashMultiplierTier") == 7 and Data.GetPurchasedMultiplier(clamped, "Cash") == 5,
   "a count past the ladder keeps the top tier")
  leave(clamped)
- -- Offline Training gets the Power multiplier (a minute at Basic Training: 37 x 1.5 = 55), and
- -- the Welcome Back 3x keeps it: 3 x 55 in all.
+ -- Offline Training gets the Power multiplier (a minute at Basic Training: 37 x 2 = 74), and
+ -- the Welcome Back 3x keeps it: 3 x 74 in all.
  saved.Player_533 = {SchemaVersion = 12, Cash = 0, Level = 1, Power = 0, Rebirths = 0, TutorialCompleted = true,
   PowerMultiplierTier = 1, LastLogoutTime = math.floor(now) - 60}
  local tierNapper = join(533)
- check(tierNapper:GetAttribute("OfflinePowerEarned") == 55, "offline Training gets the Power multiplier")
+ check(tierNapper:GetAttribute("OfflinePowerEarned") == 74, "offline Training gets the Power multiplier")
  check(Data.ClaimOfflineTriple(tierNapper, {PlayerId = 533, PurchaseId = "triple-533", ProductId = 555, CurrencySpent = 9})
-  == decisions.PurchaseGranted and tierNapper:GetAttribute("OfflineTriplePower") == 165, "the 3x keeps the multiplier")
+  == decisions.PurchaseGranted and tierNapper:GetAttribute("OfflineTriplePower") == 222, "the 3x keeps the multiplier")
  leave(tierNapper)
 
  -- Gifts: every Shop item has a gift developer product at the same price; the server saves who
