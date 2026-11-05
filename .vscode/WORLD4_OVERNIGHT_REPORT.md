@@ -270,6 +270,23 @@ This file is updated after every phase.
   of this work is cosmetic.
 
 ## What you need to do by hand
+**Update (2026-11-05):**
+- **Done:** steps 1-5. You imported the ten FBX files, and I ran both grouping scripts through MCP.
+  - **Runway:** 49 templates, plus the keyhole portal, with no parts left over.
+  - **Items:** the ten Balls are about 2 studs across and the Rolling Pin is 4.3 studs long.
+  - **Cages:** all five home plates match the standard TrainingCage's, to within 0.0002 studs.
+- **Playtest:**
+  - Every new runway kind, the keyhole portal, the five cages and the eleven items use their real
+    meshes.
+  - The five cage fallback warnings are gone, and Output has no errors. The one remaining warning,
+    `ContentId 203785492 … Asset type does not match`, isn't from the repo or the place, and it
+    already appeared before the import.
+- **Still open:**
+  - **Save:** save the place, so the grouped models are kept.
+  - **Look:** check the art by eye. Screen capture still comes back black, in Edit and in Play.
+  - **Card:** step 6, the Worlds-menu card.
+  - **Merge:** step 7.
+
 1. **Phase 2 models:**
    1. In Studio, use **Import 3D** on `assets/models/RunwayWorld4Home.fbx`. Keep the default
       settings, and leave the result in the Workspace (it is named `RunwayWorld4Home`).
