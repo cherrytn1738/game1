@@ -459,6 +459,94 @@ for index, letter in {"A", "B", "C", "D", "E"} do
 end
 
 -- Particle presets (built-in Roblox particle textures, so no uploads are needed).
+-- World 4 (Tiny Town): each cage starts from the standard cage's meshes, renamed <prefix><name> by
+-- tools/blender/tiny_cage_helpers.py, plus its own toy scenery. look = {frame, pads, net, machine,
+-- trim, lens} colours for the standard pieces.
+local function standardParts(prefix, look)
+ local parts = {
+  CageFrame = style(look.frame, M.SmoothPlastic), CagePads = style(look.pads, M.SmoothPlastic),
+  NetLeft = style(look.net, M.Fabric), NetRight = style(look.net, M.Fabric), NetRoof = style(look.net, M.Fabric),
+  NetBack = style(look.net, M.Fabric), NetFront = style(look.net, M.Fabric),
+  MachineBody = style(look.machine, M.SmoothPlastic), MachineTires = style(rgb(30, 30, 34), M.Rubber),
+  MachineMetal = style(rgb(200, 204, 212), M.Metal), ScreenFrame = style(look.trim, M.SmoothPlastic),
+  ScreenNet = style(look.net, M.Fabric), HomePlate = style(rgb(250, 250, 246), M.SmoothPlastic),
+  BallBucket = style(look.trim, M.SmoothPlastic), Baseballs = style(rgb(250, 250, 246), M.SmoothPlastic),
+  LightHousing = style(look.frame, M.Metal), LightLens = style(look.lens or rgb(255, 246, 220), M.Neon, {light = {look.lens or rgb(255, 240, 210), 18, 1.4}}),
+ }
+ local named = {}
+ for name, entry in parts do named[prefix .. name] = entry end
+ return named
+end
+local function withParts(base, extra)
+ for name, entry in extra do base[name] = entry end
+ return base
+end
+local TOY_RED, TOY_YELLOW, TOY_BLUE, TOY_GREEN = rgb(232, 60, 54), rgb(255, 206, 44), rgb(52, 122, 234), rgb(66, 186, 90)
+
+Styles.SandboxDiamondCage = {
+ parts = withParts(standardParts("Sand", {frame = TOY_RED, pads = TOY_YELLOW, net = rgb(60, 130, 230), machine = TOY_YELLOW, trim = TOY_BLUE}), {
+  SandBorder = style(rgb(214, 164, 104), M.Wood), SandHeaps = style(rgb(238, 210, 150), M.Sand),
+  SandPail = style(TOY_YELLOW, M.SmoothPlastic), SandPailRim = style(TOY_BLUE, M.SmoothPlastic),
+  SandShovelHandles = style(TOY_RED, M.SmoothPlastic), SandShovelScoops = style(TOY_BLUE, M.SmoothPlastic),
+  SandCastle = style(rgb(232, 204, 144), M.Sand), SandBeachBall = style(TOY_RED, M.SmoothPlastic),
+ }),
+ tint = {color = rgb(255, 248, 232), brightness = 0.03, contrast = 0.04, saturation = 0.12},
+}
+
+Styles.PinballCage = {
+ parts = withParts(standardParts("Pin", {frame = rgb(214, 218, 230), pads = rgb(214, 218, 230), net = rgb(90, 60, 200),
+  machine = rgb(255, 80, 180), trim = rgb(255, 80, 180), lens = rgb(255, 200, 240)}), {
+  PinCabinet = style(rgb(96, 40, 160), M.SmoothPlastic), PinGlass = style(rgb(200, 220, 255), M.Glass, {transparency = 0.82, shadow = false}),
+  PinBumpers = style(rgb(240, 60, 80), M.SmoothPlastic), PinBumperRings = style(rgb(90, 240, 255), M.Neon, {pulse = 1.2}),
+  PinFlippers = style(rgb(250, 250, 250), M.SmoothPlastic), PinKickers = style(rgb(255, 214, 50), M.SmoothPlastic),
+  PinPlunger = style(rgb(220, 224, 232), M.Metal), PinBackbox = style(rgb(40, 20, 80), M.SmoothPlastic),
+  PinMarquee = style(rgb(255, 90, 200), M.Neon, {pulse = 0.9, light = {rgb(255, 120, 220), 16, 1.2}}),
+  PinArrows = style(rgb(255, 90, 200), M.Neon, {pulse = 0.7}),
+ }),
+ effects = {{kind = "PinSparkles", position = b(-1, 10, 8), size = Vector3.new(26, 10, 44)}},
+ tint = {color = rgb(240, 230, 255), brightness = 0.02, contrast = 0.08, saturation = 0.2},
+}
+
+Styles.CerealBowlCage = {
+ parts = withParts(standardParts("Bowl", {frame = rgb(70, 150, 230), pads = rgb(255, 150, 40), net = rgb(214, 224, 236),
+  machine = rgb(255, 150, 40), trim = rgb(70, 150, 230)}), {
+  BowlWall = style(rgb(90, 160, 236), M.SmoothPlastic), BowlRim = style(rgb(246, 248, 255), M.SmoothPlastic),
+  BowlMilk = style(rgb(252, 250, 244), M.SmoothPlastic),
+  BowlLoopsA = style(rgb(255, 158, 54), M.SmoothPlastic), BowlLoopsB = style(rgb(255, 104, 128), M.SmoothPlastic),
+  BowlLoopsC = style(rgb(244, 222, 86), M.SmoothPlastic), BowlSpoon = style(rgb(214, 220, 230), M.Metal),
+  BowlCatapult = style(rgb(196, 146, 92), M.Wood), BowlBoxes = style(rgb(240, 120, 36), M.SmoothPlastic),
+  BowlBoxArt = style(TOY_YELLOW, M.SmoothPlastic),
+ }),
+ tint = {color = rgb(255, 250, 238), brightness = 0.03, contrast = 0.04, saturation = 0.1},
+}
+
+Styles.ToySoldierCage = {
+ parts = withParts(standardParts("Fort", {frame = rgb(30, 50, 110), pads = rgb(214, 40, 40), net = rgb(40, 40, 50),
+  machine = rgb(214, 40, 40), trim = rgb(214, 40, 40)}), {
+  FortWalls = style(rgb(214, 172, 118), M.Wood), FortTowers = style(TOY_BLUE, M.SmoothPlastic),
+  FortRoofs = style(TOY_RED, M.SmoothPlastic), FortFlags = style(TOY_YELLOW, M.Fabric, {sway = 8, swaySpeed = 2}),
+  SoldierCoat = style(rgb(214, 36, 36), M.SmoothPlastic), SoldierPants = style(rgb(30, 46, 110), M.SmoothPlastic),
+  SoldierHat = style(rgb(20, 20, 24), M.Fabric), SoldierSkin = style(rgb(255, 214, 178), M.SmoothPlastic),
+  SoldierTrim = style(GOLD, M.Metal), SoldierBelts = style(rgb(250, 250, 250), M.SmoothPlastic),
+  -- The wind-up key turns about its shaft (Blender +Y).
+  SoldierKey = style(GOLD, M.Metal, {spin = 90, spinAxis = Vector3.zAxis}),
+ }),
+ tint = {color = rgb(255, 246, 236), brightness = 0.02, contrast = 0.05, saturation = 0.12},
+}
+
+Styles.SnowGlobeCage = {
+ parts = withParts(standardParts("Globe", {frame = rgb(214, 40, 48), pads = rgb(250, 250, 250), net = rgb(214, 232, 250),
+  machine = rgb(214, 40, 48), trim = rgb(250, 250, 250), lens = rgb(220, 240, 255)}), {
+  GlobeGlass = style(rgb(220, 238, 255), M.Glass, {transparency = 0.85, shadow = false}),
+  GlobeBase = style(rgb(110, 68, 40), M.Wood), GlobeBand = style(GOLD, M.Metal),
+  GlobeSnow = style(rgb(250, 252, 255), M.Snow), GlobePines = style(rgb(40, 116, 76), M.SmoothPlastic),
+  GlobeSnowman = style(rgb(24, 24, 28), M.SmoothPlastic), GlobeCarrot = style(rgb(255, 140, 40), M.SmoothPlastic),
+ }),
+ -- Gentle snow inside the dome all the time; TrainingClient swirls more round the cage after each hit.
+ effects = {{kind = "Snowfall", position = b(-1, 10, 16), size = Vector3.new(30, 1, 48)}},
+ tint = {color = rgb(236, 246, 255), brightness = 0.04, contrast = 0.03, saturation = -0.05},
+}
+
 local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
 local FIRE = "rbxasset://textures/particles/fire_main.dds"
 local SMOKE = "rbxasset://textures/particles/smoke_main.dds"
@@ -523,6 +611,12 @@ Styles.Emitters = {
   Size = fade(0.22), Rate = 10, Lifetime = range(3, 5), Speed = range(0.2, 0.6), SpreadAngle = Vector2.new(180, 180), RotSpeed = range(-90, 90)},
  QuantumSparks = {Texture = SPARKS, Color = ColorSequence.new(rgb(255, 255, 255), rgb(255, 90, 230)), LightEmission = 1,
   Size = fade(0.3), Rate = 16, Lifetime = range(0.4, 0.9), Speed = range(1.5, 4), SpreadAngle = Vector2.new(180, 180), RotSpeed = range(-180, 180)},
+ -- World 4
+ PinSparkles = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 140, 230), rgb(120, 230, 255)), LightEmission = 1,
+  Size = fade(0.25), Rate = 10, Lifetime = range(1, 2), Speed = range(0.2, 0.8), SpreadAngle = Vector2.new(180, 180), RotSpeed = range(-120, 120)},
+ Snowfall = {Texture = SPARKLE, Color = ColorSequence.new(rgb(255, 255, 255), rgb(220, 236, 255)), LightEmission = 0.4,
+  Size = fade(0.3), Rate = 18, Lifetime = range(5, 8), Speed = range(0.5, 1.2), EmissionDirection = Enum.NormalId.Bottom,
+  SpreadAngle = Vector2.new(25, 25), Acceleration = Vector3.new(0, -0.3, 0), RotSpeed = range(-60, 60)},
 }
 
 return Styles

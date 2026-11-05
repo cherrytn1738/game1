@@ -94,33 +94,35 @@ local Training = {
     accent = Color3.fromRGB(120, 240, 255), frame = Color3.fromRGB(200, 206, 230), net = Color3.fromRGB(110, 80, 230),
     banner = Color3.fromRGB(58, 30, 140), lights = true, decorations = {}}},
   -- World 4 (Tiny Town). Its Rebirth tiers continue on from World 3's; the first cage is free
-  -- once World 4 is unlocked, and Snow Globe shares Cosmic Rift's pass like Quantum Lab. They
-  -- use the standard cage in toy colors until their own cages are made (WORLD4_DESIGN.md, Phase 5).
+  -- once World 4 is unlocked, and Snow Globe shares Cosmic Rift's pass like Quantum Lab. Each has
+  -- its own toy cage (tools/blender/*_cage.py, TrainingCageStyles); the standard cage stands in until imported.
   {id = "sandbox_diamond", displayName = "Sandbox Diamond", requiredRebirths = 0, powerMultiplier = 270, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(232, 206, 150), turfMaterial = M.Sand,
+   theme = {template = "SandboxDiamondCage", turf = Color3.fromRGB(232, 206, 150), turfMaterial = M.Sand,
     lane = Color3.fromRGB(214, 180, 120), laneMaterial = M.Sand,
     accent = Color3.fromRGB(255, 196, 40), frame = Color3.fromRGB(230, 60, 60), net = Color3.fromRGB(60, 130, 230),
     banner = Color3.fromRGB(230, 60, 60), lights = false, decorations = {}}},
   {id = "pinball_cage", displayName = "Pinball Cage", requiredRebirths = 20, powerMultiplier = 350, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(36, 30, 70), turfMaterial = M.SmoothPlastic,
+   theme = {template = "PinballCage", turf = Color3.fromRGB(36, 30, 70), turfMaterial = M.SmoothPlastic,
     lane = Color3.fromRGB(255, 80, 180), laneMaterial = M.Neon,
     accent = Color3.fromRGB(255, 80, 180), frame = Color3.fromRGB(210, 214, 226), net = Color3.fromRGB(90, 60, 200),
     banner = Color3.fromRGB(150, 40, 200), lights = true, decorations = {}}},
   {id = "cereal_bowl_stadium", displayName = "Cereal Bowl Stadium", requiredRebirths = 22, powerMultiplier = 450, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(246, 244, 236), turfMaterial = M.SmoothPlastic,
+   theme = {template = "CerealBowlCage", turf = Color3.fromRGB(246, 244, 236), turfMaterial = M.SmoothPlastic,
     lane = Color3.fromRGB(236, 170, 70), laneMaterial = M.SmoothPlastic,
     accent = Color3.fromRGB(255, 150, 40), frame = Color3.fromRGB(70, 150, 230), net = Color3.fromRGB(200, 214, 230),
     banner = Color3.fromRGB(240, 120, 30), lights = true, decorations = {}}},
   {id = "toy_soldier_fort", displayName = "Toy Soldier Fort", requiredRebirths = 24, powerMultiplier = 580, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(86, 140, 70), turfMaterial = M.SmoothPlastic,
+   theme = {template = "ToySoldierCage", turf = Color3.fromRGB(86, 140, 70), turfMaterial = M.SmoothPlastic,
     lane = Color3.fromRGB(196, 160, 110), laneMaterial = M.WoodPlanks,
     accent = Color3.fromRGB(214, 40, 40), frame = Color3.fromRGB(30, 50, 110), net = Color3.fromRGB(40, 40, 50),
     banner = Color3.fromRGB(200, 30, 30), lights = true, decorations = {}}},
   {id = "snow_globe", displayName = "Snow Globe", sharesPass = "cosmic_rift", powerMultiplier = 400, interval = 2,
-   theme = {template = "TrainingCage", turf = Color3.fromRGB(240, 246, 252), turfMaterial = M.Snow,
+   theme = {template = "SnowGlobeCage", turf = Color3.fromRGB(240, 246, 252), turfMaterial = M.Snow,
     lane = Color3.fromRGB(170, 220, 255), laneMaterial = M.Ice,
     accent = Color3.fromRGB(140, 210, 255), frame = Color3.fromRGB(150, 100, 70), net = Color3.fromRGB(200, 230, 250),
-    banner = Color3.fromRGB(60, 120, 200), lights = true, decorations = {}}},
+    banner = Color3.fromRGB(60, 120, 200), lights = true, decorations = {},
+    -- A client practice visual only: snow swirls round the cage after each practice hit.
+    practiceHitEffect = "SnowSwirl"}},
   -- The most expensive ground; it stands in every World's hub.
   {id = "dragons_lair", displayName = "Dragon's Lair", gamePassId = 0, robuxPrice = 1000, powerMultiplier = 30, interval = 2,
    theme = {template = "DragonLairCage", turf = Color3.fromRGB(34, 28, 30), turfMaterial = M.Basalt,

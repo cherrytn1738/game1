@@ -10,7 +10,8 @@ This file is updated after every phase.
 |---|---|---|---|
 | 2 | Runway props, sections 1-5 | `410485c` | Done; the models need importing by hand |
 | 3 | Runway props, sections 6-10; keyhole end portal | `012bd89` | Done; the models need importing by hand |
-| 4 | The ten World 4 Balls and the Rolling Pin Bat | (this commit) | Done; the models need importing by hand |
+| 4 | The ten World 4 Balls and the Rolling Pin Bat | `5227bcf` | Done; the models need importing by hand |
+| 5 | The five World 4 cages and the Snow Globe swirl | (this commit) | Done; the models need importing by hand |
 
 ## What was finished
 
@@ -117,6 +118,46 @@ This file is updated after every phase.
   - The Output is clean.
   - Tests: as before.
 
+### Phase 5: the five cage models
+- **Scripts:** one Blender script per cage, all on a shared `tools/blender/tiny_cage_helpers.py`.
+  It builds the standard cage's frame, nets, screen, plate, bucket and lights (from
+  `batting_cage.py`) with each cage's own mesh names, and each script adds its toy scenery. All
+  are exported at 1/4 scale to `assets/models/`, within the row's side limits.
+  - **Sandbox Diamond** (`SandboxDiamondCage`): a wooden sandbox border with corner seats, sand
+    heaps, a toy pail on its side as the pitching machine, a rack of toy shovels, and a sandcastle
+    and beach ball at the far end.
+  - **Pinball Cage** (`PinballCage`): a purple cabinet with glass sides and a glass roof,
+    neon-ringed bumpers, slingshot kickers, flippers behind the batter, a spring plunger, a lit
+    backbox with marquee lights and a star, and neon lane arrows.
+  - **Cereal Bowl Stadium** (`CerealBowlCage`): a rounded-square ceramic bowl wall round the cage
+    (open at the door) with a rolled rim, a milk pool, floating and heaped cereal loops, a spoon
+    catapult as the pitcher, and two cereal-box towers.
+  - **Toy Soldier Fort** (`ToySoldierCage`): crenellated wooden walls with a gate, four corner
+    towers with cone roofs and pennants, and a wind-up toy soldier as the pitcher whose brass key
+    turns.
+  - **Snow Globe** (`SnowGlobeCage`): a glass superellipsoid dome over the whole cage (cut open
+    at the door, with a wooden door frame), a turned wooden base with a gold band, snowdrifts,
+    pines, a snowman and snow on the cage roof.
+- **`TrainingCageStyles`:** entries for all five, with motion and effects.
+  - The key spins, the bumper rings and marquee pulse, and the pennants sway.
+  - The Pinball Cage has sparkles, and snow falls inside the Snow Globe.
+  - Each cage has a colour tint inside.
+- **`TrainingConfig`:** the five grounds now name their templates. Until the models are imported,
+  the standard cage stands in, as it did for World 3; TrainingStadium logs one existing "missing"
+  warning per cage, and nothing else.
+- **Snow Globe swirl:** the ground's theme has `practiceHitEffect = "SnowSwirl"`. As the bat
+  meets each practice ball, `TrainingClient` blows a ring of snow gusts round the plate. This is a
+  client visual only; Training and Power are untouched.
+- **Import tool:** `tools/studio/group_item_imports.luau` also moves the five cage imports into
+  `RunwayAssets` (a half turn and 0.01 scale, like World 3's cages). It prints each cage's home
+  plate next to the standard cage's, as a check.
+- **Checks:**
+  - **Styles:** all five load and every effect preset exists, covering every exported mesh.
+  - **Grounds:** World 4's six grounds build in a playtest.
+  - **Swirl:** its emitter code runs on the client.
+  - **Output:** only the five expected missing-template warnings.
+  - **Tests:** as before.
+
 ## Decisions I made on my own
 - **Hose:** the garden hose is a hose on a reel cart. A coil lying flat would barely show at
   runway scale.
@@ -147,6 +188,18 @@ This file is updated after every phase.
   existing sound ids. The other World 4 Balls use the shared whoosh, as most earlier Balls do.
 - **Rolling Pin Bat's swing:** it gets a flour trail, a flour contact burst and idle flour dust,
   to fit its theme.
+- **Cages, shared base:** the World 4 cages share one helper that rebuilds the standard cage's
+  pieces under each cage's names. They are simpler than World 3's 700-900 line cage scripts:
+  themed scenery round the standard frame, rather than wholly custom structures.
+- **Cages, pitchers:** the Sandbox Diamond's pitcher is a toy pail and the Cereal Bowl's a spoon
+  catapult, replacing the standard machine. The Pinball Cage and Snow Globe keep the standard
+  machine (the pinball adds a plunger behind it).
+- **Snow Globe enclosure:** it keeps the standard nets inside its glass dome. The dome is cut open
+  at the door and framed in wood, so walking in still reads as a doorway.
+- **Snow Globe swirl hook:** the swirl uses a new theme field, `practiceHitEffect`, read by
+  `TrainingClient`. This is the simplest hook that keeps it a client practice visual.
+- **Pinball flippers** sit behind the batter, clear of the door path. Cage meshes don't collide,
+  but a flipper across the doorway would look wrong.
 
 ## Things that didn't work or were skipped
 - **Screen captures time out**, so I couldn't look at anything in Studio. Studio isn't drawing
@@ -181,8 +234,13 @@ This file is updated after every phase.
      and one Bat line about 4.3 studs long.
    - It should end with `BallsWorld4 parts left: 0` and `BatsWorld4 parts left: 0`.
    - Then save the place.
-4. **Restart the playtest after importing.** The runway, portals and displays are built when the
-   server starts.
+4. **Phase 5 cages:** Import 3D the five cage files from `assets/models/`
+   (`SandboxDiamondCage.fbx`, `PinballCage.fbx`, `CerealBowlCage.fbx`, `ToySoldierCage.fbx` and
+   `SnowGlobeCage.fbx`). Run `tools/studio/group_item_imports.luau` again; it handles the cages
+   too. Check that each printed "home plate (x4)" matches the standard TrainingCage's line,
+   printed last. If one is off, the cage's pivot is wrong, so tell me. Then save the place.
+5. **Restart the playtest after importing.** The runway, portals, displays and cages are built
+   when the server starts.
 
 ## What to check in Studio
 ### Phase 2
@@ -225,10 +283,10 @@ This file is updated after every phase.
   - whether the floating paper planes and bubbles hover at a sensible height.
 
 ### Phase 4
-- **Before importing:** World 4's Ball display shows the ten Balls in their `EquipmentConfig`
-  colours, now with their new idle effects (seeds, steam, sprinkles, glitter, threads, fizz,
-  glimmers, dream stars). The Rolling Pin Bat pedestal shows the placeholder bat with idle flour
-  dust.
+- **Before importing:** nothing changes on the displays. The World 4 Balls and the Rolling Pin Bat
+  are still the placeholder ball and bat in their `EquipmentConfig` colours, and their idle
+  effects only show on the real models (`ItemDisplay`). A hit with a World 4 Ball already plays
+  its new flight effects, though.
 - **After importing:** World 4's Ball display shows the real models. The Rolling Pin Bat pedestal
   shows a rolling pin, and so does the batter's hand once it is equipped.
 - **What to look for, hitting with each World 4 Ball (`StudioFreshSave` with the Studio
@@ -238,3 +296,20 @@ This file is updated after every phase.
   - **Yarn Ball:** its threads twist behind it.
   - **Dandelion Puff:** its seeds drift slowly.
 - **Rolling Pin Bat:** swing it and look for a flour puff on contact.
+
+### Phase 5
+- **Before importing:** World 4's grounds look as before: the standard cage in toy colours. The
+  Output shows one "is missing; using the standard cage" warning for each of the five.
+- **After importing:** walk down World 4's Training Ground row.
+  - **What each cage should show:**
+    - **Sandbox Diamond:** a sandbox border, a toy pail and shovels.
+    - **Pinball Cage:** a purple cabinet under glass, with glowing bumpers and a lit backbox.
+    - **Cereal Bowl Stadium:** a bowl wall, cereal loops and a spoon catapult.
+    - **Toy Soldier Fort:** fort walls, towers and a wind-up soldier whose key turns.
+    - **Snow Globe:** a glass dome with falling snow, and a swirl of snow after each practice hit
+      (it needs the Cosmic Rift pass; in Studio, the pass attribute you normally test with).
+  - **Things to check:**
+    - each cage's door lines up with the doorway in the walls, bowl or dome;
+    - nothing overlaps the next cage;
+    - the camera stays inside the cage while training;
+    - the Snow Globe's glass doesn't make the inside too hazy.

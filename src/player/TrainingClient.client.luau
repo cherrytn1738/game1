@@ -117,6 +117,40 @@ end
 
 local visual, rendering, leaveBound
 local refresh
+-- A ground's practiceHitEffect (TrainingConfig theme), played on this client as the bat meets a
+-- practice ball. Visual only: nothing here touches Training or Power.
+local PracticeHitEffects = {}
+-- Snow Globe: a flurry of snow swirls round the plate, blown along a ring of little gusts.
+function PracticeHitEffects.SnowSwirl(center)
+ local ring = Instance.new("Model")
+ ring.Name = "SnowSwirl"
+ for k = 0, 7 do
+  local a = k * math.pi / 4
+  local position = center + Vector3.new(math.cos(a) * 7, 3 + (k % 2) * 2.5, math.sin(a) * 7)
+  local tangent = Vector3.new(-math.sin(a), 0.15, math.cos(a))
+  local gust = Instance.new("Part")
+  gust.Name, gust.Transparency, gust.Size = "Gust", 1, Vector3.new(2, 2, 2)
+  gust.Anchored, gust.CanCollide, gust.CanTouch, gust.CanQuery = true, false, false, false
+  gust.CFrame = CFrame.lookAt(position, position + tangent)
+  local snow = Instance.new("ParticleEmitter")
+  snow.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+  snow.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(210, 232, 255))
+  snow.LightEmission = 0.5
+  snow.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.2, 0.4), NumberSequenceKeypoint.new(1, 0)})
+  snow.Lifetime, snow.Speed = NumberRange.new(1.2, 2), NumberRange.new(5, 9)
+  snow.EmissionDirection, snow.SpreadAngle = Enum.NormalId.Front, Vector2.new(25, 25)
+  snow.Acceleration, snow.Drag, snow.RotSpeed = Vector3.new(0, -1.5, 0), 1.5, NumberRange.new(-180, 180)
+  snow.Rate, snow.Enabled = 0, false
+  snow.Parent = gust
+  gust.Parent = ring
+ end
+ ring.Parent = workspace
+ for _, emitter in ring:GetDescendants() do
+  if emitter:IsA("ParticleEmitter") then emitter:Emit(12) end
+ end
+ Debris:AddItem(ring, 3)
+end
+
 local function stopVisual()
  if rendering then rendering:Disconnect() rendering=nil end
  if visual then visual:Destroy() visual=nil end
@@ -175,6 +209,9 @@ local function startPresentation()
   if cycle ~= lastCrackCycle and phase >= Config.PracticePitchSeconds then
    lastCrackCycle = cycle
    GameAudio.Play("PracticeCrack", contact)
+   local ground = Config.Get(Player:GetAttribute("TrainingGround"))
+   local hitEffect = ground and ground.theme and PracticeHitEffects[ground.theme.practiceHitEffect or ""]
+   if hitEffect then hitEffect(plate.Position) end
    local amount = powerPerHit()
    if amount > 0 then
     powerPopup(amount)

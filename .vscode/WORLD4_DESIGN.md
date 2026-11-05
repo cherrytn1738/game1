@@ -260,11 +260,20 @@ One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), adde
   `tools/studio/group_item_imports.luau`, save the place
 
 ### Phase 5: the cage models (Blender)
-- [ ] `cage_helpers.py` scripts for the Sandbox Diamond, Pinball Cage, Cereal Bowl Stadium, Toy
-      Soldier Fort and Snow Globe, exported to `assets/models/`
-- [ ] `TrainingConfig` templates switched (with `TrainingCageStyles` where needed); the Snow
-      Globe's after-hit swirl as a client practice visual
-- [ ] Studio import steps listed; tests pass; commit
+- [x] `cage_helpers.py` scripts for the Sandbox Diamond, Pinball Cage, Cereal Bowl Stadium, Toy
+      Soldier Fort and Snow Globe (`sandbox_diamond_cage.py`, `pinball_cage.py`, `cereal_bowl_cage.py`,
+      `toy_soldier_cage.py`, `snow_globe_cage.py`), exported to `assets/models/` (`SandboxDiamondCage`,
+      `PinballCage`, `CerealBowlCage`, `ToySoldierCage`, `SnowGlobeCage`). They share
+      `tiny_cage_helpers.py`, which builds the standard cage's frame, nets, screen, plate and lights
+      (from `batting_cage.py`) with per-cage mesh names, and add their toy scenery round it
+- [x] `TrainingConfig` templates switched, with `TrainingCageStyles` entries (the Toy Soldier's
+      wind-up key turns, pinball lights pulse, snow falls in the Snow Globe); the Snow Globe's
+      after-hit swirl is a client practice visual (`theme.practiceHitEffect = "SnowSwirl"`,
+      `TrainingClient`)
+- [x] Studio import steps (`tools/studio/group_item_imports.luau` also moves the cages into
+      `RunwayAssets`); tests pass; commit
+- Studio import (by hand): Import 3D the five cage FBX files, run `tools/studio/group_item_imports.luau`,
+  check the printed home plates match the standard cage's, save the place
 
 ### Phase 6: hub, event piece and the shrinking portal cinematic
 - [ ] `HubDecor` theme `TinyTown` (Mouse-Hole Plaza) and the turning wind-up key

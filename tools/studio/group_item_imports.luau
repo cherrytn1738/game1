@@ -1,7 +1,7 @@
--- Studio command-bar script (not Rojo-managed): sorts World 4's imported Ball and Bat FBX files into
--- ServerStorage.RunwayAssets.DisplayItems, one Model per item id, the way World 3's balls were grouped.
+-- Studio command-bar script (not Rojo-managed): sorts World 4's imported Ball, Bat and cage FBX files into
+-- ServerStorage.RunwayAssets (items in DisplayItems, one Model per item id), the way World 3's were.
 --
--- 1. In Studio, Import 3D assets/models/BallsWorld4.fbx and assets/models/BatsWorld4.fbx (default
+-- 1. In Studio, Import 3D assets/models/BallsWorld4.fbx, BatsWorld4.fbx and the five World 4 cages (default
 --    settings), leaving each result in the Workspace under its file name.
 -- 2. Paste this whole file into the command bar and press Enter (or run it through MCP).
 -- 3. Save the place.
@@ -68,6 +68,33 @@ for importName, spec in IMPORTS do
  end
  if left == 0 then imported:Destroy() end
  table.insert(out, importName .. " parts left: " .. left)
+end
+-- The five World 4 cages (Phase 5): each import is kept whole as a template of the same name, turned a
+-- half turn and scaled back by 0.01 like World 3's cages (TrainingStadium scales templates up 4x). The
+-- home plate's position (x4) should match the standard TrainingCage's, printed last.
+local CAGES = {SandboxDiamondCage = "SandHomePlate", PinballCage = "PinHomePlate", CerealBowlCage = "BowlHomePlate",
+ ToySoldierCage = "FortHomePlate", SnowGlobeCage = "GlobeHomePlate"}
+for name, plateName in CAGES do
+ local cage = workspace:FindFirstChild(name)
+ if not cage then
+  table.insert(out, name .. ": not imported")
+  continue
+ end
+ cage.WorldPivot = CFrame.new(cage.WorldPivot.Position) * CFrame.Angles(0, math.pi, 0)
+ cage:ScaleTo(0.01)
+ for _, part in cage:GetDescendants() do
+  if part:IsA("BasePart") then part.Anchored = true end
+ end
+ local old = assets:FindFirstChild(name)
+ if old then old:Destroy() end
+ cage.Parent = assets
+ local plate = cage:FindFirstChild(plateName, true)
+ table.insert(out, name .. ": home plate (x4) = " .. tostring(plate and cage.WorldPivot:PointToObjectSpace(plate.Position) * 4))
+end
+local reference = assets:FindFirstChild("TrainingCage")
+local referencePlate = reference and reference:FindFirstChild("HomePlate", true)
+if referencePlate then
+ table.insert(out, "standard TrainingCage home plate (x4) = " .. tostring(reference.WorldPivot:PointToObjectSpace(referencePlate.Position) * 4))
 end
 print(table.concat(out, "\n"))
 return table.concat(out, "\n")
