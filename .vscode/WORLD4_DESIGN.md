@@ -165,6 +165,17 @@ No new Bats: the Bat series is shared by every World and is unchanged.
 - Tests pass at the end of each phase, and each phase ends with a commit.
 - At the end of each phase: update the checklist below, list what to check in Studio, and stop.
 
+## Known issues (for World 5)
+
+- **The Power cap:** Level requirements reach `ProgressionConfig.MaxPower` (9 quadrillion, kept
+  below 2^53 so saved Power stays an exact integer) at about **Level 555** (Rebirth 27, three runs
+  past World 4's end at Level 490). From there every Level needs exactly `MaxPower`, so runs stop
+  growing and the pace flattens. World 4 itself is unaffected (its last band, Levels 500-519,
+  peaks at ~2.5 quadrillion a Level), and `Progression.Advance` adds a grant bigger than
+  `MaxPower` in pieces so no Power is lost. A World 5 past Level ~555 needs a bigger Power scale
+  (for example a stored exponent or a second "Power tier" unit) or much slower band growth,
+  decided before its bands are solved.
+
 ## Phase checklist
 
 ### Phase 0: design doc
