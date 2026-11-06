@@ -4,6 +4,8 @@
 -- ground can only be used once a World it stands in is unlocked.
 --   powerMultiplier: Power per practice hit = Training base (ProgressionConfig, by Level) x powerMultiplier
 --   sharesPass: a paid ground opened by another ground's game pass (no pass of its own)
+--   shopImage: optional uploaded screenshot (rbxassetid) for the paid ground's Shop card; empty
+--     shows the live 3D preview of its cage instead (see .vscode/MONETIZATION.md)
 --   theme: the cage template in ServerStorage.RunwayAssets (fantasy cages are styled by
 --     TrainingCageStyles), turf/lane colors and materials, banner color, and for the standard
 --     cage its role colors (accent, frame, net) and floodlights; decorations are
@@ -34,6 +36,7 @@ local Training = {
     accent = Color3.fromRGB(240, 196, 60), frame = Color3.fromRGB(245, 245, 240), net = Color3.fromRGB(214, 170, 60),
     banner = Color3.fromRGB(70, 140, 220), lights = true, decorations = {}}},
   {id = "cosmic_rift", displayName = "Cosmic Rift", gamePassId = 0, robuxPrice = 500, powerMultiplier = 10, interval = 2,
+   shopImage = "",
    theme = {template = "CosmicRiftCage", turf = Color3.fromRGB(22, 14, 46), turfMaterial = M.SmoothPlastic,
     lane = Color3.fromRGB(90, 220, 255), laneMaterial = M.Neon,
     accent = Color3.fromRGB(90, 220, 255), frame = Color3.fromRGB(150, 156, 180), net = Color3.fromRGB(120, 80, 220),
@@ -62,6 +65,7 @@ local Training = {
     accent = Color3.fromRGB(200, 36, 36), frame = Color3.fromRGB(34, 30, 32), net = Color3.fromRGB(46, 40, 40),
     banner = Color3.fromRGB(190, 30, 30), lights = true, decorations = {}}},
   {id = "time_machine_lab", displayName = "Time Machine Lab", sharesPass = "cosmic_rift", powerMultiplier = 35, interval = 2,
+   shopImage = "",
    theme = {template = "TimeMachineLabCage", turf = Color3.fromRGB(46, 50, 62), turfMaterial = M.DiamondPlate,
     lane = Color3.fromRGB(70, 230, 255), laneMaterial = M.Neon,
     accent = Color3.fromRGB(70, 230, 255), frame = Color3.fromRGB(196, 150, 70), net = Color3.fromRGB(110, 70, 200),
@@ -90,6 +94,7 @@ local Training = {
     accent = Color3.fromRGB(120, 200, 255), frame = Color3.fromRGB(236, 238, 242), net = Color3.fromRGB(110, 120, 140),
     banner = Color3.fromRGB(36, 56, 120), lights = true, decorations = {}}},
   {id = "quantum_lab", displayName = "Quantum Lab", sharesPass = "cosmic_rift", powerMultiplier = 120, interval = 2,
+   shopImage = "",
    theme = {template = "QuantumLabCage", turf = Color3.fromRGB(20, 22, 40), turfMaterial = M.SmoothPlastic,
     lane = Color3.fromRGB(120, 240, 255), laneMaterial = M.Neon,
     accent = Color3.fromRGB(120, 240, 255), frame = Color3.fromRGB(200, 206, 230), net = Color3.fromRGB(110, 80, 230),
@@ -118,6 +123,7 @@ local Training = {
     accent = Color3.fromRGB(214, 40, 40), frame = Color3.fromRGB(30, 50, 110), net = Color3.fromRGB(40, 40, 50),
     banner = Color3.fromRGB(200, 30, 30), lights = true, decorations = {}}},
   {id = "snow_globe", displayName = "Snow Globe", sharesPass = "cosmic_rift", powerMultiplier = 400, interval = 2,
+   shopImage = "",
    theme = {template = "SnowGlobeCage", turf = Color3.fromRGB(240, 246, 252), turfMaterial = M.Snow,
     lane = Color3.fromRGB(170, 220, 255), laneMaterial = M.Ice,
     accent = Color3.fromRGB(140, 210, 255), frame = Color3.fromRGB(150, 100, 70), net = Color3.fromRGB(200, 230, 250),
@@ -126,6 +132,7 @@ local Training = {
     practiceHitEffect = "SnowSwirl"}},
   -- The most expensive ground; it stands in every World's hub.
   {id = "dragons_lair", displayName = "Dragon's Lair", gamePassId = 0, robuxPrice = 1000, powerMultiplier = 30, interval = 2,
+   shopImage = "",
    theme = {template = "DragonLairCage", turf = Color3.fromRGB(34, 28, 30), turfMaterial = M.Basalt,
     lane = Color3.fromRGB(214, 168, 50), laneMaterial = M.Metal,
     accent = Color3.fromRGB(255, 96, 20), frame = Color3.fromRGB(26, 24, 26), net = Color3.fromRGB(60, 50, 46),

@@ -438,34 +438,151 @@ table.insert(refreshers, function()
  for _, update in groundRefreshers do update() end
 end)
 
--- The ground's own cage (ReplicatedStorage.TrainingGroundModels, published by the server, pivoted
--- at its plate), seen from above one front corner like a postcard. Only that copy is in the frame.
-local function groundPicture(parent, ground)
- local frame = Instance.new("ViewportFrame")
- frame.Name, frame.BackgroundColor3, frame.BackgroundTransparency, frame.ZIndex = "Preview", Color3.fromRGB(150, 200, 255), .35, 3
- frame.Ambient, frame.LightColor, frame.LightDirection = Color3.fromRGB(190, 190, 200), Color3.new(1, 1, 1), Vector3.new(-.4, -1, -.6)
- corner(frame, 12)
- frame.Parent = parent
+-- Ground previews: the ground's screenshot (TrainingConfig shopImage) when one is uploaded,
+-- otherwise its own cage (ReplicatedStorage.TrainingGroundModels, published by the server, pivoted
+-- at its plate) live in a ViewportFrame on a themed platform, over an opaque backdrop in the
+-- card's colours. The camera sways slowly round a three-quarter view from behind the batter
+-- (the plate is at the origin, the pitcher down -Z) while the Shop is open.
+local PREVIEW_THEMES = {
+ ground = {top = Color3.fromRGB(255, 176, 92), bottom = Color3.fromRGB(176, 52, 38),
+  floor = Color3.fromRGB(92, 40, 34), rim = Color3.fromRGB(255, 196, 90)},
+ worldGround = {top = Color3.fromRGB(132, 104, 255), bottom = Color3.fromRGB(42, 26, 120),
+  floor = Color3.fromRGB(46, 34, 104), rim = Color3.fromRGB(150, 220, 255)},
+}
+-- Mostly side-on (the wide card suits the long cage), from the door side and the batter's end,
+-- a little above, so the pitcher and the inside show through the open side.
+local PREVIEW_VIEW = Vector3.new(-1.2, .42, .75)
+local PREVIEW_SWAY, PREVIEW_SWAY_SECONDS = math.rad(14), 14
+local PREVIEW_FOV, PREVIEW_PADDING = 34, 1.06
+local previews = {} -- live ViewportFrame previews: {frame, camera, center, corners}
+
+local function swayView(angle)
+ return CFrame.Angles(0, angle, 0):VectorToWorldSpace(PREVIEW_VIEW.Unit)
+end
+
+-- The camera distance at which every corner fits the frame (aspect = width / height) when
+-- looking at target along view, with PREVIEW_PADDING to spare.
+local function fitDistance(corners, target, view, aspect)
+ local look = CFrame.lookAt(target + view, target)
+ local tanV = math.tan(math.rad(PREVIEW_FOV / 2)) / PREVIEW_PADDING
+ local tanH = tanV * aspect
+ local distance = 0
+ for _, corner in corners do
+  local p = look:VectorToObjectSpace(corner - target)
+  -- Camera space: x right, y up, -z forward; the point's depth is distance - z.
+  distance = math.max(distance, math.abs(p.X) / tanH + p.Z, math.abs(p.Y) / tanV + p.Z)
+ end
+ return distance
+end
+
+-- Moves the target so the cage's picture is centred in the frame (perspective makes the near end
+-- look bigger, so the bounding box centre sits off-centre), then fits the distance.
+local function centredFit(corners, center, view, aspect)
+ local target, distance = center, 0
+ local tanV = math.tan(math.rad(PREVIEW_FOV / 2))
+ local tanH = tanV * aspect
+ for _ = 1, 3 do
+  distance = fitDistance(corners, target, view, aspect)
+  local camera = CFrame.lookAt(target + view * distance, target)
+  local minX, maxX, minY, maxY = math.huge, -math.huge, math.huge, -math.huge
+  for _, corner in corners do
+   local p = camera:PointToObjectSpace(corner)
+   local x, y = p.X / (-p.Z * tanH), p.Y / (-p.Z * tanV)
+   minX, maxX, minY, maxY = math.min(minX, x), math.max(maxX, x), math.min(minY, y), math.max(maxY, y)
+  end
+  target += camera.RightVector * ((minX + maxX) / 2 * distance * tanH) + camera.UpVector * ((minY + maxY) / 2 * distance * tanV)
+ end
+ return target, fitDistance(corners, target, view, aspect)
+end
+
+local function placePreviewCamera(preview, now)
+ local size = preview.frame.AbsoluteSize
+ if size.X < 1 or size.Y < 1 then return end
+ local aspect = size.X / size.Y
+ if preview.aspect ~= aspect then
+  -- Centre on the middle view, then fit the widest view of the sway once per size, so the cage
+  -- never zooms while it turns.
+  preview.aspect = aspect
+  preview.target, preview.distance = centredFit(preview.corners, preview.center, swayView(0), aspect)
+  for _, angle in {-PREVIEW_SWAY, PREVIEW_SWAY} do
+   preview.distance = math.max(preview.distance, fitDistance(preview.corners, preview.target, swayView(angle), aspect))
+  end
+ end
+ local view = swayView(math.sin(now * 2 * math.pi / PREVIEW_SWAY_SECONDS) * PREVIEW_SWAY)
+ preview.camera.CFrame = CFrame.lookAt(preview.target + view * preview.distance, preview.target)
+end
+
+local function groundPicture(parent, ground, themeName)
+ local theme = PREVIEW_THEMES[themeName]
+ local holder = Instance.new("Frame")
+ holder.Name, holder.BorderSizePixel, holder.ZIndex = "Preview", 0, 3
+ holder.BackgroundColor3 = Color3.new(1, 1, 1)
+ UI.Gradient(holder, theme.top, theme.bottom)
+ corner(holder, 12)
+ holder.Parent = parent
+ if type(ground.shopImage) == "string" and ground.shopImage ~= "" then
+  local image = Instance.new("ImageLabel")
+  image.Name, image.BackgroundTransparency, image.Image, image.ZIndex = "Screenshot", 1, ground.shopImage, 3
+  image.Size, image.ScaleType = UDim2.fromScale(1, 1), Enum.ScaleType.Crop
+  corner(image, 12)
+  image.Parent = holder
+  return holder
+ end
  local folder = Storage:FindFirstChild("TrainingGroundModels")
  local template = folder and folder:FindFirstChild(ground.id)
  if not template then
-  local fallback = UI.Icon(frame, "Icon", UI.Icons.Training)
+  local fallback = UI.Icon(holder, "Icon", UI.Icons.Training)
   fallback.AnchorPoint, fallback.Position, fallback.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(.6, .6)
-  return frame
+  fallback.ZIndex = 3
+  return holder
  end
+ local frame = Instance.new("ViewportFrame")
+ frame.Name, frame.BackgroundTransparency, frame.ZIndex, frame.Size = "Cage", 1, 3, UDim2.fromScale(1, 1)
+ -- Low ambient and a strong key light from the front left, so the cage has real shading.
+ frame.Ambient, frame.LightColor, frame.LightDirection = Color3.fromRGB(118, 112, 134), Color3.fromRGB(255, 250, 240), Vector3.new(.7, -1, -.45)
+ corner(frame, 12)
+ frame.Parent = holder
  local model = template:Clone()
  model:PivotTo(CFrame.identity)
  model.Parent = frame
  local box, size = model:GetBoundingBox()
+ -- A low platform in the theme's colours under the cage, with a lighter rim, so it stands on
+ -- something.
+ local floorTop = box.Position.Y - size.Y / 2
+ for _, slab in {{"PlatformRim", theme.rim, 4, 1.6}, {"Platform", theme.floor, 2, 1.2}} do
+  local part = Instance.new("Part")
+  part.Name, part.Anchored, part.Material, part.Color = slab[1], true, Enum.Material.SmoothPlastic, slab[2]
+  part.Size = Vector3.new(size.X + slab[3] * 2, slab[4], size.Z + slab[3] * 2)
+  part.CFrame = CFrame.new(box.Position.X, floorTop - slab[4] / 2 + (slab[1] == "Platform" and .05 or 0), box.Position.Z)
+  part.Parent = model
+ end
+ box = model:GetBoundingBox()
+ -- Every part's own corners, so the fit hugs the cage's real shape rather than its bounding box.
+ local corners = {}
+ for _, part in model:GetDescendants() do
+  if part:IsA("BasePart") then
+   for _, x in {-1, 1} do for _, y in {-1, 1} do for _, z in {-1, 1} do
+    table.insert(corners, part.CFrame:PointToWorldSpace(part.Size / 2 * Vector3.new(x, y, z)))
+   end end end
+  end
+ end
  local camera = Instance.new("Camera")
- camera.FieldOfView = 40
- -- From the side and a little above, near enough that the cage fills the wide frame.
- local direction = Vector3.new(1, .55, .55).Unit
- local reach = math.max(size.X, size.Y, size.Z) * .86
- camera.CFrame = CFrame.lookAt(box.Position + direction * reach, box.Position)
+ camera.FieldOfView = PREVIEW_FOV
  camera.Parent, frame.CurrentCamera = frame, camera
- return frame
+ local preview = {frame = frame, camera = camera, center = box.Position, corners = corners}
+ previews[frame] = preview
+ frame.Destroying:Connect(function() previews[frame] = nil end)
+ frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() placePreviewCamera(preview, os.clock()) end)
+ placePreviewCamera(preview, os.clock())
+ return holder
 end
+
+-- The sway only runs while the Shop is open.
+RunService.RenderStepped:Connect(function()
+ if not visible or next(previews) == nil then return end
+ local now = os.clock()
+ for _, preview in previews do placePreviewCamera(preview, now) end
+end)
 
 local function buildGrounds()
  for _, frame in groundCards do frame:Destroy() end
@@ -477,7 +594,7 @@ local function buildGrounds()
   local frame = card(groundGrid, ground.id, everyWorld and CARD_FACES.ground or CARD_FACES.worldGround)
   frame.LayoutOrder = index
   table.insert(groundCards, frame)
-  local preview = groundPicture(frame, ground)
+  local preview = groundPicture(frame, ground, everyWorld and "ground" or "worldGround")
   preview.Position, preview.Size = UDim2.fromOffset(8, 8), UDim2.new(1, -16, 0, PREVIEW_HEIGHT)
   local top = PREVIEW_HEIGHT + 14
   local name = label(frame, "Name", string.upper(ground.displayName), 32)

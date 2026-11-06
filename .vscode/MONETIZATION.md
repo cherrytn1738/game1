@@ -119,12 +119,44 @@ Balls are bought for Cash only at the hub display pedestals).
 - **Training Grounds:** Dragon's Lair always, plus the premium ground in the player's World (Cosmic
   Rift, Time Machine Lab or Quantum Lab: the one shared Cosmic Rift pass), bought through the
   existing TrainingRequest "Buy" (the server checks the pass and opens the prompt). OWNED from the
-  server's `TrainingPass_<id>` attributes (true for the pass or a gifted entitlement). Each card
-  shows the ground's own cage in a 3D preview: the server publishes clean copies of the paid
-  grounds' cages to `ReplicatedStorage.TrainingGroundModels` at start (streaming keeps other
-  Worlds' cages off a client), and the card frames its copy from above one side.
+  server's `TrainingPass_<id>` attributes (true for the pass or a gifted entitlement).
+- **Ground pictures:** a card shows the ground's screenshot when its `TrainingConfig` `shopImage`
+  is set (cropped to fill), otherwise a 3D preview of its own cage. The server publishes clean
+  copies of the paid grounds' cages to `ReplicatedStorage.TrainingGroundModels` at start
+  (streaming keeps other Worlds' cages off a client). The preview stands the copy on a platform in
+  the card's colours, over an opaque gradient backdrop (purple for the premium grounds, orange
+  for Dragon's Lair). It uses low ambient and a strong key light, and frames the whole cage with
+  padding, centred, mostly side-on from the door side and the batter's end. The camera sways
+  slowly while the Shop is open. Neon and particles don't glow in a ViewportFrame, which is what
+  the screenshots fix.
 
 While an id is 0 its button reads SOON, never opens a prompt, and a tap says it is coming soon.
+
+### Training Ground Shop images
+All five use the same framing, so the cards match. `tools/studio/ground_shop_shot.luau` sets the
+camera to the 3D preview's view of a ground.
+
+1. **Prepare Studio.** Bring Studio to the front with a wide window (any shape works; wider is
+   better). Use solo Play with no other players, and close every menu.
+2. **Frame the ground.** In the command bar (Client context), set `GROUND` and run the script. It
+   hides the HUD, Roblox's own UI and your character, and frames the cage from the preview's angle
+   to fit a centred 2.2:1 crop.
+3. **Take the screenshot.** Wait a second for the particles and glow to settle, then take a
+   screenshot of the viewport (for example Win+Shift+S).
+4. **Crop it** to the centred 2.2:1 area and resize it to **1100 x 500 PNG**.
+   - The cage fills the middle. Narrow Shop windows show only about the centre half of the
+     picture, so keep it centred and don't add text.
+   - Every image is the same size: the card crops to fill at about 2.2:1 on desktop and phone
+     landscape.
+5. **Restore.** Run the script with `RESTORE = true`, then repeat for the next ground:
+   `cosmic_rift`, `time_machine_lab`, `quantum_lab`, `snow_globe`, `dragons_lair`.
+6. **Upload.** Upload each PNG as an image: Studio's Asset Manager > Import, or the Creator
+   Dashboard's Decals. Copy the **image** asset id. A decal id shows nothing in an ImageLabel;
+   Asset Manager's "Copy ID" gives the image id.
+7. **Set the ids.** Put each id in `TrainingConfig` as `shopImage = "rbxassetid://<id>"`, then
+   playtest and open the Shop in each World.
+
+Claude can take, crop and upload all five through Studio MCP while Studio is in the foreground.
 
 ## Power purchases
 
