@@ -66,8 +66,9 @@ and the Blender generators in `tools/blender/`.
 
 - **Mood:** a city of tomorrow at night, lit by its own neon, heading out into space.
 - **Lighting:** night (clock 0): a dark starry sky with a big moon, a bright violet-blue ambient
-  so everything stays readable, a soft blue haze, soft wide bloom (0.55 / 56 / 1.7: stronger,
-  tighter bloom made the hundreds of thin Neon strips shimmer and glare), a cool grade. No sun
+  so everything stays readable, a soft blue haze, barely-there bloom (0.3 / 56 / 2.2: stronger
+  bloom made the hundreds of thin Neon strips shimmer and glare), exposure -0.1 and a mild cool
+  grade (contrast 0.12, saturation 0.22). Keep it calm: World 3 is the one to tone down. No sun
   rays. The dark night is what makes the Neon stand out.
 - **Palette:** white composite (240, 243, 248) and pale plaza tiles, gunmetal (64, 72, 92), dark
   navy walkways (38, 48, 80), sky glass (120, 170, 225).

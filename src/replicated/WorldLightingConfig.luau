@@ -55,14 +55,15 @@ WorldLighting.Presets = {
   colorCorrection = {Saturation = 0.22, Contrast = 0.06, Brightness = 0.02, TintColor = Color3.fromRGB(255, 238, 220)},
  },
  -- Future World: night, so the Neon strips, skyscraper bands and space areas glow. A bright
- -- violet-blue ambient keeps the ball, the runway and the cages easy to read. Bloom stays soft
- -- and weak (wide Size, low Intensity, high Threshold): this World has hundreds of thin Neon
- -- strips, and strong, tight bloom made them shimmer and flicker as the camera moved and made the
- -- bright lights hard to look at. The night itself makes the Neon stand out.
+ -- violet-blue ambient keeps the ball, the runway and the cages easy to read. Bloom is barely
+ -- there (wide Size, low Intensity, high Threshold), with a slightly lowered exposure and a mild
+ -- grade: this World has hundreds of thin Neon strips, and any strong bloom made them shimmer and
+ -- flicker as the camera moved and made the bright lights hard to look at. The night itself makes
+ -- the Neon stand out.
  world_3 = {
   lighting = {
    GeographicLatitude = 30, ClockTime = 0,
-   Brightness = 1.6, ExposureCompensation = 0.05,
+   Brightness = 1.6, ExposureCompensation = -0.1,
    Ambient = Color3.fromRGB(78, 88, 150), OutdoorAmbient = Color3.fromRGB(110, 118, 200),
    ColorShift_Top = Color3.fromRGB(120, 150, 255),
   },
@@ -70,9 +71,9 @@ WorldLighting.Presets = {
    Decay = Color3.fromRGB(44, 30, 96), Glare = 0, Haze = 0.8},
   clouds = false,
   sky = {SunAngularSize = 11, MoonAngularSize = 18, StarCount = 5000},
-  bloom = {Intensity = 0.55, Size = 56, Threshold = 1.7},
+  bloom = {Intensity = 0.3, Size = 56, Threshold = 2.2},
   sunRays = {Intensity = 0, Spread = 0.1},
-  colorCorrection = {Saturation = 0.3, Contrast = 0.22, Brightness = 0.03, TintColor = Color3.fromRGB(228, 230, 255)},
+  colorCorrection = {Saturation = 0.22, Contrast = 0.12, Brightness = 0.03, TintColor = Color3.fromRGB(228, 230, 255)},
  },
  -- Tiny Town: a bedroom in the evening, lit by a warm lamp: a very low amber sun from the left
  -- (about 5 degrees up, behind the batter), a dusk-blue sky over a warm horizon, a strong warm
