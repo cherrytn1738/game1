@@ -8,6 +8,10 @@
 -- robuxPrice is only what the buttons show until Roblox's live price has loaded; Roblox always
 -- charges the price set on the Dashboard. (The Training Ground passes and the Welcome Back 3x
 -- product keep their ids in TrainingConfig.)
+--
+-- shopImage: optional uploaded picture (rbxassetid) for the item's Shop card, a 512 x 512 PNG
+-- with a transparent background; empty shows the built-in picture (icons or 3D models). See
+-- .vscode/MONETIZATION.md ("Shop images").
 local Storage = game:GetService("ReplicatedStorage")
 local Progression = require(Storage:WaitForChild("ProgressionConfig"))
 local Worlds = require(Storage:WaitForChild("WorldConfig"))
@@ -26,23 +30,26 @@ Monetization.StarterPack = {
  rebirths = 1,
  juices = {power_punch = 1},
  batId = "catastrophe_bat",
+ shopImage = "",
 }
 
 -- Developer products paying Cash worth `hits` normal hits for the player right now
 -- (GetCashPackReward), so a pack stays worth the same share of progress at every stage.
 Monetization.CashProducts = {
- {id = "CashTiny", displayName = "Tiny Cash Pack", developerProductId = 0, robuxPrice = 25, hits = 15},
- {id = "CashSmall", displayName = "Small Cash Pack", developerProductId = 0, robuxPrice = 59, hits = 50},
- {id = "CashMedium", displayName = "Medium Cash Pack", developerProductId = 0, robuxPrice = 115, hits = 125},
- {id = "CashLarge", displayName = "Large Cash Pack", developerProductId = 0, robuxPrice = 229, hits = 300},
+ {id = "CashTiny", displayName = "Tiny Cash Pack", developerProductId = 0, robuxPrice = 25, hits = 15, shopImage = ""},
+ {id = "CashSmall", displayName = "Small Cash Pack", developerProductId = 0, robuxPrice = 59, hits = 50, shopImage = ""},
+ {id = "CashMedium", displayName = "Medium Cash Pack", developerProductId = 0, robuxPrice = 115, hits = 125, shopImage = ""},
+ {id = "CashLarge", displayName = "Large Cash Pack", developerProductId = 0, robuxPrice = 229, hits = 300, shopImage = ""},
 }
 
 -- Developer products adding juices to the player's Inventory (never started for them).
 Monetization.JuiceProducts = {
  {id = "BoostBundle", displayName = "Boost Bundle", developerProductId = 0, robuxPrice = 95,
-  juices = {power_punch = 2, cash_splash = 2}},
- {id = "PowerPunch", displayName = "Power Punch", developerProductId = 0, robuxPrice = 39, juices = {power_punch = 1}},
- {id = "CashSplash", displayName = "Cash Splash", developerProductId = 0, robuxPrice = 39, juices = {cash_splash = 1}},
+  juices = {power_punch = 2, cash_splash = 2}, shopImage = ""},
+ {id = "PowerPunch", displayName = "Power Punch", developerProductId = 0, robuxPrice = 39, juices = {power_punch = 1},
+  shopImage = ""},
+ {id = "CashSplash", displayName = "Cash Splash", developerProductId = 0, robuxPrice = 39, juices = {cash_splash = 1},
+  shopImage = ""},
 }
 
 -- The Shop always lists Dragon's Lair, plus the premium ground in the player's World (Cosmic
@@ -106,6 +113,8 @@ Monetization.Multipliers = {
   {developerProductId = 0, robuxPrice = 489, multiplier = 5},
  },
 }
+-- The multiplier cards' optional Shop pictures (shopImage, above).
+Monetization.MultiplierShopImages = {Power = "", Cash = ""}
 for _, kind in Monetization.MultiplierKinds do
  local previous = 1
  for number, tier in Monetization.Multipliers[kind] do

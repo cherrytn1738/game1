@@ -5,6 +5,9 @@
 -- TrainingConfig) and server-set attributes; this only opens Roblox's purchase prompts (or the
 -- Training Ground "Buy" request) and shows what the server confirms. Ids still 0 read SOON.
 -- (Bats and Balls are bought with Cash only at their hub display pedestals.)
+--
+-- Look: a dark Showcase window of bold colour cards (UICommon's colour cards). Each section opens
+-- with a full-width hero card for its best item, then smaller cards in columns.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -23,36 +26,40 @@ GameAudio.Preload({"Purchase"})
 
 local PACK = Monetization.StarterPack
 local PRICE_GREEN = Color3.fromRGB(120, 255, 70)
-local CASH_GOLD = Color3.fromRGB(255, 214, 60)
-local CARD_FACES = {
- starter = {Color3.fromRGB(255, 120, 200), Color3.fromRGB(130, 70, 230)},
- cash = {Color3.fromRGB(90, 210, 110), Color3.fromRGB(30, 140, 70)},
- powerMultiplier = {Color3.fromRGB(255, 190, 60), Color3.fromRGB(225, 100, 30)},
- cashMultiplier = {Color3.fromRGB(60, 200, 175), Color3.fromRGB(25, 115, 140)},
- bundle = {Color3.fromRGB(110, 120, 255), Color3.fromRGB(60, 170, 90)},
- juice = {Color3.fromRGB(80, 130, 230), Color3.fromRGB(40, 70, 170)},
- ground = {Color3.fromRGB(255, 150, 60), Color3.fromRGB(200, 50, 50)},
- worldGround = {Color3.fromRGB(150, 110, 255), Color3.fromRGB(70, 50, 190)},
+local CASH_GOLD = Color3.fromRGB(255, 220, 70)
+local WHITE = Color3.new(1, 1, 1)
+-- Each card's colour (a UICommon CardPalettes key).
+local PALETTES = {
+ starter = "Rainbow", Power = "Gold", Cash = "Teal", cash = "Green", bundle = "Pink",
+ power_punch = "Crimson", cash_splash = "Blue", ground = "Orange", worldGround = "Purple",
 }
+-- Sizes in menu units: the purchase row, the price button on hero cards, pack tiles, card gaps.
+local BUTTON, SMALL_BUTTON, PRICE_WIDTH = 54, 48, 176
+local TILE, SMALL_TILE, GAP = 70, 60, 10
+local NARROW = 560 -- below this list width, cards stack and grids use one column
 
 local _, panel, show, window = UI.ShowcaseMenu("StoreGui", "Shop", Interfaces.CloseAll,
- {maxWidth = 900, maxHeight = 640, theme = "Purple"})
+ {maxWidth = 900, maxHeight = 640, theme = "Grey"})
 local visible = false
+local titleIcon = UI.Icon(window.titleIcon, "Icon", UI.Icons.Shop)
+titleIcon.Size, titleIcon.Rotation = UDim2.fromScale(1, 1), -10
 
-local well = UI.ShowcaseFrame(window.box, "Offers", window.theme.well, 18)
-well.Position, well.Size = UDim2.fromOffset(18, 58), UDim2.new(1, -36, 1, -76)
+local well = UI.ShowcaseFrame(window.box, "Offers", window.theme.well, 16)
+well.Position, well.Size = UDim2.fromOffset(12, 46), UDim2.new(1, -24, 1, -58)
 local scroll = Instance.new("ScrollingFrame")
 scroll.Name, scroll.BackgroundTransparency, scroll.BorderSizePixel = "List", 1, 0
-scroll.Position, scroll.Size = UDim2.fromOffset(6, 6), UDim2.new(1, -12, 1, -12)
+scroll.Position, scroll.Size = UDim2.fromOffset(4, 4), UDim2.new(1, -8, 1, -8)
 scroll.ScrollBarThickness, scroll.ScrollBarImageColor3 = 8, UI.Showcase.CardLight
+scroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
 scroll.CanvasSize, scroll.AutomaticCanvasSize = UDim2.new(), Enum.AutomaticSize.Y
 scroll.ScrollingDirection = Enum.ScrollingDirection.Y
 scroll.Parent = well
 local list = Instance.new("UIListLayout")
-list.Padding, list.SortOrder, list.HorizontalAlignment = UDim.new(0, 12), Enum.SortOrder.LayoutOrder, Enum.HorizontalAlignment.Center
+list.Padding, list.SortOrder, list.HorizontalAlignment = UDim.new(0, GAP), Enum.SortOrder.LayoutOrder, Enum.HorizontalAlignment.Center
 list.Parent = scroll
 local padding = Instance.new("UIPadding")
-for _, side in {"PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight"} do padding[side] = UDim.new(0, 14) end
+padding.PaddingTop, padding.PaddingBottom = UDim.new(0, 6), UDim.new(0, 14)
+padding.PaddingLeft, padding.PaddingRight = UDim.new(0, GAP), UDim.new(0, GAP)
 padding.Parent = scroll
 
 -- Building blocks -------------------------------------------------------------------
@@ -65,25 +72,18 @@ local function label(parent, name, text, size, color)
  local object = UI.ShowcaseLabel(parent, name, text, size, color)
  object.TextScaled = true
  local limit = Instance.new("UITextSizeConstraint")
- limit.MaxTextSize, limit.MinTextSize, limit.Parent = size, 10, object
+ limit.MaxTextSize, limit.MinTextSize, limit.Parent = size, 12, object
  return object
 end
 
 local function heading(order, text)
- local title = label(scroll, "Heading", "~ " .. text .. " ~", 40, Color3.fromRGB(255, 225, 120))
- title.LayoutOrder, title.Size, title.TextXAlignment = order, UDim2.new(1, 0, 0, 46), Enum.TextXAlignment.Center
+ local title = label(scroll, "Heading", "~ " .. text .. " ~", 36, Color3.fromRGB(255, 225, 120))
+ title.LayoutOrder, title.Size, title.TextXAlignment = order, UDim2.new(1, 0, 0, 40), Enum.TextXAlignment.Center
  return title
 end
 
--- A coloured card with the thick outline and a faint checker.
-local function card(parent, name, colors)
- local frame = UI.ShowcaseFrame(parent, name, Color3.new(1, 1, 1), 16)
- UI.Gradient(frame, colors[1], colors[2])
- UI.Damier(frame, Color3.new(1, 1, 1), 26, NumberSequence.new(.93, .86)).ZIndex = 1
- return frame
-end
-
--- A grid holder whose columns follow the list's width (see layout()).
+-- A grid holder for small cards; its columns follow the list's width (see layout()). columns:
+-- the count at full width, at a medium width, and on narrow screens.
 local grids = {}
 local function grid(order, name, height, columns)
  local holder = Instance.new("Frame")
@@ -91,10 +91,14 @@ local function grid(order, name, height, columns)
  holder.Size, holder.AutomaticSize = UDim2.new(1, 0, 0, 0), Enum.AutomaticSize.Y
  holder.Parent = scroll
  local cells = Instance.new("UIGridLayout")
- cells.CellPadding, cells.SortOrder = UDim2.fromOffset(12, 12), Enum.SortOrder.LayoutOrder
+ cells.CellPadding, cells.SortOrder = UDim2.fromOffset(GAP, GAP + 4), Enum.SortOrder.LayoutOrder
  cells.HorizontalAlignment, cells.Parent = Enum.HorizontalAlignment.Center, holder
- table.insert(grids, {layout = cells, height = height, columns = columns})
- return holder
+ -- Room above the first row for pictures and stickers overlapping the cards' top edge.
+ local room = Instance.new("UIPadding")
+ room.PaddingTop, room.Parent = UDim.new(0, 4), holder
+ local entry = {holder = holder, layout = cells, height = height, columns = columns, cards = {}}
+ table.insert(grids, entry)
+ return entry
 end
 
 -- A model in a ViewportFrame, turned by `turn` and seen from `from` (a direction).
@@ -114,8 +118,8 @@ local function viewport(parent, model, turn, from)
  return frame
 end
 
-local function juicePicture(parent, id)
- return viewport(parent, JuiceModels.Build(Juice.Get(id)), CFrame.Angles(0, math.rad(-28), 0), Vector3.new(0, .15, -1))
+local function juicePicture(parent, id, turn)
+ return viewport(parent, JuiceModels.Build(Juice.Get(id)), CFrame.Angles(0, math.rad(turn or -28), 0), Vector3.new(0, .15, -1))
 end
 
 -- The Catastrophe Bat leaning, its cat face and ears toward the camera: the barrel's upper half
@@ -147,77 +151,44 @@ local function batPicture(parent, closeUp)
  return frame
 end
 
--- A Robux buy button: green with the Robux icon and price, grey SOON while the id is 0, grey
--- OWNED (or ownedText) once bought. set(id, price, owned, ownedText).
-local buttons = {}
-local function robuxButton(parent, name, onBuy)
- local button = UI.ShowcaseButton(parent, name)
- button.ZIndex = 4
- local icon = UI.Icon(button.Visual, "RobuxIcon", UI.Icons.Robux)
- icon.AnchorPoint, icon.Size, icon.ZIndex = Vector2.new(1, .5), UDim2.fromOffset(30, 30), 4
- local caption = button.Visual.Caption
- local function placeIcon()
-  icon.Position = UDim2.new(.5, -caption.TextBounds.X / 2 - 4 + 17, .5, -3)
-  caption.Position = UDim2.fromOffset(icon.Visible and 25 or 8, 0)
+-- An item's big picture: its uploaded shopImage when there is one (tilted a little), otherwise
+-- the built-in one (build(holder)).
+local function itemArt(holder, image, build, tilt)
+ if type(image) == "string" and image ~= "" then
+  local picture = UI.Icon(holder, "Picture", image)
+  picture.Size, picture.Rotation, picture.ZIndex = UDim2.fromScale(1, 1), tilt or -6, 3
+  return picture
  end
- caption:GetPropertyChangedSignal("TextBounds"):Connect(placeIcon)
- local state = {}
- local function set(id, price, owned, ownedText)
-  state.id, state.owned = id, owned
-  icon.Visible = not owned and id > 0
-  if owned then
-   UI.SetShowcaseButton(button, ownedText or "OWNED", "Grey", false)
-  elseif id <= 0 then
-   UI.SetShowcaseButton(button, "SOON", "Grey", true)
-  else
-   UI.SetShowcaseButton(button, UI.Number(price), "Green", true)
-  end
-  placeIcon()
- end
- button.Activated:Connect(function()
-  if state.owned then return end
-  if not state.id or state.id <= 0 then
-   UI.Notify("This is coming soon!")
-   return
-  end
-  onBuy()
- end)
- table.insert(buttons, button)
- return button, set
+ return build(holder)
 end
 
--- A square Gift button (a wrapped present) for a Shop item; it opens the player picker. Grey with
--- SOON while the gift product's id is 0 (in Studio the picker still opens, to try the flow; the
--- server refuses such a gift). itemName is what the confirmation calls the item.
-local openPicker -- (the picker, below)
-local function giftButton(parent, giftId, itemName)
- local gift = Monetization.GetGiftById(giftId)
- local button = UI.ShowcaseButton(parent, "Gift")
- button.ZIndex = 4
- local soon = gift.developerProductId <= 0
- UI.SetShowcaseButton(button, "", soon and "Grey" or "Blue", true)
- local present = UI.Icon(button.Visual, "GiftIcon", UI.Icons.Rewards)
- present.AnchorPoint, present.Position, present.ZIndex = Vector2.new(.5, .5), UDim2.fromScale(.5, soon and .4 or .46), 4
- present.Size = UDim2.fromScale(soon and .6 or .74, soon and .6 or .74)
- if soon then
-  local note = label(button.Visual, "Soon", "SOON", 16)
-  note.AnchorPoint, note.Position, note.Size, note.ZIndex = Vector2.new(.5, 1), UDim2.new(.5, 0, 1, -6), UDim2.new(1, -4, 0, 16), 5
-  note.TextXAlignment = Enum.TextXAlignment.Center
+-- An icon filling the art holder, tilted.
+local function tiltedIcon(image, tilt)
+ return function(holder)
+  local icon = UI.Icon(holder, "Picture", image)
+  icon.AnchorPoint, icon.Position, icon.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(.92, .92)
+  icon.Rotation, icon.ZIndex = tilt, 3
+  return icon
  end
- -- A small "Gift" tip above it while the mouse is over it.
- local tip = label(button, "Tip", "Gift", 20)
- tip.AnchorPoint, tip.Position, tip.Size, tip.ZIndex = Vector2.new(.5, 1), UDim2.new(.5, 0, 0, -2), UDim2.fromOffset(70, 22), 6
- tip.TextXAlignment, tip.Visible = Enum.TextXAlignment.Center, false
- button.MouseEnter:Connect(function() tip.Visible = true end)
- button.MouseLeave:Connect(function() tip.Visible = false end)
- button.Activated:Connect(function()
-  if soon and not RunService:IsStudio() then
-   UI.Notify("Gifting this is coming soon!")
-   return
+end
+
+-- A pile of `count` Cash stacks (more for bigger packs).
+local PILES = {
+ {{.5, .52, -8}},
+ {{.38, .58, -10}, {.62, .44, 8}},
+ {{.32, .62, -10}, {.68, .6, 10}, {.5, .38, -4}},
+ {{.3, .64, -12}, {.7, .64, 12}, {.4, .4, -6}, {.62, .34, 6}},
+}
+local function cashPile(count)
+ return function(holder)
+  local pile = PILES[math.clamp(count, 1, #PILES)]
+  for index, spot in pile do
+   local icon = UI.Icon(holder, "Cash" .. index, UI.Icons.Cash)
+   icon.AnchorPoint, icon.Position = Vector2.new(.5, .5), UDim2.fromScale(spot[1], spot[2])
+   icon.Size, icon.Rotation, icon.ZIndex = UDim2.fromScale(#pile == 1 and .9 or .66, #pile == 1 and .9 or .66), spot[3], 3
   end
-  openPicker(gift, itemName)
- end)
- return button
+  return holder
+ end
 end
 
 -- Prices the buttons show: the config's, until Roblox's live price loads.
@@ -241,197 +212,329 @@ local function price(id, fallback)
  return livePrices[id] or fallback
 end
 
--- A reward line on the Starter Pack: an icon (or picture) and its text.
-local function reward(parent, order, text, picture)
- local chip = Instance.new("Frame")
- chip.Name, chip.BackgroundColor3, chip.BackgroundTransparency, chip.LayoutOrder = "Reward", Color3.new(0, 0, 0), .65, order
- corner(chip, 12)
- chip.Parent = parent
- local art = picture(chip)
- art.AnchorPoint, art.Position, art.Size, art.ZIndex = Vector2.new(0, .5), UDim2.new(0, 6, .5, 0), UDim2.fromOffset(44, 44), 3
- local line = label(chip, "Text", text, 24)
- line.Position, line.Size, line.ZIndex = UDim2.fromOffset(56, 0), UDim2.new(1, -62, 1, 0), 3
- return chip
+-- Cards ---------------------------------------------------------------------------------
+-- A card is a table: frame, kind ("hero", "small" or "ground"), art (the picture holder), name,
+-- lines (labels under the name), tiles (pack contents), buy / setPrice, gift, strike / setStrike,
+-- setStatus (the top-right sticker: SOON / OWNED / MAXED) and setDeal (the top-left sticker).
+-- layout() places everything from the card's width.
+local heroes = {}
+
+-- A square Gift button for a Shop item; it opens the player picker. It shows SOON while the gift
+-- product's id is 0 (in Studio the picker still opens, to try the flow; the server refuses such a
+-- gift). itemName is what the confirmation calls the item.
+local openPicker -- (the picker, below)
+local function giftButton(parent, giftId, itemName)
+ local gift = Monetization.GetGiftById(giftId)
+ local soon = gift.developerProductId <= 0
+ local button = UI.GiftButton(parent, "Gift", soon)
+ button.ZIndex = 6
+ -- A small "Gift" tip above it while the mouse is over it.
+ local tip = label(button, "Tip", "Gift", 20)
+ tip.AnchorPoint, tip.Position, tip.Size, tip.ZIndex = Vector2.new(.5, 1), UDim2.new(.5, 0, 0, -2), UDim2.fromOffset(70, 22), 7
+ tip.TextXAlignment, tip.Visible = Enum.TextXAlignment.Center, false
+ button.MouseEnter:Connect(function() tip.Visible = true end)
+ button.MouseLeave:Connect(function() tip.Visible = false end)
+ button.Activated:Connect(function()
+  if soon and not RunService:IsStudio() then
+   UI.Notify("Gifting this is coming soon!")
+   return
+  end
+  openPicker(gift, itemName)
+ end)
+ return button
+end
+
+local function makeCard(parent, id, paletteName, kind, order, title)
+ local frame, palette = UI.ColorCard(parent, id, paletteName)
+ frame.LayoutOrder = order
+ local card = {frame = frame, kind = kind, lines = {}, line = {}, tiles = {}}
+ local art = Instance.new("Frame")
+ art.Name, art.BackgroundTransparency, art.ZIndex = "Art", 1, 4
+ art.Parent = frame
+ card.art = art
+ card.name = UI.CardTitle(frame, "Name", string.upper(title), kind == "small" and 34 or 52, palette)
+ card.name.ZIndex = 5
+ -- Small cards carry the SOON / OWNED sticker over their picture, clear of the name.
+ local _, setStatus = UI.CardBadge(frame, "Status", kind == "small" and "left" or "right")
+ local _, setDeal = UI.CardBadge(frame, "Deal", kind == "small" and "right" or "left")
+ card.setStatus, card.setDeal = setStatus, setDeal
+ setStatus(nil)
+ setDeal(nil)
+ if kind == "hero" then table.insert(heroes, card) end
+ return card
+end
+
+-- A line of text under the card's name (its height is size + 4).
+local function addLine(card, key, text, size, color)
+ local line = label(card.frame, key, text, size, color or WHITE)
+ line.ZIndex = 5
+ line:SetAttribute("Height", size + 4)
+ table.insert(card.lines, line)
+ card.line[key] = line
+ return line
+end
+
+-- A slowly turning sunburst behind a featured card's picture.
+local function addSunburst(card)
+ local glow = Instance.new("Frame")
+ glow.Name, glow.BackgroundTransparency, glow.ClipsDescendants, glow.ZIndex = "Glow", 1, true, 2
+ glow.Parent = card.frame
+ UI.Sunburst(glow).Size = UDim2.fromScale(1.6, 1.6)
+ card.glow = glow
+end
+
+-- The pack's contents as white tiles: {name, quantity, picture}.
+local function addTiles(card, items)
+ local row = Instance.new("Frame")
+ row.Name, row.BackgroundTransparency, row.ZIndex = "Contents", 1, 5
+ row.AutomaticSize = Enum.AutomaticSize.X
+ row.Parent = card.frame
+ local layout = Instance.new("UIListLayout")
+ layout.FillDirection, layout.Padding, layout.SortOrder = Enum.FillDirection.Horizontal, UDim.new(0, 8), Enum.SortOrder.LayoutOrder
+ layout.Parent = row
+ for index, item in items do
+  local tile = UI.ItemTile(row, item[1], item[2], item[3])
+  tile.LayoutOrder, tile.ZIndex = index, 5
+  table.insert(card.tiles, tile)
+ end
+ card.tileRow = row
+end
+
+-- The purchase row: the price button (and a Gift button where gifting applies). Pressing a SOON
+-- button says so; an owned one does nothing.
+local function addPurchase(card, onBuy, giftId, itemName)
+ local button, set = UI.PriceButton(card.frame, "Buy", card.kind == "small" and 26 or 30)
+ button.ZIndex = 6
+ card.buy, card.setPrice = button, set
+ button.Activated:Connect(function()
+  if card.owned then return end
+  if not card.productId or card.productId <= 0 then
+   UI.Notify("This is coming soon!")
+   return
+  end
+  onBuy()
+ end)
+ if giftId then card.gift = giftButton(card.frame, giftId, itemName) end
+end
+
+-- Shows the price (or OWNED / MAXED) and the matching sticker. Cards keep their colour in every
+-- state: SOON is a blue button with a sticker, owned a gold button with a green sticker.
+local function setPrice(card, id, robux, owned, ownedText)
+ card.productId, card.owned = id, owned
+ if owned then
+  card.setPrice("owned", ownedText or "OWNED")
+  card.setStatus(ownedText or "OWNED", ownedText == "MAXED" and "Maxed" or "Owned")
+ elseif id <= 0 then
+  card.setPrice("soon", UI.Number(robux))
+  card.setStatus("SOON", "Soon")
+ else
+  card.setPrice("buy", UI.Number(robux))
+  card.setStatus(nil)
+ end
 end
 
 -- Starter Pack ------------------------------------------------------------------------
+-- (No crossed-out price: its Rebirth and Bat are not sold on their own, so there is no real
+-- "bought separately" total to compare with.)
 heading(1, "PACK")
-local starter = card(scroll, "StarterPack", CARD_FACES.starter)
-starter.LayoutOrder = 2
-local starterArt = Instance.new("Frame")
-starterArt.Name, starterArt.BackgroundTransparency = "BatArt", 1
-starterArt.Parent = starter
-local starterTitle = label(starter, "Title", "STARTER PACK", 46, Color3.fromRGB(255, 240, 150))
-starterTitle.ZIndex = 3
-local rewards = Instance.new("Frame")
-rewards.Name, rewards.BackgroundTransparency = "Rewards", 1
-rewards.Parent = starter
-local rewardGrid = Instance.new("UIGridLayout")
-rewardGrid.CellPadding, rewardGrid.SortOrder, rewardGrid.Parent = UDim2.fromOffset(8, 8), Enum.SortOrder.LayoutOrder, rewards
+local starter = makeCard(scroll, "StarterPack", PALETTES.starter, "hero", 2, "Starter Pack")
+addSunburst(starter)
 local bat = Equipment.Get("Bat", PACK.batId)
-local function icon(image) return function(parent) return UI.Icon(parent, "Icon", image) end end
 local juiceId = next(PACK.juices)
-reward(rewards, 1, "+" .. UI.Compact(PACK.power) .. " POWER", icon(UI.Icons.Power))
-reward(rewards, 2, "+" .. PACK.rebirths .. " REBIRTH", icon(UI.Icons.Rebirth))
-reward(rewards, 3, string.upper(Juice.Get(juiceId).displayName) .. " x" .. PACK.juices[juiceId], function(parent) return juicePicture(parent, juiceId) end)
-reward(rewards, 4, string.upper(bat.displayName), function(parent)
- return batPicture(parent, true) or UI.Icon(parent, "Icon", UI.Icons.Bat)
-end)
-local starterButton, setStarter = robuxButton(starter, "Buy", function()
+addTiles(starter, {
+ {"Power", "+" .. UI.Compact(PACK.power), UI.Icons.Power},
+ {"Rebirth", "+" .. PACK.rebirths, UI.Icons.Rebirth},
+ {"Juice", "x" .. PACK.juices[juiceId], function(parent) return juicePicture(parent, juiceId) end},
+ {"Bat", "x1", function(parent) return batPicture(parent, true) or UI.Icon(parent, "Icon", UI.Icons.Bat) end},
+})
+-- The tiles' names, for players who don't know the icons.
+addLine(starter, "Contents", string.format("%s POWER • %d REBIRTH • %s • %s", UI.Compact(PACK.power), PACK.rebirths,
+ string.upper(Juice.Get(juiceId).displayName), string.upper(bat.displayName)), 18, UI.Colors.Muted):SetAttribute("NarrowHidden", true)
+itemArt(starter.art, PACK.shopImage, function(holder)
+ -- The Cat Bat picture needs the published models (the server publishes them at start).
+ task.spawn(function()
+  local folder = Storage:WaitForChild("BatModels", 30)
+  local model = folder and folder:WaitForChild(PACK.batId, 30)
+  if model and not holder:FindFirstChild("Picture") then
+   local picture = batPicture(holder)
+   if picture then picture.Size = UDim2.fromScale(1, 1) end
+  end
+ end)
+ return holder
+end, -8)
+addPurchase(starter, function()
  MarketplaceService:PromptGamePassPurchase(Player, PACK.gamePassId)
-end)
-local starterGift = giftButton(starter, "GiftStarterPack", "Starter Pack")
+end, "GiftStarterPack", "Starter Pack")
 table.insert(refreshers, function()
- setStarter(PACK.gamePassId, price(PACK.gamePassId, PACK.robuxPrice), Player:GetAttribute("StarterPackOwned") == true)
+ setPrice(starter, PACK.gamePassId, price(PACK.gamePassId, PACK.robuxPrice), Player:GetAttribute("StarterPackOwned") == true)
 end)
 loadPrice(PACK.gamePassId, Enum.InfoType.GamePass)
 
 -- Multipliers -------------------------------------------------------------------------
 -- One card per permanent multiplier, showing the next tier as the change it makes ("2x → 2.5x")
 -- from the server-set tier count (PowerMultiplierTier / CashMultiplierTier). Buy only asks the
--- server for the next tier; the server picks it and opens the prompt. Not giftable.
+-- server for the next tier; the server picks it and opens the prompt. Not giftable. (Two equal
+-- cards side by side: neither is the section's "best" item.)
 local function multiplierText(value) return string.format("%gx", value) end
 local MULTIPLIER_CARDS = {
- {kind = "Power", title = "POWER MULTIPLIER", icon = UI.Icons.Power, faces = CARD_FACES.powerMultiplier,
-  effect = "Training, hit & offline Power"},
- {kind = "Cash", title = "CASH MULTIPLIER", icon = UI.Icons.Cash, faces = CARD_FACES.cashMultiplier,
-  effect = "Cash from every hit & Cash Pack"},
+ {kind = "Power", title = "Power Multiplier", icon = UI.Icons.Power, tilt = -12, effect = "Training, hit & offline Power"},
+ {kind = "Cash", title = "Cash Multiplier", icon = UI.Icons.Cash, tilt = 8, effect = "Cash from every hit & Cash Pack"},
 }
 heading(3, "MULTIPLIERS")
-local multiplierGrid = grid(4, "Multipliers", 200, {2, 2, 1})
+local multiplierGrid = grid(4, "Multipliers", 180, {2, 2, 1})
 for index, info in MULTIPLIER_CARDS do
  local ladder = Monetization.Multipliers[info.kind]
- local frame = card(multiplierGrid, info.kind .. "Multiplier", info.faces)
- frame.LayoutOrder = index
- local art = UI.Icon(frame, "Icon", info.icon)
- art.AnchorPoint, art.Position, art.Size, art.ZIndex = Vector2.zero, UDim2.fromOffset(12, 14), UDim2.fromOffset(78, 78), 3
- local name = label(frame, "Name", info.title, 28)
- name.Position, name.Size, name.ZIndex = UDim2.fromOffset(102, 10), UDim2.new(1, -112, 0, 32), 3
- local change = label(frame, "Change", "", 34, PRICE_GREEN)
- change.Position, change.Size, change.ZIndex = UDim2.fromOffset(102, 44), UDim2.new(1, -112, 0, 36), 3
- local tierLine = label(frame, "Tier", "", 18, CASH_GOLD)
- tierLine.Position, tierLine.Size, tierLine.ZIndex = UDim2.fromOffset(102, 82), UDim2.new(1, -112, 0, 22), 3
- local effect = label(frame, "Effect", info.effect, 16, UI.Colors.Muted)
- effect.Position, effect.Size, effect.ZIndex = UDim2.fromOffset(12, 106), UDim2.new(1, -24, 0, 20), 3
- local button, set = robuxButton(frame, "Buy", function()
+ local card = makeCard(multiplierGrid.holder, info.kind .. "Multiplier", PALETTES[info.kind], "small", index, info.title)
+ table.insert(multiplierGrid.cards, card)
+ itemArt(card.art, Monetization.MultiplierShopImages[info.kind], tiltedIcon(info.icon, info.tilt))
+ local change = addLine(card, "Change", "", 30)
+ local tierLine = addLine(card, "Tier", "", 17, CASH_GOLD)
+ addLine(card, "Effect", info.effect, 16, UI.Colors.Muted)
+ addPurchase(card, function()
   Remote:FireServer("BuyMultiplier", info.kind)
  end)
- button.AnchorPoint, button.Position, button.Size = Vector2.new(1, 1), UDim2.new(1, -10, 1, -10), UDim2.new(1, -20, 0, 54)
  table.insert(refreshers, function()
   local owned = Player:GetAttribute(info.kind .. "MultiplierTier") or 0
   local current = Monetization.GetMultiplier(info.kind, owned)
   local number, nextTier = Monetization.GetNextMultiplierTier(info.kind, owned)
   if nextTier then
-   change.Text = multiplierText(current) .. " → " .. multiplierText(nextTier.multiplier)
+   change.Text = string.upper(info.kind) .. " " .. multiplierText(current) .. " → " .. multiplierText(nextTier.multiplier)
    tierLine.Text = string.format("TIER %d OF %d • PERMANENT", number, #ladder)
-   set(nextTier.developerProductId, price(nextTier.developerProductId, nextTier.robuxPrice), false)
+   setPrice(card, nextTier.developerProductId, price(nextTier.developerProductId, nextTier.robuxPrice), false)
   else
-   change.Text = "MAX " .. multiplierText(current)
+   change.Text = string.upper(info.kind) .. " " .. multiplierText(current)
    tierLine.Text = string.format("ALL %d TIERS OWNED", #ladder)
-   set(0, 0, true, "MAXED")
+   setPrice(card, 0, 0, true, "MAXED")
   end
  end)
  for _, tier in ladder do loadPrice(tier.developerProductId, Enum.InfoType.Product) end
 end
 
 -- Cash Packs --------------------------------------------------------------------------
+-- The biggest pack leads as the hero; the rest follow in a row. BEST VALUE marks the pack with
+-- the most hits per Robux at the prices shown (a real comparison).
 heading(5, "CASH PACKS")
-local cashGrid = grid(6, "CashPacks", 214, {4, 2, 1})
+local cashGrid = grid(7, "CashPacks", 160, {3, 2, 1})
+local cashCards = {}
 for index, product in Monetization.CashProducts do
- local frame = card(cashGrid, product.id, CARD_FACES.cash)
- frame.LayoutOrder = index
- local name = label(frame, "Name", string.upper(product.displayName), 24)
- name.Position, name.Size, name.ZIndex, name.TextXAlignment = UDim2.fromOffset(8, 8), UDim2.new(1, -16, 0, 28), 3, Enum.TextXAlignment.Center
- local cashIcon = UI.Icon(frame, "CashIcon", UI.Icons.Cash)
- cashIcon.AnchorPoint, cashIcon.Position, cashIcon.Size, cashIcon.ZIndex = Vector2.new(.5, 0), UDim2.new(.5, 0, 0, 38), UDim2.fromOffset(58, 58), 3
- local amount = label(frame, "Amount", "", 32, CASH_GOLD)
- amount.Position, amount.Size, amount.ZIndex, amount.TextXAlignment = UDim2.fromOffset(8, 98), UDim2.new(1, -16, 0, 34), 3, Enum.TextXAlignment.Center
- local hits = label(frame, "Hits", "about " .. product.hits .. " hits", 18, UI.Colors.Muted)
- hits.Position, hits.Size, hits.ZIndex, hits.TextXAlignment = UDim2.fromOffset(8, 130), UDim2.new(1, -16, 0, 20), 3, Enum.TextXAlignment.Center
- local button, set = robuxButton(frame, "Buy", function()
+ local hero = index == #Monetization.CashProducts
+ local card = makeCard(hero and scroll or cashGrid.holder, product.id, PALETTES.cash, hero and "hero" or "small",
+  hero and 6 or index, product.displayName)
+ if hero then addSunburst(card) else table.insert(cashGrid.cards, card) end
+ itemArt(card.art, product.shopImage, cashPile(hero and 4 or index))
+ local amount = addLine(card, "Amount", "", hero and 42 or 30, CASH_GOLD)
+ addLine(card, "Hits", hero and string.format("WORTH ABOUT %d OF YOUR HITS", product.hits)
+  or string.format("ABOUT %d HITS", product.hits), hero and 20 or 17, UI.Colors.Muted)
+ addPurchase(card, function()
   -- The server fixes the pack's Cash for this purchase, then opens the prompt.
   Remote:FireServer("BuyCash", product.id)
- end)
- button.AnchorPoint, button.Position, button.Size = Vector2.new(1, 1), UDim2.new(1, -10, 1, -8), UDim2.new(1, -78, 0, 48)
- local gift = giftButton(frame, "Gift" .. product.id, product.displayName)
- gift.AnchorPoint, gift.Position, gift.Size = Vector2.new(0, 1), UDim2.new(0, 10, 1, -8), UDim2.fromOffset(48, 48)
+ end, "Gift" .. product.id, product.displayName)
+ table.insert(cashCards, {card = card, product = product})
  table.insert(refreshers, function()
   -- The same formula the server pays with, from the server's display copies.
   local level = Player:GetAttribute("Level") or 1
   amount.Text = "+$" .. UI.Compact(Monetization.GetCashPackReward(product, level, Player:GetAttribute("CurrentWorldId"),
    Player:GetAttribute("EquippedBat"), Monetization.GetMultiplier("Cash", Player:GetAttribute("CashMultiplierTier") or 0)))
-  set(product.developerProductId, price(product.developerProductId, product.robuxPrice), false)
+  setPrice(card, product.developerProductId, price(product.developerProductId, product.robuxPrice), false)
  end)
  loadPrice(product.developerProductId, Enum.InfoType.Product)
 end
+table.insert(refreshers, function()
+ local best, bestValue = nil, 0
+ for _, entry in cashCards do
+  local value = entry.product.hits / price(entry.product.developerProductId, entry.product.robuxPrice)
+  if value > bestValue then best, bestValue = entry, value end
+ end
+ for _, entry in cashCards do entry.card.setDeal(entry == best and "BEST VALUE" or nil, "Deal") end
+end)
 
 -- Boosts --------------------------------------------------------------------------------
-heading(7, "BOOSTS")
+-- The Boost Bundle leads; its crossed-out price is what the same juices cost one at a time.
+heading(8, "BOOSTS")
 local bundleProduct, singles = nil, {}
 for _, product in Monetization.JuiceProducts do
  local kinds = 0
  for _ in product.juices do kinds += 1 end
  if kinds > 1 then bundleProduct = product else table.insert(singles, product) end
 end
-local bundle
-if bundleProduct then
- bundle = card(scroll, bundleProduct.id, CARD_FACES.bundle)
- bundle.LayoutOrder = 8
- local art = Instance.new("Frame")
- art.Name, art.BackgroundTransparency, art.Position, art.Size = "Art", 1, UDim2.fromOffset(10, 8), UDim2.new(0, 190, 1, -16)
- art.Parent = bundle
- local index, contents = 0, {}
- for id, count in bundleProduct.juices do
-  index += 1
-  local picture = juicePicture(art, id)
-  picture.Position, picture.Size = UDim2.fromScale((index - 1) * .5, 0), UDim2.fromScale(.5, 1)
-  table.insert(contents, count .. "x " .. string.upper(Juice.Get(id).displayName))
+
+-- What a bundle's juices cost bought one at a time (live prices where loaded), or nil when one
+-- of them is not sold on its own.
+local function separatePrice(juices)
+ local total = 0
+ for id, count in juices do
+  local single
+  for _, product in singles do
+   if product.juices[id] then single = product end
+  end
+  if not single then return nil end
+  total += count / single.juices[id] * price(single.developerProductId, single.robuxPrice)
  end
- local title = label(bundle, "Title", string.upper(bundleProduct.displayName), 36, Color3.fromRGB(255, 240, 150))
- title.Position, title.Size, title.ZIndex = UDim2.fromOffset(210, 14), UDim2.new(1, -440, 0, 40), 3
- local body = label(bundle, "Contents", table.concat(contents, "\n"), 22)
- body.Position, body.Size, body.ZIndex = UDim2.fromOffset(210, 58), UDim2.new(1, -440, 0, 60), 3
- local button, set = robuxButton(bundle, "Buy", function()
-  MarketplaceService:PromptProductPurchase(Player, bundleProduct.developerProductId)
+ return math.floor(total + .5)
+end
+
+if bundleProduct then
+ local bundle = makeCard(scroll, bundleProduct.id, PALETTES.bundle, "hero", 9, bundleProduct.displayName)
+ addSunburst(bundle)
+ itemArt(bundle.art, bundleProduct.shopImage, function(holder)
+  local index = 0
+  for id in bundleProduct.juices do
+   index += 1
+   local picture = juicePicture(holder, id, index == 1 and -36 or -18)
+   picture.Position, picture.Size = UDim2.fromScale(index == 1 and -.04 or .4, index == 1 and 0 or .14), UDim2.fromScale(.64, .86)
+  end
+  return holder
  end)
- button.AnchorPoint, button.Position, button.Size = Vector2.new(1, .5), UDim2.new(1, -16, .5, 0), UDim2.fromOffset(200, 66)
- giftButton(bundle, "Gift" .. bundleProduct.id, bundleProduct.displayName)
+ local tiles, effects = {}, {}
+ for id, count in bundleProduct.juices do
+  local definition = Juice.Get(id)
+  table.insert(tiles, {id, "x" .. count, function(parent) return juicePicture(parent, id) end})
+  table.insert(effects, string.format("%gx %s", definition.multiplier, string.upper(Juice.Effects[definition.effect].displayName)))
+ end
+ addTiles(bundle, tiles)
+ local minutes = math.floor(Juice.Get(next(bundleProduct.juices)).durationSeconds / 60)
+ addLine(bundle, "Effects", table.concat(effects, " + ") .. " • " .. minutes .. " MIN EACH", 22):SetAttribute("Wrap", true)
+ addPurchase(bundle, function()
+  MarketplaceService:PromptProductPurchase(Player, bundleProduct.developerProductId)
+ end, "Gift" .. bundleProduct.id, bundleProduct.displayName)
+ local strike, setStrike = UI.StrikePrice(bundle.frame, "Separately", 30)
+ strike.ZIndex, bundle.strike = 6, strike
  table.insert(refreshers, function()
-  set(bundleProduct.developerProductId, price(bundleProduct.developerProductId, bundleProduct.robuxPrice), false)
+  local robux = price(bundleProduct.developerProductId, bundleProduct.robuxPrice)
+  setPrice(bundle, bundleProduct.developerProductId, robux, false)
+  local separate = separatePrice(bundleProduct.juices)
+  local saving = separate and separate > robux
+  setStrike(saving and UI.Number(separate) or nil)
+  bundle.setDeal(saving and string.format("SAVE %d%%", math.floor((1 - robux / separate) * 100 + .5)) or nil, "Deal")
  end)
  loadPrice(bundleProduct.developerProductId, Enum.InfoType.Product)
 end
-local juiceGrid = grid(9, "Juices", 170, {2, 2, 1})
+local juiceGrid = grid(10, "Juices", 160, {2, 2, 1})
 for index, product in singles do
  local id = next(product.juices)
  local definition = Juice.Get(id)
- local frame = card(juiceGrid, product.id, {definition.appearance.roof, definition.appearance.body})
- frame.LayoutOrder = index
- local picture = juicePicture(frame, id)
- picture.Position, picture.Size = UDim2.fromOffset(6, 8), UDim2.new(0, 110, 1, -16)
- local name = label(frame, "Name", string.upper(definition.displayName), 30)
- name.Position, name.Size, name.ZIndex = UDim2.fromOffset(122, 10), UDim2.new(1, -132, 0, 34), 3
- local effect = label(frame, "Effect", string.format("%gx %s", definition.multiplier,
-  string.upper(Juice.Effects[definition.effect].displayName)), 26, PRICE_GREEN)
- effect.Position, effect.Size, effect.ZIndex = UDim2.fromOffset(122, 46), UDim2.new(1, -132, 0, 28), 3
- local duration = label(frame, "Duration", math.floor(definition.durationSeconds / 60) .. " MIN", 22, CASH_GOLD)
- duration.Position, duration.Size, duration.ZIndex = UDim2.fromOffset(122, 76), UDim2.new(1, -132, 0, 24), 3
- local button, set = robuxButton(frame, "Buy", function()
-  MarketplaceService:PromptProductPurchase(Player, product.developerProductId)
+ local card = makeCard(juiceGrid.holder, product.id, PALETTES[id] or "Blue", "small", index, definition.displayName)
+ table.insert(juiceGrid.cards, card)
+ itemArt(card.art, product.shopImage, function(holder)
+  local picture = juicePicture(holder, id)
+  picture.Size = UDim2.fromScale(1, 1)
+  return picture
  end)
- button.AnchorPoint, button.Position, button.Size = Vector2.new(1, 1), UDim2.new(1, -10, 1, -10), UDim2.new(1, -192, 0, 50)
- local gift = giftButton(frame, "Gift" .. product.id, product.displayName)
- gift.AnchorPoint, gift.Position, gift.Size = Vector2.new(0, 1), UDim2.new(0, 122, 1, -10), UDim2.fromOffset(50, 50)
+ addLine(card, "Effect", string.format("%gx %s", definition.multiplier, string.upper(Juice.Effects[definition.effect].displayName)), 30)
+ addLine(card, "Duration", math.floor(definition.durationSeconds / 60) .. " MINUTES", 17, CASH_GOLD)
+ addPurchase(card, function()
+  MarketplaceService:PromptProductPurchase(Player, product.developerProductId)
+ end, "Gift" .. product.id, product.displayName)
  table.insert(refreshers, function()
-  set(product.developerProductId, price(product.developerProductId, product.robuxPrice), false)
+  setPrice(card, product.developerProductId, price(product.developerProductId, product.robuxPrice), false)
  end)
  loadPrice(product.developerProductId, Enum.InfoType.Product)
 end
 
 -- Training Grounds ------------------------------------------------------------------------
-heading(10, "TRAINING GROUNDS")
-local PREVIEW_HEIGHT = 176
-local groundGrid = grid(11, "TrainingGrounds", PREVIEW_HEIGHT + 184, {2, 2, 1})
+-- Dragon's Lair (every World) leads, then this World's premium ground: both full width, since
+-- their pictures are wide.
+heading(11, "TRAINING GROUNDS")
 local groundCards, groundRefreshers = {}, {}
 local trainingRemote
 table.insert(refreshers, function()
@@ -467,8 +570,8 @@ local function fitDistance(corners, target, view, aspect)
  local tanV = math.tan(math.rad(PREVIEW_FOV / 2)) / PREVIEW_PADDING
  local tanH = tanV * aspect
  local distance = 0
- for _, corner in corners do
-  local p = look:VectorToObjectSpace(corner - target)
+ for _, point in corners do
+  local p = look:VectorToObjectSpace(point - target)
   -- Camera space: x right, y up, -z forward; the point's depth is distance - z.
   distance = math.max(distance, math.abs(p.X) / tanH + p.Z, math.abs(p.Y) / tanV + p.Z)
  end
@@ -485,8 +588,8 @@ local function centredFit(corners, center, view, aspect)
   distance = fitDistance(corners, target, view, aspect)
   local camera = CFrame.lookAt(target + view * distance, target)
   local minX, maxX, minY, maxY = math.huge, -math.huge, math.huge, -math.huge
-  for _, corner in corners do
-   local p = camera:PointToObjectSpace(corner)
+  for _, point in corners do
+   local p = camera:PointToObjectSpace(point)
    local x, y = p.X / (-p.Z * tanH), p.Y / (-p.Z * tanV)
    minX, maxX, minY, maxY = math.min(minX, x), math.max(maxX, x), math.min(minY, y), math.max(maxY, y)
   end
@@ -512,14 +615,26 @@ local function placePreviewCamera(preview, now)
  preview.camera.CFrame = CFrame.lookAt(preview.target + view * preview.distance, preview.target)
 end
 
+-- The picture sits in a framed window (thick outline, white inner rim) on the card.
 local function groundPicture(parent, ground, themeName)
  local theme = PREVIEW_THEMES[themeName]
  local holder = Instance.new("Frame")
- holder.Name, holder.BorderSizePixel, holder.ZIndex = "Preview", 0, 3
+ holder.Name, holder.BorderSizePixel, holder.ZIndex = "Preview", 0, 4
  holder.BackgroundColor3 = Color3.new(1, 1, 1)
  UI.Gradient(holder, theme.top, theme.bottom)
  corner(holder, 12)
+ local outline = Instance.new("UIStroke")
+ outline.Color, outline.Thickness, outline.ApplyStrokeMode = UI.Showcase.Outline, 4, Enum.ApplyStrokeMode.Border
+ outline.Parent = holder
  holder.Parent = parent
+ local frameRim = Instance.new("Frame")
+ frameRim.Name, frameRim.BackgroundTransparency, frameRim.ZIndex = "Rim", 1, 6
+ frameRim.AnchorPoint, frameRim.Position, frameRim.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.new(1, -6, 1, -6)
+ corner(frameRim, 9)
+ local rimStroke = Instance.new("UIStroke")
+ rimStroke.Color, rimStroke.Thickness, rimStroke.Transparency = Color3.new(1, 1, 1), 2, .35
+ rimStroke.Parent = frameRim
+ frameRim.Parent = holder
  if type(ground.shopImage) == "string" and ground.shopImage ~= "" then
   local image = Instance.new("ImageLabel")
   image.Name, image.BackgroundTransparency, image.Image, image.ZIndex = "Screenshot", 1, ground.shopImage, 3
@@ -584,41 +699,47 @@ RunService.RenderStepped:Connect(function()
  for _, preview in previews do placePreviewCamera(preview, now) end
 end)
 
+local layout -- (below)
 local function buildGrounds()
- for _, frame in groundCards do frame:Destroy() end
+ for _, card in groundCards do card.frame:Destroy() end
  table.clear(groundCards)
  table.clear(groundRefreshers)
- for index, ground in Monetization.GetShopGrounds(Player:GetAttribute("CurrentWorldId")) do
+ local grounds = Monetization.GetShopGrounds(Player:GetAttribute("CurrentWorldId"))
+ -- Dragon's Lair (the best ground) first.
+ table.sort(grounds, function(a, b)
+  return (a.id == Monetization.EveryWorldGround and 0 or 1) < (b.id == Monetization.EveryWorldGround and 0 or 1)
+ end)
+ for index, ground in grounds do
   local pass = Training.GetPassGround(ground)
   local everyWorld = ground.id == Monetization.EveryWorldGround
-  local frame = card(groundGrid, ground.id, everyWorld and CARD_FACES.ground or CARD_FACES.worldGround)
-  frame.LayoutOrder = index
-  table.insert(groundCards, frame)
-  local preview = groundPicture(frame, ground, everyWorld and "ground" or "worldGround")
-  preview.Position, preview.Size = UDim2.fromOffset(8, 8), UDim2.new(1, -16, 0, PREVIEW_HEIGHT)
-  local top = PREVIEW_HEIGHT + 14
-  local name = label(frame, "Name", string.upper(ground.displayName), 32)
-  name.Position, name.Size, name.ZIndex = UDim2.fromOffset(12, top), UDim2.new(1, -24, 0, 36), 3
-  local multiplier = label(frame, "Multiplier", UI.Number(ground.powerMultiplier) .. "x POWER", 28, PRICE_GREEN)
-  multiplier.Position, multiplier.Size, multiplier.ZIndex = UDim2.fromOffset(12, top + 38), UDim2.new(1, -24, 0, 30), 3
-  local note = label(frame, "Where", everyWorld and "In every World" or "This World's premium ground", 18, UI.Colors.Muted)
-  note.Position, note.Size, note.ZIndex = UDim2.fromOffset(12, top + 70), UDim2.new(1, -24, 0, 22), 3
-  local button, set = robuxButton(frame, "Buy", function()
+  local theme = everyWorld and "ground" or "worldGround"
+  local card = makeCard(scroll, ground.id, PALETTES[theme], "ground", 11 + index, ground.displayName)
+  table.insert(groundCards, card)
+  card.picture = groundPicture(card.frame, ground, theme)
+  addLine(card, "Multiplier", UI.Number(ground.powerMultiplier) .. "x POWER", 34)
+  addLine(card, "Where", everyWorld and "TRAINING IN EVERY WORLD" or "THIS WORLD'S PREMIUM GROUND", 19, UI.Colors.Muted)
+  addPurchase(card, function()
    -- The server checks the pass and opens Roblox's prompt (TrainingService).
    if trainingRemote then trainingRemote:FireServer("Buy", ground.id) end
-  end)
-  button.AnchorPoint, button.Position, button.Size = Vector2.new(1, 1), UDim2.new(1, -10, 1, -10), UDim2.new(1, -86, 0, 54)
-  -- Owning it yourself never stops you gifting it.
-  local gift = giftButton(frame, Monetization.GetGroundGift(ground).id, ground.displayName)
-  gift.AnchorPoint, gift.Position, gift.Size = Vector2.new(0, 1), UDim2.new(0, 10, 1, -10), UDim2.fromOffset(54, 54)
+  end, Monetization.GetGroundGift(ground).id, ground.displayName) -- owning it never stops you gifting it
   local function update()
-   set(pass.gamePassId, price(pass.gamePassId, pass.robuxPrice), Player:GetAttribute("TrainingPass_" .. pass.id) == true)
+   setPrice(card, pass.gamePassId, price(pass.gamePassId, pass.robuxPrice), Player:GetAttribute("TrainingPass_" .. pass.id) == true)
   end
   table.insert(groundRefreshers, update)
   update()
   loadPrice(pass.gamePassId, Enum.InfoType.GamePass)
  end
+ if layout then layout() end
 end
+
+-- A copied MeshPart only draws in a ViewportFrame once its mesh has loaded, so the cages' meshes
+-- are loaded first, and the ground cards are rebuilt when they arrive.
+task.spawn(function()
+ local folder = Storage:WaitForChild("TrainingGroundModels", 60)
+ if not folder then return end
+ game:GetService("ContentProvider"):PreloadAsync({folder})
+ if visible then buildGrounds() end
+end)
 
 -- Gift player picker -------------------------------------------------------------------
 -- Over the Shop: the other players in this server (headshot, display name, @username), then a
@@ -628,7 +749,7 @@ local picker = Instance.new("Frame")
 picker.Name, picker.BackgroundColor3, picker.BackgroundTransparency = "GiftPicker", Color3.new(0, 0, 0), .45
 picker.Size, picker.ZIndex, picker.Visible, picker.Active = UDim2.fromScale(1, 1), 50, false, true
 picker.Parent = panel
-local pickerWindow = card(picker, "Window", {window.theme.top, window.theme.bottom})
+local pickerWindow = UI.ColorCard(picker, "Window", "Purple")
 pickerWindow.AnchorPoint, pickerWindow.Position, pickerWindow.Size = Vector2.new(.5, .5), UDim2.new(.5, 0, .5, 22), UDim2.new(1, -36, 1, -100)
 local pickerLimit = Instance.new("UISizeConstraint")
 pickerLimit.MaxSize, pickerLimit.Parent = Vector2.new(500, 470), pickerWindow
@@ -788,61 +909,149 @@ end
 Players.PlayerAdded:Connect(playersChanged)
 Players.PlayerRemoving:Connect(playersChanged)
 
+
 -- Layout ------------------------------------------------------------------------------
--- Columns and the Starter Pack's arrangement follow the list's width (in menu units).
-local function layout()
- local scale = math.max(panel.WindowScale.Scale, .01)
- local width = scroll.AbsoluteSize.X / scale - 28
- local narrow = width < 560
- for _, entry in grids do
-  local columns = width >= 760 and entry.columns[1] or width >= 420 and entry.columns[2] or entry.columns[3]
-  entry.layout.CellSize = UDim2.new(1 / columns, -12 * (columns - 1) / columns, 0, entry.height)
+-- Every card is placed in menu units from its width: heroes and grounds from the list's width,
+-- small cards from their grid cell. Below NARROW (phones held upright) cards stack and grids use
+-- one column.
+
+-- Stacks the card's lines from y; returns the bottom. When narrow, long lines (Wrap) take two
+-- rows and lines the tiles already say (NarrowHidden) are hidden.
+local function placeLines(card, x, y, width, align, narrow)
+ for _, line in card.lines do
+  line.Visible = not (narrow and line:GetAttribute("NarrowHidden"))
+  if not line.Visible then continue end
+  local wrap = narrow == true and line:GetAttribute("Wrap") == true
+  local height = line:GetAttribute("Height") * (wrap and 2 or 1)
+  line.TextWrapped = wrap
+  line.Position, line.Size, line.TextXAlignment = UDim2.fromOffset(x, y), UDim2.fromOffset(width, height), align
+  y += height
  end
- if narrow then
-  starter.Size = UDim2.new(1, 0, 0, 420)
-  starterArt.Position, starterArt.Size = UDim2.fromOffset(0, 50), UDim2.new(0, 120, 0, 150)
-  starterTitle.Position, starterTitle.Size = UDim2.fromOffset(12, 8), UDim2.new(1, -24, 0, 44)
-  rewards.Position, rewards.Size = UDim2.fromOffset(124, 56), UDim2.new(1, -134, 0, 236)
-  rewardGrid.CellSize = UDim2.new(1, 0, 0, 52)
-  starterButton.AnchorPoint, starterButton.Position, starterButton.Size = Vector2.new(1, 1), UDim2.new(1, -12, 1, -12), UDim2.new(1, -104, 0, 70)
-  starterGift.AnchorPoint, starterGift.Position, starterGift.Size = Vector2.new(0, 1), UDim2.new(0, 12, 1, -12), UDim2.fromOffset(70, 70)
- else
-  starter.Size = UDim2.new(1, 0, 0, 250)
-  starterArt.Position, starterArt.Size = UDim2.fromOffset(4, 6), UDim2.new(0, 170, 1, -12)
-  starterTitle.Position, starterTitle.Size = UDim2.fromOffset(180, 12), UDim2.new(1, -460, 0, 50)
-  rewards.Position, rewards.Size = UDim2.fromOffset(180, 68), UDim2.new(1, -460, 0, 168)
-  rewardGrid.CellSize = UDim2.new(.5, -4, 0, 52)
-  starterButton.AnchorPoint, starterButton.Position, starterButton.Size = Vector2.new(1, .5), UDim2.new(1, -16, .5, 0), UDim2.fromOffset(176, 80)
-  starterGift.AnchorPoint, starterGift.Position, starterGift.Size = Vector2.new(1, .5), UDim2.new(1, -200, .5, 0), UDim2.fromOffset(72, 72)
+ return y
+end
+
+-- The purchase row along bottom, ending at right: [crossed-out price] [Gift] [price]. With fill
+-- the price button stretches back to left; otherwise it is PRICE_WIDTH wide.
+local function placePurchase(card, left, right, bottom, height, fill)
+ local giftWidth = card.gift and height + 8 or 0
+ local priceWidth = fill and right - left - giftWidth or PRICE_WIDTH
+ card.buy.AnchorPoint, card.buy.Position, card.buy.Size = Vector2.new(1, 1), UDim2.fromOffset(right, bottom), UDim2.fromOffset(priceWidth, height)
+ local x = right - priceWidth - 8
+ if card.gift then
+  card.gift.AnchorPoint, card.gift.Position, card.gift.Size = Vector2.new(1, 1), UDim2.fromOffset(x, bottom), UDim2.fromOffset(height, height)
+  x -= height + 10
  end
- if bundle then
-  bundle.Size = UDim2.new(1, 0, 0, narrow and 240 or 150)
-  local title, body, button, gift = bundle.Title, bundle.Contents, bundle.Buy, bundle.Gift
-  -- On narrow screens the buttons run along the bottom, so the boxes stay above them.
-  bundle.Art.Size = UDim2.new(0, 190, 1, narrow and -96 or -16)
-  title.Size = UDim2.new(1, narrow and -220 or -520, 0, 40)
-  body.Size = UDim2.new(1, narrow and -220 or -520, 0, 60)
-  if narrow then
-   button.AnchorPoint, button.Position, button.Size = Vector2.new(1, 1), UDim2.new(1, -10, 1, -10), UDim2.new(1, -90, 0, 60)
-   gift.AnchorPoint, gift.Position, gift.Size = Vector2.new(0, 1), UDim2.new(0, 10, 1, -10), UDim2.fromOffset(60, 60)
-  else
-   button.AnchorPoint, button.Position, button.Size = Vector2.new(1, .5), UDim2.new(1, -16, .5, 0), UDim2.fromOffset(200, 66)
-   gift.AnchorPoint, gift.Position, gift.Size = Vector2.new(1, .5), UDim2.new(1, -226, .5, 0), UDim2.fromOffset(66, 66)
-  end
+ if card.strike and not fill then
+  card.strike.AnchorPoint, card.strike.Position = Vector2.new(1, .5), UDim2.fromOffset(x, bottom - height / 2)
  end
 end
-scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
-panel.WindowScale:GetPropertyChangedSignal("Scale"):Connect(layout)
 
--- The Cat Bat picture needs the published models (the server publishes them at start).
-task.spawn(function()
- local folder = Storage:WaitForChild("BatModels", 30)
- local model = folder and folder:WaitForChild(PACK.batId, 30)
- if model and not starterArt:FindFirstChild("Picture") then
-  local picture = batPicture(starterArt)
-  if picture then picture.Size = UDim2.fromScale(1, 1) end
+local function purchaseWidth(card)
+ return PRICE_WIDTH + (card.gift and BUTTON + 8 or 0) + (card.strike and card.strike.Visible and 100 or 0)
+end
+
+local function placeTiles(card, x, y, size)
+ card.tileRow.Position, card.tileRow.Size = UDim2.fromOffset(x, y), UDim2.fromOffset(0, size)
+ for _, tile in card.tiles do tile.Size = UDim2.fromOffset(size, size) end
+end
+
+-- A hero card: a big picture (over a sunburst) on the left overlapping the top edge, the name,
+-- lines and tiles to its right, the purchase row at the bottom right. Returns its height.
+local function placeHero(card, width)
+ local narrow = width < NARROW
+ local art = narrow and 120 or 196
+ local left = art + (narrow and 16 or 24)
+ local right = width - 16
+ local align = narrow and Enum.TextXAlignment.Left or Enum.TextXAlignment.Right
+ card.name.Position, card.name.Size, card.name.TextXAlignment = UDim2.fromOffset(left, 8), UDim2.fromOffset(right - left, narrow and 40 or 50), align
+ local y = placeLines(card, left, narrow and 50 or 60, right - left, align, narrow)
+ local tileSize = narrow and SMALL_TILE or TILE
+ local tilesWidth = #card.tiles * (tileSize + 8) - 8
+ local height
+ if narrow then
+  y = math.max(y + 6, art - 4)
+  if card.tileRow then
+   placeTiles(card, 12, y, tileSize)
+   -- The purchase row fills the width, so a crossed-out price sits beside the tiles.
+   if card.strike then
+    card.strike.AnchorPoint, card.strike.Position = Vector2.new(0, .5), UDim2.fromOffset(12 + tilesWidth + 16, y + tileSize / 2)
+   end
+   y += tileSize + 10
+  end
+  height = y + BUTTON + 12
+  placePurchase(card, 12, right + 4, height - 12, BUTTON, true)
+ else
+  -- The tiles sit beside the purchase row when they fit, otherwise on a row of their own.
+  local beside = card.tileRow and tilesWidth + purchaseWidth(card) + 16 <= right - left
+  local row = beside and math.max(BUTTON, tileSize) or BUTTON
+  if card.tileRow and not beside then
+   placeTiles(card, right - tilesWidth, y + 6, tileSize)
+   y += tileSize + 10
+  end
+  height = math.max(y + 8 + row + 12, 150)
+  placePurchase(card, left, right, height - 12, BUTTON, false)
+  if beside then placeTiles(card, left, height - 12 - tileSize, tileSize) end
  end
-end)
+ card.art.Position = UDim2.fromOffset(8, -12)
+ card.art.Size = UDim2.fromOffset(art, narrow and art or height + 4)
+ if card.glow then
+  card.glow.Position, card.glow.Size = UDim2.fromOffset(8, 8), UDim2.fromOffset(art, (narrow and art - 12 or height - 16))
+ end
+ return height
+end
+
+-- A small card (a grid cell): the picture top left overlapping the edge, the name and lines to
+-- its right, the purchase row along the bottom.
+local function placeSmall(card, width, height)
+ local art = math.clamp(math.floor(width * .28), 76, 108)
+ card.art.Position, card.art.Size = UDim2.fromOffset(4, -10), UDim2.fromOffset(art, art)
+ local left, right = art + 12, width - 10
+ card.name.Position, card.name.Size, card.name.TextXAlignment = UDim2.fromOffset(left, 8), UDim2.fromOffset(right - left, 34), Enum.TextXAlignment.Left
+ placeLines(card, left, 44, right - left, Enum.TextXAlignment.Left)
+ placePurchase(card, 10, right, height - 10, SMALL_BUTTON, true)
+end
+
+-- A Training Ground card: its wide picture on the left (on top when narrow), the name, lines and
+-- purchase row beside it. Returns its height.
+local function placeGround(card, width)
+ local narrow = width < NARROW
+ local right = width - 16
+ if narrow then
+  local pictureWidth = width - 20
+  card.picture.Position, card.picture.Size = UDim2.fromOffset(10, 10), UDim2.fromOffset(pictureWidth, math.floor(pictureWidth / 2.2))
+  local top = math.floor(pictureWidth / 2.2) + 18
+  card.name.Position, card.name.Size, card.name.TextXAlignment = UDim2.fromOffset(12, top), UDim2.fromOffset(right - 12, 40), Enum.TextXAlignment.Left
+  local y = placeLines(card, 12, top + 42, right - 12, Enum.TextXAlignment.Left)
+  local height = y + 8 + BUTTON + 12
+  placePurchase(card, 12, right + 4, height - 12, BUTTON, true)
+  return height
+ end
+ local pictureWidth = math.clamp(math.floor(width * .48), 280, 400)
+ local pictureHeight = math.floor(pictureWidth / 2.2)
+ local left = pictureWidth + 26
+ card.name.Position, card.name.Size, card.name.TextXAlignment = UDim2.fromOffset(left, 10), UDim2.fromOffset(right - left, 50), Enum.TextXAlignment.Right
+ local y = placeLines(card, left, 62, right - left, Enum.TextXAlignment.Right)
+ local height = math.max(pictureHeight + 20, y + 8 + BUTTON + 12)
+ card.picture.Position, card.picture.Size = UDim2.fromOffset(10, math.floor((height - pictureHeight) / 2)), UDim2.fromOffset(pictureWidth, pictureHeight)
+ placePurchase(card, left, right, height - 12, BUTTON, false)
+ return height
+end
+
+layout = function()
+ local scale = math.max(panel.WindowScale.Scale, .01)
+ local width = math.floor(scroll.AbsoluteWindowSize.X / scale) - GAP * 2
+ if width < 200 then return end
+ for _, entry in grids do
+  local columns = width >= 700 and entry.columns[1] or width >= NARROW and entry.columns[2] or entry.columns[3]
+  local cell = math.floor((width - GAP * (columns - 1)) / columns)
+  entry.layout.CellSize = UDim2.fromOffset(cell, entry.height)
+  for _, card in entry.cards do placeSmall(card, cell, entry.height) end
+ end
+ for _, card in heroes do card.frame.Size = UDim2.fromOffset(width, placeHero(card, width)) end
+ for _, card in groundCards do card.frame.Size = UDim2.fromOffset(width, placeGround(card, width)) end
+end
+scroll:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(layout)
+panel.WindowScale:GetPropertyChangedSignal("Scale"):Connect(layout)
 
 Interfaces.Register("Store", function(open)
  visible = open

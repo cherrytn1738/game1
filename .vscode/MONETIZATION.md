@@ -128,9 +128,48 @@ Balls are bought for Cash only at the hub display pedestals).
   for Dragon's Lair). It uses low ambient and a strong key light, and frames the whole cage with
   padding, centred, mostly side-on from the door side and the batter's end. The camera sways
   slowly while the Shop is open. Neon and particles don't glow in a ViewportFrame, which is what
-  the screenshots fix.
+  the screenshots fix. A copied MeshPart only draws once its mesh has loaded, so the Shop preloads
+  `TrainingGroundModels` and rebuilds the ground cards when the meshes arrive.
 
-While an id is 0 its button reads SOON, never opens a prompt, and a tap says it is coming soon.
+While an id is 0 its button shows the price in blue with a SOON sticker on the card, never opens
+a prompt, and a tap says it is coming soon.
+
+### Shop look
+A dark Showcase window (UICommon's Grey theme, with the shared menu blur) holding bold colour
+cards (`UI.ColorCard`: a palette gradient, a faint stud pattern, a lighter inner rim and the thick
+dark outline). Each section opens with a full-width hero card for its best item, then smaller
+cards in columns:
+- **Heroes:** the Starter Pack (rainbow), the Large Cash Pack (green) and the Boost Bundle (pink),
+  each with its picture over a slowly turning sunburst, and Dragon's Lair (orange) ahead of the
+  World's premium ground (purple). Grounds are both full width, since their pictures are wide.
+  Multipliers have no hero: Power (gold) and Cash (teal) sit side by side as equals.
+- **Small cards:** the Tiny / Small / Medium Cash Packs in three columns, Power Punch (crimson) and
+  Cash Splash (blue) in two. Phones held upright get one column and stacked heroes.
+- **Contents:** packs list what they hold as white tiles (`UI.ItemTile`: icon and "+10K", "x2").
+- **Purchase row:** a lime price button with the Robux icon (`UI.PriceButton`) and a square purple
+  Gift button (`UI.GiftButton`) where gifting applies.
+- **States:** cards keep their colour. SOON is a blue price button and a blue sticker, owned is a
+  gold OWNED button and a green sticker, and a full multiplier reads MAXED in gold
+  (`UI.CardBadge`).
+- **Real comparisons only:** the Boost Bundle's crossed-out price (`UI.StrikePrice`) and SAVE n%
+  come from the same juices bought one at a time (live prices once loaded). BEST VALUE marks the
+  Cash Pack with the most hits per Robux. The Starter Pack has no crossed-out price: its Rebirth
+  and Bat are not sold on their own.
+
+### Shop images
+Every card can show an uploaded picture instead of its built-in one (icons and 3D models). Leave
+a field empty to keep the built-in picture.
+- **Items** (`MonetizationConfig`): `StarterPack.shopImage`, each Cash Pack's and juice product's
+  `shopImage`, and `MultiplierShopImages.Power` / `.Cash`. Use a **512 x 512 PNG with a
+  transparent background**: the item alone, centred, filling about 90% of the square, and no text.
+  The card tilts it a little and lets it overlap the card's top edge.
+- **Training Grounds** (`TrainingConfig` `shopImage`): a 1100 x 500 screenshot, below.
+
+Worth making first: the Starter Pack (the Catastrophe Bat with a juice box and a Power bolt), the
+Large Cash Pack (a big pile of Cash), the Boost Bundle (both juice boxes together) and the five
+ground screenshots. Then the Power and Cash multipliers (a glowing bolt and a Cash stack with a
+"x" badge drawn as part of the art), the Tiny / Small / Medium Cash Packs (bigger piles each) and
+the two juices.
 
 ### Training Ground Shop images
 All five use the same framing, so the cards match. `tools/studio/ground_shop_shot.luau` sets the
@@ -144,10 +183,9 @@ camera to the 3D preview's view of a ground.
 3. **Take the screenshot.** Wait a second for the particles and glow to settle, then take a
    screenshot of the viewport (for example Win+Shift+S).
 4. **Crop it** to the centred 2.2:1 area and resize it to **1100 x 500 PNG**.
-   - The cage fills the middle. Narrow Shop windows show only about the centre half of the
-     picture, so keep it centred and don't add text.
-   - Every image is the same size: the card crops to fill at about 2.2:1 on desktop and phone
-     landscape.
+   - The cage fills the middle; keep it centred and don't add text.
+   - Every image is the same size: the card's picture window is always 2.2:1 (beside the name on
+     wide screens, across the top on phones held upright).
 5. **Restore.** Run the script with `RESTORE = true`, then repeat for the next ground:
    `cosmic_rift`, `time_machine_lab`, `quantum_lab`, `snow_globe`, `dragons_lair`.
 6. **Upload.** Upload each PNG as an image: Studio's Asset Manager > Import, or the Creator

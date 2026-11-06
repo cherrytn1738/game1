@@ -796,6 +796,237 @@ function UI.Hero(parent, imageId)
  return hero
 end
 
+-- ---------- Colour cards (the Shop; for any menu on a dark Showcase window) ----------
+-- Bold saturated cards: a gradient face in the palette's colours, a faint stud pattern, a lighter
+-- inner rim and the thick dark outline. Cards never clip, so a big picture can overlap the edge.
+-- Names are huge outlined labels tinted to the card (UI.CardTitle).
+local STUDS = "rbxassetid://89044545794996" -- a white raised-stud tile (tinted and faded in use)
+local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
+-- top / bottom: the face gradient (or colors: a left-to-right ColorSequence), rim: the inner
+-- rim, name: the name's tint (light, deep).
+UI.CardPalettes = {
+ Green = {top = rgb(110, 225, 70), bottom = rgb(30, 145, 55), rim = rgb(190, 255, 150), name = {rgb(235, 255, 190), rgb(150, 255, 90)}},
+ Teal = {top = rgb(50, 215, 190), bottom = rgb(15, 120, 130), rim = rgb(170, 255, 240), name = {rgb(225, 255, 250), rgb(110, 250, 225)}},
+ Gold = {top = rgb(255, 208, 50), bottom = rgb(232, 128, 15), rim = rgb(255, 240, 160), name = {rgb(255, 252, 215), rgb(255, 220, 70)}},
+ Orange = {top = rgb(255, 150, 40), bottom = rgb(205, 50, 20), rim = rgb(255, 210, 140), name = {rgb(255, 240, 190), rgb(255, 180, 60)}},
+ Crimson = {top = rgb(240, 60, 90), bottom = rgb(145, 15, 45), rim = rgb(255, 160, 175), name = {rgb(255, 225, 230), rgb(255, 130, 150)}},
+ Pink = {top = rgb(255, 120, 205), bottom = rgb(200, 40, 145), rim = rgb(255, 200, 240), name = {rgb(255, 235, 250), rgb(255, 170, 230)}},
+ Purple = {top = rgb(165, 100, 255), bottom = rgb(85, 38, 195), rim = rgb(215, 185, 255), name = {rgb(245, 230, 255), rgb(205, 160, 255)}},
+ Blue = {top = rgb(70, 170, 255), bottom = rgb(28, 78, 215), rim = rgb(170, 215, 255), name = {rgb(225, 245, 255), rgb(130, 210, 255)}},
+ Rainbow = {colors = ColorSequence.new({ColorSequenceKeypoint.new(0, rgb(255, 80, 110)), ColorSequenceKeypoint.new(.2, rgb(255, 160, 50)),
+  ColorSequenceKeypoint.new(.4, rgb(255, 215, 60)), ColorSequenceKeypoint.new(.6, rgb(90, 210, 90)), ColorSequenceKeypoint.new(.8, rgb(60, 160, 255)),
+  ColorSequenceKeypoint.new(1, rgb(170, 90, 255))}), rim = rgb(255, 255, 255), name = {rgb(255, 255, 235), rgb(255, 225, 90)}},
+}
+-- Extra button faces for colour cards: Lime (buy), Purple (gift), Gold (owned / maxed).
+UI.ShowcaseButtons.Lime = {rgb(185, 255, 70), rgb(75, 195, 25)}
+UI.ShowcaseButtons.Purple = {rgb(195, 120, 255), rgb(125, 50, 220)}
+UI.ShowcaseButtons.Gold = {rgb(255, 225, 80), rgb(235, 150, 20)}
+-- Sticker colours (UI.CardBadge): face top and bottom.
+UI.BadgeColors = {
+ Soon = {rgb(110, 190, 255), rgb(40, 100, 230)}, Owned = {rgb(150, 245, 80), rgb(45, 170, 40)},
+ Maxed = {rgb(255, 225, 80), rgb(235, 150, 20)}, Deal = {rgb(255, 90, 100), rgb(205, 20, 50)},
+}
+
+-- A faint tiled stud pattern filling parent (rounded to radius).
+function UI.Pattern(parent, transparency, tile, radius)
+ local image = Instance.new("ImageLabel")
+ image.Name, image.BackgroundTransparency = "Pattern", 1
+ image.Size, image.Image, image.ImageTransparency = UDim2.fromScale(1, 1), STUDS, transparency or .72
+ image.ScaleType, image.TileSize = Enum.ScaleType.Tile, UDim2.fromOffset(tile or 34, tile or 34)
+ corner(image, radius or 16)
+ image.Parent = parent
+ return image
+end
+
+-- A colour card (a UI.CardPalettes key). Returns the card and its palette.
+function UI.ColorCard(parent, name, paletteName)
+ local palette = UI.CardPalettes[paletteName] or UI.CardPalettes.Blue
+ local card = Instance.new("Frame")
+ card.Name, card.BorderSizePixel, card.BackgroundColor3 = name, 0, Color3.new(1, 1, 1)
+ card:SetAttribute("Palette", paletteName)
+ corner(card, 16)
+ stroke(card, UI.Showcase.Outline, 4)
+ local face = Instance.new("UIGradient")
+ face.Name = "Face"
+ if palette.colors then
+  face.Color, face.Rotation = palette.colors, 0
+ else
+  face.Color, face.Rotation = ColorSequence.new(palette.top, palette.bottom), 90
+ end
+ face.Parent = card
+ UI.Pattern(card)
+ rim(card, 8, palette.rim, 3, .2, 11).Name = "Rim"
+ card.Parent = parent
+ return card, palette
+end
+
+-- A huge outlined name tinted to its card's palette (TextScaled up to size).
+function UI.CardTitle(parent, name, text, size, palette)
+ local label = UI.ShowcaseLabel(parent, name, text, size)
+ label.TextScaled = true
+ label:FindFirstChildOfClass("UIStroke").Thickness = math.clamp(size / 8, 3, 6)
+ local limit = Instance.new("UITextSizeConstraint")
+ limit.MaxTextSize, limit.MinTextSize, limit.Parent = size, 12, label
+ if palette and palette.name then UI.Gradient(label, palette.name[1], palette.name[2]) end
+ return label
+end
+
+-- A slowly turning sunburst filling parent, for featured items (it turns only while shown).
+local spinners, spinning = {}, nil
+local function onScreen(object)
+ local ancestor = object
+ while ancestor do
+  if ancestor:IsA("GuiObject") and not ancestor.Visible then return false end
+  if ancestor:IsA("LayerCollector") then return ancestor.Enabled end
+  ancestor = ancestor.Parent
+ end
+ return false
+end
+function UI.Sunburst(parent, transparency)
+ local burst = Instance.new("ImageLabel")
+ burst.Name, burst.BackgroundTransparency = "Sunburst", 1
+ burst.AnchorPoint, burst.Position, burst.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(1, 1)
+ burst.Image, burst.ScaleType, burst.ImageTransparency = SUNBURST, Enum.ScaleType.Fit, transparency or .45
+ local ratio = Instance.new("UIAspectRatioConstraint")
+ ratio.AspectRatio, ratio.Parent = 1, burst
+ burst.Parent = parent
+ spinners[burst] = true
+ burst.Destroying:Connect(function() spinners[burst] = nil end)
+ if not spinning then
+  spinning = game:GetService("RunService").RenderStepped:Connect(function(dt)
+   for spinner in spinners do
+    if onScreen(spinner) then spinner.Rotation = (spinner.Rotation + 12 * dt) % 360 end
+   end
+  end)
+ end
+ return burst
+end
+
+-- The colour cards' purchase button: the Robux icon and a price. set(state, text): "buy" (lime),
+-- "soon" (blue: not on sale yet, still pressable to say so) or "owned" (gold, no icon, inactive).
+function UI.PriceButton(parent, name, textSize)
+ textSize = textSize or 30
+ local button = UI.ShowcaseButton(parent, name)
+ local visual = button.Visual
+ visual.Caption.Visible = false
+ local content = Instance.new("Frame")
+ content.Name, content.BackgroundTransparency, content.ZIndex = "Content", 1, 3
+ content.Size = UDim2.new(1, -8, 1, -6)
+ content.Position = UDim2.fromOffset(4, 0)
+ content.Parent = visual
+ local row = Instance.new("UIListLayout")
+ row.FillDirection, row.HorizontalAlignment = Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Center
+ row.VerticalAlignment, row.Padding, row.SortOrder = Enum.VerticalAlignment.Center, UDim.new(0, 6), Enum.SortOrder.LayoutOrder
+ row.Parent = content
+ -- The white Robux icon over a dark copy a little larger, as its outline.
+ local iconSize = math.floor(textSize * 1.05)
+ local robux = Instance.new("Frame")
+ robux.Name, robux.BackgroundTransparency, robux.Size, robux.ZIndex = "Robux", 1, UDim2.fromOffset(iconSize, iconSize), 3
+ robux.Parent = content
+ local shade = UI.Icon(robux, "Outline", UI.Icons.Robux)
+ shade.AnchorPoint, shade.Position, shade.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.new(1, 5, 1, 5)
+ shade.ImageColor3, shade.ZIndex = UI.Showcase.Outline, 3
+ local icon = UI.Icon(robux, "Icon", UI.Icons.Robux)
+ icon.Size, icon.ZIndex = UDim2.fromScale(1, 1), 4
+ local price = UI.ShowcaseLabel(content, "Price", "", textSize)
+ price.AutomaticSize, price.Size, price.LayoutOrder, price.ZIndex = Enum.AutomaticSize.X, UDim2.new(0, 0, 1, 0), 2, 4
+ local function set(state, text)
+  UI.SetShowcaseButton(button, "", state == "buy" and "Lime" or state == "soon" and "Blue" or "Gold", state ~= "owned")
+  button:SetAttribute("PriceState", state)
+  robux.Visible, price.Text = state ~= "owned", text
+ end
+ set("buy", "")
+ return button, set
+end
+
+-- A small square purple Gift button (a wrapped present); soon adds a SOON note under it.
+function UI.GiftButton(parent, name, soon)
+ local button = UI.ShowcaseButton(parent, name or "Gift")
+ UI.SetShowcaseButton(button, "", "Purple", true)
+ local present = UI.Icon(button.Visual, "GiftIcon", UI.Icons.Rewards)
+ present.AnchorPoint, present.Position, present.ZIndex = Vector2.new(.5, .5), UDim2.fromScale(.5, soon and .4 or .46), 4
+ present.Size = UDim2.fromScale(soon and .62 or .76, soon and .62 or .76)
+ if soon then
+  local note = UI.ShowcaseLabel(button.Visual, "Soon", "SOON", 14)
+  note.AnchorPoint, note.Position, note.Size, note.ZIndex = Vector2.new(.5, 1), UDim2.new(.5, 0, 1, -5), UDim2.new(1, 0, 0, 14), 5
+  note.TextXAlignment = Enum.TextXAlignment.Center
+ end
+ return button
+end
+
+-- A white rounded tile showing one item of a pack: picture (an image id, or a function(parent)
+-- returning a GuiObject) over its quantity ("x10K", "+1").
+function UI.ItemTile(parent, name, quantity, picture)
+ local tile = Instance.new("Frame")
+ tile.Name, tile.BorderSizePixel, tile.BackgroundColor3 = name, 0, Color3.new(1, 1, 1)
+ corner(tile, 12)
+ stroke(tile, UI.Showcase.Outline, 3)
+ UI.Gradient(tile, Color3.new(1, 1, 1), rgb(205, 218, 238))
+ local art = type(picture) == "string" and UI.Icon(tile, "Icon", picture) or picture(tile)
+ art.AnchorPoint, art.Position, art.Size, art.ZIndex = Vector2.new(.5, .5), UDim2.fromScale(.5, .4), UDim2.fromScale(.78, .74), 2
+ local count = UI.ShowcaseLabel(tile, "Quantity", quantity, 24)
+ count.AnchorPoint, count.Position, count.Size, count.ZIndex = Vector2.new(.5, 1), UDim2.new(.5, 0, 1, 3), UDim2.new(1, 6, .42, 0), 3
+ count.TextXAlignment, count.TextScaled = Enum.TextXAlignment.Center, true
+ local limit = Instance.new("UITextSizeConstraint")
+ limit.MaxTextSize, limit.Parent = 24, count
+ tile.Parent = parent
+ return tile
+end
+
+-- A tilted sticker on a card's top corner (side "right" or "left"); kind is a UI.BadgeColors key.
+-- set(text, kind) changes it; an empty text hides it.
+function UI.CardBadge(parent, name, side)
+ local right = side ~= "left"
+ local badge = Instance.new("Frame")
+ badge.Name, badge.BorderSizePixel, badge.BackgroundColor3, badge.ZIndex = name, 0, Color3.new(1, 1, 1), 8
+ badge.AnchorPoint = Vector2.new(right and 1 or 0, 0)
+ badge.Position = right and UDim2.new(1, 8, 0, -12) or UDim2.fromOffset(-8, -12)
+ badge.Size, badge.AutomaticSize, badge.Rotation = UDim2.fromOffset(0, 32), Enum.AutomaticSize.X, right and 7 or -7
+ corner(badge, 10)
+ stroke(badge, UI.Showcase.Outline, 3)
+ local face = UI.Gradient(badge, UI.BadgeColors.Soon[1], UI.BadgeColors.Soon[2])
+ local padding = Instance.new("UIPadding")
+ padding.PaddingLeft, padding.PaddingRight, padding.Parent = UDim.new(0, 12), UDim.new(0, 12), badge
+ local text = UI.ShowcaseLabel(badge, "Text", "", 22)
+ text.AutomaticSize, text.Size, text.ZIndex = Enum.AutomaticSize.X, UDim2.new(0, 0, 1, -2), 9
+ badge.Parent = parent
+ return badge, function(value, kind)
+  local colors = UI.BadgeColors[kind] or UI.BadgeColors.Soon
+  face.Color = ColorSequence.new(colors[1], colors[2])
+  text.Text, badge.Visible = value or "", value ~= nil and value ~= ""
+ end
+end
+
+-- A crossed-out Robux price (a real comparison only, such as the items bought separately).
+function UI.StrikePrice(parent, name, textSize)
+ textSize = textSize or 26
+ local holder = Instance.new("Frame")
+ holder.Name, holder.BackgroundTransparency = name, 1
+ holder.Size, holder.AutomaticSize = UDim2.fromOffset(0, textSize + 6), Enum.AutomaticSize.X
+ -- The icon and price sit in a row; the bar lies over the row, outside its layout.
+ local content = Instance.new("Frame")
+ content.Name, content.BackgroundTransparency = "Row", 1
+ content.Size, content.AutomaticSize = UDim2.new(0, 0, 1, 0), Enum.AutomaticSize.X
+ content.Parent = holder
+ local row = Instance.new("UIListLayout")
+ row.FillDirection, row.VerticalAlignment, row.Padding = Enum.FillDirection.Horizontal, Enum.VerticalAlignment.Center, UDim.new(0, 3)
+ row.SortOrder, row.Parent = Enum.SortOrder.LayoutOrder, content
+ local icon = UI.Icon(content, "Robux", UI.Icons.Robux)
+ icon.Size = UDim2.fromOffset(textSize - 4, textSize - 4)
+ local text = UI.ShowcaseLabel(content, "Price", "", textSize)
+ text.AutomaticSize, text.Size, text.LayoutOrder = Enum.AutomaticSize.X, UDim2.new(0, 0, 1, 0), 2
+ local bar = Instance.new("Frame")
+ bar.Name, bar.BorderSizePixel, bar.BackgroundColor3, bar.ZIndex = "Strike", 0, rgb(230, 25, 50), 6
+ bar.AnchorPoint, bar.Position, bar.Size, bar.Rotation = Vector2.new(.5, .5), UDim2.fromScale(.5, .55), UDim2.new(1, 8, 0, 3), -12
+ corner(bar, 2)
+ stroke(bar, UI.Showcase.Outline, 1.5)
+ bar.Parent = holder
+ holder.Parent = parent
+ return holder, function(value)
+  text.Text, holder.Visible = value or "", value ~= nil
+ end
+end
+
 -- Notices float as big outlined text in the middle of the screen, with no panel behind them.
 -- Errors, Rebirth complete and World unlocks also unfocus the screen (the shared blur and a dark
 -- tint); routine notices only float. A notice never takes input: players keep moving and
