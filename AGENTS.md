@@ -400,7 +400,7 @@ Offline Power:
 - grants once per valid login/session
 - only once the new-player tutorial is complete: a return mid-tutorial earns nothing and shows no Welcome Back screen (its logout time is still used up)
 
-Welcome Back (`TrainingClient`, after at least `OfflineNoticeMinimumSeconds`, 5 minutes, away) is a notification-like popup (`UI.RewardPopup`), not a menu. It shows the Power earned counting up under a bolt on a sunburst, "Away 3h 12m" (plus "MAX LEVEL - REBIRTH AVAILABLE" at the cap) and Claim! (it only closes; the reward was added at login). Below the cap a rainbow 3x button sits beside Claim!, with a Robux badge (10 Robux, `TrainingConfig.OfflineTriple`; SOON while its `productId` is 0). After a purchase the popup counts up to the server's new total (`OfflineTriplePower`) and celebrates, and the 3x button goes away.
+Welcome Back (`TrainingClient`, after at least `OfflineNoticeMinimumSeconds`, 5 minutes, away) is a notification-like popup (`UI.RewardPopup`), not a menu. It shows the Power earned counting up under a bolt on a sunburst, "MAX LEVEL - REBIRTH AVAILABLE" at the cap and Claim! (it only closes; the reward was added at login). Below the cap a rainbow 3x button sits beside Claim!, with a Robux badge (10 Robux, `TrainingConfig.OfflineTriple`; SOON while its `productId` is 0). After a purchase the popup counts up to the server's new total (`OfflineTriplePower`) and celebrates, and the 3x button goes away.
 
 Never trust client time or client-provided offline duration.
 

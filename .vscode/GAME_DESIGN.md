@@ -922,7 +922,7 @@ login conservatively has no new offline timestamp to use.
 **Welcome Back popup and the 3x offer.** After at least 5 minutes away (`OfflineNoticeMinimumSeconds` 300), `TrainingClient` shows a popup built with `UI.RewardPopup`, which feels like a notification rather than a menu. It sits over the notices' blur (9) and 45% dark tint, which always go away when it closes, and has no close button:
 - **Panel:** a translucent dark panel with a thick dark outline. "Welcome Back!" in big outlined FredokaOne rides over its top edge, with the clock-and-bolt icon (`UI.ClockIcon`) breaking out of the top-left corner. "You trained while you were offline:" sits under it.
 - **Reward:** the Power bolt over a slowly turning sunburst, with the amount in large gold outlined text ("+8,405,018 POWER"), counting up quickly when it appears.
-- **Detail line:** one small line, "Away 3h 12m" ("(max)" at 8 hours). At the Level Cap a short "MAX LEVEL - REBIRTH AVAILABLE" follows in gold.
+- **Detail line:** only at the Level Cap, a short "MAX LEVEL - REBIRTH AVAILABLE" in gold (there is no time-away line).
 - **Text sizing:** every line stays on one line, measured to fit narrow phones. On short screens (phones held sideways) the gaps tighten.
 - **Claim!** (lime) closes the popup; the reward was already added at login.
 - **3x button:** rainbow, showing the total after tripling, with a small Robux price badge on its top-right corner (SOON while `productId` is 0; a tap then explains it is coming soon). It buys the offline reward twice more, 3x in all, up to all the Power the player needed for the Level Cap at login (`TrainingConfig.OfflineTriple`, 10 Robux, `runShare` 1: it can finish the run, never pass it).

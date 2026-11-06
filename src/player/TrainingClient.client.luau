@@ -322,13 +322,6 @@ Interfaces.Register("Offline",function(visible)
  offlinePopup.show(visible)
 end)
 
--- "Away 3h 12m" (the time that counted, at most MaximumOfflineSeconds).
-local function awayText(seconds)
- local hours, minutes = math.floor(seconds / 3600), math.floor(seconds % 3600 / 60)
- local text = "Away " .. (hours > 0 and hours .. "h " .. minutes .. "m" or minutes .. "m")
- return seconds >= Config.MaximumOfflineSeconds and text .. " (max)" or text
-end
-
 -- The base reward was added at login (Claim! only closes the screen). This display runs once for
 -- this player session, not per respawn.
 local offlineCaptured, offlinePending = false, false
@@ -343,7 +336,7 @@ local function offlineNotice()
   local newLevel = Player:GetAttribute("OfflineNewLevel")
   local capped = newLevel and newLevel >= Player:GetAttribute("LevelCap")
   offlineEarned = amount
-  offlineLines = {awayText(seconds)}
+  offlineLines = {}
   if capped then table.insert(offlineLines, {text = "MAX LEVEL - REBIRTH AVAILABLE", color = UI.Colors.Gold}) end
  end
  local character = Player.Character

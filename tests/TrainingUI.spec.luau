@@ -187,7 +187,7 @@ return function(sources)
  local welcome=openWelcomeBack()
  check(welcome.shown and welcome.amount==8740 and welcome.offerText=="+17481" and welcome.offerPrice==nil,
   "the 3x button shows the server's capped total, not three times the reward, and SOON without a product")
- check(#welcome.lines==1 and welcome.lines[1]=="Away 8h 0m (max)","one small line says how long the player was away")
+ check(#welcome.lines==0,"below the cap there is no detail line")
  -- Bought: the amount counts up to the server's new total, it celebrates and the 3x goes away.
  player:SetAttribute("OfflineTriplePower",14481)
  player:SetAttribute("OfflineTripleAvailable",false)
@@ -204,12 +204,12 @@ return function(sources)
  trainingConfig.OfflineTriple.productId=777
  local priced=rerun({OfflineSeconds=3*3600+12*60,OfflinePowerEarned=500,OfflineTriplePower=1500,OfflineTripleAvailable=true})
  trainingConfig.OfflineTriple.productId=0
- check(priced.shown and priced.offerPrice==10 and priced.lines[1]=="Away 3h 12m","the price badge shows 10 Robux once the product exists")
+ check(priced.shown and priced.offerPrice==10,"the price badge shows 10 Robux once the product exists")
  -- At the Level Cap offline Power still shows; there is no 3x, and a short line says to Rebirth.
  local capped=rerun({OfflineSeconds=2*3600,OfflinePowerEarned=5000,OfflineTriplePower=5000,OfflineTripleAvailable=false,
   OfflineNewLevel=20,LevelCap=20})
- check(capped.shown and capped.amount==5000 and capped.offerText==nil and #capped.lines==2
-  and capped.lines[2].text=="MAX LEVEL - REBIRTH AVAILABLE","at the Level Cap: the Power earned, no 3x and the Rebirth line")
+ check(capped.shown and capped.amount==5000 and capped.offerText==nil and #capped.lines==1
+  and capped.lines[1].text=="MAX LEVEL - REBIRTH AVAILABLE","at the Level Cap: the Power earned, no 3x and the Rebirth line")
  -- Under five minutes away there is no Welcome Back.
  local short=rerun({OfflineSeconds=299,OfflinePowerEarned=40,OfflineNewLevel=4})
  check(not short.shown and short.amount==nil,"no Welcome Back under five minutes away")
