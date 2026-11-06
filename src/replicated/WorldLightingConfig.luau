@@ -54,23 +54,24 @@ WorldLighting.Presets = {
   sunRays = {Intensity = 0.04, Spread = 0.75},
   colorCorrection = {Saturation = 0.22, Contrast = 0.06, Brightness = 0.02, TintColor = Color3.fromRGB(255, 238, 220)},
  },
- -- Future World: night, so the Neon strips, skyscraper bands and space areas glow. A bright
- -- violet-blue ambient keeps the ball, the runway and the cages easy to read; stronger bloom
- -- with a lower threshold makes the Neon bloom without washing out the lit white surfaces.
+ -- Future World: night, so the Neon strips, skyscraper bands and space areas glow. A bright,
+ -- nearly neutral cool-grey ambient (only a hint of blue, so whites stay white and the red
+ -- rocket stays red) keeps the ball, the runway and the cages easy to read; stronger bloom with
+ -- a lower threshold makes the Neon bloom without washing out the lit white surfaces.
  world_3 = {
   lighting = {
    GeographicLatitude = 30, ClockTime = 0,
    Brightness = 1.6, ExposureCompensation = 0.05,
-   Ambient = Color3.fromRGB(78, 88, 150), OutdoorAmbient = Color3.fromRGB(110, 118, 200),
-   ColorShift_Top = Color3.fromRGB(120, 150, 255),
+   Ambient = Color3.fromRGB(90, 90, 110), OutdoorAmbient = Color3.fromRGB(126, 126, 150),
+   ColorShift_Top = Color3.fromRGB(175, 180, 205),
   },
-  atmosphere = {Density = 0.32, Offset = 0.1, Color = Color3.fromRGB(96, 104, 180),
-   Decay = Color3.fromRGB(44, 30, 96), Glare = 0, Haze = 0.8},
+  atmosphere = {Density = 0.32, Offset = 0.1, Color = Color3.fromRGB(112, 114, 140),
+   Decay = Color3.fromRGB(48, 44, 70), Glare = 0, Haze = 0.8},
   clouds = false,
   sky = {SunAngularSize = 11, MoonAngularSize = 18, StarCount = 5000},
   bloom = {Intensity = 1.1, Size = 40, Threshold = 1.25},
   sunRays = {Intensity = 0, Spread = 0.1},
-  colorCorrection = {Saturation = 0.3, Contrast = 0.22, Brightness = 0.03, TintColor = Color3.fromRGB(228, 230, 255)},
+  colorCorrection = {Saturation = 0.3, Contrast = 0.22, Brightness = 0.03, TintColor = Color3.fromRGB(242, 240, 250)},
  },
  -- Tiny Town: a bedroom in the evening, lit by a warm lamp: a very low amber sun from the left
  -- (about 5 degrees up, behind the batter), a dusk-blue sky over a warm horizon, a strong warm

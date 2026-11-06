@@ -62,9 +62,10 @@ and the Blender generators in `tools/blender/`.
 ## World 3 - Future World
 
 - **Mood:** a city of tomorrow at night, lit by its own neon, heading out into space.
-- **Lighting:** night (clock 0): a dark starry sky with a big moon, a bright violet-blue ambient
-  so everything stays readable, a soft blue haze, the strongest bloom (1.1 / 40 / 1.25) so Neon
-  glows, a cool grade. No sun rays.
+- **Lighting:** night (clock 0): a dark starry sky with a big moon, a bright, nearly neutral
+  cool-grey ambient (only a hint of blue: whites stay white) so everything stays readable, a soft
+  grey haze, the strongest bloom (1.1 / 40 / 1.25) so Neon glows, a near-neutral grade. No sun
+  rays.
 - **Palette:** white composite (240, 243, 248) and pale plaza tiles, gunmetal (64, 72, 92), dark
   navy walkways (38, 48, 80), sky glass (120, 170, 225).
 - **Accent:** hologram cyan (90, 224, 255) / (120, 236, 255), with hologram pink (255, 110, 214)
