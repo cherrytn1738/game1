@@ -132,15 +132,23 @@ local function playClick()
 end
 GameAudio.Preload({"UIClick", "MenuOpen", "MenuClose", "Locked", "Invalid", "Notice"})
 
+-- One shared BlurEffect for menus and unfocusing notices, so blurs never stack: open menus hold it
+-- at full size, otherwise a notice fades it in and out (noticeBlur, 0-1) while it unfocuses.
+local MENU_BLUR, NOTICE_BLUR = 10, 9
 local modalScreens = {}
 local blur
+local noticeFocused, noticeBlur = false, 0
 local function updateBlur()
- local visible = next(modalScreens) ~= nil
- if visible and not blur then
+ local menus = next(modalScreens) ~= nil
+ local wanted = menus or noticeFocused
+ if wanted and not blur then
   blur = Instance.new("BlurEffect")
-  blur.Name, blur.Size, blur.Parent = "MenuBlur", 10, game:GetService("Lighting")
+  blur.Name, blur.Size, blur.Parent = "MenuBlur", MENU_BLUR, game:GetService("Lighting")
  end
- if blur then blur.Enabled = visible end
+ if blur then
+  blur.Enabled = wanted
+  blur.Size = menus and MENU_BLUR or NOTICE_BLUR * noticeBlur
+ end
 end
 
 function UI.Number(value, decimals)
@@ -788,26 +796,334 @@ function UI.Hero(parent, imageId)
  return hero
 end
 
-local NOTICE_THEMES = {
- unlock = {"WORLD PROGRESS", BUTTON_STATES.Cyan[1]}, error = {"PLEASE TRY AGAIN", BUTTON_STATES.Locked[1]},
- level = {"LEVEL UP!", BUTTON_STATES.Claim[1]}, cap = {"MAX LEVEL REACHED", UI.Colors.Gold},
- offline = {"OFFLINE TRAINING", BUTTON_STATES.Claim[1]}, rebirth = {"REBIRTH COMPLETE", Color3.fromRGB(190, 90, 255)},
+-- Notices float as big outlined text in the middle of the screen, with no panel behind them.
+-- Errors, Rebirth complete and World unlocks also unfocus the screen (the shared blur and a dark
+-- tint); routine notices only float. A notice never takes input: players keep moving and
+-- clicking, and any tap or click dismisses it early. A new notice replaces the old one.
+--   kind: the title, its color and icon (icon: an image id, or "lock" / "alert", drawn here)
+--   focus: blur and tint behind it; seconds: how long it stays (default NOTICE_SECONDS)
+local NOTICE_KINDS = {
+ locked = {title = "LOCKED", color = BUTTON_STATES.Locked[1], icon = "lock", focus = true},
+ cash = {title = "NOT ENOUGH CASH", color = UI.Colors.Gold, icon = UI.Icons.Cash, focus = true},
+ error = {title = "CAN'T DO THAT", color = BUTTON_STATES.Locked[1], icon = "alert", focus = true},
+ unlock = {title = "WORLD COMPLETE!", color = BUTTON_STATES.Cyan[1], icon = UI.Icons.Worlds, focus = true, seconds = 8},
+ rebirth = {title = "REBIRTH COMPLETE", color = Color3.fromRGB(190, 90, 255), icon = UI.Icons.Rebirth, focus = true},
+ level = {title = "LEVEL UP!", color = BUTTON_STATES.Claim[1], icon = UI.Icons.Power},
+ cap = {title = "MAX LEVEL REACHED", color = UI.Colors.Gold, icon = UI.Icons.Power},
+ offline = {title = "OFFLINE TRAINING", color = BUTTON_STATES.Claim[1], icon = UI.Icons.Power, seconds = 8},
 }
-local notification, noticeText, noticeTitle, noticeBar, noticeVersion = nil, nil, nil, nil, 0
-local noticeIcon, noticeSymbol, noticeTween
-local resizeNotice
+local NOTICE_DEFAULT = {title = "HEADS UP", color = BUTTON_STATES.Cyan[1]}
+-- Requirement units: how the required value reads, its highlight color, and whether the bar
+-- shows a count ("7 / 10") or a percentage.
+local NOTICE_UNITS = {
+ Rebirths = {color = UI.Colors.Gold, count = true, verb = "needs", action = "to unlock",
+  value = function(n) return UI.Number(n) .. (n == 1 and " Rebirth" or " Rebirths") end},
+ Level = {color = UI.Colors.Gold, count = true, verb = "needs", action = "to go",
+  value = function(n) return "Level " .. UI.Number(n) end,
+  more = function(n) return UI.Number(n) .. (n == 1 and " more Level" or " more Levels") end},
+ Cash = {color = BUTTON_STATES.Claim[1], verb = "costs", action = "to go",
+  value = function(n) return "$" .. UI.Compact(n) end},
+}
+local NOTICE_SECONDS, NOTICE_DETAIL_SECONDS = 2, 2.6
+local NOTICE_TINT = .45 -- opacity of the dark tint while a notice unfocuses the screen
+local NOTICE_WIDTH = 640
+local TITLE_SIZE, ICON_SIZE, ICON_GAP = 56, 56, 12
+local BAR_WIDTH, BAR_HEIGHT = 300, 18
+local SHADOW = Vector2.new(0, 4)
+
+local function hex(color)
+ return string.format("#%02X%02X%02X", math.floor(color.R * 255 + .5), math.floor(color.G * 255 + .5), math.floor(color.B * 255 + .5))
+end
+local function escapeRich(text)
+ return (text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+end
+local function colored(text, color)
+ return '<font color="' .. hex(color) .. '">' .. escapeRich(text) .. "</font>"
+end
+-- Rich text for a plain message, with the first occurrence of highlight colored.
+local function highlighted(text, highlight, color)
+ if type(highlight) ~= "string" or highlight == "" then return escapeRich(text) end
+ local first, last = text:find(highlight, 1, true)
+ if not first then return escapeRich(text) end
+ return escapeRich(text:sub(1, first - 1)) .. colored(highlight, color) .. escapeRich(text:sub(last + 1))
+end
+local function finite(value)
+ return type(value) == "number" and value == value and math.abs(value) ~= math.huge
+end
+
+-- What a notice shows: the theme, the message as rich text and plain text, and the progress bar
+-- (nil without numbers). details (optional): kind, title, item, unit, required, current, text
+-- ("%s" marks the highlighted value), highlight (a part of the message to color), action.
+local function noticeContent(message, kind, details)
+ local theme = NOTICE_KINDS[details and details.kind] or NOTICE_KINDS[kind] or NOTICE_DEFAULT
+ local title = details and type(details.title) == "string" and details.title or theme.title
+ local text = type(message) == "string" and message or ""
+ local rich = escapeRich(text)
+ local unit = details and NOTICE_UNITS[details.unit]
+ local progress
+ if unit and finite(details.required) and details.required > 0 then
+  local value = unit.value(details.required)
+  local template = type(details.text) == "string" and details.text
+   or (type(details.item) == "string" and details.item .. " " .. unit.verb .. " %s")
+  if template and template:find("%s", 1, true) then
+   local before, after = template:match("^(.-)%%s(.*)$")
+   text = before .. value .. after
+   rich = escapeRich(before) .. colored(value, unit.color) .. escapeRich(after)
+  end
+  if finite(details.current) then
+   local current = math.max(0, details.current)
+   local remaining = math.max(0, details.required - current)
+   local share = math.clamp(current / details.required, 0, 1)
+   local count = unit.count and UI.Number(math.min(current, details.required)) .. " / " .. UI.Number(details.required)
+    or math.floor(share * 100) .. "%"
+   local more = unit.more and unit.more(remaining) or (unit.count and UI.Number(remaining) .. " more " .. details.unit
+    or unit.value(remaining) .. " more")
+   if unit.count and remaining == 1 and not unit.more then more = "1 more " .. details.unit:gsub("s$", "") end
+   progress = {share = share, count = count, remaining = more .. " " .. (type(details.action) == "string" and details.action or unit.action)}
+  end
+ elseif details then
+  rich = highlighted(text, details.highlight, UI.Colors.Gold)
+ end
+ return theme, title, rich, text, progress
+end
+
+-- A label with a soft drop shadow (a dark copy just below it) inside a holder Frame.
+local function shadowedLabel(parent, name, size, color)
+ local holder = Instance.new("Frame")
+ holder.Name, holder.BackgroundTransparency, holder.Size = name, 1, UDim2.fromScale(1, 0)
+ holder.AutomaticSize, holder.Parent = Enum.AutomaticSize.Y, parent
+ local labels = {}
+ for index, role in {"Shadow", "Text"} do
+  local label = UI.Label(holder, role, "", size, role == "Shadow" and UI.Colors.Border or color)
+  label.Size, label.AutomaticSize = UDim2.fromScale(1, 0), Enum.AutomaticSize.Y
+  label.TextXAlignment, label.TextWrapped, label.RichText = Enum.TextXAlignment.Center, true, true
+  label.ZIndex = index
+  if role == "Shadow" then
+   label.Position, label.TextTransparency = UDim2.fromOffset(SHADOW.X, SHADOW.Y), .5
+   label:FindFirstChildOfClass("UIStroke").Transparency = .5
+  end
+  labels[role] = label
+ end
+ return holder, function(rich, textColor)
+  labels.Text.Text = rich
+  if textColor then labels.Text.TextColor3 = textColor end
+  -- The shadow is one dark shape, so its copy drops the color tags.
+  labels.Shadow.Text = rich:gsub("<font[^>]*>", ""):gsub("</font>", "")
+ end, labels
+end
+
+-- A padlock drawn from Frames: a red body with a keyhole under a steel shackle.
+local function lockIcon(parent)
+ local lock = Instance.new("Frame")
+ lock.Name, lock.BackgroundTransparency, lock.Size = "Lock", 1, UDim2.fromScale(1, 1)
+ lock.Parent = parent
+ for _, layer in {{"ShackleOutline", UI.Colors.Border, 9}, {"Shackle", Color3.fromRGB(205, 212, 224), 4}} do
+  local shackle = Instance.new("Frame")
+  shackle.Name, shackle.BackgroundTransparency = layer[1], 1
+  shackle.AnchorPoint, shackle.Position, shackle.Size = Vector2.new(.5, 0), UDim2.fromScale(.5, .06), UDim2.fromScale(.5, .62)
+  Instance.new("UICorner", shackle).CornerRadius = UDim.new(.5, 0)
+  stroke(shackle, layer[2], layer[3])
+  shackle.Parent = lock
+ end
+ local body = Instance.new("Frame")
+ body.Name, body.BorderSizePixel, body.BackgroundColor3 = "Body", 0, Color3.new(1, 1, 1)
+ body.AnchorPoint, body.Position, body.Size = Vector2.new(.5, 1), UDim2.fromScale(.5, .98), UDim2.fromScale(.82, .54)
+ corner(body, 8)
+ UI.Gradient(body, BUTTON_STATES.Locked[1], BUTTON_STATES.Locked[2])
+ stroke(body, UI.Colors.Border, 3)
+ body.Parent = lock
+ local hole = Instance.new("Frame")
+ hole.Name, hole.BorderSizePixel, hole.BackgroundColor3 = "Keyhole", 0, UI.Colors.Border
+ hole.AnchorPoint, hole.Position, hole.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .42), UDim2.fromScale(.22, .3)
+ Instance.new("UICorner", hole).CornerRadius = UDim.new(.5, 0)
+ hole.Parent = body
+ local slot = hole:Clone()
+ slot.Name, slot.Position, slot.Size = "KeySlot", UDim2.fromScale(.5, .64), UDim2.fromScale(.1, .34)
+ slot.Parent = body
+ return lock
+end
+
+-- A red warning badge: a round outlined disc with a "!".
+local function alertIcon(parent)
+ local badge = Instance.new("Frame")
+ badge.Name, badge.BorderSizePixel, badge.BackgroundColor3 = "Alert", 0, Color3.new(1, 1, 1)
+ badge.AnchorPoint, badge.Position, badge.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(.9, .9)
+ Instance.new("UICorner", badge).CornerRadius = UDim.new(.5, 0)
+ UI.Gradient(badge, BUTTON_STATES.Locked[1], BUTTON_STATES.Locked[2])
+ stroke(badge, UI.Colors.Border, 3)
+ badge.Parent = parent
+ local mark = UI.Label(badge, "Mark", "!", 38)
+ mark.Size, mark.TextXAlignment = UDim2.fromScale(1, 1), Enum.TextXAlignment.Center
+ return badge
+end
+
+local notice -- the built notice's parts (made on the first notice)
+local noticeVersion, noticeTween, noticeShownAt = 0, nil, 0
 local previousText, previousTime = "", 0
-function UI.ClearNotifications()
+
+-- True while a Legendary / Mythic Hit or the portal trip has the screen.
+local function cinematicPlaying()
+ return GameAudio.CinematicActive() or player:GetAttribute("CinematicCamera") ~= nil
+  or player:GetAttribute("PortalJourney") ~= nil
+end
+
+local function hideNotice(seconds)
+ if not notice then return end
  noticeVersion += 1
+ local version = noticeVersion
  if noticeTween then noticeTween:Cancel() end
- if notification then notification.Visible = false end
+ local function finish()
+  notice.frame.Visible, notice.tint.Visible = false, false
+  noticeFocused, noticeBlur = false, 0
+  notice.fade.Value = 0
+  updateBlur()
+ end
+ if seconds <= 0 then return finish() end
+ noticeTween = TweenService:Create(notice.fade, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Value = 0})
+ noticeTween:Play()
+ -- Finished on a timer rather than the tween, so the blur is always handed back; a newer notice
+ -- owns the screen by then if the version moved on.
+ task.delay(seconds, function()
+  if version == noticeVersion then finish() end
+ end)
+end
+
+function UI.ClearNotifications()
+ hideNotice(0)
  previousText = ""
 end
 
-function UI.Notify(message, kind)
- if type(message) ~= "string" or message == "" then return end
- if message == previousText and os.clock() - previousTime < 1 then return end
- previousText, previousTime = message, os.clock()
+local function buildNotice()
+ local gui = UI.Screen("NotificationGui", 40)
+ gui.IgnoreGuiInset = true
+ local tint = Instance.new("Frame")
+ tint.Name, tint.Size, tint.BorderSizePixel = "Tint", UDim2.fromScale(1, 1), 0
+ tint.BackgroundColor3, tint.BackgroundTransparency = Color3.new(0, 0, 0), 1
+ tint.Active, tint.Visible, tint.Parent = false, false, gui
+ -- One CanvasGroup fades the whole notice, outlines and shadows included.
+ local frame = Instance.new("CanvasGroup")
+ frame.Name, frame.BackgroundTransparency, frame.BorderSizePixel = "Notice", 1, 0
+ frame.AnchorPoint, frame.Position = Vector2.new(.5, .5), UDim2.fromScale(.5, .45)
+ frame.AutomaticSize, frame.Active, frame.Visible, frame.ZIndex = Enum.AutomaticSize.Y, false, false, 2
+ frame.Parent = gui
+ local scale = Instance.new("UIScale")
+ scale.Name, scale.Parent = "SizeScale", frame
+ local padding = Instance.new("UIPadding")
+ padding.PaddingTop, padding.PaddingBottom = UDim.new(0, 10), UDim.new(0, 14)
+ padding.PaddingLeft, padding.PaddingRight = UDim.new(0, 10), UDim.new(0, 10)
+ padding.Parent = frame
+ local layout = Instance.new("UIListLayout")
+ layout.SortOrder, layout.Padding = Enum.SortOrder.LayoutOrder, UDim.new(0, 8)
+ layout.HorizontalAlignment, layout.Parent = Enum.HorizontalAlignment.Center, frame
+ -- Title row: the icon just left of the centered title.
+ local titleRow = Instance.new("Frame")
+ titleRow.Name, titleRow.BackgroundTransparency, titleRow.LayoutOrder = "TitleRow", 1, 1
+ titleRow.Size, titleRow.Parent = UDim2.new(1, 0, 0, TITLE_SIZE + 8), frame
+ local iconHolder = Instance.new("Frame")
+ iconHolder.Name, iconHolder.BackgroundTransparency, iconHolder.AnchorPoint = "Icon", 1, Vector2.new(0, .5)
+ iconHolder.Size, iconHolder.Parent = UDim2.fromOffset(ICON_SIZE, ICON_SIZE), titleRow
+ local image = UI.Icon(iconHolder, "Image", "")
+ image.Size = UDim2.fromScale(1, 1)
+ local drawn = {lock = lockIcon(iconHolder), alert = alertIcon(iconHolder)}
+ -- Single-line rows (title, count) are sized in layout() from their own text.
+ local function singleLine(holder, labels, alignment)
+  holder.AutomaticSize = Enum.AutomaticSize.None
+  for _, label in labels do
+   label.TextWrapped, label.TextXAlignment = false, alignment
+   label.AutomaticSize, label.Size = Enum.AutomaticSize.None, UDim2.fromScale(1, 1)
+  end
+ end
+ local titleHolder, setTitle, titleLabels = shadowedLabel(titleRow, "Title", TITLE_SIZE, Color3.new(1, 1, 1))
+ titleHolder.AnchorPoint = Vector2.new(0, .5)
+ singleLine(titleHolder, titleLabels, Enum.TextXAlignment.Left)
+ local messageHolder, setMessage = shadowedLabel(frame, "Message", 30, UI.Colors.Text)
+ messageHolder.LayoutOrder = 2
+ -- Progress row: a slim bar with its count to the right.
+ local progressRow = Instance.new("Frame")
+ progressRow.Name, progressRow.BackgroundTransparency, progressRow.LayoutOrder = "ProgressRow", 1, 3
+ progressRow.Size, progressRow.Parent = UDim2.new(1, 0, 0, 32), frame
+ local trough, setBar = UI.ProgressBar(progressRow, "Bar")
+ trough.AnchorPoint, trough.Size = Vector2.new(0, .5), UDim2.fromOffset(BAR_WIDTH, BAR_HEIGHT)
+ local countHolder, setCount, countLabels = shadowedLabel(progressRow, "Count", 26, UI.Colors.Text)
+ countHolder.AnchorPoint = Vector2.new(0, .5)
+ singleLine(countHolder, countLabels, Enum.TextXAlignment.Left)
+ local remainingHolder, setRemaining = shadowedLabel(frame, "Remaining", 24, UI.Colors.Muted)
+ remainingHolder.LayoutOrder = 4
+ local fade = Instance.new("NumberValue")
+ fade.Name, fade.Parent = "NoticeFade", frame
+ notice = {gui = gui, tint = tint, frame = frame, scale = scale, fade = fade, titleRow = titleRow, iconHolder = iconHolder,
+  image = image, drawn = drawn, titleHolder = titleHolder, titleLabels = titleLabels, setTitle = setTitle,
+  setMessage = setMessage, progressRow = progressRow, trough = trough, setBar = setBar, countHolder = countHolder,
+  countLabels = countLabels, setCount = setCount, remainingHolder = remainingHolder, setRemaining = setRemaining}
+
+ local TextService = game:GetService("TextService")
+ local function textWidth(text, size)
+  return TextService:GetTextSize(text, size, UI.Font, Vector2.new(4000, 400)).X
+ end
+ -- Fits the title (shrinking it on narrow screens) and centers icon + title, and bar + count.
+ function notice.layout()
+  local viewport = gui.AbsoluteSize
+  local fit = math.clamp(math.min(viewport.X / 1050, viewport.Y / 620), .72, 1.1)
+  scale.Scale = fit
+  local width = math.min(NOTICE_WIDTH, math.max(200, (viewport.X - 32) / fit))
+  frame.Size = UDim2.fromOffset(width + 20, 0)
+  local iconSpace = iconHolder.Visible and ICON_SIZE + ICON_GAP or 0
+  local text = notice.titleText or ""
+  local size = TITLE_SIZE
+  local titleWidth = textWidth(text, size)
+  if titleWidth + iconSpace > width then
+   size = math.max(24, math.floor(size * (width - iconSpace) / titleWidth))
+   titleWidth = textWidth(text, size)
+  end
+  for _, label in titleLabels do label.TextSize = size end
+  local left = -(titleWidth + iconSpace) / 2
+  iconHolder.Position = UDim2.new(.5, left, .5, 0)
+  titleHolder.Position = UDim2.new(.5, left + iconSpace, .5, 0)
+  titleHolder.Size = UDim2.fromOffset(titleWidth + 8, size + 8)
+  local countWidth = textWidth(notice.countText or "", 26)
+  local barLeft = -(BAR_WIDTH + 14 + countWidth) / 2
+  trough.Position = UDim2.new(.5, barLeft, .5, 0)
+  countHolder.Position = UDim2.new(.5, barLeft + BAR_WIDTH + 14, .5, 0)
+  countHolder.Size = UDim2.fromOffset(countWidth + 8, 30)
+ end
+ gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(notice.layout)
+
+ fade.Changed:Connect(function(amount)
+  frame.GroupTransparency = 1 - amount
+  frame.Position = UDim2.new(.5, 0, .45, 14 * (1 - amount))
+  tint.BackgroundTransparency = 1 - NOTICE_TINT * amount
+  noticeBlur = noticeFocused and amount or 0
+  updateBlur()
+ end)
+ -- A tap or click anywhere dismisses the notice early (input still reaches the game). The
+ -- first moment is ignored so the click that caused a notice does not close it at once.
+ game:GetService("UserInputService").InputBegan:Connect(function(input)
+  local inputType = input.UserInputType
+  if (inputType == Enum.UserInputType.MouseButton1 or inputType == Enum.UserInputType.Touch)
+   and frame.Visible and os.clock() - noticeShownAt > .3 then
+   hideNotice(.15)
+  end
+ end)
+ -- The portal trip hides this screen, and the hit cinematics own the view: never leave the blur.
+ gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+  if not gui.Enabled then UI.ClearNotifications() end
+ end)
+ for _, attribute in {"CinematicCamera", "PortalJourney"} do
+  player:GetAttributeChangedSignal(attribute):Connect(function()
+   if player:GetAttribute(attribute) ~= nil and noticeFocused then UI.ClearNotifications() end
+  end)
+ end
+end
+
+-- message: the text (a plain string, as before). kind: "error", "success", a NOTICE_KINDS name or
+-- nil. details (optional table): see noticeContent; a details.kind of "locked", "cash" or "error"
+-- picks the title and icon, and numbers add the progress bar.
+function UI.Notify(message, kind, details)
+ if type(details) ~= "table" then details = nil end
+ local theme, title, rich, text, progress = noticeContent(message, kind, details)
+ if text == "" then return end
+ if text == previousText and os.clock() - previousTime < 1 then return end
+ previousText, previousTime = text, os.clock()
  -- Refusals get a short negative tick and routine updates a soft notice. Level Up, Max Level,
  -- Rebirth, World unlock, Offline Training and purchases have their own payoff sounds where
  -- they happen, so their notices stay silent here. Nothing routine plays over a rare hit.
@@ -816,12 +1132,12 @@ function UI.Notify(message, kind)
  elseif kind == nil and not GameAudio.CinematicActive() then
   GameAudio.Play("Notice")
  end
- -- Routine menu responses use the menu's reserved feedback line, not a toast over its controls.
+ -- Routine menu responses use the menu's reserved feedback line, not a notice over its controls.
  if kind == "success" or kind == "error" then
   for screen in modalScreens do
    local feedback = screen.Scrim.Panel:FindFirstChild("Feedback")
    if feedback then
-    feedback.Text, feedback.TextColor3 = message, kind == "error" and UI.Colors.Error or UI.Colors.Success
+    feedback.Text, feedback.TextColor3 = text, kind == "error" and UI.Colors.Error or UI.Colors.Success
     return
    end
   end
@@ -829,66 +1145,40 @@ function UI.Notify(message, kind)
  -- Successes never pop up a notice: the result itself (an equipped item, the new World, Power or
  -- Cash on the HUD) and its sound are the confirmation.
  if kind == "success" then return end
- if not notification then
-  local gui = UI.Screen("NotificationGui", 40)
-  notification = UI.Surface(gui, "Notice", UI.Colors.Panel)
-  notification.AutomaticSize = Enum.AutomaticSize.Y
-  notification.Size = UDim2.new(1, -24, 0, 0)
-  local noticeScale = Instance.new("UIScale")
-  noticeScale.Name, noticeScale.Scale, noticeScale.Parent = "SizeScale", UI.SizeScale, notification
-  noticeBar = Instance.new("Frame")
-  noticeBar.Name, noticeBar.Size, noticeBar.BorderSizePixel = "ThemeBar", UDim2.new(1, 0, 0, 5), 0
-  noticeBar.Parent = notification
-  local padding = Instance.new("UIPadding")
-  padding.PaddingLeft, padding.PaddingRight = UDim.new(0, 14), UDim.new(0, 14)
-  padding.PaddingTop, padding.PaddingBottom = UDim.new(0, 12), UDim.new(0, 12)
-  local content = Instance.new("Frame")
-  content.Name, content.BackgroundTransparency = "Content", 1
-  content.Size, content.AutomaticSize = UDim2.fromScale(1, 0), Enum.AutomaticSize.Y
-  content.Position = UDim2.fromOffset(0, 5) -- Below the theme bar.
-  content.Parent = notification
-  padding.Parent = content
-  local layout = Instance.new("UIListLayout")
-  layout.Padding, layout.SortOrder, layout.Parent = UDim.new(0, 6), Enum.SortOrder.LayoutOrder, content
-  local header = Instance.new("Frame")
-  header.Name, header.BackgroundTransparency, header.Size, header.LayoutOrder = "Header", 1, UDim2.new(1, 0, 0, 34), 1
-  header.Parent = content
-  noticeIcon = UI.Icon(header, "Icon", UI.Icons.Power)
-  noticeIcon.Size = UDim2.fromOffset(32, 32)
-  noticeSymbol = UI.Label(header, "Symbol", "", 28)
-  noticeSymbol.Size, noticeSymbol.TextXAlignment = UDim2.fromOffset(32, 32), Enum.TextXAlignment.Center
-  noticeTitle = UI.Label(header, "Title", "", 22)
-  noticeTitle.Size, noticeTitle.Position = UDim2.new(1, -44, 1, 0), UDim2.fromOffset(44, 0)
-  noticeTitle.TextScaled = true
-  local constraint = Instance.new("UITextSizeConstraint")
-  constraint.MinTextSize, constraint.MaxTextSize, constraint.Parent = 14, 22, noticeTitle
-  noticeText = UI.Label(content, "Message", "", 17)
-  noticeText.Size, noticeText.TextWrapped = UDim2.new(1, 0, 0, 0), true
-  noticeText.AutomaticSize, noticeText.LayoutOrder = Enum.AutomaticSize.Y, 2
-  resizeNotice = function()
-   local size = gui.AbsoluteSize
-   notification.AnchorPoint, notification.Position = Vector2.new(.5, 0), UDim2.new(.5, 0, 0, 12)
-   notification.Size = UDim2.fromOffset(math.min(420, size.X < 600 and size.X - 24 or size.X - 340), 0)
-  end
-  gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(resizeNotice)
+ if not notice then buildNotice() end
+ -- Fill it in.
+ local icon = theme.icon
+ notice.iconHolder.Visible = icon ~= nil
+ notice.image.Visible = icon ~= nil and notice.drawn[icon] == nil
+ notice.image.Image = notice.image.Visible and icon or ""
+ for name, drawing in notice.drawn do drawing.Visible = icon == name end
+ notice.titleText = title
+ notice.setTitle(escapeRich(title), theme.color)
+ notice.setMessage(rich)
+ notice.progressRow.Visible = progress ~= nil
+ notice.remainingHolder.Visible = progress ~= nil
+ if progress then
+  notice.countText = progress.count
+  notice.setBar(progress.share, "")
+  notice.setCount(escapeRich(progress.count))
+  notice.setRemaining(escapeRich(progress.remaining))
  end
- local theme = NOTICE_THEMES[kind] or {"UPDATE", BUTTON_STATES.Cyan[1]}
- noticeTitle.Text, noticeTitle.TextColor3 = theme[1], theme[2]
- noticeBar.BackgroundColor3 = theme[2]
- noticeIcon.Image = kind == "rebirth" and UI.Icons.Rebirth or UI.Icons.Power
- noticeSymbol.Visible = kind == "error"
- noticeIcon.Visible = not noticeSymbol.Visible
- noticeSymbol.Text, noticeSymbol.TextColor3 = "!", theme[2]
- noticeText.Text, notification.Visible = message, true
- resizeNotice()
- if noticeTween then noticeTween:Cancel() end
- notification.Position = UDim2.new(.5, 0, 0, 0)
- noticeTween = TweenService:Create(notification, TweenInfo.new(.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(.5, 0, 0, 12)})
- noticeTween:Play()
+ notice.layout()
+ -- Show it, replacing any notice already up (the blur stays one shared effect).
  noticeVersion += 1
  local version = noticeVersion
- task.delay((kind == "unlock" or kind == "offline") and 8 or 5, function()
-  if version == noticeVersion then notification.Visible = false end
+ if noticeTween then noticeTween:Cancel() end
+ noticeShownAt = os.clock()
+ noticeFocused = theme.focus == true and notice.gui.Enabled and not cinematicPlaying()
+ notice.tint.Visible = noticeFocused
+ notice.frame.Visible = true
+ notice.fade.Value = math.min(notice.fade.Value, .4)
+ noticeBlur = noticeFocused and notice.fade.Value or 0
+ updateBlur()
+ noticeTween = TweenService:Create(notice.fade, TweenInfo.new(.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Value = 1})
+ noticeTween:Play()
+ task.delay(theme.seconds or (progress and NOTICE_DETAIL_SECONDS or NOTICE_SECONDS), function()
+  if version == noticeVersion then hideNotice(.25) end
  end)
 end
 return UI

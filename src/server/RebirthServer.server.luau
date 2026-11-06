@@ -19,7 +19,7 @@ Remote.OnServerEvent:Connect(function(player, ...)
   return
  end
  requests[player], processing[player] = now, true
- local success, message = Data.TryRebirth(player)
+ local success, message, details = Data.TryRebirth(player)
  processing[player] = nil
- Remote:FireClient(player, success, message)
+ Remote:FireClient(player, success, message, details)
 end)

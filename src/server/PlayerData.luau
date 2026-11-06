@@ -494,8 +494,9 @@ local function publishTrainingPasses(player, session)
  end
 end
 
--- Returns the ground when this player may train there, otherwise nil and a reason. World
--- unlocks come from the server-set WorldUnlocked_<id> attributes.
+-- Returns the ground when this player may train there, otherwise nil, a reason and the notice
+-- details for it (UI.Notify: the requirement's numbers, so the client never parses the text).
+-- World unlocks come from the server-set WorldUnlocked_<id> attributes.
 function PlayerData.CanUseTrainingGround(player, id)
  if not PlayerData.IsReady(player) then return nil, "Player data is not ready." end
  local ground = type(id) == "string" and Training.Get(id)
@@ -505,13 +506,17 @@ function PlayerData.CanUseTrainingGround(player, id)
  if Training.CanUse(id, session.progression.Rebirths, session.trainingPasses, worlds) then return ground end
  if not Training.IsReachable(ground, worlds) then
   local world = Worlds.Get(ground.worlds[1])
-  return nil, string.format("%s is in %s. Unlock %s to train there.", ground.displayName, world.displayName, world.displayName)
+  return nil, string.format("%s is in %s. Unlock %s to train there.", ground.displayName, world.displayName, world.displayName),
+   {kind = "locked", title = "CAGE LOCKED", highlight = world.displayName}
  end
  if Training.IsPaid(ground) then
   local pass = Training.GetPassGround(ground)
-  return nil, string.format("%s is unlocked with the %d Robux %s pass.", ground.displayName, pass.robuxPrice, pass.displayName)
+  return nil, string.format("%s is unlocked with the %d Robux %s pass.", ground.displayName, pass.robuxPrice, pass.displayName),
+   {kind = "locked", title = "CAGE LOCKED", highlight = pass.robuxPrice .. " Robux"}
  end
- return nil, string.format("%s requires %d Rebirths.", ground.displayName, ground.requiredRebirths)
+ return nil, string.format("%s requires %d Rebirths.", ground.displayName, ground.requiredRebirths),
+  {kind = "locked", title = "CAGE LOCKED", item = ground.displayName, unit = "Rebirths",
+   required = ground.requiredRebirths, current = session.progression.Rebirths}
 end
 
 function PlayerData.GetBestTrainingGround(player)
@@ -627,8 +632,16 @@ function PlayerData.CanRebirth(player)
  return state.Level >= state.LevelCap and state.Rebirths < Progression.MaxRebirths
 end
 
+-- Returns success, the message and, for a refusal with numbers, the notice details (UI.Notify).
 function PlayerData.TryRebirth(player)
- if not PlayerData.CanRebirth(player) then return false, "Reach your Level Cap first." end
+ if not PlayerData.CanRebirth(player) then
+  local state = PlayerData.IsReady(player) and sessions[player].progression
+  if state and state.Level < state.LevelCap then
+   return false, "Reach your Level Cap first.", {kind = "locked", title = "REBIRTH LOCKED", text = "Reach %s to Rebirth",
+    unit = "Level", required = state.LevelCap, current = state.Level}
+  end
+  return false, "Reach your Level Cap first."
+ end
  local character = player.Character
  local humanoid = character and character:FindFirstChildOfClass("Humanoid")
  if not character or not character.Parent or not humanoid or humanoid.Health <= 0

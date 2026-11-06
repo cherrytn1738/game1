@@ -64,13 +64,9 @@ local function hub()
  return workspace:FindFirstChild(WORLD.hub.name)
 end
 
--- Notifications drop in at the same top-centre spot; while one shows, the banner sits under it.
+-- The banner stays at the top centre; notices float in the middle of the screen, clear of it.
 local function placeBanner()
- local notifications = Player.PlayerGui:FindFirstChild("NotificationGui")
- local notice = notifications and notifications:FindFirstChild("Notice")
- local top = 4
- if notice and notice.Visible then top = notice.AbsolutePosition.Y + notice.AbsoluteSize.Y + 6 end
- banner.Position = UDim2.new(.5, 0, 0, top)
+ banner.Position = UDim2.new(.5, 0, 0, 4)
 end
 
 local function bump()

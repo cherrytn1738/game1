@@ -204,7 +204,7 @@ for _, attribute in {"DataLoaded","EquippedBall","Level","LevelCap","Rebirths","
   refresh()
  end)
 end
-Remote.OnClientEvent:Connect(function(success,message)
+Remote.OnClientEvent:Connect(function(success,message,details)
  pending, confirming = false, false
  requestVersion += 1
  if success then
@@ -213,7 +213,7 @@ Remote.OnClientEvent:Connect(function(success,message)
  end
  refresh()
  if not success and visible then feedback.Text, feedback.TextColor3 = message, UI.Colors.Error end
- UI.Notify(success and message:gsub("^REBIRTH COMPLETE\n","") or message,success and "rebirth" or "error")
+ UI.Notify(success and message:gsub("^REBIRTH COMPLETE\n","") or message,success and "rebirth" or "error",not success and details or nil)
 end)
 panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
 refresh()

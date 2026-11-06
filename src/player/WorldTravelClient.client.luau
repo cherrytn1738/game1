@@ -118,7 +118,14 @@ for index, world in Worlds.Worlds do
   if Player:GetAttribute("CurrentWorldId") == world.id then return end
   if Player:GetAttribute("WorldUnlocked_" .. world.id) ~= true then
    GameAudio.Play("Locked")
-   UI.Notify(requirement.Text ~= "" and requirement.Text .. " TO UNLOCK" or "This World is locked.", "error")
+   local previous = predecessorOf(world)
+   if previous then
+    local distance = UI.Number(previous.endDistance) .. " studs"
+    UI.Notify("Reach " .. distance .. " in " .. previous.displayName .. " to unlock " .. world.displayName .. ".", "error",
+     {kind = "locked", title = "WORLD LOCKED", highlight = distance})
+   else
+    UI.Notify("This World is locked.", "error", {kind = "locked", title = "WORLD LOCKED"})
+   end
    return
   end
   pending = true

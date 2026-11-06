@@ -60,12 +60,12 @@ end
 
 -- Standing on a ground you cannot use explains why (and offers the pass for paid grounds)
 -- at most once per visit, then waits until the player steps off.
-local function refuse(player, ground, message)
+local function refuse(player, ground, message, details)
  mustLeave[player] = true
  local now = os.clock()
  if lockedNotices[player] and now - lockedNotices[player] < LOCKED_NOTICE_SECONDS then return end
  lockedNotices[player] = now
- remote:FireClient(player, false, message)
+ remote:FireClient(player, false, message, details)
  local pass = Training.IsPaid(ground) and Training.GetPassGround(ground)
  if pass and pass.gamePassId > 0 then
   task.spawn(function()
@@ -190,8 +190,8 @@ function Service.Start()
     if not ground then
      mustLeave[player] = nil
     elseif not mustLeave[player] and not player:GetAttribute("TrainingActive") and not occupants[plate] then
-     local usable, reason = Data.CanUseTrainingGround(player, ground.id)
-     if usable then enter(player, ground, plate, character, humanoid, root) else refuse(player, ground, reason) end
+     local usable, reason, details = Data.CanUseTrainingGround(player, ground.id)
+     if usable then enter(player, ground, plate, character, humanoid, root) else refuse(player, ground, reason, details) end
     end
    end
   end

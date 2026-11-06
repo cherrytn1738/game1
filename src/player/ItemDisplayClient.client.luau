@@ -109,7 +109,8 @@ local function request(entry)
   Remote:FireServer("Equip", item.category, item.id)
  elseif state == "next" then
   if cash.Value < item.price then
-   UI.Notify("You need " .. UI.Number(item.price - cash.Value) .. " more Cash.", "error")
+   UI.Notify("You need " .. UI.Number(item.price - cash.Value) .. " more Cash.", "error",
+    {kind = "cash", item = item.displayName, unit = "Cash", required = item.price, current = cash.Value})
    return
   end
   local token = Player:GetAttribute("EquipmentPurchaseToken_" .. Equipment.OfferKey(item.category, item.series))
@@ -117,7 +118,8 @@ local function request(entry)
  elseif state == "locked" then
   local world = lockedWorld(item)
   if world then
-   UI.Notify("Unlock " .. world.displayName .. " to buy these.", "error")
+   UI.Notify("Unlock " .. world.displayName .. " to buy these.", "error",
+    {kind = "locked", title = "WORLD LOCKED", highlight = world.displayName})
    return
   end
   -- Older saves may own a later item without this one; purchases only move forward.
@@ -134,7 +136,8 @@ local function request(entry)
   for _, other in Equipment.GetItems(item.category) do
    if other.nextId == item.id then previous = other end
   end
-  UI.Notify("Buy the " .. (previous and previous.displayName or "previous item") .. " first.", "error")
+  local previousName = previous and previous.displayName or "previous item"
+  UI.Notify("Buy the " .. previousName .. " first.", "error", {kind = "locked", title = "ITEM LOCKED", highlight = previousName})
  end
 end
 

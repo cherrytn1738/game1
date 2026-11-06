@@ -68,7 +68,7 @@ for index, ground in Config.Grounds do
  rows[ground.id] = {rate=rate,status=status,button=button}
 end
 Interfaces.Register("Training",show)
-Remote.OnClientEvent:Connect(function(ok,message) UI.Notify(message,ok and "success" or "error") end)
+Remote.OnClientEvent:Connect(function(ok,message,details) UI.Notify(message,ok and "success" or "error",details) end)
 
 -- No status panel is shown while training (the HUD's Power bar and Leave button cover it);
 -- Space leaves through the same action as the HUD's Leave button.
