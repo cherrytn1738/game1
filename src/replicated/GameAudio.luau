@@ -104,6 +104,8 @@ GameAudio.Cues = {
 
  -- UI vocabulary ---------------------------------------------------------------------------
  UIClick = {"rbxassetid://6895079853", 0.3, "UI", cooldown = 0.04},
+ -- The same click, much quieter, higher and softer on top: the cursor moving onto a button.
+ UIHover = {"rbxassetid://6895079853", 0.07, "UI", speed = 1.35, vary = 0.03, eq = {-4, 0, -6}, cooldown = 0.06},
  -- PSE "Swishes Quick Airy Pass By Whooshy 3": up a little to open, down to close.
  MenuOpen = {"rbxassetid://9119696500", 0.2, "UI", startAt = 0.2, speed = 1.15, cooldown = 0.1},
  MenuClose = {"rbxassetid://9119696500", 0.15, "UI", startAt = 0.2, speed = 0.9, cooldown = 0.1},
