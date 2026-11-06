@@ -188,6 +188,26 @@ return function(sources)
  L.Refresh()
  check(screen.Row1.PlayerName.Text == "Slugger" and screen.Status.Text:find("retrying") ~= nil, "a failed read keeps the last rows")
  failReads = false
+
+ -- Every World's hub has its own boards in its own style; building one hub never stops another's
+ -- boards refreshing, and rebuilding a hub replaces only its own.
+ local future = Instance.new("Model")
+ L.Build(future, CFrame.new(), {facing = Vector3.new(0, 0, 90), theme = "Future", boards = {
+  {stat = "Level", position = Vector3.new(20, 0, 200)}}})
+ local futureBoard = future.Leaderboards.LevelBoard
+ check(futureBoard.Board.Color ~= level.Board.Color and level.Board.Color == Color3.fromRGB(24, 58, 40),
+  "each World's boards wear its own style (World 1 keeps the ballpark green)")
+ screen.Row1.PlayerName.Text = ""
+ L.Refresh()
+ check(screen.Row1.PlayerName.Text == "Slugger" and futureBoard.Board.Screen.Row1.PlayerName.Text == "Slugger",
+  "one refresh fills the boards in every hub")
+ L.Build(future, CFrame.new(), {facing = Vector3.new(0, 0, 90), theme = "Future", boards = {
+  {stat = "Level", position = Vector3.new(20, 0, 200)}}})
+ screen.Row1.PlayerName.Text = ""
+ L.Refresh()
+ check(screen.Row1.PlayerName.Text == "Slugger" and #future.Leaderboards:GetChildren() == 1,
+  "rebuilding one hub's boards keeps the others updating")
+ future:Destroy()
  hub:Destroy()
 
  -- Studio: every board writes and reads its own Studio_ store; the production stores stay untouched.

@@ -545,7 +545,7 @@ Every World's hub uses one compact layout (`WorldConfig` `hubLayout`), so a play
 | Left | the World's row of six Training Grounds, the first beside the batting area, doors facing the middle | plates x 56, z 18-183; scenery x 36-113 |
 | Right | the item displays: the World's balls, then the bats, facing the middle | front edge x -36, z 68-144 |
 | Middle | an open plaza (x -26 to 26) with a path from the spawn to the back, and the World's event piece in it | event square centre z 118, 40 across |
-| Back | the World portal in the middle, facing the spawn; World 1's four global leaderboards stand either side of it (the other Worlds keep those spots for later, marked by two lamps) | portal x 0, z 205; boards x ±22 and ±37, z 207 |
+| Back | the World portal in the middle, facing the spawn; the four global leaderboards stand either side of it, in every World | portal x 0, z 205; boards x ±22 and ±37, z 207 |
 
 - **Footprint:** the hub floor spans x -56 to 118 and 220 back (`hub.minX`, `hub.maxX`, `hub.depth`): 174 × 220 studs, down from 222 × 222. Only the Training Grounds' side reaches past the runway (x -86 to 86 with its walls); on the other side the runway's edge meets the corner of the stands. The depth is set by the row of six cages (each needs 33 studs).
 - **Paths** (`HubDecor` `hubPaths`, the same in every theme): a cross path in front of the spawn from the display lane to the Training Ground lane, a short path to the batting circle, an 8-stud lane along the cage doors and one before the displays, both running on to a back path that leads to the portal, and a path up the middle of the plaza past the event piece. They follow the configured positions, so moving a group moves its paths.
@@ -571,7 +571,7 @@ Each World's hub can have its own look. `WorldConfig` `hub.theme` names a builde
 - **Bowl:** a slate wall with a brass cap and a cyan glow strip, then slate terraces with alternating brass and glowing cyan edges up to a dark slate berm at 9 studs.
 - **Landmarks:** a clock tower behind the back terraces (a turning clock and a "TIME TRAVEL / WORLD 2" sign), four chrono lamps, floating gears (the Blender `HubGear` when imported, brass discs until then) and bobbing time crystals.
 - **Monuments** from the eras ahead stand on the berm: a stone circle, a stepped pyramid with obelisks and a torii gate on the left; a Greek temple, a castle tower and a torii gate on the right.
-- World 2's own "TIME TRAVEL BALLS" display stands in front of the Bats, and two chrono lamps stand either side of the portal where World 1 has its leaderboards. World 2's themed runway runs downfield from the tee (see World 2 Runway Themes).
+- World 2's own "TIME TRAVEL BALLS" display stands in front of the Bats, and the leaderboards stand either side of the portal in ink and brass. World 2's themed runway runs downfield from the tee (see World 2 Runway Themes).
 
 **Future (World 3)** uses the shared layout, styled as a sunken spaceport plaza:
 - **Floor:** a checkerboard of large white tiles with thin glowing cyan seams, dark navy walkways with glowing edges (the same paths as the other hubs), a glowing ring round the batter's circle, and a landing-pad marking at the spawn.
@@ -579,7 +579,7 @@ Each World's hub can have its own look. `WorldConfig` `hub.theme` names a builde
 - **Bowl:** a white wall with a gunmetal cap and a cyan glow strip, then white terraces with alternating glowing cyan and white edges up to a dark concrete berm at 9 studs.
 - **Landmarks:** a beacon tower behind the back terraces (white fins round a glowing core, a ring of light turning round its crown, a pulsing beacon and a "FUTURE WORLD / WORLD 3" sign), four holo lamps with bobbing lights, and hovering drones over the plaza.
 - **Skyline:** glass skyscrapers with glowing bands and blinking spire lights on the berm, tallest at the back. Once imported, World 3's runway models join them through `RunwayDecor.PlaceMesh`: a rocket, a launch tower and a radar dish on the right; a biodome, an eco home, a solar tree and a row of wind turbines on the left; hover cars floating behind the beacon.
-- World 3's "FUTURE BALLS" display stands in front of the Bats, and two holo lamps stand either side of the portal where World 1 has its leaderboards.
+- World 3's "FUTURE BALLS" display stands in front of the Bats, and the leaderboards stand either side of the portal in gunmetal and holo cyan.
 
 Hub scenery and portal parts can carry motion attributes (`Spin`, with an optional `SpinPivot` to turn about a point such as a clock centre, `Bob`, `Sway`, `Pulse`); `TrainingStadiumClient` animates them in every hub on each client.
 
@@ -594,7 +594,7 @@ The portal is not a teleporter. An invisible `Trigger` fills the opening, and st
 
 ### Global leaderboards
 
-World 1's hub (the starting, social hub) has four physical global leaderboards, two either side of the portal at the back (`WorldConfig` `hub.leaderboards`; built and refreshed by `Leaderboards.luau`, started by `LeaderboardServer`). Left to right from the spawn: **TOP LEVEL**, **TOP TIME PLAYED** | portal | **TOP ROBUX SPENT**, **TOP CASH**. Each board turns toward the plaza so the four read as one curved wall. They are not duplicated in Worlds 2 and 3; those hubs keep the same back layout, with lamps in the board spots.
+Every World's hub has the four physical global leaderboards, two either side of the portal at the back (`WorldConfig` `hub.leaderboards`, part of the shared `hubLayout`; built and refreshed by `Leaderboards.luau`, started by `LeaderboardServer`). Left to right from the spawn: **TOP LEVEL**, **TOP TIME PLAYED** | portal | **TOP ROBUX SPENT**, **TOP CASH**. Each board turns toward the plaza so the four read as one curved wall. They show the same global rankings in every World (each refresh reads each store once and fills every hub's boards); only their look follows the World (`Leaderboards` STYLES, by hub theme): the ballpark scoreboard green and gold in World 1, ink and brass in World 2, gunmetal and holo cyan in World 3, dark wood and toy yellow in World 4.
 
 - **Look:** a green scoreboard panel (the ballpark scoreboard's colour) with a gold trim on two steel posts, a coloured header bar, a bold outlined title in the board's colour (Level blue, Time Played violet, Robux Spent green, Cash gold), "GLOBAL - TOP 10", ten ranked rows (#1 gold, #2 silver, #3 bronze) with the player's name and value, and a status line ("Updates every minute", "No scores yet", or "Couldn't update - retrying soon" while keeping the last rows). The SurfaceGui is unlit so it stays readable, and fades out beyond 220 studs.
 - **Values:** current Level (it resets on Rebirth; not the highest ever), current Cash (it drops when Cash is spent; not total earned), Time Played as `45m`, `2h 14m` or `3d 7h`, and Robux Spent as `R$ 1,500`. Large numbers are compacted (`$31.2M`).

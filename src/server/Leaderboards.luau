@@ -1,6 +1,7 @@
--- Global leaderboards: four physical boards in World 1's hub (WorldConfig hub.leaderboards)
--- showing the top players across every server by current Level, time played, Robux spent in
--- this experience, and current Cash.
+-- Global leaderboards: four physical boards in every World's hub (WorldConfig hub.leaderboards),
+-- styled to the World, showing the top players across every server by current Level, time
+-- played, Robux spent in this experience, and current Cash. Every hub shows the same rankings:
+-- each refresh reads each store once and fills every board.
 --
 -- PlayerData's save stays the source of truth. Each board reads an OrderedDataStore that mirrors
 -- one saved value (key: the player's UserId). The mirrors are written from PlayerData's
@@ -217,14 +218,19 @@ end
 local BOARD_SIZE = Vector3.new(12, 15, 0.8)
 local BOARD_BOTTOM = 3 -- height of the board's lower edge, on its posts
 local PIXELS_PER_STUD = 32
-local BOARD_COLOR = Color3.fromRGB(24, 58, 40) -- the ballpark scoreboard's green
-local TRIM_COLOR = Color3.fromRGB(255, 205, 50)
-local POST_COLOR = Color3.fromRGB(120, 126, 134)
-local INK = Color3.fromRGB(16, 30, 22)
+-- Each World's board look (its hub theme; .vscode/ART_STYLE.md): the panel, its trim, the posts
+-- and the text outline. Panels stay dark so the rows read clearly.
+local rgb = Color3.fromRGB
+local STYLES = {
+ HomeField = {board = rgb(24, 58, 40), trim = rgb(255, 205, 50), post = rgb(120, 126, 134), ink = rgb(16, 30, 22)}, -- ballpark scoreboard
+ TimeTravel = {board = rgb(44, 36, 70), trim = rgb(226, 176, 80), post = rgb(170, 122, 54), ink = rgb(22, 16, 36)}, -- ink and brass
+ Future = {board = rgb(28, 34, 54), trim = rgb(90, 224, 255), post = rgb(198, 206, 220), ink = rgb(10, 14, 26)}, -- gunmetal and holo cyan
+ TinyTown = {board = rgb(70, 44, 28), trim = rgb(255, 206, 44), post = rgb(150, 98, 58), ink = rgb(30, 18, 10)}, -- dark wood and toy yellow
+}
 local RANK_COLORS = {Color3.fromRGB(255, 214, 64), Color3.fromRGB(214, 222, 232), Color3.fromRGB(226, 150, 92)}
 local FONT, FONT_BOLD = Enum.Font.GothamBlack, Enum.Font.GothamBold
 
-local screens = {} -- [stat] = {{rows = {...}, status = TextLabel}, ...}
+local screens = {} -- [stat] = {{rows = {...}, status = TextLabel, hub = the hub it stands in}, ...}
 
 local function part(parent, name, size, cframe, color, material)
  local p = Instance.new("Part")
@@ -236,36 +242,37 @@ local function part(parent, name, size, cframe, color, material)
  return p
 end
 
-local function label(parent, name, text, font, size, color, position, frameSize, alignment)
+local function label(parent, name, text, font, size, color, position, frameSize, alignment, ink)
  local l = Instance.new("TextLabel")
  l.Name, l.Text, l.Font, l.TextSize, l.TextColor3 = name, text, font, size, color
  l.Position, l.Size, l.BackgroundTransparency = position, frameSize, 1
  l.TextXAlignment = alignment or Enum.TextXAlignment.Center
  l.TextTruncate = Enum.TextTruncate.AtEnd
  local stroke = Instance.new("UIStroke")
- stroke.Color, stroke.Thickness, stroke.Transparency = INK, 2, 0.1
+ stroke.Color, stroke.Thickness, stroke.Transparency = ink or STYLES.HomeField.ink, 2, 0.1
  stroke.Parent = l
  l.Parent = parent
  return l
 end
 
--- One board: a green scoreboard panel with a gold trim on two posts, its stat's colour on the
+-- One board: a dark panel in the World's style with a trim on two posts, its stat's colour on the
 -- header bar and values, and Entries ranked rows on a SurfaceGui.
-local function buildBoard(parent, stat, cframe)
+local function buildBoard(parent, hub, stat, cframe, style)
  local definition = Leaderboards.Stats[stat]
+ local ink = style.ink
  local model = Instance.new("Model")
  model.Name = stat .. "Board"
  model:SetAttribute("Stat", stat)
  local centre = cframe * CFrame.new(0, BOARD_BOTTOM + BOARD_SIZE.Y / 2, 0)
- local board = part(model, "Board", BOARD_SIZE, centre, BOARD_COLOR)
- part(model, "Trim", BOARD_SIZE + Vector3.new(0.7, 0.7, -0.2), centre * CFrame.new(0, 0, 0.2), TRIM_COLOR)
+ local board = part(model, "Board", BOARD_SIZE, centre, style.board)
+ part(model, "Trim", BOARD_SIZE + Vector3.new(0.7, 0.7, -0.2), centre * CFrame.new(0, 0, 0.2), style.trim)
  part(model, "HeaderBar", Vector3.new(BOARD_SIZE.X + 1, 0.8, 1.2), centre * CFrame.new(0, BOARD_SIZE.Y / 2 + 0.6, 0.1), definition.color)
  for _, side in {-1, 1} do
   local x = side * (BOARD_SIZE.X / 2 - 1.6)
   part(model, "Post", Vector3.new(0.6, BOARD_BOTTOM + BOARD_SIZE.Y - 1, 0.6),
-   cframe * CFrame.new(x, (BOARD_BOTTOM + BOARD_SIZE.Y - 1) / 2, 0.75), POST_COLOR, Enum.Material.Metal)
+   cframe * CFrame.new(x, (BOARD_BOTTOM + BOARD_SIZE.Y - 1) / 2, 0.75), style.post, Enum.Material.Metal)
  end
- part(model, "Footing", Vector3.new(BOARD_SIZE.X - 1, 0.4, 2.4), cframe * CFrame.new(0, 0.2, 0.5), POST_COLOR, Enum.Material.Concrete)
+ part(model, "Footing", Vector3.new(BOARD_SIZE.X - 1, 0.4, 2.4), cframe * CFrame.new(0, 0.2, 0.5), style.post, Enum.Material.Concrete)
 
  local gui = Instance.new("SurfaceGui")
  gui.Name, gui.Face = "Screen", Enum.NormalId.Front
@@ -273,9 +280,9 @@ local function buildBoard(parent, stat, cframe)
  gui.LightInfluence = 0
  gui.Parent = board
  local width, height = BOARD_SIZE.X * PIXELS_PER_STUD, BOARD_SIZE.Y * PIXELS_PER_STUD
- label(gui, "Title", definition.title, FONT, 40, definition.color, UDim2.fromOffset(0, 10), UDim2.new(1, 0, 0, 48))
+ label(gui, "Title", definition.title, FONT, 40, definition.color, UDim2.fromOffset(0, 10), UDim2.new(1, 0, 0, 48), nil, ink)
  label(gui, "Subtitle", "GLOBAL  -  TOP " .. Leaderboards.Entries, FONT_BOLD, 18, Color3.fromRGB(220, 236, 224),
-  UDim2.fromOffset(0, 58), UDim2.new(1, 0, 0, 22))
+  UDim2.fromOffset(0, 58), UDim2.new(1, 0, 0, 22), nil, ink)
  local top, rowHeight = 92, math.floor((height - 92 - 40) / Leaderboards.Entries)
  local rows = {}
  for i = 1, Leaderboards.Entries do
@@ -290,34 +297,41 @@ local function buildBoard(parent, stat, cframe)
   local textSize = rowHeight - 12
   rows[i] = {
    rank = label(row, "Rank", "#" .. i, FONT, textSize, RANK_COLORS[i] or Color3.new(1, 1, 1),
-    UDim2.fromOffset(6, 0), UDim2.new(0, 46, 1, 0), Enum.TextXAlignment.Left),
+    UDim2.fromOffset(6, 0), UDim2.new(0, 46, 1, 0), Enum.TextXAlignment.Left, ink),
    name = label(row, "PlayerName", "", FONT_BOLD, textSize, Color3.new(1, 1, 1),
-    UDim2.fromOffset(54, 0), UDim2.new(1, -170, 1, 0), Enum.TextXAlignment.Left),
+    UDim2.fromOffset(54, 0), UDim2.new(1, -170, 1, 0), Enum.TextXAlignment.Left, ink),
    value = label(row, "Value", "", FONT, textSize, definition.color,
-    UDim2.new(1, -116, 0, 0), UDim2.new(0, 110, 1, 0), Enum.TextXAlignment.Right),
+    UDim2.new(1, -116, 0, 0), UDim2.new(0, 110, 1, 0), Enum.TextXAlignment.Right, ink),
   }
  end
  local status = label(gui, "Status", "Loading...", FONT_BOLD, 16, Color3.fromRGB(200, 214, 204),
-  UDim2.fromOffset(0, height - 34), UDim2.new(1, 0, 0, 24))
+  UDim2.fromOffset(0, height - 34), UDim2.new(1, 0, 0, 24), nil, ink)
  screens[stat] = screens[stat] or {}
- table.insert(screens[stat], {rows = rows, status = status})
+ table.insert(screens[stat], {rows = rows, status = status, hub = hub})
  WorldUI.Register(gui, "Leaderboard")
  model.Parent = parent
  return model
 end
 
 -- Builds hub.Leaderboards (rebuilt each time) from the hub's leaderboards config:
--- {facing = hub-frame point the boards turn toward, boards = {{stat, position}, ...}}.
+-- {facing = hub-frame point the boards turn toward, theme = a STYLES key (HomeField when
+-- missing), boards = {{stat, position}, ...}}. Only this hub's old boards are dropped, so every
+-- other hub's boards keep refreshing.
 function Leaderboards.Build(hub, frame, config)
  local old = hub:FindFirstChild("Leaderboards")
  if old then old:Destroy() end
- table.clear(screens)
+ for _, list in screens do
+  for index = #list, 1, -1 do
+   if list[index].hub == hub then table.remove(list, index) end
+  end
+ end
+ local style = STYLES[config.theme] or STYLES.HomeField
  local folder = Instance.new("Folder")
  folder.Name = "Leaderboards"
  for _, entry in config.boards do
   assert(Leaderboards.Stats[entry.stat], "Unknown leaderboard stat " .. tostring(entry.stat))
   local facing = Vector3.new(config.facing.X, entry.position.Y, config.facing.Z)
-  buildBoard(folder, entry.stat, frame * CFrame.lookAt(entry.position, facing))
+  buildBoard(folder, hub, entry.stat, frame * CFrame.lookAt(entry.position, facing), style)
  end
  folder.Parent = hub
 end

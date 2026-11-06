@@ -446,7 +446,7 @@ Completing a World permanently unlocks the next World. World 4 (Tiny Town; being
 
 Hits start over in each World after World 1: below the World's `launchLevels.from` (the Level where it opens) a hit uses the early floaty arc (99-143 studs), and from `from` to `to` (the Level where its end is reached) it grows evenly in studs to the end portal (`WorldLaunchSteps`). Each later World has a start pay (`cashBase`; World 2 3,000, World 3 40,000, World 4 500,000, with multipliers 7 / 60 / 600), so even its shortest hit pays more than the previous World's farthest. In an earlier World a later player hits its end every time, at that World's lower pay.
 
-Every hub shares one compact layout (`WorldConfig` `hubLayout`), named from the spawn, which looks into the hub with the batting area and runway behind it: Training Grounds on the left, item displays on the right, an open plaza with the World's event piece in the middle, and the World portal at the back. World 1's four global leaderboards (Level, Time Played, Robux Spent, Cash) stand either side of its portal. Only the art differs between Worlds.
+Every hub shares one compact layout (`WorldConfig` `hubLayout`), named from the spawn, which looks into the hub with the batting area and runway behind it: Training Grounds on the left, item displays on the right, an open plaza with the World's event piece in the middle, and the World portal at the back. The four global leaderboards (Level, Time Played, Robux Spent, Cash) stand either side of the portal in every hub, styled to the World, all showing the same rankings. Only the art differs between Worlds.
 
 World unlocks persist.
 
@@ -594,7 +594,7 @@ Unless asked, do not add:
 - quests
 - daily rewards
 - monetization (the approved exceptions are listed under Monetization: the Training Ground passes, the Welcome Back 3x, the three Power products, Auto Bat, the permanent Power and Cash multipliers, and the Shop's Starter Pack, Cash Packs and Boosts)
-- leaderboards (World 1's four global boards are the approved exception)
+- leaderboards (the four global boards in every hub are the approved exception)
 - trading
 - rarity systems
 - new currencies

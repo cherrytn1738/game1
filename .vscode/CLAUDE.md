@@ -384,7 +384,7 @@ Every hub shares one layout (`WorldConfig` `hubLayout`). The spawn stands just b
 - left: the World's row of six Training Grounds, front to back, doors facing the middle
 - right: the item displays facing the middle (the World's own ball series, then Bats)
 - middle: an open plaza with a path to the back and the World's event piece (World 1 infield diamond, World 2 giant clock, World 3 hologram stage)
-- back: the World portal in the middle (opens the Worlds menu when stepped into); World 1's four global leaderboards stand either side of it (Worlds 2 and 3 keep those spots open)
+- back: the World portal in the middle (opens the Worlds menu when stepped into); the four global leaderboards stand either side of it, in every World
 - the Shop, Travel and Rebirth stations are removed for now
 
 The hub intentionally leaves space for future content.
@@ -524,7 +524,7 @@ Preserve these protections.
 
 Current schema is Schema 12 (Schema 12 added PowerMultiplierTier and CashMultiplierTier, the purchased multiplier tier counts, 0 for older saves; Schema 6 removed Tee equipment; Schema 7 added Juice: OwnedJuices and ActiveJuices; Schema 8 retired SelectedTrainingGround; Schema 9 added TimePlayed, RobuxSpent and RobuxPurchases for the global leaderboards; Schema 10 added the tutorial: TutorialCompleted, TutorialStep, TutorialProgress; Schema 11 added StarterPackGranted, CashPackQuotes, PendingGifts, GiftInbox, ReceivedGifts and GiftedEntitlements).
 
-The global leaderboards (World 1's hub) read OrderedDataStores that mirror saved values; PlayerData stays the source of truth (`Leaderboards.luau`).
+The global leaderboards (in every hub) read OrderedDataStores that mirror saved values; PlayerData stays the source of truth (`Leaderboards.luau`).
 
 Tee equipment data was removed from active saves.
 
@@ -574,7 +574,7 @@ Unless explicitly requested, do not add:
 - quests
 - daily rewards
 - monetization beyond the Training Ground passes, the Welcome Back 3x offline-reward product, the three Power products, Auto Bat, the permanent Power and Cash multipliers and the Shop's Starter Pack, Cash Packs and juice products
-- leaderboards beyond World 1's four global boards
+- leaderboards beyond the four global boards (in every hub)
 - trading
 - rarity systems
 - new currencies

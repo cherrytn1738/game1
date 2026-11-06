@@ -164,8 +164,10 @@ return function(sources)
   check(portal.center.X == 0 and (portal.yaw or 0) == 0 and portal.center.Z + portal.radius <= hub.depth
    and portal.center.Z - portal.radius > event.center.Z + event.size / 2 and portal.center.Z > lastDisplayZ,
    "the portal stands at the back in the middle, facing the spawn")
-  -- World 1 alone holds the leaderboards: either side of the portal, behind the last cage.
-  check((hub.leaderboards ~= nil) == (world.id == Worlds.StartingWorldId), "only World 1 holds the global leaderboards")
+  -- Every World holds the four leaderboards, styled to its hub: either side of the portal,
+  -- behind the last cage.
+  check(hub.leaderboards ~= nil and #hub.leaderboards.boards == 4 and hub.leaderboards.theme == hub.theme,
+   world.id .. " holds the global leaderboards in its own style")
   for _, board in hub.leaderboards and hub.leaderboards.boards or {} do
    local p = board.position
    check(math.abs(p.X) - 6 > portal.radius and p.Z > lastCageZ and inside(p.X - 6, p.X + 6, p.Z - 2, p.Z + 2),

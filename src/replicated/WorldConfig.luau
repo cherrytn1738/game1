@@ -16,8 +16,8 @@ local TEE = Vector3.new(-17.2, 0, -21.2)
 --   right   the item displays, balls then bats, side by side facing the middle (x -36 to -51)
 --   middle  an open plaza (x -26 to 26) with a path from the spawn to the back, and the
 --           World's event piece (eventArea) halfway along it
---   back    the World portal in the middle (portalPad); World 1's global leaderboards stand
---           either side of it (leaderboards), and the other Worlds keep those spots open
+--   back    the World portal in the middle (portalPad), with the four global leaderboards two
+--           either side of it (leaderboards), the same in every World
 -- The hub floor spans x minX..maxX and z 0..depth. Only the Training Grounds' side reaches
 -- past the runway (x -86..86 with its walls).
 local SPAWN = Vector3.new(0, 4, 30)
@@ -50,19 +50,19 @@ local function hubLayout(name, theme, ballSeries, ballTitle)
   -- never hides the portal), and the pad of the World portal (WorldPortal), facing the spawn
   -- (yaw 0). Stepping into the portal opens the Worlds menu.
   eventArea = {center = Vector3.new(0, 0, 118), size = 40},
-  portalPad = {center = Vector3.new(0, 0, 205), radius = 12, yaw = 0}}
+  portalPad = {center = Vector3.new(0, 0, 205), radius = 12, yaw = 0},
+  -- The global leaderboards (Leaderboards), two either side of the portal, each turned toward
+  -- `facing` so the four read as one curved wall from the plaza; theme picks their colours. Left
+  -- to right from the spawn: Level, Time Played | portal | Robux Spent, Cash.
+  leaderboards = {facing = Vector3.new(0, 0, 90), theme = theme, boards = {
+   {stat = "Level", position = Vector3.new(37, 0, 207)},
+   {stat = "TimePlayed", position = Vector3.new(22, 0, 207)},
+   {stat = "RobuxSpent", position = Vector3.new(-22, 0, 207)},
+   {stat = "Cash", position = Vector3.new(-37, 0, 207)},
+  }}}
 end
 
--- The starting World's hub also holds the global leaderboards (Leaderboards), two either side
--- of the portal, each turned toward `facing` so the four read as one curved wall from the
--- plaza. Left to right from the spawn: Level, Time Played | portal | Robux Spent, Cash.
 local world1Hub = hubLayout("World1Hub", "HomeField", nil, "BALLS")
-world1Hub.leaderboards = {facing = Vector3.new(0, 0, 90), boards = {
- {stat = "Level", position = Vector3.new(37, 0, 207)},
- {stat = "TimePlayed", position = Vector3.new(22, 0, 207)},
- {stat = "RobuxSpent", position = Vector3.new(-22, 0, 207)},
- {stat = "Cash", position = Vector3.new(-37, 0, 207)},
-}}
 
 local Worlds = {
  StartingWorldId = "world_1",

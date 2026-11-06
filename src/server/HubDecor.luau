@@ -679,14 +679,10 @@ local function timeTravel(k, folder, frame, config, worldId)
  k.disc("SpawnRosette", Vector3.new(0, 0, spawnZ), 3.4, BRASS, M.SmoothPlastic, 4)
  k.disc("SpawnDial", Vector3.new(0, 0, spawnZ), 2.7, CREAM, M.SmoothPlastic, 5)
 
- -- A giant clock face for events in the middle (its rim inside the event square), the World
- -- portal's pad at the back, and a chrono lamp at each of the two spots either side of the
- -- portal that World 1 fills with its leaderboards.
+ -- A giant clock face for events in the middle (its rim inside the event square) and the World
+ -- portal's pad at the back (the leaderboards stand either side of it).
  local event = config.eventArea
  if event then floorClock(k, event.center, event.size / 2 - 2) end
- for _, side in {-1, 1} do
-  chronoLamp(k, Vector3.new(side * 30, 0, config.portalPad.center.Z + 2))
- end
  local portal = config.portalPad
  if portal then
   k.disc("PortalPadGlow", portal.center, portal.radius + 1, CHRONO, M.Neon, 3)
@@ -927,14 +923,10 @@ local function future(k, folder, frame, config, worldId)
  k.disc("SpawnPad", Vector3.new(0, 0, spawnZ), 3.5, HULL, M.SmoothPlastic, 5)
  k.disc("SpawnPadCore", Vector3.new(0, 0, spawnZ), 1.4, SEAM, M.Neon, 6)
 
- -- The hologram stage for events (inside the event square), the World portal's pad at the
- -- back, and a holo lamp at each of the two spots either side of the portal that World 1 fills
- -- with its leaderboards.
+ -- The hologram stage for events (inside the event square) and the World portal's pad at the
+ -- back (the leaderboards stand either side of it).
  local event = config.eventArea
  if event then hologramStage(k, event.center, event.size / 2 - 1.2) end
- for _, side in {-1, 1} do
-  holoLamp(k, Vector3.new(side * 30, 0, config.portalPad.center.Z + 2))
- end
  local portal = config.portalPad
  if portal then
   k.disc("PortalPadGlow", portal.center, portal.radius + 1, SEAM, M.Neon, 3)
@@ -1205,8 +1197,8 @@ local function tinyTown(k, folder, frame, config, worldId)
   k.disc("SpawnButtonHole", Vector3.new(0, 0, spawnZ) + offset * 1.1, 0.5, Color3.fromRGB(120, 24, 20), M.SmoothPlastic, 5)
  end
 
- -- The wind-up key for events, the thimble fountain, the portal's pad (a big button), and a spool
- -- at each of the two spots either side of the portal that World 1 fills with its leaderboards.
+ -- The wind-up key for events, the thimble fountain and the portal's pad (a big button; the
+ -- leaderboards stand either side of it).
  local event = config.eventArea
  if event then windUpKey(k, frame, event.center) end
  thimbleFountain(k, Vector3.new(14, 0, 165))
@@ -1217,7 +1209,6 @@ local function tinyTown(k, folder, frame, config, worldId)
   for _, offset in {Vector3.new(-2.4, 0, -2.4), Vector3.new(2.4, 0, -2.4), Vector3.new(-2.4, 0, 2.4), Vector3.new(2.4, 0, 2.4)} do
    k.disc("PortalPadHole", portal.center + offset, 1, Color3.fromRGB(190, 140, 30), M.SmoothPlastic, 5)
   end
-  for _, side in {-1, 1} do spoolTower(k, Vector3.new(side * 30, 0, portal.center.Z + 2), 1, side > 0 and 0 or 2) end
  end
 
  -- The baseboard bowl, the mouse hole behind the portal, matchbox houses and spool towers on the
