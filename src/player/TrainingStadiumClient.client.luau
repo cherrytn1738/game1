@@ -25,7 +25,7 @@ for _, world in Worlds.Worlds do
  if world.hub then
   local hub = workspace:WaitForChild(world.hub.name)
   table.insert(hubs, hub)
-  if Config.GetHub(world.id) then table.insert(groundFolders, hub:WaitForChild("TrainingGrounds")) end
+  if Config.GetHub(world.id) then table.insert(groundFolders, {folder = hub:WaitForChild("TrainingGrounds"), worldId = world.id}) end
  end
 end
 local pending = false
@@ -38,7 +38,8 @@ local tint, blend = nil, 0
 
 local function tintAround(position)
  local c = Config.Cage
- for _, grounds in groundFolders do
+ for _, entry in groundFolders do
+  local grounds = entry.folder
   for _, stadium in grounds:GetChildren() do
    local cage, plate = stadium:FindFirstChild("Cage"), stadium:FindFirstChild("TrainingPlate")
    if cage and plate and cage:GetAttribute("TintColor") then
@@ -74,7 +75,7 @@ end
 -- The floating label over a cage's door (made once per streamed-in cage). Themed cages and
 -- their door decorations rise above the standard roof, so it draws on top of the scenery
 -- (WorldUIClient keeps only the nearby ones showing).
-local function groundLabel(entrance, ground)
+local function groundLabel(entrance, ground, worldId)
  local gui = entrance:FindFirstChild("GroundLabel")
  if gui then return gui end
  gui = Instance.new("BillboardGui")
@@ -85,7 +86,7 @@ local function groundLabel(entrance, ground)
  layout.VerticalAlignment, layout.Parent = Enum.VerticalAlignment.Bottom, gui
  line(gui, "GroundName", 1, .34, UI.Colors.Text).Text = string.upper(ground.displayName)
  line(gui, "Status", 2, .28, UI.Colors.Text)
- line(gui, "Boost", 3, .38, UI.Colors.Gold).Text = "×" .. ground.powerMultiplier .. " POWER"
+ line(gui, "Boost", 3, .38, UI.Colors.Gold).Text = "×" .. Config.GetMultiplier(ground, worldId) .. " POWER" -- this hub's World
  gui.Parent = entrance
  WorldUI.Register(gui, "Training")
  return gui
@@ -93,7 +94,8 @@ end
 
 local function apply()
  pending = false
- for _, grounds in groundFolders do
+ for _, entry in groundFolders do
+  local grounds = entry.folder
   for _, ground in Config.Grounds do
    local stadium = grounds:FindFirstChild(ground.id)
    local text = lockText(ground)
@@ -109,7 +111,7 @@ local function apply()
    end
    local entrance = stadium and stadium:FindFirstChild("EntranceSign", true)
    if entrance then
-    local status = groundLabel(entrance, ground).Status
+    local status = groundLabel(entrance, ground, entry.worldId).Status
     status.Text = text or "UNLOCKED"
     status.TextColor3 = text and UI.Colors.Error or UI.Showcase.Value
    end

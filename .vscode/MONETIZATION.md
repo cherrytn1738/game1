@@ -13,7 +13,7 @@ server confirms.
 | +1M Power | Developer product | 95 Robux | +1,000,000 Power | `MonetizationConfig.PowerProducts` |
 | Auto Bat | Game pass | 25 Robux | Bats automatically at the plate, ON/OFF | `MonetizationConfig.AutoBat` |
 | Cosmic Rift (+ Time Machine Lab, Quantum Lab) | Game pass | 500 Robux | Training Grounds | `TrainingConfig` (`gamePassId`) |
-| Dragon's Lair | Game pass | 1000 Robux | Training Ground in every World | `TrainingConfig` (`gamePassId`) |
+| Dragon's Lair | Game pass | 1000 Robux | Training Ground in every World: 15x / 45x / 150x / 500x in Worlds 1-4 | `TrainingConfig` (`gamePassId`, `worldMultipliers`) |
 | Welcome Back 3x | Developer product | not priced yet | Offline reward x3, up to the rest of the run | `TrainingConfig.OfflineTriple` (`productId`, `robuxPrice`) |
 | Starter Pack | Game pass (once) | 39 Robux | +10K Power, +1 Rebirth, 1 Power Punch, Catastrophe Bat | `MonetizationConfig.StarterPack` |
 | Tiny / Small / Medium / Large Cash Pack | Developer product | 25 / 59 / 115 / 229 Robux | Cash worth 15 / 50 / 125 / 300 normal hits | `MonetizationConfig.CashProducts` |
@@ -117,9 +117,12 @@ Balls are bought for Cash only at the hub display pedestals).
   shows the same formula from the replicated Level, World and Bat.
 - **Juices:** added to `OwnedJuices` (capped at 999 each), never started.
 - **Training Grounds:** Dragon's Lair always, plus the premium ground in the player's World (Cosmic
-  Rift, Time Machine Lab or Quantum Lab: the one shared Cosmic Rift pass), bought through the
-  existing TrainingRequest "Buy" (the server checks the pass and opens the prompt). OWNED from the
-  server's `TrainingPass_<id>` attributes (true for the pass or a gifted entitlement).
+  Rift, Time Machine Lab, Quantum Lab or Snow Globe: the one shared Cosmic Rift pass), bought
+  through the existing TrainingRequest "Buy" (the server checks the pass and opens the prompt).
+  OWNED from the server's `TrainingPass_<id>` attributes (true for the pass or a gifted
+  entitlement). Dragon's Lair's card shows its multiplier in the player's World (15x / 45x / 150x /
+  500x, `Training.GetMultiplier`): a little above that World's premium ground (10x / 35x / 120x /
+  400x), never above its best Rebirth ground. The cards are rebuilt when the World changes.
 - **Ground pictures:** a card shows the ground's screenshot when its `TrainingConfig` `shopImage`
   is set (cropped to fill), otherwise a 3D preview of its own cage. The server publishes clean
   copies of the paid grounds' cages to `ReplicatedStorage.TrainingGroundModels` at start

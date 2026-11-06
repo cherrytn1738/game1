@@ -3,6 +3,9 @@
 -- game passes (gamePassId 0 = not created yet, so the ground cannot be bought or used). A
 -- ground can only be used once a World it stands in is unlocked.
 --   powerMultiplier: Power per practice hit = Training base (ProgressionConfig, by Level) x powerMultiplier
+--   worldMultipliers: a ground standing in several Worlds (Dragon's Lair) has one multiplier per
+--     World instead ({[worldId] = multiplier}); always read a ground's multiplier with
+--     Training.GetMultiplier(ground, worldId)
 --   sharesPass: a paid ground opened by another ground's game pass (no pass of its own)
 --   shopImage: optional uploaded screenshot (rbxassetid) for the paid ground's Shop card; empty
 --     shows the live 3D preview of its cage instead (see .vscode/MONETIZATION.md)
@@ -130,8 +133,11 @@ local Training = {
     banner = Color3.fromRGB(60, 120, 200), lights = true, decorations = {},
     -- A client practice visual only: snow swirls round the cage after each practice hit.
     practiceHitEffect = "SnowSwirl"}},
-  -- The most expensive ground; it stands in every World's hub.
-  {id = "dragons_lair", displayName = "Dragon's Lair", gamePassId = 0, robuxPrice = 1000, powerMultiplier = 30, interval = 2,
+  -- The most expensive ground; it stands in every World's hub. Its multiplier follows the World
+  -- it is used in: a little above that World's premium ground (the Cosmic Rift pass's cage), but
+  -- below the World's best Rebirth ground, so it is never the best cage in a World.
+  {id = "dragons_lair", displayName = "Dragon's Lair", gamePassId = 0, robuxPrice = 1000, interval = 2,
+   worldMultipliers = {world_1 = 15, world_2 = 45, world_3 = 150, world_4 = 500},
    shopImage = "",
    theme = {template = "DragonLairCage", turf = Color3.fromRGB(34, 28, 30), turfMaterial = M.Basalt,
     lane = Color3.fromRGB(214, 168, 50), laneMaterial = M.Metal,
@@ -215,11 +221,24 @@ for index, ground in Training.Grounds do
  end
  assert(#ground.worlds > 0, "Training ground " .. ground.id .. " stands in no hub")
  assert(ground.interval == Training.PracticeCycleSeconds, ground.id .. "'s interval must match the practice cycle")
+ for _, worldId in ground.worlds do
+  local multiplier = ground.worldMultipliers and ground.worldMultipliers[worldId] or ground.powerMultiplier
+  assert(type(multiplier) == "number" and multiplier > 0, ground.id .. " needs a Power multiplier in " .. worldId)
+ end
  if ground.gamePassId ~= nil then table.insert(Training.PassGrounds, ground) end
 end
 for _, ground in Training.Grounds do
  local owner = ground.sharesPass and Training.Get(ground.sharesPass)
  assert(not ground.sharesPass or owner and owner.gamePassId ~= nil, ground.id .. " shares an unknown pass")
+end
+
+-- A ground's Power multiplier in a World it stands in (worldId; nil means its first World).
+-- Most grounds have one multiplier; Dragon's Lair has one per World (worldMultipliers).
+function Training.GetMultiplier(ground, worldId)
+ if ground.worldMultipliers then
+  return ground.worldMultipliers[worldId or ground.worlds[1]] or ground.worldMultipliers[ground.worlds[1]]
+ end
+ return ground.powerMultiplier
 end
 
 function Training.IsPaid(ground)
@@ -281,20 +300,30 @@ function Training.CanUse(id, rebirths, passes, worlds)
 end
 
 -- The usable ground with the highest Power rate in any unlocked World (offline Training and
--- the quick teleport).
+-- the quick teleport), and the World it is best in (Dragon's Lair's multiplier depends on it).
+-- Returns ground, worldId.
 function Training.GetBestGround(rebirths, passes, worlds)
  local best = Training.Get(Training.DefaultGround)
+ local bestWorld = best.worlds[1]
+ local bestRate = Training.GetMultiplier(best, bestWorld) / best.interval
  for _, ground in Training.Grounds do
-  if Training.CanUse(ground.id, rebirths, passes, worlds) and ground.powerMultiplier / ground.interval > best.powerMultiplier / best.interval then
-   best = ground
+  if Training.CanUse(ground.id, rebirths, passes, worlds) then
+   for _, worldId in ground.worlds do
+    local reachable = worlds and worlds[worldId] or not worlds and worldId == Training.Hubs[1].world
+    local rate = Training.GetMultiplier(ground, worldId) / ground.interval
+    if reachable and rate > bestRate then
+     best, bestWorld, bestRate = ground, worldId, rate
+    end
+   end
   end
  end
- return best
+ return best, bestWorld
 end
 
 -- Offline base Power for the time away (before Ball and Rebirth, and before the run cap below):
--- trainingBase is the Training base (ProgressionConfig.TrainingBase, the same at every Level).
-function Training.GetOfflineReward(timestamp, now, groundId, trainingBase)
+-- trainingBase is the Training base (ProgressionConfig.TrainingBase, the same at every Level);
+-- worldId is the World the ground is used in (GetBestGround's second result).
+function Training.GetOfflineReward(timestamp, now, groundId, trainingBase, worldId)
  local ground = Training.Get(groundId)
  if not Training.OfflineTrainingEnabled or not ground or type(timestamp) ~= "number"
   or timestamp ~= timestamp or timestamp <= 0 or timestamp % 1 ~= 0 or timestamp > now
@@ -302,7 +331,8 @@ function Training.GetOfflineReward(timestamp, now, groundId, trainingBase)
   return 0, 0
  end
  local seconds = math.min(now - timestamp, Training.MaximumOfflineSeconds)
- return math.floor(seconds * trainingBase * ground.powerMultiplier / ground.interval * Training.OfflinePowerRateMultiplier), seconds
+ return math.floor(seconds * trainingBase * Training.GetMultiplier(ground, worldId) / ground.interval
+  * Training.OfflinePowerRateMultiplier), seconds
 end
 
 -- The run cap, on whole Power after every multiplier. remaining is the Power the player needed for

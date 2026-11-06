@@ -343,14 +343,37 @@ return function(sources)
  -- Physical grounds: access derives from private Rebirths or a Roblox pass, and offline
  -- grants use the best usable ground inside the atomic login transaction.
  local multipliers = {}
- for _, entry in Training.Grounds do table.insert(multipliers, entry.powerMultiplier) end
- check(table.concat(multipliers, ",") == "1,5,10,20,10,25,35,50,70,35,90,120,160,210,120,270,350,450,580,400,30",
+ for _, entry in Training.Grounds do
+  if entry.id ~= "dragons_lair" then table.insert(multipliers, Training.GetMultiplier(entry, entry.worlds[1])) end
+ end
+ check(table.concat(multipliers, ",") == "1,5,10,20,10,25,35,50,70,35,90,120,160,210,120,270,350,450,580,400",
   "ground multipliers on the first ground's Power")
+ -- Dragon's Lair's multiplier follows the World it is used in: a little above the World's premium
+ -- ground (the Cosmic Rift pass's cage), never above the World's best ground.
+ local lair = Training.Get("dragons_lair")
+ local premium = {world_1 = "cosmic_rift", world_2 = "time_machine_lab", world_3 = "quantum_lab", world_4 = "snow_globe"}
+ local expected = {world_1 = 15, world_2 = 45, world_3 = 150, world_4 = 500}
+ for worldId, premiumId in premium do
+  local value = Training.GetMultiplier(lair, worldId)
+  local best = 0
+  for _, id in Training.GetHub(worldId).grounds do
+   if id ~= "dragons_lair" then best = math.max(best, Training.GetMultiplier(Training.Get(id), worldId)) end
+  end
+  check(value == expected[worldId] and value > Training.GetMultiplier(Training.Get(premiumId), worldId) and value < best,
+   "Dragon's Lair in " .. worldId .. " is " .. expected[worldId] .. "x: above " .. premiumId .. ", below the World's best ground")
+ end
+ check(lair.robuxPrice == 1000 and lair.powerMultiplier == nil and Training.GetMultiplier(lair) == 15,
+  "Dragon's Lair keeps its 1,000 Robux price and has only per-World multipliers (its first World's when none is given)")
  check(Training.Get("sky_temple").requiredRebirths == 6 and Training.IsPaid(Training.Get("cosmic_rift"))
   and not Training.IsUnlocked("cosmic_rift", 1000), "Rebirth and paid ground requirements")
  check(Training.GetBestGround(0, nil).id == "basic_training" and Training.GetBestGround(4, nil).id == "sunken_atlantis"
   and Training.GetBestGround(6, {cosmic_rift=true}).id == "sky_temple" and Training.GetBestGround(0, {cosmic_rift=true}).id == "cosmic_rift"
-  and Training.GetBestGround(6, {dragons_lair=true}).id == "dragons_lair", "best ground is the highest usable rate")
+  and Training.GetBestGround(4, {dragons_lair=true}).id == "dragons_lair" and Training.GetBestGround(6, {dragons_lair=true}).id == "sky_temple",
+  "best ground is the highest usable rate (Dragon's Lair's 15x beats Sunken Atlantis, not Sky Temple)")
+ local bestLair, bestLairWorld = Training.GetBestGround(0, {dragons_lair=true}, {world_1=true, world_2=true, world_3=true})
+ check(bestLair.id == "dragons_lair" and bestLairWorld == "world_3", "the best ground comes with the World it is best in")
+ local _, basicWorld = Training.GetBestGround(0, nil)
+ check(basicWorld == "world_1", "the starting ground is best in World 1")
  Training.Get("dragons_lair").gamePassId = 0
  check(not Training.CanUse("dragons_lair", 0, {dragons_lair=true}), "a paid ground without a created pass is unusable")
  Training.Get("dragons_lair").gamePassId = 222
@@ -419,7 +442,7 @@ return function(sources)
  trainee:SetAttribute("TrainingActive",true)
  check(not Data.EquipEquipment(trainee,"Bat","wood_bat"),"training blocks equipment changes")
  local ground=Training.Get("enchanted_grove")
- local ok, gain=Data.GrantPower(trainee,Progression.TrainingBase*ground.powerMultiplier,"ActiveTraining")
+ local ok, gain=Data.GrantPower(trainee,Progression.TrainingBase*Training.GetMultiplier(ground),"ActiveTraining")
  -- 5 x 5 x 3 (two Rebirths) = 75 Power from Level 1: Levels 1-5 take 64, leaving 11 at Level 6.
  check(ok and gain.powerGranted==75 and trainee:GetAttribute("Level")==6 and trainee:GetAttribute("Power")==11,
   "active training uses central multiplier/advancement")
@@ -435,6 +458,10 @@ return function(sources)
  check(amount==37 and seconds==60,"short offline duration")
  amount,seconds=Training.GetOfflineReward(nowStamp-3600,nowStamp,"enchanted_grove",levelOneBase)
  check(amount==11250 and seconds==3600,"ground offline rate")
+ -- Dragon's Lair offline pays the World it is best in: 3,600 s x 5 x 500 / 2 x 0.25 in World 4.
+ check(Training.GetOfflineReward(nowStamp-3600,nowStamp,"dragons_lair",levelOneBase,"world_4")==1125000
+  and Training.GetOfflineReward(nowStamp-3600,nowStamp,"dragons_lair",levelOneBase,"world_1")==33750,
+  "Dragon's Lair's offline rate follows its World")
  amount,seconds=Training.GetOfflineReward(1,nowStamp,"basic_training",levelOneBase)
  check(seconds==Training.MaximumOfflineSeconds and amount==18000,"offline cap enforced")
  check(Progression.GetTrainingBase==nil and Training.GetOfflineReward(nowStamp-60,nowStamp,"basic_training",Progression.TrainingBase)==37,
@@ -779,7 +806,7 @@ return function(sources)
   local best = Data.GetBestTrainingGround(cyclist)
   check(best.id == "caveman_camp" and (Data.CanUseTrainingGround(cyclist, "enchanted_grove") ~= nil) == (rebirths + 1 >= 2),
    "the second ground opens at two Rebirths; the best ground spans unlocked Worlds")
-  local base = Progression.TrainingBase * best.powerMultiplier
+  local base = Progression.TrainingBase * Training.GetMultiplier(best)
   local granted, tick = Data.GrantPower(cyclist, base, "ActiveTraining")
   check(granted and tick.powerGranted == base * Equipment.Get("Ball", cyclist:GetAttribute("EquippedBall")).powerGainMultiplier
    * Progression.GetPowerMultiplier(rebirths + 1), "ground, Ball and Rebirth multipliers compose")
@@ -915,7 +942,7 @@ return function(sources)
     local trainingBase = Progression.TrainingBase
     local base, seconds = Training.GetOfflineReward(nowStamp-duration, nowStamp, trainingGround.id, trainingBase)
     local eligibleSeconds = math.min(duration, Training.MaximumOfflineSeconds)
-    local expectedBase = math.floor(eligibleSeconds * trainingBase * trainingGround.powerMultiplier / trainingGround.interval * Training.OfflinePowerRateMultiplier)
+    local expectedBase = math.floor(eligibleSeconds * trainingBase * Training.GetMultiplier(trainingGround) / trainingGround.interval * Training.OfflinePowerRateMultiplier)
     check(base == expectedBase and seconds == eligibleSeconds, "offline duration boundary " .. label .. "/" .. duration)
     local rateState = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
     local remaining = Progression.GetPowerToLevelCap(rateState)
@@ -945,8 +972,8 @@ return function(sources)
     UnlockedWorlds={world_1=true, world_2=true}, CompletedWorlds={world_1=true}, OtherProgress=73}
    local fixture = join(fixtureId)
    -- These saves have World 2 unlocked, so World 2's grounds count too.
-   local best = Training.GetBestGround(rebirths, nil, bothWorlds)
-   local levelOneGround = Progression.TrainingBase * best.powerMultiplier
+   local best, bestWorld = Training.GetBestGround(rebirths, nil, bothWorlds)
+   local levelOneGround = Progression.TrainingBase * Training.GetMultiplier(best, bestWorld)
    local baseOffline = math.floor(12 * levelOneGround / best.interval * Training.OfflinePowerRateMultiplier)
    local expected = Progression.Normalize({Rebirths=rebirths, Level=1, Power=0}, false)
    Progression.Advance(expected, baseOffline * Progression.GetPowerMultiplier(rebirths))

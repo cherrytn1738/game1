@@ -278,7 +278,7 @@ Current Grounds (Power multiplier on the Training base, one practice hit every ~
 - World 2 (placeholder values): Caveman Camp (free once World 2 is unlocked, 25x), Pharaoh's Tomb (8 Rebirths, 35x), Gladiator Colosseum (10 Rebirths, 50x), Samurai Dojo (12 Rebirths, 70x), Time Machine Lab (Cosmic Rift's pass, 35x)
 - World 3 (placeholder values): Solar Rooftop (free once World 3 is unlocked, 90x), Robo Factory (14 Rebirths, 120x), Biodome Lab (16 Rebirths, 160x), Lunar Base (18 Rebirths, 210x), Quantum Lab (Cosmic Rift's pass, 120x)
 - World 4 (Tiny Town): Sandbox Diamond (free once World 4 is unlocked, 270x), Pinball Cage (20 Rebirths, 350x), Cereal Bowl Stadium (22 Rebirths, 450x), Toy Soldier Fort (24 Rebirths, 580x), Snow Globe (Cosmic Rift's pass, 400x)
-- Every World: Dragon's Lair (1000 Robux game pass, 30x, most expensive)
+- Every World: Dragon's Lair (1000 Robux game pass, most expensive; 15x / 45x / 150x / 500x by the World it is used in, `Training.GetMultiplier`)
 
 A ground needs a World it stands in to be unlocked. Paid grounds need no Rebirths. Pass ownership is server-checked through MarketplaceService and is never saved; a shared pass (`sharesPass`) is keyed by its owning ground. `gamePassId` is 0 until the passes are created. Offline Training and the Training teleport use the best ground the player can use in any unlocked World.
 

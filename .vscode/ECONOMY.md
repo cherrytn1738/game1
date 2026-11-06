@@ -160,7 +160,14 @@ Rebirth and purchased multiplier:
 | Cereal Bowl Stadium | 4 | 22 Rebirths | 450 | 2,250 |
 | Toy Soldier Fort | 4 | 24 Rebirths | 580 | 2,900 |
 | Snow Globe | 4 | Cosmic Rift's pass | 400 | 2,000 |
-| Dragon's Lair | every | 1000 R$ pass | 30 | 150 |
+| Dragon's Lair | 1 / 2 / 3 / 4 | 1000 R$ pass | 15 / 45 / 150 / 500 | 75 / 225 / 750 / 2,500 |
+
+Dragon's Lair stands in every hub, and its multiplier is the World's it is used in (`TrainingConfig`
+`worldMultipliers`, read through `Training.GetMultiplier`): a little above that World's premium
+ground (10 / 35 / 120 / 400) and below its best Rebirth ground (20 / 70 / 210 / 580), so it is never
+the best cage in a World once that ground opens. Training, offline Training (`GetBestGround`
+returns the World too), the quick teleport, the Shop card, the Training menu and the cage labels
+all use the World's value.
 
 Free-to-play never needs a paid ground. Game-pass ids stay 0 until the passes are created.
 
@@ -423,11 +430,28 @@ them.
 | Player | World 2 | World 3 | World 4 | Finale | vs free-to-play | Casual (World 2 / 3 / 4 / finale) |
 |---|---|---|---|---|---|---|
 | Free to play | 1h 41m | 4h 38m | 10h 15m | 18h 03m | | day 4 / 8 / 16 / 28 |
+| Dragon's Lair only (1,000 Robux pass) | 1h 31m | 4h 25m | 9h 56m | 17h 38m | 2% faster | not run |
 | Light, 1 tier each (258 Robux) | 53m | 2h 23m | 5h 14m | 9h 15m | 49% faster | day 2 / 5 / 10 / 16 |
 | Light, 2 tiers each (586 Robux) | 44m | 1h 58m | 4h 16m | 7h 30m | 58% faster | day 2 / 4 / 8 / 14 |
 | Heavy, every tier (3,078 Robux) | 29m | 1h 12m | 2h 32m | 4h 18m | 76% faster | day 1 / 3 / 5 / 8 |
+| Both passes + every tier (4,578 Robux) | 27m | 1h 08m | 2h 27m | 4h 08m | 77% faster | not run |
 | Heavy + both juices nonstop | 18m | 41m | 1h 24m | 2h 20m | 87% faster | day 1 / 2 / 3 / 5 |
-| Whale (+ Starter Pack, both paid grounds) | 16m | 38m | 1h 22m | 2h 17m | 87% faster | day 1 / 2 / 3 / 5 |
+| Whale (+ Starter Pack, both paid grounds) | 16m | 40m | 1h 22m | 2h 18m | 87% faster | day 1 / 2 / 3 / 5 |
+
+**Dragon's Lair by World (Nov 2026).** It was 30x in every World; it now follows the World
+(15 / 45 / 150 / 500x). The same simulator run with the old and new values (everything else
+unchanged; free-to-play, casual and offline results identical):
+
+| Player | Before (30x everywhere): World 2 / 3 / 4 / finale | After (by World) |
+|---|---|---|
+| Dragon's Lair only | 1h 13m / 4h 10m / 9h 47m / 17h 35m (3% faster) | 1h 31m / 4h 25m / 9h 56m / 17h 38m (2% faster) |
+| Both passes + every tier | 22m / 1h 05m / 2h 24m / 4h 10m | 27m / 1h 08m / 2h 27m / 4h 08m |
+| Whale | 16m / 38m / 1h 22m / 2h 17m | 16m / 40m / 1h 22m / 2h 18m |
+
+At 30x it was by far World 1's best cage (Sky Temple is 20x), so a Dragon's Lair owner reached
+World 2 28 minutes sooner; at 15x it saves 10. Later it helps more than before (45 / 150 / 500x
+against 30x), which is why the finale barely moves. Either way the pass alone saves little at the
+finale: Balls gate the pace, and Cash buys them, so faster Power mostly waits on Cash.
 
 Worst case (every tier and both juices): 4 × 2 = 8x Power and 5 × 2 = 10x Cash. At World 4's
 finale gear that is ~3.5e14 Power a practice hit (5 × 580 × 600M × 25 × 8) and ~$620M a hit at
@@ -660,8 +684,10 @@ review).
   min for run 25).
 - **Training-only stalls** after about Rebirth 3: Balls cost Cash and only batting earns it.
 - **Batting gives almost no Power** past the first grounds, by the no-ground rule.
-- **Paid grounds:** Dragon's Lair (30x) is the best ground until Pharaoh's Tomb (35x, Rebirth 8);
-  the shared-pass grounds sit below each World's top Rebirth ground. Unchanged.
+- **Paid grounds:** Dragon's Lair follows the World (15 / 45 / 150 / 500x): a little above the
+  World's premium ground and below its top Rebirth ground (Sky Temple 20x, Samurai Dojo 70x, Lunar
+  Base 210x, Toy Soldier Fort 580x), so it leads only until that ground opens. The shared-pass
+  grounds sit below each World's top Rebirth ground. The pass alone saves about 2% at the finale.
 - **New-World bursts:** a World's first Ball costs 6-38 hits right after the World opens (its
   start pay is a big step up).
 - **Offline run cap:** a return fills at most half the run left (the 3x up to all of it), so

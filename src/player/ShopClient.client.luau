@@ -705,7 +705,7 @@ local function buildGrounds()
  table.clear(groundCards)
  table.clear(groundRefreshers)
  local grounds = Monetization.GetShopGrounds(Player:GetAttribute("CurrentWorldId"))
- -- Dragon's Lair (the best ground) first.
+ -- Dragon's Lair (the pricier pass, a little above the premium ground) first.
  table.sort(grounds, function(a, b)
   return (a.id == Monetization.EveryWorldGround and 0 or 1) < (b.id == Monetization.EveryWorldGround and 0 or 1)
  end)
@@ -716,8 +716,11 @@ local function buildGrounds()
   local card = makeCard(scroll, ground.id, PALETTES[theme], "ground", 11 + index, ground.displayName)
   table.insert(groundCards, card)
   card.picture = groundPicture(card.frame, ground, theme)
-  addLine(card, "Multiplier", UI.Number(ground.powerMultiplier) .. "x POWER", 34)
-  addLine(card, "Where", everyWorld and "TRAINING IN EVERY WORLD" or "THIS WORLD'S PREMIUM GROUND", 19, UI.Colors.Muted)
+  -- The multiplier in the World the player is in (Dragon's Lair's changes with the World; the
+  -- cards are rebuilt when the World changes).
+  local multiplier = Training.GetMultiplier(ground, Player:GetAttribute("CurrentWorldId"))
+  addLine(card, "Multiplier", UI.Number(multiplier) .. "x POWER", 34)
+  addLine(card, "Where", everyWorld and "IN THIS WORLD • A CAGE IN EVERY WORLD" or "THIS WORLD'S PREMIUM GROUND", 19, UI.Colors.Muted)
   addPurchase(card, function()
    -- The server checks the pass and opens Roblox's prompt (TrainingService).
    if trainingRemote then trainingRemote:FireServer("Buy", ground.id) end

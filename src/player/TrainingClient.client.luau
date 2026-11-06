@@ -88,7 +88,8 @@ local function powerPerHit()
  local active = Player:FindFirstChild("ActiveJuices")
  local boost = active and Juice.GetMultiplier(active:GetAttributes(), "Power", workspace:GetServerTimeNow()) or 1
  boost *= Monetization.GetMultiplier("Power", Player:GetAttribute("PowerMultiplierTier") or 0)
- local base = Progression.TrainingBase * ground.powerMultiplier
+ -- Training stops on a World change, so the current World is the plate's (Dragon's Lair's multiplier depends on it).
+ local base = Progression.TrainingBase * Config.GetMultiplier(ground, Player:GetAttribute("CurrentWorldId"))
  return Progression.GetPowerGrant(base, Player:GetAttribute("Rebirths") or 0, ball and ball.powerGainMultiplier or 1, boost)
 end
 local function powerPopup(amount)
@@ -237,8 +238,10 @@ function refresh()
   local pass = paid and Config.GetPassGround(ground)
   local home = Worlds.Get(ground.worlds[1])
   local inReach = reachable(ground)
-  row.rate.Text = "x" .. UI.Number(ground.powerMultiplier) .. " POWER  |  "
-   .. UI.Number(Progression.GetPowerGrant(trainingBase * ground.powerMultiplier, rebirths, ballMultiplier, purchased)/ground.interval,1) .. " Power / second"
+  -- In this World (Dragon's Lair's multiplier depends on it; other Worlds' grounds show their own).
+  local multiplier = Config.GetMultiplier(ground, Player:GetAttribute("CurrentWorldId"))
+  row.rate.Text = "x" .. UI.Number(multiplier) .. " POWER  |  "
+   .. UI.Number(Progression.GetPowerGrant(trainingBase * multiplier, rebirths, ballMultiplier, purchased)/ground.interval,1) .. " Power / second"
   row.status.Text = whereText(ground) .. " | " .. (trainingAt == ground.id and "Training here now"
    or open and (paid and "Pass owned" or "Unlocked")
    or not inReach and "Locked | Unlock " .. home.displayName .. " first"
@@ -257,7 +260,7 @@ function refresh()
  if not Config.Get(Player:GetAttribute("TrainingGround")) then stopPresentation() return end
  startPresentation()
 end
-for _, name in {"DataLoaded","TrainingActive","TrainingGround","BattingActive","HitActive","EquippedBall","Rebirths","Level","LevelCap","Power","WorldTraveling","PowerMultiplierTier"} do
+for _, name in {"DataLoaded","TrainingActive","TrainingGround","BattingActive","HitActive","EquippedBall","Rebirths","Level","LevelCap","Power","WorldTraveling","PowerMultiplierTier","CurrentWorldId"} do
  Player:GetAttributeChangedSignal(name):Connect(refresh)
 end
 for _, ground in Config.PassGrounds do

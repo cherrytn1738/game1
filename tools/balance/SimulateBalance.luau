@@ -381,17 +381,22 @@ return function(sources, options)
   P.Advance(state, amount)
   s.power, s.level = state.Power, state.Level
  end
- -- The best ground only changes with Rebirths, World unlocks and passes, so it is cached.
+ -- The best ground only changes with Rebirths, World unlocks and passes, so it is cached, with
+ -- the World it is best in and its multiplier there (Dragon's Lair's depends on the World).
  local function bestGround(s)
   local key = tostring(s.rebirths)
   for _, world in Worlds.Worlds do key ..= s.unlocked[world.id] and "+" or "-" end
   key ..= next(s.passes) and "p" or ""
-  if s.groundKey ~= key then s.groundKey, s.groundId = key, Training.GetBestGround(s.rebirths, s.passes, s.unlocked).id end
+  if s.groundKey ~= key then
+   local ground, worldId = Training.GetBestGround(s.rebirths, s.passes, s.unlocked)
+   s.groundKey, s.groundId, s.groundWorld = key, ground.id, worldId
+   s.groundMultiplier = Training.GetMultiplier(ground, worldId)
+  end
   return Training.Get(s.groundId)
  end
  local function trainContact(s)
   local ground = bestGround(s)
-  local grant = P.GetPowerGrant(P.TrainingBase * ground.powerMultiplier, s.rebirths, ballMultiplier(s), s.powerBoost * s.juicePower)
+  local grant = P.GetPowerGrant(P.TrainingBase * s.groundMultiplier, s.rebirths, ballMultiplier(s), s.powerBoost * s.juicePower)
   s.time += A.contact
   s.contacts += 1
   s.trainingPower += grant
@@ -490,7 +495,7 @@ return function(sources, options)
  end
  local function rebirth(s)
   table.insert(s.runs, {rebirths = s.rebirths, start = s.runStart, finish = s.time, duration = s.time - s.runStart,
-   ball = s.ball, bat = s.bat, ground = bestGround(s).id, world = s.world, cash = s.cash})
+   ball = s.ball, bat = s.bat, ground = bestGround(s).id, groundMultiplier = s.groundMultiplier, world = s.world, cash = s.cash})
   s.rebirths += 1
   s.level, s.power = P.StartingLevel, P.StartingPower
   s.time += A.rebirth
@@ -554,7 +559,7 @@ return function(sources, options)
  -- cap (a share of the Power left to the Level Cap). Returns that, the time-based reward, and
  -- the Power left before the return.
  local function offlinePower(s, seconds)
-  local base = Training.GetOfflineReward(1, 1 + seconds, bestGround(s).id, P.TrainingBase)
+  local base = Training.GetOfflineReward(1, 1 + seconds, bestGround(s).id, P.TrainingBase, s.groundWorld)
   -- The purchased Power multiplier applies offline; juices never do.
   local timed = P.GetPowerGrant(base, s.rebirths, ballMultiplier(s), s.powerBoost)
   local remaining = P.GetPowerToLevelCap({Level = s.level, Power = s.power, LevelCap = cap(s)})
@@ -584,8 +589,9 @@ return function(sources, options)
  end
 
  -- Spenders: a scenario sets the purchased multiplier tiers (MonetizationConfig.Multipliers),
- -- juices running all the time (juices = true), both paid grounds' passes (passes = true) and the
- -- Starter Pack (starterPack = true, given right after the tutorial).
+ -- juices running all the time (juices = true), the paid grounds' passes (passes = true for both,
+ -- or a list of pass ground ids, e.g. {"dragons_lair"}) and the Starter Pack (starterPack = true,
+ -- given right after the tutorial).
  local function applyScenario(s, scenario)
   s.powerBoost = Monetization.GetMultiplier("Power", scenario.powerTiers or 0)
   s.cashBoost = Monetization.GetMultiplier("Cash", scenario.cashTiers or 0)
@@ -594,8 +600,10 @@ return function(sources, options)
   if scenario.passes then
    -- (This run's config copy only: a pass with no id can't be used.)
    for _, ground in Training.PassGrounds do
-    ground.gamePassId = math.max(ground.gamePassId, 1)
-    s.passes[ground.id] = true
+    if scenario.passes == true or table.find(scenario.passes, ground.id) then
+     ground.gamePassId = math.max(ground.gamePassId, 1)
+     s.passes[ground.id] = true
+    end
    end
    s.groundKey = nil
   end
@@ -860,7 +868,7 @@ return function(sources, options)
     minutes(run.duration), clock(run.finish), ball.displayName, short(ball.powerGainMultiplier), bat.displayName,
     tostring(bat.cashMultiplier), ground.displayName, run.world)
    table.insert(runRows, string.format("%d,%d,%.2f,%.2f,%s,%s,%s,%s,%s,%s,%s", run.rebirths, P.GetLevelCap(run.rebirths), run.start / 60,
-    run.duration / 60, run.ball, ball.powerGainMultiplier, run.bat, bat.cashMultiplier, run.ground, ground.powerMultiplier, run.world))
+    run.duration / 60, run.ball, ball.powerGainMultiplier, run.bat, bat.cashMultiplier, run.ground, run.groundMultiplier, run.world))
   end
   csv["runs_active.csv"] = table.concat(runRows, "\n")
   say("  Batting share of Power: %.0f%% (Training %s, batting %s)", 100 * a.battingPower / (a.battingPower + a.trainingPower),
@@ -966,10 +974,11 @@ return function(sources, options)
    local _, distance, seconds = landing(probe)
    local batting = P.GetHitPowerBase(seconds - A.launchDelay) / (seconds + A.cycleOverhead) * 60
    local basic = P.TrainingBase / A.contact * 60
-   local ground = Training.GetBestGround(probe.rebirths, {}, worldsThrough(probe.world))
+   local ground, groundWorld = Training.GetBestGround(probe.rebirths, {}, worldsThrough(probe.world))
+   local groundMultiplier = Training.GetMultiplier(ground, groundWorld)
    say("  Level %3d  hit %5.0f studs %4.1fs: batting %6.1f vs Basic Training %6.1f (%3.0f%%) vs %s x%d (%4.1f%%)", level,
-    distance, seconds, batting, basic, 100 * batting / basic, ground.displayName, ground.powerMultiplier,
-    100 * batting / (basic * ground.powerMultiplier))
+    distance, seconds, batting, basic, 100 * batting / basic, ground.displayName, groundMultiplier,
+    100 * batting / (basic * groundMultiplier))
   end
 
   -- Offline.

@@ -43,7 +43,7 @@ end
 -- Only plates in the player's current World count.
 local function plateUnder(root, worldId)
  for _, station in stations do
-  if station.worldId == worldId and inside(station.plate, root) then return station.ground, station.plate end
+  if station.worldId == worldId and inside(station.plate, root) then return station.ground, station.plate, station.worldId end
  end
  return nil
 end
@@ -77,7 +77,7 @@ local function refuse(player, ground, message, details)
  end
 end
 
-local function enter(player, ground, plate, character, humanoid, root)
+local function enter(player, ground, plate, worldId, character, humanoid, root)
  local backpack = player:FindFirstChildOfClass("Backpack")
  local tool = character:FindFirstChild("Bat") or backpack and backpack:FindFirstChild("Bat")
  if not tool or not tool:IsA("Tool") or humanoid.Sit then return end
@@ -89,7 +89,7 @@ local function enter(player, ground, plate, character, humanoid, root)
  -- the HUD's Power bar moves with the hit and its "+Power" popup.
  local startedAt = workspace:GetServerTimeNow()
  active[player] = {player=player, character=character, humanoid=humanoid, root=root, tool=tool,
-  ground=ground, plate=plate, frame=frame, nextTick=startedAt+Training.PracticePitchSeconds,
+  ground=ground, plate=plate, worldId=worldId, frame=frame, nextTick=startedAt+Training.PracticePitchSeconds,
   saved={anchored=root.Anchored,walkSpeed=humanoid.WalkSpeed,jumpPower=humanoid.JumpPower,
    jumpHeight=humanoid.JumpHeight,autoRotate=humanoid.AutoRotate}}
  occupants[plate] = player
@@ -169,8 +169,9 @@ function Service.Start()
     -- One grant per hit; hits missed during a stall are skipped (no burst/catch-up rewards).
     repeat state.nextTick += state.ground.interval until state.nextTick > now
     -- Granted at the Level Cap too (Power keeps building there until a Rebirth).
-    -- The Training base (the same at every Level, ProgressionConfig.TrainingBase), times the ground.
-    local base = Progression.TrainingBase * state.ground.powerMultiplier
+    -- The Training base (the same at every Level, ProgressionConfig.TrainingBase), times the ground
+    -- (in the World of its plate: Dragon's Lair's multiplier depends on it).
+    local base = Progression.TrainingBase * Training.GetMultiplier(state.ground, state.worldId)
     local granted, result = Data.GrantPower(player,base,"ActiveTraining")
     -- Display copies of the grant; the tick count makes repeats visible.
     if granted and result.powerGranted > 0 then
@@ -186,12 +187,12 @@ function Service.Start()
   for _, player in Players:GetPlayers() do
    local character, humanoid, root = characterState(player)
    if root and not active[player] then
-    local ground, plate = plateUnder(root, player:GetAttribute("CurrentWorldId"))
+    local ground, plate, worldId = plateUnder(root, player:GetAttribute("CurrentWorldId"))
     if not ground then
      mustLeave[player] = nil
     elseif not mustLeave[player] and not player:GetAttribute("TrainingActive") and not occupants[plate] then
      local usable, reason, details = Data.CanUseTrainingGround(player, ground.id)
-     if usable then enter(player, ground, plate, character, humanoid, root) else refuse(player, ground, reason, details) end
+     if usable then enter(player, ground, plate, worldId, character, humanoid, root) else refuse(player, ground, reason, details) end
     end
    end
   end

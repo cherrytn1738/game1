@@ -295,7 +295,7 @@ World 4 (Tiny Town; the design's starting values, kept by the balance pass):
 
 Every World:
 
-- Dragon's Lair: 1000 Robux game pass, 30x (the most expensive ground)
+- Dragon's Lair: 1000 Robux game pass (the most expensive ground), its multiplier by the World it is used in (`TrainingConfig` `worldMultipliers`): 15x / 45x / 150x / 500x in Worlds 1-4, a little above that World's premium ground and never above its best Rebirth ground
 
 Multipliers apply to the first ground's base Power. A ground can only be used once a World it stands in is unlocked; World 1 grounds stay usable after reaching World 2. Paid grounds need no Rebirths. Game-pass ownership is checked by the server through MarketplaceService, never saved and never trusted from the client.
 

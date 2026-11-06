@@ -1303,12 +1303,14 @@ local function loadPlayer(player)
   -- Offline Training only starts once the tutorial is complete: time away mid-tutorial earns
   -- nothing (and shows no Welcome Back screen), though its logout time is still used up below.
   if not owns(current, session) and Tutorial.IsComplete(Tutorial.FromSave(data, false)) then
-   offlineGround = Training.GetBestGround(data.Rebirths, withGifted(passes, data.GiftedEntitlements), data.UnlockedWorlds).id
+   local bestGround, bestWorld = Training.GetBestGround(data.Rebirths, withGifted(passes, data.GiftedEntitlements), data.UnlockedWorlds)
+   offlineGround = bestGround.id
    local progression = Progression.Normalize(data, false)
-   -- Offline Training uses the Training base (the same at every Level) at the best ground, and fills at
-   -- most part of the Power still needed for the Level Cap (TrainingConfig.OfflineRunShare).
+   -- Offline Training uses the Training base (the same at every Level) at the best ground (in the
+   -- World it is best in), and fills at most part of the Power still needed for the Level Cap
+   -- (TrainingConfig.OfflineRunShare).
    local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), offlineGround,
-    Progression.TrainingBase)
+    Progression.TrainingBase, bestWorld)
    local remaining = Progression.GetPowerToLevelCap(progression)
    -- The purchased Power multiplier applies offline too (juices never do).
    local boost = Monetization.GetMultiplier("Power", data[MULTIPLIER_FIELDS.Power])

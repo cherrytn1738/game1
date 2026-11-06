@@ -278,8 +278,10 @@ TrainingTeleport.OnServerEvent:Connect(function(player, ...)
  end
  local character, root = livingCharacter(player)
  if not character then return end
- local ground = requested and PlayerData.CanUseTrainingGround(player, requested) or PlayerData.GetBestTrainingGround(player)
- local world = ground and trainingWorld(player, ground)
+ -- The best ground comes with the World it is best in (Dragon's Lair's multiplier depends on it).
+ local ground, bestWorldId = requested and PlayerData.CanUseTrainingGround(player, requested), nil
+ if not ground then ground, bestWorldId = PlayerData.GetBestTrainingGround(player) end
+ local world = ground and (bestWorldId and Worlds.Get(bestWorldId) or trainingWorld(player, ground))
  local hub = world and world.hub and workspace:FindFirstChild(world.hub.name)
  local stadium = ground and hub and hub:FindFirstChild("TrainingGrounds") and hub.TrainingGrounds:FindFirstChild(ground.id)
  local plate = stadium and stadium:FindFirstChild("TrainingPlate")

@@ -99,7 +99,7 @@ World 4's row (`TrainingConfig.Hubs`), first cage nearest the batting area:
 | Cereal Bowl Stadium | `cereal_bowl_stadium` | 22 Rebirths | x450 | a spoon catapult pitcher |
 | Toy Soldier Fort | `toy_soldier_fort` | 24 Rebirths | x580 | a wind-up soldier pitcher |
 | Snow Globe | `snow_globe` | Cosmic Rift's pass (`sharesPass = "cosmic_rift"`) | x400 | snow swirls after each hit |
-| Dragon's Lair | `dragons_lair` | its existing 1000 Robux pass | x30 | unchanged, stands in every hub |
+| Dragon's Lair | `dragons_lair` | its existing 1000 Robux pass | x500 here (15 / 45 / 150 / 500 by World) | stands in every hub |
 
 Rules as for every ground: a ground can only be used once a World it stands in is unlocked;
 paid grounds need no Rebirths; game-pass ownership is checked by the server. Phase 1 uses the
