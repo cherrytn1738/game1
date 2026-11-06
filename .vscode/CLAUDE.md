@@ -277,12 +277,12 @@ Current Grounds (Power multiplier on the Training base, one practice hit every ~
 - World 1: Basic Training (start, 1x), Enchanted Grove (2 Rebirths, 5x), Sunken Atlantis (4 Rebirths, 10x), Sky Temple (6 Rebirths, 20x), Cosmic Rift (500 Robux game pass, 10x)
 - World 2 (placeholder values): Caveman Camp (free once World 2 is unlocked, 25x), Pharaoh's Tomb (8 Rebirths, 35x), Gladiator Colosseum (10 Rebirths, 50x), Samurai Dojo (12 Rebirths, 70x), Time Machine Lab (Cosmic Rift's pass, 35x)
 - World 3 (placeholder values): Solar Rooftop (free once World 3 is unlocked, 90x), Robo Factory (14 Rebirths, 120x), Biodome Lab (16 Rebirths, 160x), Lunar Base (18 Rebirths, 210x), Quantum Lab (Cosmic Rift's pass, 120x)
-- World 4 (Tiny Town): Sandbox Diamond (free once World 4 is unlocked, 270x), Pinball Cage (20 Rebirths, 350x), Cereal Bowl Stadium (22 Rebirths, 450x), Toy Soldier Fort (24 Rebirths, 580x), Snow Globe (Cosmic Rift's pass, 400x); the standard cage in toy colors for now
+- World 4 (Tiny Town): Sandbox Diamond (free once World 4 is unlocked, 270x), Pinball Cage (20 Rebirths, 350x), Cereal Bowl Stadium (22 Rebirths, 450x), Toy Soldier Fort (24 Rebirths, 580x), Snow Globe (Cosmic Rift's pass, 400x)
 - Every World: Dragon's Lair (1000 Robux game pass, 30x, most expensive)
 
 A ground needs a World it stands in to be unlocked. Paid grounds need no Rebirths. Pass ownership is server-checked through MarketplaceService and is never saved; a shared pass (`sharesPass`) is keyed by its owning ground. `gamePassId` is 0 until the passes are created. Offline Training and the Training teleport use the best ground the player can use in any unlocked World.
 
-World 1's themes are fantasy after the first ground and World 3's are futuristic, getting more intricate down the row. Each has its own Blender model (tools/blender/*_cage.py, sharing cage_helpers.py) styled by TrainingCageStyles; a ground whose model is not imported falls back to the standard cage. World 2's grounds use the standard cage in era colors until their own models are made.
+World 1's themes are fantasy after the first ground, World 2's eras of time, World 3's futuristic and World 4's toys, getting more intricate down the row. Each has its own fully custom Blender model (tools/blender/*_cage.py, sharing cage_helpers.py) styled by TrainingCageStyles; a ground whose model is not imported falls back to the standard cage. Only Basic Training uses the standard cage.
 
 ---
 
@@ -611,11 +611,11 @@ After Milestone 18, the following were implemented:
 - World 1 themed runway (10 sections), with a detailed scenery pass
 - 2× ball flight (implemented, currently disabled)
 
-World 2 (Time Travel): per-World Training Grounds with World 2's row, the Time Travel hub, World portals that open the Worlds menu, cross-World Training teleport and offline Training, World 2's ten balls as their own purchase series, and its themed runway. Still NOT implemented: World 2 cage models (it uses the standard cage in era colors).
+World 2 (Time Travel): per-World Training Grounds with World 2's row, the Time Travel hub, World portals that open the Worlds menu, cross-World Training teleport and offline Training, World 2's ten balls as their own purchase series, and its themed runway. Its five era cage models (Caveman Camp to Time Machine Lab) are in too.
 
 World 3 (Future World): its themed runway (ten sections and a black-hole landmark), ten balls as the third purchase series, five futuristic cage models, the Future hub, and the temporary finale at its end portal. The Blender models live in ServerStorage.RunwayAssets once imported (sources in tools/blender/, exports in assets/models/).
 
-World 4 (Tiny Town), Phase 1 of `.vscode/WORLD4_DESIGN.md`: World 4's config (offset 24,000, end 8,000, start pay 500,000 and Cash x600, ten runway sections with placeholder primitive props, the finale moved to its end portal, World 3's portal now leading there), its row of five grounds plus Dragon's Lair (standard cage), ten balls as the fourth purchase series, launch steps measured in World 4's field, and Level bands to 500. Its runway meshes, Balls, cages, Mouse-Hole Plaza hub and shrinking trip are later phases.
+World 4 (Tiny Town), Phase 1 of `.vscode/WORLD4_DESIGN.md`: World 4's config (offset 24,000, end 8,000, start pay 500,000 and Cash x600, ten runway sections with placeholder primitive props, the finale moved to its end portal, World 3's portal now leading there), its row of five grounds plus Dragon's Lair, ten balls as the fourth purchase series, launch steps measured in World 4's field, and Level bands to 500. Its runway meshes, Balls, Mouse-Hole Plaza hub and shrinking trip are later phases (see the checklist there). Its five toy cage models (Sandbox Diamond to Snow Globe) are fully custom, like World 2's.
 
 Hits start over in each World after World 1 (before World 4's Phase 2): `WorldConfig` `launchLevels` (World 2 150-250, World 3 250-370, World 4 370-490) and `ProgressionConfig.GetWorldLaunchLevel` / `WorldLaunchSteps` give each hit a launch Level from the player's Level and the World batted in (the early floaty arc below the range, even growth in studs to the end portal inside it); each later World's `cashBase` start pay keeps its first hits paying more than the previous World's best; World 2-4 prices were re-tuned and World 4 sells the Rolling Pin Bat.
 

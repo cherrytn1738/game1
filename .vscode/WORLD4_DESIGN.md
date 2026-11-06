@@ -104,7 +104,8 @@ World 4's row (`TrainingConfig.Hubs`), first cage nearest the batting area:
 Rules as for every ground: a ground can only be used once a World it stands in is unlocked;
 paid grounds need no Rebirths; game-pass ownership is checked by the server. Phase 1 uses the
 standard cage (`TrainingCage`) in toy colors; Phase 5 adds the five cage models
-(`SandboxDiamondCage`, `PinballCage`, `CerealBowlCage`, `ToySoldierCage`, `SnowGlobeCage`). The
+(`SandboxDiamondCage`, `PinballCage`, `CerealBowlCage`, `ToySoldierCage`, `SnowGlobeCage`), now fully
+custom (none is built on the standard cage, which only stands in when a model isn't imported). The
 Snow Globe's swirl after each hit is a client practice visual only.
 
 ## Balls (World 4 series)
@@ -263,17 +264,21 @@ One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), adde
 - [x] `cage_helpers.py` scripts for the Sandbox Diamond, Pinball Cage, Cereal Bowl Stadium, Toy
       Soldier Fort and Snow Globe (`sandbox_diamond_cage.py`, `pinball_cage.py`, `cereal_bowl_cage.py`,
       `toy_soldier_cage.py`, `snow_globe_cage.py`), exported to `assets/models/` (`SandboxDiamondCage`,
-      `PinballCage`, `CerealBowlCage`, `ToySoldierCage`, `SnowGlobeCage`). They share
-      `tiny_cage_helpers.py`, which builds the standard cage's frame, nets, screen, plate and lights
-      (from `batting_cage.py`) with per-cage mesh names, and add their toy scenery round it
+      `PinballCage`, `CerealBowlCage`, `ToySoldierCage`, `SnowGlobeCage`)
+- [x] Rebuilt as fully custom cages (branch `custom-cages`, `.vscode/CAGES_REPORT.md`): each has its
+      own frame, walls, roof, floor, pitcher, screen, scenery and moving pieces, none from the
+      standard cage, and no plain rectangle: a hexagonal sandbox, a pinball cabinet with a backbox
+      head, a flared cereal bowl, a toy fort with towers, and a glass dome on a music box as the
+      showpiece. They share `cage_helpers.py`; `tiny_cage_helpers.py` is removed
 - [x] `TrainingConfig` templates switched, with `TrainingCageStyles` entries (the Toy Soldier's
-      wind-up key turns, pinball lights pulse, snow falls in the Snow Globe); the Snow Globe's
-      after-hit swirl is a client practice visual (`theme.practiceHitEffect = "SnowSwirl"`,
-      `TrainingClient`)
+      wind-up key turns and its flags wave, the pinball bumpers and chase lights pulse and its
+      spinners turn, the cereal bobs, the Snow Globe's carousel, skaters and flakes turn and snow falls
+      in it); the Snow Globe's after-hit swirl is a client practice visual
+      (`theme.practiceHitEffect = "SnowSwirl"`, `TrainingClient`)
 - [x] Studio import steps (`tools/studio/group_item_imports.luau` also moves the cages into
       `RunwayAssets`); tests pass; commit
-- Studio import (by hand): Import 3D the five cage FBX files, run `tools/studio/group_item_imports.luau`,
-  check the printed home plates match the standard cage's, save the place
+- [x] Imported and checked in Studio: the home plates match the standard cage's, every mesh is
+      styled, every moving piece moves, and no cage overlaps its neighbours or the hub
 
 ### Phase 6: hub, event piece and the shrinking portal cinematic
 - [x] `HubDecor` theme `TinyTown` (Mouse-Hole Plaza) and the turning wind-up key: floorboards with

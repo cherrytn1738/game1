@@ -16,13 +16,13 @@ early.
 | 1 | Caveman Camp | CavemanCampCage | `59f14ee` | 33 meshes, about 96K triangles |
 | 2 | Pharaoh's Tomb | PharaohsTombCage | `4185b2b` | 40 meshes, about 145K triangles |
 | 3 | Gladiator Colosseum | GladiatorColosseumCage | `8c6130f` | 44 meshes, about 107K triangles |
-| 4 | Samurai Dojo | SamuraiDojoCage | `23a06cf` | 53 meshes, about 98K triangles |
-| 5 | Time Machine Lab | TimeMachineLabCage | `9ac7256` | 58 meshes, about 91K triangles, 25 moving parts |
+| 4 | Samurai Dojo | SamuraiDojoCage | `23a06cf` | 52 meshes, about 98K triangles |
+| 5 | Time Machine Lab | TimeMachineLabCage | `9ac7256` | 54 meshes, about 91K triangles, 28 moving parts |
 | 6 | Sandbox Diamond | SandboxDiamondCage | `0a0d5d6` | 42 meshes, about 50K triangles |
-| 7 | Pinball Cage | PinballCage | `aa2d9d9` | 46 meshes, about 40K triangles |
+| 7 | Pinball Cage | PinballCage | `aa2d9d9` | 45 meshes, about 40K triangles |
 | 8 | Cereal Bowl Stadium | CerealBowlCage | `38c567d` | 36 meshes, about 118K triangles |
 | 9 | Toy Soldier Fort | ToySoldierCage | `29a7d01` | 49 meshes, about 46K triangles |
-| 10 | Snow Globe | SnowGlobeCage | `4766a6d` | 51 meshes, about 64K triangles, the dome is the enclosure |
+| 10 | Snow Globe | SnowGlobeCage | `4766a6d` | 49 meshes, about 64K triangles, the dome is the enclosure |
 
 ## Decisions I made on my own
 - **Branch:** I made the cage commits on a new branch, `custom-cages`, not on `main`. It will be
@@ -306,3 +306,40 @@ early.
 - **Chariot wheels:** the Colosseum's chariot wheels don't turn, since the chariot is parked.
 - **Stood-in pitchers:** the client motion has no hinges, so the sarcophagus lid, the catapults, the
   ballista and the spoon are shown in their loaded poses rather than moving.
+
+## After the import (checked in Studio)
+- **Grouping:** `tools/studio/group_item_imports.luau` moved all ten cages into RunwayAssets. Every
+  home plate printed (3, 0.04, 0.55) against the standard cage's (3, 0.035, 0.546).
+- **Styles:** every imported mesh has a `TrainingCageStyles` entry, and every entry has a mesh. The
+  legacy World 4 entries and their `standardParts` / `withParts` helpers are removed.
+- **Mesh counts:** the Status table now gives the imported counts. The earlier figures for the Dojo,
+  Time Machine Lab, Pinball and Snow Globe were miscounts; every mesh name in the scripts arrived.
+- **Playtest:**
+  - all 24 grounds build from their own templates, with no grey parts;
+  - the Output shows no TrainingStadium warnings, only the asset-type message noted in the World 4
+    report, which isn't from the repo;
+  - on the client, every spinning, bobbing or swaying part in the ten cages moves (56 in World 2, 30
+    in World 4) and none leaves its place.
+- **Door side and plaza:** no cage overlaps a neighbour, the portal, the item displays or the plaza
+  piece; the only overlaps are the hub floor tiles. The gaps between neighbouring cages are 0.4-4.9
+  studs (World 1's are 0.6-5.5); the tightest is Caveman Camp to Pharaoh's Tomb.
+- **Tests:** all nine suites pass natively with Studio in the foreground, UIModal included.
+- **Screen captures:** still black behind the UI, so the look of each cage has to be checked by eye
+  (below).
+
+## What to look at by eye
+Walk each row in a playtest, World 2 then World 4, and check from the door and from the batter's spot:
+- **Caveman Camp:** the spit roast turns over the fire without leaving it; the mammoth breathes.
+- **Pharaoh's Tomb:** the mummy holds the ball in front of the screen window; the censers swing.
+- **Gladiator Colosseum:** the crowd's wave rolls round the stands; the awning doesn't block the view.
+- **Samurai Dojo:** the koi circle inside the pond; the lanterns swing from their hooks.
+- **Time Machine Lab:** the gears and rings turn in place; the portal swirls round the ball; the
+  clock hands turn round the floor's centre; the relics drift without hitting the dome.
+- **Sandbox Diamond:** the beach ball turns and bobs on the sand; the pinwheel turns.
+- **Pinball Cage:** the bumper caps and chase lights blink; the spinners and the star turntable turn.
+- **Cereal Bowl Stadium:** the cereal bobs on the milk; the box's prize top spins.
+- **Toy Soldier Fort:** the key turns in the soldier's back; the four flags wave.
+- **Snow Globe:** the carousel turns with its horses rising and falling; the skaters circle the pond;
+  snow falls inside, and a hit makes it swirl.
+- **Everywhere:** the camera stays inside each cage while training, and the ground labels and banners
+  aren't hidden by the scenery.

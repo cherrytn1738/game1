@@ -708,28 +708,6 @@ end
 -- ---------- World 4 (Tiny Town) ----------
 -- Fully custom toy cages from tools/blender/sandbox_diamond_cage.py, pinball_cage.py,
 -- cereal_bowl_cage.py, toy_soldier_cage.py and snow_globe_cage.py, more intricate down the row.
--- Legacy only: the previous World 4 models were built on the standard cage with its meshes renamed
--- <prefix><name>; standardParts styles those names (look = {frame, pads, net, machine, trim, lens})
--- so an old import keeps its colours until the new model replaces it. Drop it with the legacy entries.
-local function standardParts(prefix, look)
- local parts = {
-  CageFrame = style(look.frame, M.SmoothPlastic), CagePads = style(look.pads, M.SmoothPlastic),
-  NetLeft = style(look.net, M.Fabric), NetRight = style(look.net, M.Fabric), NetRoof = style(look.net, M.Fabric),
-  NetBack = style(look.net, M.Fabric), NetFront = style(look.net, M.Fabric),
-  MachineBody = style(look.machine, M.SmoothPlastic), MachineTires = style(rgb(30, 30, 34), M.Rubber),
-  MachineMetal = style(rgb(200, 204, 212), M.Metal), ScreenFrame = style(look.trim, M.SmoothPlastic),
-  ScreenNet = style(look.net, M.Fabric), HomePlate = style(rgb(250, 250, 246), M.SmoothPlastic),
-  BallBucket = style(look.trim, M.SmoothPlastic), Baseballs = style(rgb(250, 250, 246), M.SmoothPlastic),
-  LightHousing = style(look.frame, M.Metal), LightLens = style(look.lens or rgb(255, 246, 220), M.Neon, {light = {look.lens or rgb(255, 240, 210), 18, 1.4}}),
- }
- local named = {}
- for name, entry in parts do named[prefix .. name] = entry end
- return named
-end
-local function withParts(base, extra)
- for name, entry in extra do base[name] = entry end
- return base
-end
 local TOY_RED, TOY_YELLOW, TOY_BLUE, TOY_GREEN = rgb(232, 60, 54), rgb(255, 206, 44), rgb(52, 122, 234), rgb(66, 186, 90)
 -- The pop bumper caps glow out of step, each with its own light.
 local function bumperCap(index)
@@ -747,11 +725,7 @@ local function beachBall(color)
  return entry
 end
 Styles.SandboxDiamondCage = {
- -- Legacy entries (standardParts and the first scenery) keep the previous model, built on the
- -- standard cage, styled until the new one is imported over it; drop them after the import.
- parts = withParts(withParts(standardParts("Sand", {frame = TOY_RED, pads = TOY_YELLOW, net = rgb(60, 130, 230), machine = TOY_YELLOW, trim = TOY_BLUE}), {
-  SandBorder = style(rgb(214, 164, 104), M.Wood), SandBeachBall = style(TOY_RED, M.SmoothPlastic),
- }), {
+ parts = {
   SandBoards = style(SAND_PLANK, M.Wood), SandBoardsDark = style(rgb(160, 110, 64), M.Wood),
   SandBolts = style(rgb(150, 154, 162), M.Metal), SandRope = style(rgb(236, 226, 200), M.Fabric),
   SandNet = style(rgb(52, 126, 230), M.Fabric),
@@ -774,7 +748,7 @@ Styles.SandboxDiamondCage = {
   SandTruckCab = style(TOY_RED, M.SmoothPlastic), SandTruckBed = style(TOY_YELLOW, M.SmoothPlastic),
   SandTruckWheels = style(rgb(30, 30, 34), M.Rubber), SandGrass = style(rgb(92, 164, 72), M.SmoothPlastic),
   SandPlate = style(rgb(250, 250, 246), M.SmoothPlastic), SandBall = style(rgb(248, 248, 244), M.SmoothPlastic),
- }),
+ },
  effects = {{kind = "SunMotes", position = b(-1, 10, 6), size = Vector3.new(30, 9, 46)}},
  tint = {color = rgb(255, 248, 232), brightness = 0.03, contrast = 0.04, saturation = 0.12},
 }
@@ -787,15 +761,7 @@ local function insert(color, pulse, phase)
  return style(color, M.Neon, {pulse = pulse, phase = phase, shadow = false})
 end
 Styles.PinballCage = {
- -- Legacy entries keep the previous model (built on the standard cage) styled until the new one is
- -- imported over it; drop them after the import.
- parts = withParts(withParts(standardParts("Pin", {frame = rgb(214, 218, 230), pads = rgb(214, 218, 230), net = rgb(90, 60, 200),
-  machine = rgb(255, 80, 180), trim = rgb(255, 80, 180), lens = rgb(255, 200, 240)}), {
-  PinBumpers = style(rgb(240, 60, 80), M.SmoothPlastic), PinBumperRings = style(rgb(90, 240, 255), M.Neon, {pulse = 1.2}),
-  PinKickers = style(rgb(255, 214, 50), M.SmoothPlastic), PinPlunger = style(rgb(220, 224, 232), M.Metal),
-  PinMarquee = style(rgb(255, 90, 200), M.Neon, {pulse = 0.9, light = {rgb(255, 120, 220), 16, 1.2}}),
-  PinArrows = style(rgb(255, 90, 200), M.Neon, {pulse = 0.7}),
- }), {
+ parts = {
   PinCabinet = style(rgb(96, 40, 160), M.SmoothPlastic), PinCabinetTrim = style(rgb(26, 16, 44), M.SmoothPlastic),
   PinBackbox = style(rgb(96, 40, 160), M.SmoothPlastic), PinBackglass = style(rgb(20, 12, 40), M.Glass),
   PinArtPink = style(PIN_PINK, M.SmoothPlastic), PinArtYellow = style(PIN_YELLOW, M.SmoothPlastic), PinArtCyan = style(PIN_CYAN, M.SmoothPlastic),
@@ -819,7 +785,7 @@ Styles.PinballCage = {
   PinTurntable = style(PIN_PINK, M.SmoothPlastic, {spin = 45, spinAxis = Vector3.yAxis}),
   PinTurntableStar = style(PIN_YELLOW, M.Neon, {spin = 45, spinAxis = Vector3.yAxis}),
   PinPlate = style(rgb(250, 250, 246), M.SmoothPlastic), PinBall = style(rgb(236, 238, 242), M.Metal),
- }),
+ },
  effects = {{kind = "PinSparkles", position = b(-1, 12, 8), size = Vector3.new(26, 10, 50)}},
  tint = {color = rgb(240, 230, 255), brightness = 0.02, contrast = 0.08, saturation = 0.2},
 }
@@ -834,12 +800,7 @@ local function floatingLoops(color, phase)
  return style(color, M.SmoothPlastic, {bob = 0.08, bobSpeed = 1.4, phase = phase})
 end
 Styles.CerealBowlCage = {
- -- Legacy entries keep the previous model (built on the standard cage) styled until the new one is
- -- imported over it; drop them after the import.
- parts = withParts(withParts(standardParts("Bowl", {frame = rgb(70, 150, 230), pads = rgb(255, 150, 40), net = rgb(214, 224, 236),
-  machine = rgb(255, 150, 40), trim = rgb(70, 150, 230)}), {
-  BowlCatapult = style(rgb(196, 146, 92), M.Wood), BowlBoxes = style(rgb(240, 120, 36), M.SmoothPlastic),
- }), {
+ parts = {
   BowlWall = style(rgb(80, 150, 232), M.SmoothPlastic), BowlInside = style(rgb(244, 246, 250), M.SmoothPlastic),
   BowlRim = style(rgb(250, 251, 255), M.SmoothPlastic), BowlStripe = style(rgb(250, 251, 255), M.SmoothPlastic),
   BowlDots = style(rgb(250, 251, 255), M.SmoothPlastic),
@@ -862,7 +823,7 @@ Styles.CerealBowlCage = {
   BowlCarton = style(rgb(250, 250, 248), M.Cardboard), BowlCartonBlue = style(rgb(60, 120, 220), M.Cardboard),
   BowlCartonSpots = style(rgb(24, 24, 30), M.SmoothPlastic),
   BowlPlate = style(rgb(250, 250, 246), M.SmoothPlastic), BowlBall = style(rgb(248, 248, 244), M.SmoothPlastic),
- }),
+ },
  effects = {{kind = "SunMotes", position = b(-1, 10, 6), size = Vector3.new(30, 9, 46)}},
  tint = {color = rgb(255, 250, 238), brightness = 0.03, contrast = 0.04, saturation = 0.1},
 }
@@ -871,16 +832,7 @@ Styles.CerealBowlCage = {
 -- its shaft (Blender +Y) and the four tower flags wave out of step.
 local FORT_TAN, FORT_BLUE, FORT_RED, FORT_GOLD = rgb(220, 174, 112), rgb(46, 82, 184), rgb(214, 40, 40), rgb(255, 200, 64)
 Styles.ToySoldierCage = {
- -- Legacy entries keep the previous model (built on the standard cage) styled until the new one is
- -- imported over it; drop them after the import.
- parts = withParts(withParts(standardParts("Fort", {frame = rgb(30, 50, 110), pads = rgb(214, 40, 40), net = rgb(40, 40, 50),
-  machine = rgb(214, 40, 40), trim = rgb(214, 40, 40)}), {
-  FortFlags = style(TOY_YELLOW, M.Fabric, {sway = 8, swaySpeed = 2}),
-  SoldierCoat = style(rgb(214, 36, 36), M.SmoothPlastic), SoldierPants = style(rgb(30, 46, 110), M.SmoothPlastic),
-  SoldierHat = style(rgb(20, 20, 24), M.Fabric), SoldierSkin = style(rgb(255, 214, 178), M.SmoothPlastic),
-  SoldierTrim = style(GOLD, M.Metal), SoldierBelts = style(rgb(250, 250, 250), M.SmoothPlastic),
-  SoldierKey = style(GOLD, M.Metal, {spin = 90, spinAxis = Vector3.zAxis}),
- }), {
+ parts = {
   FortWalls = style(FORT_TAN, M.Wood), FortSeams = style(rgb(160, 118, 72), M.Wood), FortMerlons = style(FORT_TAN, M.Wood),
   FortBaseBand = style(FORT_BLUE, M.SmoothPlastic), FortStripe = style(FORT_RED, M.SmoothPlastic), FortWalk = style(rgb(182, 134, 82), M.WoodPlanks),
   FortTowers = style(FORT_BLUE, M.SmoothPlastic), FortTowerTrim = style(rgb(250, 250, 246), M.SmoothPlastic),
@@ -905,7 +857,7 @@ Styles.ToySoldierCage = {
   FortPlate = style(rgb(250, 250, 246), M.SmoothPlastic), FortBall = style(rgb(248, 248, 244), M.SmoothPlastic),
   FortFlagA = style(TOY_YELLOW, M.Fabric, {sway = 8, swaySpeed = 2}), FortFlagB = style(FORT_RED, M.Fabric, {sway = 8, swaySpeed = 2.2, phase = 1}),
   FortFlagC = style(FORT_RED, M.Fabric, {sway = 8, swaySpeed = 1.9, phase = 2}), FortFlagD = style(TOY_YELLOW, M.Fabric, {sway = 8, swaySpeed = 2.1, phase = 3}),
- }),
+ },
  tint = {color = rgb(255, 246, 236), brightness = 0.02, contrast = 0.05, saturation = 0.12},
 }
 
@@ -923,12 +875,7 @@ local function ornament(phase)
   bob = 0.5, bobSpeed = 0.6, phase = phase})
 end
 Styles.SnowGlobeCage = {
- -- Legacy entries keep the previous model (built on the standard cage) styled until the new one is
- -- imported over it; drop them after the import.
- parts = withParts(withParts(standardParts("Globe", {frame = rgb(214, 40, 48), pads = rgb(250, 250, 250), net = rgb(214, 232, 250),
-  machine = rgb(214, 40, 48), trim = rgb(250, 250, 250), lens = rgb(220, 240, 255)}), {
-  GlobeSnowman = style(rgb(24, 24, 28), M.SmoothPlastic),
- }), {
+ parts = {
   GlobeGlass = style(rgb(220, 238, 255), M.Glass, {transparency = 0.85, shadow = false}),
   GlobeHighlights = style(rgb(255, 255, 255), M.Neon, {transparency = 0.6, shadow = false}),
   GlobeBase = style(GLOBE_WOOD, M.Wood), GlobeBaseDark = style(rgb(76, 44, 24), M.Wood),
@@ -957,7 +904,7 @@ Styles.SnowGlobeCage = {
   GlobeCarouselHorses = carousel(rgb(250, 250, 246), M.SmoothPlastic, {bob = 0.18, bobSpeed = 1.6}),
   GlobeFlakeA = ornament(0), GlobeFlakeB = ornament(2), GlobeFlakeC = ornament(4),
   GlobePlate = style(rgb(250, 250, 246), M.SmoothPlastic), GlobeBall = style(rgb(248, 248, 244), M.SmoothPlastic),
- }),
+ },
  -- Gentle snow inside the dome all the time; TrainingClient swirls more round the cage after each hit.
  effects = {
   {kind = "Snowfall", position = b(-1, 10, 16), size = Vector3.new(30, 1, 48)},

@@ -299,7 +299,7 @@ Every World:
 
 Multipliers apply to the first ground's base Power. A ground can only be used once a World it stands in is unlocked; World 1 grounds stay usable after reaching World 2. Paid grounds need no Rebirths. Game-pass ownership is checked by the server through MarketplaceService, never saved and never trusted from the client.
 
-World 1's grounds 2-6 are fantasy themed and World 3's grounds 1-5 futuristic, each with its own cage model, getting more intricate down the row; World 2's use the standard cage in era colors for now, and World 4's the standard cage in toy colors until their models are made. The themes are visual only and never affect Power.
+World 1's grounds 2-6 are fantasy themed, World 2's grounds 1-5 are eras of time, World 3's grounds 1-5 are futuristic and World 4's grounds 1-5 are toys. Each has its own fully custom cage model (`tools/blender/*_cage.py` on `cage_helpers.py`, styled by `TrainingCageStyles`), getting more intricate down the row, with the paid ground as the showpiece. Only Basic Training uses the standard cage, which also stands in for any cage model that isn't imported. The themes are visual only and never affect Power.
 
 Unlock requirements and multipliers are configurable and should not be treated as final balance.
 
