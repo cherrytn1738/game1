@@ -539,6 +539,7 @@ Relevant files include:
 - `ECONOMY.md` - progression and economy balance: formulas, targets, tables and `tools/balance` simulator results
 - `MONETIZATION.md` - Robux products and passes: ids, receipt handling, Auto Bat
 - `WORLD4_DESIGN.md` - World 4 (Tiny Town) design and its phased build checklist; each World 4 session works from it
+- `ART_STYLE.md` - each World's lighting, colour palette, accent colour, materials and shape style; follow it for any visual work (lighting values in `WorldLightingConfig`)
 - `CURRENT_STATE.md` - optional current development snapshot when present
 
 Other documentation may be added later when justified, such as:

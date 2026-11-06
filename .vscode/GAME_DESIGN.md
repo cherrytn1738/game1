@@ -606,11 +606,17 @@ World 1's hub (the starting, social hub) has four physical global leaderboards, 
 
 ## Sky
 
-`SkyServer` applies one sky to the whole game at server start, from one of two presets chosen by `PRESET` at the top of the script:
-- **Daylight (current):** based on the developer's own Studio Lighting edits, toned down to be easier on the eyes: midday light (Brightness 2.8, exposure -0.1, clock 14.5), cool blue ambient, a light grey atmosphere with no haze or glare, no terrain clouds, moderate bloom (0.5, size 40, threshold 2.4), and a vivid but softer colour grade (contrast 0.2, saturation 0.32, a faint lavender tint). The place's Sky skybox is kept.
-- **GoldenHour (original):** a late-afternoon sun about 34° up, behind and to the left of the batter, so it lights the runway but never sits in the camera's view of the ball; warm pink and purple atmosphere, soft pink dynamic clouds, gentle bloom and sun rays, and a light saturation boost. Set `PRESET = "GoldenHour"` to go back to it.
+Each World has its own lighting preset in `WorldLightingConfig` (one file to tune; each World's look is described in `.vscode/ART_STYLE.md`):
+- **World 1 (Home Field):** bright midday (the former Daylight preset), with a pale sky-blue distance fade.
+- **World 2 (Time Travel):** warm golden hour (the former GoldenHour preset, warmed): a low sun about 22° up behind and left of the batter, peach clouds, an amber horizon.
+- **World 3 (Future World):** night: a starry sky and a bright violet-blue ambient, with stronger bloom so the Neon glows.
+- **World 4 (Tiny Town):** a bedroom in the evening under a warm lamp: a low amber sun, peach ambient and a warm haze.
 
-Because SkyServer re-applies its preset at every server start, Lighting edits made in Studio only show in playtests once they are copied into a preset. It reuses the place's existing Lighting effects rather than adding duplicates. All values are look-only. The sky does not change per section.
+Players in different Worlds share a server, so the server never switches Lighting. `WorldLightingClient` applies the player's World's preset on their own client: at start, whenever the server moves them to a World (`CurrentWorldId`, which a portal trip changes under its white screen) and again whenever a cinematic ends (`CinematicCamera` clears). The hit cinematics, Legendary and Mythic hits and the portal trip only add their own grades and blurs; they never edit the base Lighting. `SkyServer` applies the starting World's preset at server start, so the replicated defaults match World 1.
+
+A preset covers Lighting's own properties, the Atmosphere, Sky, Bloom, SunRays and the place's `ColorCorrection`, and Terrain clouds. Effects are found by name, never by class, so the cinematics' grades are never touched. A property one preset sets and another leaves out returns to the place's value. Lighting edits made in Studio only show in playtests once they are copied into a preset. All values are look-only. The sky does not change per section.
+
+Lighting technology: the place has gone through Roblox's unified lighting migration (it was saved with ShadowMap). `Lighting.Technology` is no longer readable from scripts; the place uses `LightingStyle` Realistic and `PrioritizeLightingQuality` on.
 
 ## Hit presentation
 
