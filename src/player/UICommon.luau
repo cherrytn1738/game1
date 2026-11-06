@@ -1042,6 +1042,9 @@ local NOTICE_KINDS = {
  level = {title = "LEVEL UP!", color = BUTTON_STATES.Claim[1], icon = UI.Icons.Power},
  cap = {title = "MAX LEVEL REACHED", color = UI.Colors.Gold, icon = UI.Icons.Power},
  offline = {title = "OFFLINE TRAINING", color = BUTTON_STATES.Claim[1], icon = UI.Icons.Power, seconds = 8},
+ -- Playtime Rewards (PlaytimeRewardsClient): never blurred, they only float.
+ rewardReady = {title = "REWARD READY!", color = UI.Colors.Gold, icon = UI.Icons.Rewards},
+ rewardClaimed = {title = "REWARD CLAIMED!", color = BUTTON_STATES.Claim[1], icon = UI.Icons.Rewards},
 }
 local NOTICE_DEFAULT = {title = "HEADS UP", color = BUTTON_STATES.Cyan[1]}
 -- Requirement units: how the required value reads, its highlight color, and whether the bar

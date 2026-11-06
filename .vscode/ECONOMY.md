@@ -644,6 +644,28 @@ the one after, under 1% from then on. With a rule that depends only on Level and
 stretch cannot be shortened without the arrival hit no longer starting over (see Decisions to
 review).
 
+## Playtime Rewards
+
+Twelve rewards by time played this session (`PlaytimeRewardConfig`; AGENTS.md "Playtime Rewards"):
+per 60-minute cycle, Cash worth 63 hits, 7 min 5 s of Training (425 s), 2 Power Punch and 2 Cash
+Splash. The simulator's `playtime = true` scenario claims each one the moment it is ready, in one long
+session from the start (the board starts again after the 12th), with the server's amounts, and drinks
+each juice at once (Nov 2026; nothing else changed):
+
+| Active free-to-play player | World 2 | World 3 | World 4 | Finale | vs without |
+|---|---|---|---|---|---|
+| Without Playtime Rewards | 1h 41m | 4h 38m | 10h 15m | 18h 03m | |
+| Claiming every reward | 1h 04m | 2h 56m | 6h 05m | 10h 18m | 43% faster |
+| ... Cash and Power rewards only (no juices) | 1h 23m | 3h 39m | 7h 49m | 13h 08m | 27% faster |
+| ... juices only | 1h 16m | 3h 22m | 7h 32m | 13h 24m | 26% faster |
+
+**Far over the 5% a free bonus should cost the free-to-play finale** (not changed yet). Both halves are
+big on their own: the Cash and Power rewards land on top of an active player's own hits and Training,
+and the juices keep 2x Power and 2x Cash running a third of the time (20 minutes of each an hour). The model is an active player playing nonstop; shorter sessions start the board over
+each time, and its first rewards come quickest, so a casual player gains even more per hour played.
+Levers, roughly in order: fewer or shorter juices (the biggest single lever), smaller hit counts and
+Training seconds, or longer timers.
+
 ## Decisions to review
 
 - **Hits start over in each World** (World 2, 3 and 4; World 1 unchanged). This changed an

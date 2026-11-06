@@ -43,6 +43,7 @@ return function(sources, options)
  local Juice = load("JuiceConfig")
  local Monetization = load("MonetizationConfig")
  local Measured = load("HitMeasurements")
+ local Playtime = sources.PlaytimeRewardConfig and load("PlaytimeRewardConfig")
  -- What-if prices: {{category, id, price}, ...} (this run's copy of the config only).
  for _, override in options.prices or {} do Equipment.Get(override[1], override[2]).price = override[3] end
  -- What-if tutorial band: {start, add} for Levels 1-19.
@@ -62,6 +63,7 @@ return function(sources, options)
   contact = Training.PracticeCycleSeconds,
   trainBlock = options.trainBlock or 60, -- active player: Training before each batting block
   batBlock = options.batBlock or 30, -- active player: batting per block
+  claim = 2, -- opening Playtime Rewards and claiming one
  }
 
  -- Hit physics from measurements ------------------------------------------------------------
@@ -540,16 +542,55 @@ return function(sources, options)
   rebirth(s)
   return s.time - start
  end
+ -- Playtime Rewards (scenario.playtime): the player claims every reward as soon as it is ready,
+ -- in one long session from the start of the game (the board starts again after the 12th), with
+ -- the server's amounts: Cash worth its hits (the Cash Pack quote), Power worth its seconds of
+ -- Training at the best ground in the current World, and juices drunk at once (each 2x for its
+ -- duration, added to any running one).
+ local function claimPlaytime(s)
+  local board = s.playtime
+  if not board then return end
+  while s.time - board.cycleStart >= Playtime.UnlockSeconds(board.next) do
+   local reward = Playtime.Rewards[board.next]
+   if reward.cashHits then
+    local cash = Monetization.GetCashPackReward({hits = reward.cashHits}, s.level, s.world, s.bat, s.cashBoost)
+    s.cash += cash
+    s.earned += cash
+    board.cash += cash
+   end
+   if reward.trainingSeconds then
+    local ground, worldId = Training.GetBestGround(s.rebirths, s.passes, {[s.world] = true})
+    local perHit = P.GetPowerGrant(P.TrainingBase * Training.GetMultiplier(ground, worldId), s.rebirths, ballMultiplier(s), s.powerBoost)
+    local power = math.floor(perHit / ground.interval * reward.trainingSeconds)
+    advance(s, power)
+    board.power += power
+   end
+   for id, count in reward.juices or {} do
+    local juice = Juice.Get(id)
+    local key = juice.effect == "Power" and "powerJuiceUntil" or "cashJuiceUntil"
+    s[key] = math.max(s[key], s.time) + juice.durationSeconds * count
+   end
+   s.time += A.claim
+   board.claims += 1
+   board.next += 1
+   if board.next > #Playtime.Rewards then board.next, board.cycleStart = 1, s.time end
+  end
+  -- Drunk reward juices run on real time.
+  s.juicePower = s.time < s.powerJuiceUntil and Juice.Get("power_punch").multiplier or 1
+  s.juiceCash = s.time < s.cashJuiceUntil and Juice.Get("cash_splash").multiplier or 1
+ end
  local function runActive(s, timeLimit)
   local start = s.time
   local limit = start + (timeLimit or math.huge)
   while s.time < limit do
+   claimPlaytime(s)
    local blockEnd = s.time + A.trainBlock
    s.time += A.firstContact - A.contact
    while s.time < blockEnd and s.level < cap(s) do trainContact(s) end
    if s.level >= cap(s) then rebirth(s) return s.time - start end
    s.time += A.walk
    local batEnd = s.time + A.batBlock
+   claimPlaytime(s)
    repeat hit(s) shop(s) until s.time >= batEnd
    s.time += A.walk
   end
@@ -591,7 +632,7 @@ return function(sources, options)
  -- Spenders: a scenario sets the purchased multiplier tiers (MonetizationConfig.Multipliers),
  -- juices running all the time (juices = true), the paid grounds' passes (passes = true for both,
  -- or a list of pass ground ids, e.g. {"dragons_lair"}) and the Starter Pack (starterPack = true,
- -- given right after the tutorial).
+ -- given right after the tutorial) and Playtime Rewards (playtime = true: every reward claimed when ready).
  local function applyScenario(s, scenario)
   s.powerBoost = Monetization.GetMultiplier("Power", scenario.powerTiers or 0)
   s.cashBoost = Monetization.GetMultiplier("Cash", scenario.cashTiers or 0)
@@ -606,6 +647,13 @@ return function(sources, options)
     end
    end
    s.groundKey = nil
+  end
+  if scenario.playtime then
+   -- The session started when the player joined (time 0), so the first rewards are ready once
+   -- the tutorial is done.
+   assert(Playtime, "playtime needs PlaytimeRewardConfig in sources")
+   s.playtime = {next = 1, cycleStart = 0, claims = 0, cash = 0, power = 0}
+   s.powerJuiceUntil, s.cashJuiceUntil = 0, 0
   end
   if scenario.starterPack then
    local pack = Monetization.StarterPack

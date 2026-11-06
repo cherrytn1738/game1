@@ -412,6 +412,16 @@ Two consumable drinks (`JuiceConfig`, stored in the existing `OwnedJuices` / `Ac
 - Sold in the Shop (Boost Bundle, Power Punch, Cash Splash) and one comes with the Starter Pack; in Studio, `StudioGrantJuice` (on a `StudioFreshSave` save) and `StudioJuiceSeconds` test them.
 - Juice boxes are built from Parts (`JuiceModels`); running juices show as pills on the right of the HUD (`JuiceHUDClient`).
 
+## Playtime Rewards
+
+The HUD's Rewards tile opens Playtime Rewards (`PlaytimeRewardConfig`, `PlaytimeRewardServer`, `PlaytimeRewardsClient`): twelve rewards unlocked by time played in the current session (1 to 60 minutes), counted on the server. Nothing is saved: leaving resets the board, and after all twelve are claimed it starts again from reward 1.
+
+- A reward is Cash worth N normal hits (the Cash Pack quote, `Monetization.GetCashPackReward`), Power worth N seconds of Training at the best ground usable in the current World (Ball, Rebirths and purchased Power tier, no juice; added through `Progression.Advance`, so the Level Cap holds), juices into the inventory (never drunk), or a mix; the 60-minute grand prize is Cash and Power.
+- Amounts are worked out on the server when claimed (`PlayerData.ClaimPlaytimeReward`); the menu shows the same numbers from the server's display attributes. The server checks the time, that the reward is unclaimed this cycle and that the tutorial is done, and rate-limits claims; the client only asks ("Claim" one by number, or "ClaimAll").
+- Display copies: `PlaytimeCycleStart` (server time), `PlaytimeClaimed` (bit mask), `PlaytimeScale`. In Studio, the Workspace attribute `StudioPlaytimeScale` (0.01-1) shortens every timer.
+- The menu is a dark Showcase window of colour tiles (rows of blue, purple and gold, a rainbow grand prize): locked tiles count down, ready ones glow over a turning sunburst with a Claim button, claimed ones keep their colour under a big check mark; Claim All shows when two or more are ready. The Rewards tile carries a red ready-count badge, and a floating notice (no blur) says when a reward becomes ready while the menu is closed.
+- Balance: claiming every reward makes the active free-to-play finale 43% faster (`.vscode/ECONOMY.md`, "Playtime Rewards"); the amounts are still to be tuned.
+
 ## Monetization
 
 Sold for Robux (`.vscode/MONETIZATION.md`; ids in `MonetizationConfig` and `TrainingConfig`, 0 until created on the Creator Dashboard, when the button reads SOON):
@@ -464,6 +474,7 @@ A functional UI foundation exists for:
 - Rebirth
 - Worlds
 - Offline Training
+- Playtime Rewards
 - notifications
 - mobile/touch controls
 
@@ -592,7 +603,7 @@ Unless asked, do not add:
 - pets
 - crates
 - quests
-- daily rewards
+- daily rewards (Playtime Rewards, below, are the approved exception)
 - monetization (the approved exceptions are listed under Monetization: the Training Ground passes, the Welcome Back 3x, the three Power products, Auto Bat, the permanent Power and Cash multipliers, and the Shop's Starter Pack, Cash Packs and Boosts)
 - leaderboards (the four global boards in every hub are the approved exception)
 - trading

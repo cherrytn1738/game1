@@ -95,8 +95,9 @@ battingShortcut.Activated:Connect(function()
 end)
 
 -- Tile names map to the interface names registered by each client controller. The Shop tile opens
--- the Robux Shop (ShopClient, "Store"); Bats and Balls are bought at the hub displays ("Shop").
-local quickMenuInterfaces = {Shop = "Store", Rebirth = "Rebirth", Inventory = "Inventory"}
+-- the Robux Shop (ShopClient, "Store"); Bats and Balls are bought at the hub displays ("Shop"). The
+-- Rewards tile opens Playtime Rewards (PlaytimeRewardsClient, "Rewards").
+local quickMenuInterfaces = {Shop = "Store", Rebirth = "Rebirth", Inventory = "Inventory", Rewards = "Rewards"}
 local navigation = QuickMenu.Create(root, function(name)
  if name == "TrainingTeleport" then
   -- Intent only: the server checks eligibility and chooses the destination.
@@ -121,7 +122,7 @@ local navigation = QuickMenu.Create(root, function(name)
  if quickMenuInterfaces[name] then
   Interfaces.Open(quickMenuInterfaces[name])
  else
-  -- Rewards is a placeholder until that system exists.
+  -- A tile without a menu yet.
   UI.Notify(name .. " is coming soon!")
  end
 end)

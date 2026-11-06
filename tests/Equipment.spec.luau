@@ -125,8 +125,14 @@ return function(sources)
  setfenv(tutorialFn, setmetatable({game = {GetService = function() return {WaitForChild = function(_, name) return name end} end},
   require = function(name) return ({EquipmentConfig = Equipment, ProgressionConfig = Progression})[name] end}, {__index = getfenv()}))
  local Tutorial = tutorialFn()
+ -- PlaytimeRewardConfig requires configs too; it gets the spec's copies.
+ local playtimeFn = assert(loadstring(sources.PlaytimeRewardConfig))
+ setfenv(playtimeFn, setmetatable({game = {GetService = function() return {WaitForChild = function(_, name) return name end} end},
+  require = function(name) return assert(({ProgressionConfig = Progression, TrainingConfig = Training,
+   MonetizationConfig = Monetization})[name], name) end}, {__index = getfenv()}))
+ local Playtime = playtimeFn()
  local modules = {EquipmentConfig = Equipment, WorldConfig = Worlds, ProgressionConfig = Progression, TrainingConfig = Training,
-  JuiceConfig = Juice, TutorialConfig = Tutorial, MonetizationConfig = Monetization}
+  JuiceConfig = Juice, TutorialConfig = Tutorial, MonetizationConfig = Monetization, PlaytimeRewardConfig = Playtime}
  local env = setmetatable({
   game = {
    ReplicatedStorage = storage,
@@ -2137,6 +2143,45 @@ return function(sources)
   check(Training.GetPassGround(listed[1]).id == "cosmic_rift" and Training.GetPassGround(listed[2]).id == "dragons_lair",
    worldId .. "'s Shop grounds use the existing passes")
  end
+
+ -- Playtime Rewards: the board, and every amount worked out on the server from its own state.
+ check(#Playtime.Rewards == 12 and Playtime.Rewards[1].minutes == 1 and Playtime.Rewards[12].minutes == 60
+  and Playtime.Rewards[12].grand and Playtime.UnlockSeconds(4) == 480 and Playtime.UnlockSeconds(4, 0.05) == 24,
+  "twelve rewards from 1 to 60 minutes, the last the grand prize; Studio can shorten the timers")
+ local rows = {}
+ for _, reward in Playtime.Rewards do table.insert(rows, reward.row) end
+ check(table.concat(rows, ",") == "Blue,Blue,Blue,Blue,Purple,Purple,Purple,Purple,Gold,Gold,Gold,Rainbow", "row colours")
+ local rewardee = join(640)
+ rewardee:SetAttribute("CurrentWorldId", "world_1")
+ local level = Data.GetProgression(rewardee).Level
+ local hitCash = Monetization.GetCashPackReward({hits = 1}, level, "world_1", rewardee:GetAttribute("EquippedBat"), 1)
+ local cashBefore = rewardee.leaderstats.Cash.Value
+ local granted = Data.ClaimPlaytimeReward(rewardee, Playtime.Rewards[1])
+ check(granted and granted.cash == Monetization.GetCashPackReward({hits = 3}, level, "world_1", rewardee:GetAttribute("EquippedBat"), 1)
+  and granted.cash >= hitCash and rewardee.leaderstats.Cash.Value == cashBefore + granted.cash and granted.power == nil,
+  "a Cash reward pays its hits at the Cash Pack quote")
+ local rate = Playtime.GetTrainingRate(0, 1, 0, {}, "world_1")
+ local powerBefore = Data.GetProgression(rewardee)
+ granted = Data.ClaimPlaytimeReward(rewardee, Playtime.Rewards[2])
+ local expectedState = {Level = powerBefore.Level, Power = powerBefore.Power, LevelCap = powerBefore.LevelCap, Rebirths = powerBefore.Rebirths}
+ Progression.Advance(expectedState, math.floor(rate * 20))
+ local after = Data.GetProgression(rewardee)
+ check(rate == Progression.TrainingBase / 2 and granted.power == math.floor(rate * 20)
+  and after.Level == expectedState.Level and after.Power == expectedState.Power,
+  "a Power reward is its seconds of Training at the best ground in the World, through the Level path")
+ granted = Data.ClaimPlaytimeReward(rewardee, Playtime.Rewards[11])
+ local owned = rewardee:FindFirstChild("OwnedJuices")
+ check(granted.juices.power_punch == 1 and granted.juices.cash_splash == 1 and owned:GetAttribute("power_punch") == 1
+  and owned:GetAttribute("cash_splash") == 1 and rewardee:FindFirstChild("ActiveJuices"):GetAttribute("power_punch") == nil,
+  "juice rewards go into the inventory, not drunk")
+ granted = Data.ClaimPlaytimeReward(rewardee, Playtime.Rewards[12])
+ check(granted.cash and granted.cash > 0 and granted.power and granted.power > 0, "the grand prize gives Cash and Power")
+ -- The Level Cap holds: a huge grant banks at the cap.
+ local capped = Data.ClaimPlaytimeReward(rewardee, {trainingSeconds = 1e9})
+ check(capped and Data.GetProgression(rewardee).Level == Data.GetProgression(rewardee).LevelCap, "Power rewards respect the Level Cap")
+ rewardee:SetAttribute("CurrentWorldId", nil)
+ check(Data.ClaimPlaytimeReward(rewardee, Playtime.Rewards[1]) == nil, "no reward without a current World")
+ leave(rewardee)
 
  local expiring = join(251)
  expiring.leaderstats.Cash.Value = 1000

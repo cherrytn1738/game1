@@ -12,6 +12,7 @@ local Training = require(game.ReplicatedStorage:WaitForChild("TrainingConfig"))
 local Juice = require(game.ReplicatedStorage:WaitForChild("JuiceConfig"))
 local Tutorial = require(game.ReplicatedStorage:WaitForChild("TutorialConfig"))
 local Monetization = require(game.ReplicatedStorage:WaitForChild("MonetizationConfig"))
+local Playtime = require(game.ReplicatedStorage:WaitForChild("PlaytimeRewardConfig"))
 
 local STORE_NAME = "PlayerProgression"
 local SCHEMA_VERSION = 12
@@ -316,6 +317,11 @@ local function updateTutorial(player, session, kind, amount)
   equippedBall = player:GetAttribute("EquippedBall"), rebirthed = kind == "ManualRebirth"})
  if moved or (counted and kind == "BallPurchase") then scheduleImportantSave(session) end
  if counted or moved then publishTutorial(player, session) end
+end
+
+-- Whether the player's new-player tutorial is done (false while their data isn't ready).
+function PlayerData.IsTutorialComplete(player)
+ return PlayerData.IsReady(player) and Tutorial.IsComplete(sessions[player].tutorial)
 end
 
 -- Batting Cash, reported by BallLauncher after it pays a hit (for the tutorial's Cash step).
@@ -982,6 +988,46 @@ function PlayerData.QuoteCashPack(player, productId)
  session.cashQuotes[product.id] = math.min(MAX_CASH, amount)
  scheduleImportantSave(session)
  return session.cashQuotes[product.id]
+end
+
+-- A Playtime Reward (PlaytimeRewardConfig.Rewards entry; PlaytimeRewardServer has already checked
+-- the time and that it is unclaimed). Every amount is worked out here from server state: Cash
+-- worth its hits (the Cash Pack quote), Power worth its seconds of Training at the best ground in
+-- the player's current World (added through the Level path, so the Level Cap holds), and juices
+-- into the inventory (up to the most a player can hold). Returns the granted amounts, or nil.
+function PlayerData.ClaimPlaytimeReward(player, reward)
+ if not PlayerData.IsReady(player) or type(reward) ~= "table" then return nil end
+ local session = sessions[player]
+ local state = session.progression
+ local worldId = player:GetAttribute("CurrentWorldId")
+ local ball = Equipment.Get("Ball", player:GetAttribute("EquippedBall"))
+ if not ball or not Worlds.Get(worldId) then return nil end
+ local granted = {}
+ local cash = Playtime.GetCash(reward, state.Level, worldId, player:GetAttribute("EquippedBat"), session.multiplierTiers.Cash)
+ if cash > 0 then
+  local stat = player.leaderstats.Cash
+  cash = math.min(cash, MAX_CASH - stat.Value)
+  stat.Value += cash
+  granted.cash = cash
+ end
+ local power = Playtime.GetPower(reward, state.Rebirths, ball.powerGainMultiplier, session.multiplierTiers.Power,
+  session.trainingPasses, worldId)
+ if power > 0 then
+  Progression.Advance(state, power)
+  publishProgression(player, state)
+  granted.power = power
+ end
+ if reward.juices then
+  for id, count in reward.juices do
+   if Juice.Get(id) then
+    session.juices.owned[id] = math.min(Juice.MaxOwned, (session.juices.owned[id] or 0) + count)
+   end
+  end
+  publishJuices(player, session)
+  granted.juices = table.clone(reward.juices)
+ end
+ scheduleImportantSave(session)
+ return granted
 end
 
 -- A Power product's receipt (MonetizationConfig.PowerProducts): exactly powerAmount Power.

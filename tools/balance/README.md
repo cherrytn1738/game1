@@ -54,7 +54,7 @@ There is no command-line Luau here, so the simulator runs in Studio (Edit mode, 
 | `tutorialBand = {start, add}` | What-if: the tutorial band (Levels 1-19) as `start + add x (Level - 1)` |
 | `solveTutorial = {start, target}` | Solve the tutorial band's `add` so its Level 20 climb takes `target` seconds of Training |
 | `prices = {{category, id, price}, ...}` | What-if: equipment prices for this run |
-| `scenarios = {...}` | The SPENDERS section's players: `{name, powerTiers, cashTiers, juices, passes, starterPack}`; `passes` is `true` for both paid grounds or a list of pass ground ids (`{"dragons_lair"}`) (default: free to play, 1 and 2 tiers each, every tier, + juices, whale) |
+| `scenarios = {...}` | The SPENDERS section's players: `{name, powerTiers, cashTiers, juices, passes, starterPack}`; `passes` is `true` for both paid grounds or a list of pass ground ids (`{"dragons_lair"}`); `playtime = true` claims every Playtime Reward as soon as it is ready (one long session, juices drunk at once) (default: free to play, 1 and 2 tiers each, every tier, + juices, whale) |
 | `tierValues = true` | Also play each multiplier tier on its own and report what it saves |
 | `casualSpenders = true` | Also run the casual player with each spender scenario (day of each World and the finale) |
 | `bandStarts = {...}` | What-if: report with these band starts instead of the config's |

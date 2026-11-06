@@ -124,6 +124,28 @@ function QuickMenu.Create(parent, onActivated)
  return navigation
 end
 
+-- A red count badge on a tile's top-right corner (count 0 hides it), e.g. ready Playtime Rewards.
+function QuickMenu.SetBadge(tile, count)
+ local badge = tile:FindFirstChild("Badge")
+ if not badge then
+  badge = Instance.new("Frame")
+  badge.Name, badge.AnchorPoint, badge.Position = "Badge", Vector2.new(.5, .5), UDim2.new(1, -8, 0, 8)
+  badge.Size, badge.BackgroundColor3, badge.BorderSizePixel, badge.ZIndex = UDim2.fromOffset(38, 38), Color3.new(1, 1, 1), 0, 20
+  corner(badge, 19)
+  stroke(badge, UI.Colors.Border, 3)
+  local face = Instance.new("UIGradient")
+  face.Rotation, face.Color, face.Parent = 90, ColorSequence.new(Color3.fromRGB(255, 80, 90), Color3.fromRGB(215, 25, 45)), badge
+  local label = Instance.new("TextLabel")
+  label.Name, label.Font, label.TextSize, label.TextColor3 = "Count", UI.Font, 24, Color3.new(1, 1, 1)
+  label.BackgroundTransparency, label.Size, label.Position, label.ZIndex = 1, UDim2.fromScale(1, 1), UDim2.fromOffset(0, -1), 21
+  stroke(label, UI.Colors.Border, 2.5)
+  label.Parent = badge
+  badge.Parent = tile
+ end
+ badge.Visible = count > 0
+ badge.Count.Text = count > 9 and "9+" or tostring(count)
+end
+
 function QuickMenu.Resize(navigation, availableSize)
  local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or availableSize
  -- Floor keeps tiles large enough to tap on small phones.
