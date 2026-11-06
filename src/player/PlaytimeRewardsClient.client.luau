@@ -47,10 +47,6 @@ local footer = Instance.new("Frame")
 footer.Name, footer.BackgroundTransparency = "Footer", 1
 footer.AnchorPoint, footer.Position, footer.Size = Vector2.new(0, 1), UDim2.new(0, 14, 1, -12), UDim2.new(1, -28, 0, 56)
 footer.Parent = box
-local played = UI.ShowcaseLabel(footer, "Played", "", 22, UI.Colors.Muted)
-played.Size, played.TextScaled = UDim2.new(1, -230, 1, 0), true
-local playedLimit = Instance.new("UITextSizeConstraint")
-playedLimit.MaxTextSize, playedLimit.MinTextSize, playedLimit.Parent = 22, 11, played
 local claimAll = UI.ShowcaseButton(footer, "ClaimAll")
 claimAll.AnchorPoint, claimAll.Position, claimAll.Size = Vector2.new(1, .5), UDim2.fromScale(1, .5), UDim2.fromOffset(210, 54)
 UI.SetShowcaseButton(claimAll, "CLAIM ALL", "Lime", true)
@@ -274,7 +270,6 @@ local function updateBoard()
  end
  local ready = readyCount(time)
  claimAll.Visible = ready >= 2
- played.Text = "PLAYED THIS ROUND  " .. clock(time) .. "   •   THE BOARD STARTS AGAIN AFTER THE LAST REWARD"
 end
 
 -- Ready tiles breathe gently while the menu is open.
@@ -305,7 +300,6 @@ local function layout()
  cells.CellSize = UDim2.fromOffset(cellWidth, cellHeight)
  local narrow = box.AbsoluteSize.X / scale < NARROW
  claimAll.Size = UDim2.fromOffset(narrow and 170 or 210, 54)
- played.Size = UDim2.new(1, narrow and -184 or -230, 1, 0)
  board:SetAttribute("Columns", best)
 end
 board:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
