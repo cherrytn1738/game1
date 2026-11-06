@@ -18,7 +18,10 @@ and the Blender generators in `tools/blender/`.
   Basalt). **Neon** is for things that glow (lamps, seams, portals, holograms, energy), never for
   large plain surfaces: bloom turns big Neon areas into white blobs.
 - **Glow budget:** a World's accent colour carries its glow. Keep glowing parts small and
-  thin (strips, rims, cores), and remember World 3 has the strongest bloom.
+  thin (strips, rims, cores). At night (World 3) every glow stands out more, so bloom stays soft.
+- **No fast flashing:** glowing parts pulse at most about once a second (`Pulse` / `pulse`
+  around 1). Faster bright pulses read as harsh flicker and are hard on light-sensitive players;
+  flames are the exception (small, warm, not Neon-bright).
 - **The ball and its flight come first.** Nothing beside the runway should match the ball's
   white or its trail colours closely enough to hide it; nothing should hang over the runway's
   flight path. The end portal must stay visible from far down the runway, so keep haze light.
@@ -62,10 +65,10 @@ and the Blender generators in `tools/blender/`.
 ## World 3 - Future World
 
 - **Mood:** a city of tomorrow at night, lit by its own neon, heading out into space.
-- **Lighting:** night (clock 0): a dark starry sky with a big moon, a bright, nearly neutral
-  cool-grey ambient (only a hint of blue: whites stay white) so everything stays readable, a soft
-  grey haze, the strongest bloom (1.1 / 40 / 1.25) so Neon glows, a near-neutral grade. No sun
-  rays.
+- **Lighting:** night (clock 0): a dark starry sky with a big moon, a bright violet-blue ambient
+  so everything stays readable, a soft blue haze, soft wide bloom (0.55 / 56 / 1.7: stronger,
+  tighter bloom made the hundreds of thin Neon strips shimmer and glare), a cool grade. No sun
+  rays. The dark night is what makes the Neon stand out.
 - **Palette:** white composite (240, 243, 248) and pale plaza tiles, gunmetal (64, 72, 92), dark
   navy walkways (38, 48, 80), sky glass (120, 170, 225).
 - **Accent:** hologram cyan (90, 224, 255) / (120, 236, 255), with hologram pink (255, 110, 214)

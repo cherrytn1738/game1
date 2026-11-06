@@ -507,13 +507,16 @@ Styles.RoboFactoryCage = {
   RoboScreenPanel = style(rgb(200, 225, 235), M.Glass, {transparency = 0.6, shadow = false}),
   RoboPlate = style(rgb(240, 240, 236), M.SmoothPlastic),
   -- Six high-bay lamps; their light sits at their combined centre, over the middle of the cell.
-  RoboLampLens = style(rgb(255, 248, 225), M.Neon, {light = {rgb(255, 245, 225), 32, 1.2}}),
-  RoboBeaconLens = style(rgb(255, 150, 30), M.Neon, {transparency = 0.25, pulse = 1.5}),
+  -- (Dimmed a touch from near-white so the lenses don't glare under World 3's night bloom.)
+  RoboLampLens = style(rgb(236, 226, 200), M.Neon, {light = {rgb(255, 245, 225), 32, 1.2}}),
+  RoboBeaconLens = style(rgb(255, 150, 30), M.Neon, {transparency = 0.25, pulse = 1.1}),
   RoboStackRed = style(rgb(255, 40, 30), M.Neon, {pulse = 1}), RoboStackAmber = style(rgb(255, 160, 30), M.Neon),
   RoboStackGreen = style(rgb(60, 255, 100), M.Neon),
   RoboPanels = style(rgb(190, 194, 200), M.Metal), RoboParts = style(rgb(236, 238, 242), M.SmoothPlastic),
   RoboCrates = style(rgb(194, 150, 96), M.WoodPlanks), RoboDrums = style(rgb(32, 90, 190), M.Metal),
-  RoboWeldGlow = style(rgb(210, 235, 255), M.Neon, {pulse = 4, light = {rgb(170, 210, 255), 10, 2}}),
+  -- Glows pulse at most about once a second: faster bright pulses read as harsh flicker (and are
+  -- hard on light-sensitive players), worst under World 3's night bloom.
+  RoboWeldGlow = style(rgb(210, 235, 255), M.Neon, {pulse = 1.2, light = {rgb(170, 210, 255), 10, 2}}),
   RoboLaser = style(rgb(255, 30, 30), M.Neon, {transparency = 0.3, shadow = false, pulse = 1.2}),
  },
  effects = {
@@ -602,7 +605,7 @@ Styles.LunarBaseCage = {
   LunarHazard = style(rgb(255, 204, 26), M.SmoothPlastic),
   LunarDeck = style(rgb(58, 60, 66), M.DiamondPlate),
   LunarFloorLights = style(rgb(115, 225, 255), M.Neon, {pulse = 0.5}),
-  LunarCoils = style(rgb(90, 220, 255), M.Neon, {pulse = 1.6, light = {rgb(110, 220, 255), 14, 2}}),
+  LunarCoils = style(rgb(90, 220, 255), M.Neon, {pulse = 1.1, light = {rgb(110, 220, 255), 14, 2}}),
   LunarDriverGlow = style(rgb(150, 240, 255), M.Neon, {pulse = 0.8}),
   LunarCables = style(rgb(26, 26, 30), M.SmoothPlastic),
   LunarBalls = style(rgb(245, 245, 240), M.SmoothPlastic), LunarPlate = style(rgb(245, 245, 240), M.SmoothPlastic),
@@ -654,9 +657,9 @@ Styles.QuantumLabCage = {
   -- Hologram walls: the force-field shimmer reads as projected light.
   QuantumHoloWalls = style(rgb(60, 190, 255), M.ForceField, {shadow = false}),
   QuantumGrid = style(rgb(120, 235, 255), M.Neon, {transparency = 0.25, shadow = false}),
-  QuantumGlyphs = style(rgb(225, 250, 255), M.Neon, {pulse = 2.2, shadow = false}),
+  QuantumGlyphs = style(rgb(225, 250, 255), M.Neon, {pulse = 1, shadow = false}),
   QuantumFloorGrid = style(QCYAN, M.Neon, {transparency = 0.3, pulse = 0.4, shadow = false}),
-  QuantumLaneArrows = style(QMAGENTA, M.Neon, {pulse = 1.5, shadow = false}),
+  QuantumLaneArrows = style(QMAGENTA, M.Neon, {pulse = 1.1, shadow = false}),
   QuantumEmblem = style(QMAGENTA, M.Neon, {pulse = 0.5, shadow = false}),
   QuantumScreenPanel = style(QCYAN, M.ForceField, {shadow = false}),
   QuantumScreenGrid = style(rgb(150, 240, 255), M.Neon, {transparency = 0.2, shadow = false}),
@@ -682,7 +685,7 @@ Styles.QuantumLabCage = {
   QuantumReactorGlow = style(QCYAN, M.Neon, {pulse = 1.1}), QuantumConduits = style(QCYAN, M.Neon, {pulse = 0.7}),
   QuantumGold = style(rgb(255, 200, 80), M.Metal),
   QuantumGlass = style(rgb(190, 230, 255), M.Glass, {transparency = 0.75, shadow = false}),
-  QuantumLeds = style(QCYAN, M.Neon, {pulse = 2.5}),
+  QuantumLeds = style(QCYAN, M.Neon, {pulse = 1.2}),
   QuantumHoloPanels = style(QCYAN, M.Neon, {bob = 0.25, bobSpeed = 1.1, shadow = false}),
   QuantumHoloFill = style(rgb(100, 210, 255), M.ForceField, {bob = 0.25, bobSpeed = 1.1, shadow = false}),
   QuantumRingSlots = style(QMAGENTA, M.Neon, {pulse = 0.9}),
@@ -696,12 +699,13 @@ Styles.QuantumLabCage = {
  },
  tint = {color = rgb(222, 232, 255), brightness = -0.04, contrast = 0.12, saturation = 0.15},
 }
--- Glitching data cubes: each cluster tumbles, bobs and flickers on its own.
+-- Glitching data cubes: each cluster tumbles, bobs and glows on its own (a slow pulse, not a
+-- flicker: see RoboWeldGlow).
 for index, letter in {"A", "B", "C", "D", "E"} do
  local colors = {QMAGENTA, QCYAN, rgb(230, 240, 255), QVIOLET, QMAGENTA}
  local axes = {Vector3.new(1, 1, 0.3), Vector3.new(-0.4, 1, 1), Vector3.new(1, 0.2, 1), Vector3.new(0.6, 1, -0.8), Vector3.new(-1, 0.7, 0.5)}
  Styles.QuantumLabCage.parts["QuantumCubes" .. letter] = turning(colors[index], M.Neon, 18 + index * 5, axes[index].Unit,
-  {bob = 0.5, bobSpeed = 0.7 + index * 0.12, phase = index * 1.3, pulse = 2.4})
+  {bob = 0.5, bobSpeed = 0.7 + index * 0.12, phase = index * 1.3, pulse = 1.1})
 end
 
 -- Particle presets (built-in Roblox particle textures, so no uploads are needed).

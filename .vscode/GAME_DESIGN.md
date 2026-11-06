@@ -609,7 +609,7 @@ World 1's hub (the starting, social hub) has four physical global leaderboards, 
 Each World has its own lighting preset in `WorldLightingConfig` (one file to tune; each World's look is described in `.vscode/ART_STYLE.md`):
 - **World 1 (Home Field):** bright midday (the former Daylight preset), with a pale sky-blue distance fade.
 - **World 2 (Time Travel):** warm golden hour (the former GoldenHour preset, warmed): a low sun about 22° up behind and left of the batter, peach clouds, an amber horizon.
-- **World 3 (Future World):** night: a starry sky and a bright, nearly neutral cool-grey ambient, with stronger bloom so the Neon glows.
+- **World 3 (Future World):** night: a starry sky and a bright violet-blue ambient; the dark makes the Neon glow, with soft, weak bloom so its many thin strips never shimmer or glare.
 - **World 4 (Tiny Town):** a bedroom in the evening under a warm lamp: a low amber sun, peach ambient and a warm haze.
 
 Players in different Worlds share a server, so the server never switches Lighting. `WorldLightingClient` applies the player's World's preset on their own client: at start, whenever the server moves them to a World (`CurrentWorldId`, which a portal trip changes under its white screen) and again whenever a cinematic ends (`CinematicCamera` clears). The hit cinematics, Legendary and Mythic hits and the portal trip only add their own grades and blurs; they never edit the base Lighting. `SkyServer` applies the starting World's preset at server start, so the replicated defaults match World 1.
