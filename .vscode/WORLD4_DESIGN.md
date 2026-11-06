@@ -289,7 +289,7 @@ One new Bat, the **Rolling Pin Bat** (`rolling_pin_bat`, 42x Cash, $1.65B), adde
 - [x] `PortalJourneyClient`: the shrinking trip from World 3 to World 4 (`world_4.shrinkTrip`): in the
       plunge an anchored copy of the batter spirals in and shrinks to bug size while the real
       character stays hidden (it is never scaled)
-- [ ] World 4's Worlds-menu card image (a Studio capture of the hub). Not done: Studio's screen
-      capture did not work while it was in the background; World 4's card keeps its painted
-      sky/ground colours until a capture is uploaded and set as `world_4.preview.image`
+- [x] World 4's Worlds-menu card image: a high Studio capture looking into Mouse-Hole Plaza from
+      over the runway, cropped to 3.4:1 and uploaded as `world_4.preview.image`
+      (`rbxassetid://109226484073812`)
 - [x] Studio checks listed; tests pass; commit

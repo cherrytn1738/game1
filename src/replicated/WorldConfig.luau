@@ -276,7 +276,7 @@ local Worlds = {
    shrinkTrip = true,
    hub = hubLayout("World4Hub", "TinyTown", "world_4", "TINY TOWN BALLS"),
    -- No card image yet: the painted scene in the sky and ground colours.
-   preview = {sky = Color3.fromRGB(255, 214, 150), ground = Color3.fromRGB(120, 196, 90)},
+   preview = {image = "rbxassetid://109226484073812", sky = Color3.fromRGB(255, 214, 150), ground = Color3.fromRGB(120, 196, 90)},
    runoutDistance = 2000,
    launchLevels = {from = 370, to = 490},
    cashBase = 500000, cashMultiplier = 600,
