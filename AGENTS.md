@@ -212,7 +212,7 @@ Formulas (whole Power is rounded down once, after all bonuses):
 
 - Training Power = Training base (5) × ground multiplier × Ball × (Rebirths + 1) × purchased Power multiplier × any Power juice
 - Hit Power = Training base × 0.37 per second in play (rounded) × Ball × (Rebirths + 1) × purchased Power multiplier × any Power juice (no ground; about 50-70% of Basic Training's rate)
-- Offline Power = 25% of the best usable ground's Training rate (no Level term), for up to 8 hours, × Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held to half the Power still needed for the Level Cap (Welcome Back's 3x adds it twice more, up to all of it)
+- Offline Power = 25% of the best usable ground's Training rate (no Level term), for up to 8 hours, × Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held below the Level Cap to half the Power still needed for it (Welcome Back's 3x adds it twice more, up to all of it); at the cap the whole reward builds up there (up to `MaxPower`, no 3x) until the next Rebirth resets it
 - Hit Cash = (World start pay + World Cash multiplier × (distance / 80)^1.5) × section multiplier × Bat × purchased Cash multiplier × any Cash juice, rounded, at least $1
 
 ### Bat
@@ -394,10 +394,13 @@ Offline Power:
 - applies configured offline-rate limits
 - applies the saved equipped Ball's Power multiplier
 - applies Rebirth multiplier
-- fills at most half the Power still needed for the Level Cap per return (the Welcome Back 3x up to all of it), so offline never finishes a run by itself
+- below the Level Cap, fills at most half the Power still needed for it per return (the Welcome Back 3x up to all of it), so offline never finishes a run by itself
+- at the Level Cap, earns the whole time-based reward (limited only by `MaximumOfflineSeconds`, 8 hours, not by `OfflineRunShare`), building up above the cap like Training there (`Progression.Advance`, up to `MaxPower`) so Welcome Back shows what the player made; the next Rebirth still resets Power to 0 and nothing carries into the next run, and the 3x is never offered at the cap
 - respects Level Cap behavior
 - grants once per valid login/session
 - only once the new-player tutorial is complete: a return mid-tutorial earns nothing and shows no Welcome Back screen (its logout time is still used up)
+
+Welcome Back (`TrainingClient`, after at least `OfflineNoticeMinimumSeconds`, 5 minutes, away) is a notification-like popup (`UI.RewardPopup`), not a menu. It shows the Power earned counting up under a bolt on a sunburst, "Away 3h 12m" (plus "MAX LEVEL - REBIRTH AVAILABLE" at the cap) and Claim! (it only closes; the reward was added at login). Below the cap a rainbow 3x button sits beside Claim!, with a Robux badge (10 Robux, `TrainingConfig.OfflineTriple`; SOON while its `productId` is 0). After a purchase the popup counts up to the server's new total (`OfflineTriplePower`) and celebrates, and the 3x button goes away.
 
 Never trust client time or client-provided offline duration.
 
@@ -429,7 +432,7 @@ Sold for Robux (`.vscode/MONETIZATION.md`; ids in `MonetizationConfig` and `Trai
 - Three Power developer products in a row under the Level bar (the Batting button below them): +10K / +100K / +1M Power for 11 / 45 / 95 Robux, added exactly (no multipliers, purchased ones included) through the normal Level path (`PlayerData.ClaimPowerProduct`)
 - Permanent Power and Cash multipliers (`MonetizationConfig.Multipliers`), bought one tier at a time in the Shop, each tier its own developer product: Power 2x / 2.5x / 3x / 3.5x / 4x for 129 / 169 / 219 / 279 / 359 Robux, Cash 2x / 2.5x / 3x / 3.5x / 4x / 4.5x / 5x for 129 / 159 / 199 / 249 / 309 / 389 / 489 Robux. The server prompts only the next tier ("BuyMultiplier"); the receipt (`PlayerData.ClaimMultiplier`) raises the saved `PowerMultiplierTier` / `CashMultiplierTier` (at least one tier per receipt, up to the top), never from the client. Power multiplies Training, hit and offline Power (and the 3x), never the Power products or the Starter Pack's Power; Cash multiplies batting Cash and a Cash pack's "normal hit". Both stack with juices, are kept through Rebirths, are not giftable and never change launch or distance. Intentionally stronger than the spender targets because a World 4 is planned (`.vscode/ECONOMY.md`)
 - Auto Bat game pass (25 Robux), a top-centre ON/OFF button: while ON, the Bat client presses the normal Swing whenever a manual swing would be accepted and the last hit has settled; the server checks every swing as usual
-- The Training Ground passes and the Welcome Back 3x product (above)
+- The Training Ground passes and the Welcome Back 3x product (10 Robux; see Offline Training above)
 - The Shop (HUD Shop tile; `ShopClient`, menu "Store"), one scrolling window of colour cards (see UI), each able to show an uploaded picture (`shopImage`, 512 x 512 transparent PNG; grounds 1100 x 500) in place of its built-in icons or 3D models:
   - Starter Pack (game pass, 39 Robux, once): +10K Power, +1 Rebirth (a bonus one: Rebirths and the Level Cap rise, nothing resets), 1 Power Punch and the exclusive Catastrophe Bat; given once ever (saved `StarterPackGranted`)
   - Multipliers: the Power and Cash cards, each showing its next tier as the change it makes ("POWER 2x → 2.5x"), MAXED at the top
@@ -492,6 +495,15 @@ Use that skill as a design foundation, not as a reason to make every screen iden
 The game's own visual identity is the Inventory's style, which every screen follows (`UICommon`): the rounded FredokaOne font with heavy dark outlines, blue rounded windows with a faint checker and a title riding over the top edge, a red rounded close button, rounded dark blue cards, and chunky studded buttons (green go, grey done, red locked, blue neutral). Preserve it.
 
 The Shop is the colourful exception, built from UICommon's reusable colour-card pieces (for other menus later): a dark Showcase window (Grey theme, the shared menu blur behind it) of bold saturated cards (`UI.ColorCard`, `UI.CardPalettes`: a gradient face, a faint stud pattern, a lighter inner rim, the thick dark outline), huge outlined names tinted to their card (`UI.CardTitle`), big tilted pictures that may overlap the card's edge, a slowly turning sunburst behind featured items (`UI.Sunburst`), white content tiles for packs (`UI.ItemTile`), and one purchase row: a lime Robux price button (`UI.PriceButton`) plus a square purple Gift button (`UI.GiftButton`). Each section ("~ NAME ~") opens with a full-width hero card for its best item, then smaller cards in columns (one column on phones held upright). SOON and owned states keep the card's colour and add a sticker (`UI.CardBadge`); a crossed-out price (`UI.StrikePrice`) appears only for a real comparison (the Boost Bundle's juices bought one at a time).
+
+"Here is what you got" moments use `UI.RewardPopup` (Welcome Back first). It feels like a notification rather than a menu:
+
+- The notices' blur and 45% tint sit behind it, always removed when it closes; there's no close button.
+- A translucent dark panel with a thick dark outline, its big outlined title over the top edge with an icon breaking out of the top-left corner.
+- A picture over a turning sunburst, with a large gold amount that counts up (`countTo`) and `celebrate()` sparks.
+- Small detail lines under the amount.
+- The buttons: a lime claim button, alone and centred, or beside a rainbow offer button that carries a Robux price badge.
+- Its text lines are measured to stay on one line on narrow phones, and short screens use a compact layout.
 
 World-space UI in the hubs (item labels, Training Ground labels, the portal sign, leaderboards, the batter's box label) shows only near the local camera: register new world-space guis with `WorldUIConfig.Register(gui, range)` rather than setting `MaxDistance` by hand.
 

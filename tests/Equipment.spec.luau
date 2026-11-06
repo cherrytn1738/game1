@@ -538,10 +538,31 @@ return function(sources)
  check(legacy:GetAttribute("Power")==3 and legacy:GetAttribute("Level")==5 and legacy:GetAttribute("OfflinePowerEarned")==0,"migration preserves progression without fabricated offline time")
  saved.Player_34={SchemaVersion=5,Cash=500,Power=0,Level=20,Rebirths=0,SelectedTrainingGround="fake",LastLogoutTime=1}
  local atCap=join(34)
- check(atCap:GetAttribute("OfflineSeconds")>0 and atCap:GetAttribute("Level")==20 and atCap:GetAttribute("OfflinePowerEarned")==0
-  and atCap:GetAttribute("Power")==0 and atCap:GetAttribute("OfflineTripleAvailable")==false,"at the Level Cap offline adds nothing and offers no 3x")
- check(Data.GrantPower(atCap,10,"ActiveTraining") and atCap:GetAttribute("Level")==20 and atCap:GetAttribute("Power")==10,
+ -- At the Level Cap offline Power builds up like Training at the cap: the whole time away (up to
+ -- 8 hours) at the normal offline rate, with no run share (no run is left to share), shown on
+ -- Welcome Back, with no 3x offer.
+ local capSeconds=atCap:GetAttribute("OfflineSeconds")
+ local capReward=Training.GetOfflineReward(1,1+capSeconds,"basic_training",Progression.TrainingBase,"world_1")
+ check(capSeconds>0 and capReward>0 and atCap:GetAttribute("Level")==20
+  and atCap:GetAttribute("OfflinePowerEarned")==capReward and atCap:GetAttribute("Power")==capReward
+  and atCap:GetAttribute("OfflineOldLevel")==20 and atCap:GetAttribute("OfflineNewLevel")==20,
+  "at the Level Cap offline earns the whole time away at the normal rate")
+ check(Training.GetOfflineReward(1,1+10*3600,"basic_training",Progression.TrainingBase,"world_1")
+  ==Training.GetOfflineReward(1,1+Training.MaximumOfflineSeconds,"basic_training",Progression.TrainingBase,"world_1"),
+  "the time limit still holds offline Training to 8 hours")
+ check(atCap:GetAttribute("OfflineTripleAvailable")==false and atCap:GetAttribute("OfflineTriplePower")==capReward,
+  "at the Level Cap the 3x is not offered")
+ check(Data.ClaimOfflineTriple(atCap,{PlayerId=34,PurchaseId="triple-34",ProductId=555,CurrencySpent=10})==decisions.NotProcessedYet
+  and Data.GetProgression(atCap).Power==capReward,"a 3x receipt at the cap has no offer to fill")
+ check(Data.GrantPower(atCap,10,"ActiveTraining") and atCap:GetAttribute("Level")==20 and atCap:GetAttribute("Power")==capReward+10,
   "Training Power still banks at the cap")
+ check(Data.TryRebirth(atCap) and Data.GetProgression(atCap).Rebirths==1 and Data.GetProgression(atCap).Level==1
+  and Data.GetProgression(atCap).Power==0,"a Rebirth still resets the banked offline Power to 0")
+ -- Offline Power at the cap never goes past MaxPower.
+ saved.Player_348={SchemaVersion=5,Cash=0,Power=Progression.MaxPower-5,Level=20,Rebirths=0,LastLogoutTime=1}
+ local full=join(348)
+ check(full:GetAttribute("OfflinePowerEarned")==5 and Data.GetProgression(full).Power==Progression.MaxPower,
+  "offline Power at the cap stops at MaxPower")
  check(not Data.CanUseTrainingGround(failed,"basic_training"),"failed loads cannot train")
  -- Paid grounds: Roblox pass ownership is read at login (before the offline grant) and on
  -- the server's purchase event; lookups that fail grant nothing.

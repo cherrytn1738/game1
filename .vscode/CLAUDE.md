@@ -210,7 +210,7 @@ The physical batting tee still exists in the world.
 
 - Training Power = Training base (5) × ground multiplier × Ball × (Rebirths + 1) × purchased Power multiplier (× Power juice)
 - Hit Power = Training base × `HitPowerPerSecond` (0.37) × seconds in play, rounded, × Ball × (Rebirths + 1) × purchased Power multiplier (× Power juice); no ground
-- Offline Power = 25% of the best usable ground's rate, no Level term (8 h cap) × saved Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held to half the Power still needed for the Level Cap (Welcome Back's 3x: twice more, up to all of it)
+- Offline Power = 25% of the best usable ground's rate, no Level term (8 h cap) × saved Ball × (Rebirths + 1) × purchased Power multiplier (never a juice), held below the Level Cap to half the Power still needed for it (Welcome Back's 3x: twice more, up to all of it); at the cap the whole reward builds up there (no 3x) until the next Rebirth resets it
 - Hit Cash = (World `cashBase` + World `cashMultiplier` × (distance / 80)^1.5) × section multiplier × Bat × purchased Cash multiplier (× Cash juice), rounded, at least $1
 - Purchased multipliers (`MonetizationConfig.Multipliers`, Robux tiers; saved `PowerMultiplierTier` / `CashMultiplierTier`): Power 2x-4x in 5 tiers, Cash 2x-5x in 7 (+0.5x a tier); 1x with none; never distance
 - Juices (`JuiceConfig`): Power Punch (2x Power) and Cash Splash (2x Cash), 600 s each, on real time (saved expiry times, so they run while offline); a repeat drink adds 600 s (never 4x); never offline Training; a hit snapshots its juices when its swing is accepted. Sold in the Shop and one in the Starter Pack (Studio: `StudioGrantJuice` on a `StudioFreshSave` save, `StudioJuiceSeconds`)
@@ -296,7 +296,7 @@ Current design:
 - applies offline rate multiplier
 - applies the saved equipped Ball multiplier
 - applies Rebirth multiplier
-- fills at most half the Power still needed for the Level Cap per return, so offline never finishes a run by itself
+- fills at most half the Power still needed for the Level Cap per return, so offline never finishes a run by itself; at the cap it earns the whole time-based reward, which builds up there until the next Rebirth resets it
 - respects Level Cap rules
 - uses authoritative server timestamps
 - grants once per valid session
@@ -311,7 +311,7 @@ Current maximum offline duration:
 
 Current run cap:
 
-half the Power left to the Level Cap per return (`OfflineRunShare`); Welcome Back's 3x claim adds the reward twice more, up to all of it, never past the cap
+half the Power left to the Level Cap per return (`OfflineRunShare`); Welcome Back's 3x claim (10 Robux) adds the reward twice more, up to all of it, never past the cap. At the Level Cap there is no run cap: the whole reward builds up there (no 3x) until the next Rebirth resets it
 
 These are balance values and may change later.
 

@@ -132,22 +132,27 @@ local function playClick()
 end
 GameAudio.Preload({"UIClick", "MenuOpen", "MenuClose", "Locked", "Invalid", "Notice"})
 
--- One shared BlurEffect for menus and unfocusing notices, so blurs never stack: open menus hold it
--- at full size, otherwise a notice fades it in and out (noticeBlur, 0-1) while it unfocuses.
+-- One shared BlurEffect for menus, popups and unfocusing notices, so blurs never stack: open menus
+-- hold it at full size, open popups (UI.RewardPopup) at the notices' size, otherwise a notice fades
+-- it in and out (noticeBlur, 0-1) while it unfocuses. Closing the last one turns it off.
 local MENU_BLUR, NOTICE_BLUR = 10, 9
-local modalScreens = {}
+local NOTICE_TINT = .45 -- opacity of the dark tint while a notice or popup unfocuses the screen
+local modalScreens = {} -- open modal ScreenGui -> "menu" or "popup"
 local blur
 local noticeFocused, noticeBlur = false, 0
 local function updateBlur()
- local menus = next(modalScreens) ~= nil
- local wanted = menus or noticeFocused
+ local menus, popups = false, false
+ for _, kind in modalScreens do
+  if kind == "popup" then popups = true else menus = true end
+ end
+ local wanted = menus or popups or noticeFocused
  if wanted and not blur then
   blur = Instance.new("BlurEffect")
   blur.Name, blur.Size, blur.Parent = "MenuBlur", MENU_BLUR, game:GetService("Lighting")
  end
  if blur then
   blur.Enabled = wanted
-  blur.Size = menus and MENU_BLUR or NOTICE_BLUR * noticeBlur
+  blur.Size = menus and MENU_BLUR or popups and NOTICE_BLUR or NOTICE_BLUR * noticeBlur
  end
 end
 
@@ -426,9 +431,11 @@ local MENU_ICONS = {
 }
 -- The shared modal shell: a dimming scrim, a transparent CanvasGroup panel with a responsive
 -- WindowScale, and the open/close animation, blur and sounds. The panel is capped at
--- maxWidth x maxHeight menu units; onResize(scale, panel) runs after each resize. Returns the
--- ScreenGui, scrim, panel and show(visible).
-local function modalShell(name, maxWidth, maxHeight, onResize)
+-- maxWidth x maxHeight menu units; onResize(scale, panel) runs after each resize. popup uses the
+-- notices' lighter blur and tint (UI.RewardPopup) instead of a menu's. Returns the ScreenGui,
+-- scrim, panel and show(visible).
+local function modalShell(name, maxWidth, maxHeight, onResize, popup)
+ local tint = popup and NOTICE_TINT or .35
  local gui = UI.Screen(name, 20)
  local scrim = Instance.new("Frame")
  scrim.Name, scrim.Size = "Scrim", UDim2.fromScale(1, 1)
@@ -449,7 +456,7 @@ local function modalShell(name, maxWidth, maxHeight, onResize)
   windowScale.Scale = baseScale * (.9 + .1 * amount)
   panel.Position = UDim2.new(.5, 0, .5, 18 * (1 - amount))
   panel.GroupTransparency = 1 - math.clamp(amount, 0, 1)
-  scrim.BackgroundTransparency = 1 - .35 * math.clamp(amount, 0, 1)
+  scrim.BackgroundTransparency = 1 - tint * math.clamp(amount, 0, 1)
  end
  progress.Changed:Connect(applyAnimation)
  local function resize()
@@ -488,7 +495,7 @@ local function modalShell(name, maxWidth, maxHeight, onResize)
    if not shown then scrim.Visible = false end
   end)
   transition:Play()
-  modalScreens[gui] = visible and true or nil
+  modalScreens[gui] = visible and (popup and "popup" or "menu") or nil
   updateBlur()
  end
 end
@@ -711,7 +718,6 @@ function UI.ShowcaseMenu(name, title, close, options)
  return gui, panel, show, {box = box, title = heading, titleIcon = titleIcon, top = SHOWCASE_RISE, left = left, theme = theme}
 end
 
--- Featured icon over a continuously rotating sunburst (20 degrees per second while visible).
 -- A cartoon clock filling parent: a white face with a thick blue rim and dark outline, hour marks,
 -- blue hands at ten past ten, and the Power bolt tucked over its lower-right edge (Welcome Back:
 -- time spent offline turned into Power).
@@ -769,31 +775,6 @@ function UI.ClockIcon(parent)
  bolt.AnchorPoint, bolt.Position, bolt.Size = Vector2.new(.5, .5), UDim2.fromScale(.8, .74), UDim2.fromScale(.56, .56)
  bolt.Rotation, bolt.ZIndex = 12, 3
  return clock
-end
-
-function UI.Hero(parent, imageId)
- local hero = Instance.new("Frame")
- hero.Name, hero.Size, hero.BackgroundTransparency = "Hero", UDim2.new(1, -12, 0, 136), 1
- hero.Parent = parent
- local burst = Instance.new("ImageLabel")
- burst.Name, burst.BackgroundTransparency = "Sunburst", 1
- burst.AnchorPoint, burst.Position, burst.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromOffset(136, 136)
- burst.Image, burst.ScaleType, burst.ImageTransparency = SUNBURST, Enum.ScaleType.Fit, .4
- burst.Parent = hero
- local icon = burst:Clone()
- icon.Name, icon.Image, icon.ImageTransparency, icon.Size = "Icon", imageId, 0, UDim2.fromOffset(96, 96)
- icon.ZIndex, icon.Parent = 2, hero
- local connection = game:GetService("RunService").RenderStepped:Connect(function(dt)
-  local ancestor = hero
-  while ancestor do
-   if ancestor:IsA("GuiObject") and not ancestor.Visible then return end
-   if ancestor:IsA("ScreenGui") and not ancestor.Enabled then return end
-   ancestor = ancestor.Parent
-  end
-  burst.Rotation = (burst.Rotation + 20 * dt) % 360
- end)
- hero.Destroying:Connect(function() connection:Disconnect() end)
- return hero
 end
 
 -- ---------- Colour cards (the Shop; for any menu on a dark Showcase window) ----------
@@ -1027,6 +1008,238 @@ function UI.StrikePrice(parent, name, textSize)
  end
 end
 
+-- ---------- Reward popup (Welcome Back; any "here is what you got" moment) ----------
+-- Feels like a notification rather than a menu: the notices' blur and tint over the game, a
+-- translucent dark panel with a thick dark outline, a big outlined title riding over its top
+-- edge with an icon breaking out of the top-left corner, a line under it, a big picture over a
+-- slowly turning sunburst, a large gold amount that counts up, small detail lines, and one row of
+-- buttons: an optional rainbow offer button (its total, a Robux price badge on its corner) beside
+-- a lime claim button, which stands alone and centred when there is no offer. There is no close
+-- button: the caller closes it from the claim button.
+-- options: title, subtitle, icon (function(holder) drawing the corner icon), picture (an image
+-- id), suffix (after the amount, such as " POWER"), claimText (default "Claim!").
+-- Returns a table:
+--   gui, panel, claim, offer         the ScreenGui, the panel and the two buttons
+--   show(visible)                    open / close (the blur and tint go with it)
+--   setDetails(lines)                the small lines under the amount: strings or {text, color}
+--   setOffer(text, price)            show the offer button with text and a Robux price (nil: SOON);
+--                                    setOffer(nil) hides it
+--   countTo(value, seconds, onDone)  count the amount up from what it shows now to value
+--   setAmount(value)                 show value at once
+--   celebrate()                      sparks out of the picture, a pop and the reward chime
+local POPUP_RISE = 62 -- how far the title rises above the panel
+-- Vertical layout (menu units): the subtitle's centre and the picture's top below the panel's
+-- top edge, the button height and bottom margin, a detail line, the gap above the buttons (more
+-- beside the offer's price badge) and the amount's height. Compact is for short screens.
+local POPUP_ROOMY = {subtitle = 72, subtitleHeight = 40, hero = 94, button = 78, bottom = 24, line = 28, gap = 14, badgeGap = 30, amount = 72}
+local POPUP_COMPACT = {subtitle = 54, subtitleHeight = 30, hero = 72, button = 62, bottom = 14, line = 22, gap = 10, badgeGap = 26, amount = 56}
+local POPUP_GOLD = {rgb(255, 238, 120), rgb(255, 174, 20)}
+function UI.RewardPopup(name, options)
+ local popup, layout = {}, nil
+ local gui, _, panel, show = modalShell(name, 800, 540, function() if layout then layout() end end, true)
+ popup.gui, popup.panel, popup.show = gui, panel, show
+ local box = UI.ShowcaseFrame(panel, "Box", rgb(40, 42, 52), 10)
+ box.BackgroundTransparency = .22
+ box:FindFirstChildOfClass("UIStroke").Thickness = 6
+ rim(box, 7, Color3.new(1, 1, 1), 2, .86, 6)
+ -- One line each, at the largest size (up to size) that fits the label's width: measured with
+ -- TextService, because TextScaled would wrap the title onto two lines on a narrow phone.
+ local TextService = game:GetService("TextService")
+ local fitted = {}
+ local function fit(label)
+  local width, height = label.Size.X.Offset, label.Size.Y.Offset
+  if width <= 0 then return end
+  local natural = TextService:GetTextSize(label.Text, 100, label.Font, Vector2.new(1e6, 1e6)).X / 100
+  local largest = math.max(10, math.min(fitted[label], height * .95))
+  label.TextSize = natural > 0 and math.clamp(math.floor(width * .92 / natural), 10, largest) or largest
+ end
+ local function scaledLabel(labelName, text, size)
+  local label = UI.ShowcaseLabel(panel, labelName, text, size)
+  label.AnchorPoint, label.TextXAlignment, label.ZIndex = Vector2.new(.5, .5), Enum.TextXAlignment.Center, 5
+  label.TextScaled, label.TextWrapped = false, false
+  fitted[label] = size
+  label:GetPropertyChangedSignal("Text"):Connect(function() fit(label) end)
+  label:GetPropertyChangedSignal("Size"):Connect(function() fit(label) end)
+  return label
+ end
+ -- Title, with a soft drop shadow (as on the showcase menus).
+ local title = scaledLabel("Title", options.title or "", 84)
+ title:FindFirstChildOfClass("UIStroke").Thickness = 7
+ local shadow = scaledLabel("TitleShadow", options.title or "", 84)
+ shadow.ZIndex, shadow.TextColor3, shadow.TextTransparency = 4, UI.Showcase.Outline, .4
+ local shadowStroke = shadow:FindFirstChildOfClass("UIStroke")
+ shadowStroke.Thickness, shadowStroke.Transparency = 7, .4
+ local iconHolder = Instance.new("Frame")
+ iconHolder.Name, iconHolder.BackgroundTransparency, iconHolder.ZIndex = "TitleIcon", 1, 6
+ iconHolder.AnchorPoint, iconHolder.Parent = Vector2.new(.5, .5), panel
+ if options.icon then options.icon(iconHolder) end
+ local subtitle = scaledLabel("Subtitle", options.subtitle or "", 34)
+ -- The picture over its sunburst.
+ local hero = Instance.new("Frame")
+ hero.Name, hero.BackgroundTransparency, hero.AnchorPoint, hero.ZIndex = "Hero", 1, Vector2.new(.5, .5), 2
+ hero.Parent = panel
+ local burst = UI.Sunburst(hero, .3)
+ burst.ZIndex = 2
+ local picture = UI.Icon(hero, "Picture", options.picture or "")
+ picture.AnchorPoint, picture.Position, picture.Size, picture.ZIndex = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromScale(.6, .6), 3
+ -- The amount: big gold outlined text that pops when it lands.
+ local suffix = options.suffix or ""
+ local amount = scaledLabel("Amount", "", 68)
+ amount:FindFirstChildOfClass("UIStroke").Thickness = 6
+ UI.Gradient(amount, POPUP_GOLD[1], POPUP_GOLD[2])
+ local pop = Instance.new("UIScale")
+ pop.Name, pop.Parent = "Pop", amount
+ local details = Instance.new("Frame")
+ details.Name, details.BackgroundTransparency, details.Parent = "Details", 1, panel
+ local stack = Instance.new("UIListLayout")
+ stack.SortOrder, stack.HorizontalAlignment, stack.Parent = Enum.SortOrder.LayoutOrder, Enum.HorizontalAlignment.Center, details
+ -- Buttons: the rainbow offer (with its price badge) and the lime claim.
+ local offer = UI.ShowcaseButton(panel, "Offer")
+ UI.SetShowcaseButton(offer, "", "Blue", true)
+ offer.Visual.Face.Color, offer.Visual.Face.Rotation = UI.CardPalettes.Rainbow.colors, 0
+ offer.Visual.Caption:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 40
+ -- Above the claim button, so the price badge on its corner is never covered.
+ offer.ZIndex, offer.Visible = 6, false
+ local badge = Instance.new("Frame")
+ badge.Name, badge.BorderSizePixel, badge.BackgroundColor3, badge.ZIndex = "PriceBadge", 0, UI.Showcase.Outline, 8
+ badge.AnchorPoint, badge.Position, badge.Rotation = Vector2.new(1, .5), UDim2.new(1, 16, 0, 0), 8
+ badge.Size, badge.AutomaticSize = UDim2.fromOffset(0, 40), Enum.AutomaticSize.X
+ corner(badge, 20)
+ stroke(badge, Color3.new(1, 1, 1), 2, .5)
+ local badgePadding = Instance.new("UIPadding")
+ badgePadding.PaddingLeft, badgePadding.PaddingRight, badgePadding.Parent = UDim.new(0, 10), UDim.new(0, 12), badge
+ local badgeRow = Instance.new("UIListLayout")
+ badgeRow.FillDirection, badgeRow.VerticalAlignment, badgeRow.Padding = Enum.FillDirection.Horizontal, Enum.VerticalAlignment.Center, UDim.new(0, 4)
+ badgeRow.SortOrder, badgeRow.Parent = Enum.SortOrder.LayoutOrder, badge
+ local badgeRobux = UI.Icon(badge, "Robux", UI.Icons.Robux)
+ badgeRobux.Size, badgeRobux.ImageColor3, badgeRobux.ZIndex = UDim2.fromOffset(26, 26), UI.ShowcaseButtons.Lime[1], 9
+ local badgePrice = UI.ShowcaseLabel(badge, "Price", "", 28, UI.ShowcaseButtons.Lime[1])
+ badgePrice.AutomaticSize, badgePrice.Size, badgePrice.LayoutOrder, badgePrice.ZIndex = Enum.AutomaticSize.X, UDim2.new(0, 0, 1, 0), 2, 9
+ badge.Parent = offer
+ local claim = UI.ShowcaseButton(panel, "Claim")
+ UI.SetShowcaseButton(claim, options.claimText or "Claim!", "Lime", true)
+ claim.Visual.Caption:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 40
+ claim.ZIndex = 5
+ popup.claim, popup.offer = claim, offer
+
+ local lineCount = 0
+ layout = function()
+  local width, height = panel.Size.X.Offset, panel.Size.Y.Offset
+  box.Position, box.Size = UDim2.fromOffset(0, POPUP_RISE), UDim2.fromOffset(width, height - POPUP_RISE)
+  local iconSize = width < 560 and 104 or 128
+  iconHolder.Size = UDim2.fromOffset(iconSize, iconSize)
+  iconHolder.Position = UDim2.fromOffset(iconSize / 2 + 6, math.max(iconSize / 2 + 2, POPUP_RISE + 4))
+  -- The title is centred in the space right of the icon.
+  local titleLeft = iconSize + 10
+  local titleWidth = width - titleLeft - 20
+  title.Position, title.Size = UDim2.fromOffset(titleLeft + titleWidth / 2, POPUP_RISE), UDim2.fromOffset(titleWidth, 92)
+  shadow.Position, shadow.Size = title.Position + UDim2.fromOffset(0, 6), title.Size
+  -- Short screens (phones held sideways) tighten every gap so the picture keeps its room.
+  local m = height < 520 and POPUP_COMPACT or POPUP_ROOMY
+  subtitle.Position, subtitle.Size = UDim2.fromOffset(width / 2, POPUP_RISE + m.subtitle), UDim2.fromOffset(width - 48, m.subtitleHeight)
+  -- Buttons along the bottom.
+  local buttonHeight = m.button
+  local buttonsTop = height - m.bottom - buttonHeight
+  if offer.Visible then
+   local offerWidth = math.floor((width - 64) * .58)
+   offer.Position, offer.Size = UDim2.fromOffset(24, buttonsTop - 2), UDim2.fromOffset(offerWidth, buttonHeight + 4)
+   claim.Position, claim.Size = UDim2.fromOffset(40 + offerWidth, buttonsTop + 4), UDim2.fromOffset(width - 64 - offerWidth, buttonHeight - 8)
+  else
+   local claimWidth = math.min(340, width - 48)
+   claim.Position, claim.Size = UDim2.fromOffset((width - claimWidth) / 2, buttonsTop), UDim2.fromOffset(claimWidth, buttonHeight)
+  end
+  -- Detail lines, then the amount, above the buttons; the picture fills the space left.
+  -- (The offer's price badge rises 20 above the buttons, so the lines sit higher beside it.)
+  local detailsHeight = lineCount * m.line
+  local detailsTop = buttonsTop - (offer.Visible and m.badgeGap or m.gap) - detailsHeight
+  details.Position, details.Size = UDim2.fromOffset(24, detailsTop), UDim2.fromOffset(width - 48, detailsHeight)
+  for _, line in details:GetChildren() do
+   if line:IsA("GuiObject") then line.Size = UDim2.new(1, 0, 0, m.line) end
+  end
+  local amountTop = detailsTop - m.amount
+  amount.Position, amount.Size = UDim2.fromOffset(width / 2, amountTop + m.amount / 2), UDim2.fromOffset(width - 48, m.amount)
+  local heroTop = POPUP_RISE + m.hero
+  local space = math.clamp(amountTop - heroTop, 60, 240)
+  hero.Position, hero.Size = UDim2.fromOffset(width / 2, heroTop + (amountTop - heroTop) / 2), UDim2.fromOffset(space * 1.45, space * 1.45)
+ end
+
+ function popup.setDetails(lines)
+  for _, child in details:GetChildren() do
+   if child:IsA("GuiObject") then child:Destroy() end
+  end
+  lineCount = #lines
+  for index, line in lines do
+   local text, color = line, nil
+   if type(line) == "table" then text, color = line.text, line.color end
+   local label = UI.ShowcaseLabel(details, "Line" .. index, text, 22, color or rgb(226, 230, 242))
+   label.Size, label.LayoutOrder, label.TextXAlignment, label.ZIndex = UDim2.new(1, 0, 0, 28), index, Enum.TextXAlignment.Center, 5
+   label.TextScaled = true
+   local limit = Instance.new("UITextSizeConstraint")
+   limit.MaxTextSize, limit.Parent = 22, label
+  end
+  layout()
+ end
+
+ function popup.setOffer(text, price)
+  offer.Visible = text ~= nil
+  offer.Visual.Caption.Text = text or ""
+  badgeRobux.Visible = price ~= nil
+  badgePrice.Text = price and UI.Number(price) or "SOON"
+  badgePrice.TextColor3 = price and UI.ShowcaseButtons.Lime[1] or UI.BadgeColors.Soon[1]
+  layout()
+ end
+
+ local shown, countVersion = 0, 0
+ function popup.setAmount(value)
+  countVersion += 1
+  shown = value
+  amount.Text = "+" .. UI.Number(value) .. suffix
+ end
+ function popup.countTo(value, seconds, onDone)
+  countVersion += 1
+  local version, from, began = countVersion, shown, os.clock()
+  seconds = seconds or .9
+  task.spawn(function()
+   while version == countVersion do
+    local progress = seconds > 0 and math.min(1, (os.clock() - began) / seconds) or 1
+    -- Eases out, so it rushes up and settles on the exact value.
+    shown = progress >= 1 and value or math.floor(from + (value - from) * (1 - (1 - progress) ^ 3))
+    amount.Text = "+" .. UI.Number(shown) .. suffix
+    if progress >= 1 then break end
+    GameAudio.Play("PowerTick")
+    game:GetService("RunService").RenderStepped:Wait()
+   end
+   if version ~= countVersion then return end
+   pop.Scale = 1.18
+   TweenService:Create(pop, TweenInfo.new(.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+   if onDone then onDone() end
+  end)
+ end
+
+ function popup.celebrate()
+  GameAudio.Play("OfflineReward")
+  burst.Size = UDim2.fromScale(1.35, 1.35)
+  TweenService:Create(burst, TweenInfo.new(.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.fromScale(1, 1)}):Play()
+  for index = 1, 18 do
+   local spark = Instance.new("Frame")
+   spark.Name, spark.BorderSizePixel, spark.ZIndex, spark.Rotation = "Spark", 0, 6, 45
+   spark.BackgroundColor3 = index % 3 == 0 and Color3.new(1, 1, 1) or index % 3 == 1 and POPUP_GOLD[1] or UI.ShowcaseButtons.Lime[1]
+   spark.AnchorPoint, spark.Position, spark.Size = Vector2.new(.5, .5), UDim2.fromScale(.5, .5), UDim2.fromOffset(16, 16)
+   corner(spark, 4)
+   spark.Parent = hero
+   local angle = index / 18 * math.pi * 2 + math.random() * .3
+   local reach = .42 + math.random() * .2
+   TweenService:Create(spark, TweenInfo.new(.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+    Position = UDim2.fromScale(.5 + math.cos(angle) * reach, .5 + math.sin(angle) * reach),
+    BackgroundTransparency = 1, Size = UDim2.fromOffset(5, 5), Rotation = 225}):Play()
+   game:GetService("Debris"):AddItem(spark, .75)
+  end
+ end
+
+ task.defer(layout)
+ return popup
+end
+
 -- Notices float as big outlined text in the middle of the screen, with no panel behind them.
 -- Errors, Rebirth complete and World unlocks also unfocus the screen (the shared blur and a dark
 -- tint); routine notices only float. A notice never takes input: players keep moving and
@@ -1059,7 +1272,6 @@ local NOTICE_UNITS = {
   value = function(n) return "$" .. UI.Compact(n) end},
 }
 local NOTICE_SECONDS, NOTICE_DETAIL_SECONDS = 2, 2.6
-local NOTICE_TINT = .45 -- opacity of the dark tint while a notice unfocuses the screen
 local NOTICE_WIDTH = 640
 local TITLE_SIZE, ICON_SIZE, ICON_GAP = 56, 56, 12
 local BAR_WIDTH, BAR_HEIGHT = 300, 18

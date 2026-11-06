@@ -272,60 +272,28 @@ end
 panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
 Player.CharacterRemoving:Connect(stopPresentation)
 
--- Welcome Back: a clock in the title, "You trained while you were offline:", the Power earned
--- under a glowing bolt, and two choices: Claim! (the reward already added at login) or a rainbow
--- 3x button that buys the reward twice more for Robux, up to the rest of the run (the server
--- grants it from the receipt; see PlayerData.ClaimOfflineTriple). Without an offer only Claim! shows.
-local offlineGui, offlinePanel, showOffline = UI.Menu("OfflineTrainingGui","Welcome Back!","You trained while you were offline:",Interfaces.CloseAll)
-local titleIcon = offlinePanel:FindFirstChild("TitleIcon")
-if titleIcon then
- titleIcon.Image, titleIcon.Size = "", UDim2.fromOffset(84, 84)
- UI.ClockIcon(titleIcon)
-end
-local offlineSubtitle = offlinePanel:FindFirstChild("Subtitle")
-if offlineSubtitle then offlineSubtitle.TextSize, offlineSubtitle.TextColor3 = 22, UI.Colors.Text end
-local offlineList = UI.Scroll(offlinePanel,"Summary")
-offlineList.Position, offlineList.Size = UDim2.fromOffset(16,108),UDim2.new(1,-32,1,-196)
-local offlineHero = UI.Hero(offlineList,UI.Icons.Power)
-offlineHero.LayoutOrder = 0
-local offlineAmount = UI.Label(offlineList,"Power","",44,UI.Colors.Gold)
-offlineAmount.Size, offlineAmount.LayoutOrder, offlineAmount.TextXAlignment = UDim2.new(1,-12,0,60),1,Enum.TextXAlignment.Center
-offlineAmount.TextScaled = true
-local amountSize = Instance.new("UITextSizeConstraint")
-amountSize.MinTextSize, amountSize.MaxTextSize, amountSize.Parent = 24, 44, offlineAmount
-local offlineBody = UI.Label(offlineList,"Details","",18)
-offlineBody.Size, offlineBody.AutomaticSize, offlineBody.TextWrapped = UDim2.new(1,-12,0,0),Enum.AutomaticSize.Y,true
-offlineBody.LayoutOrder, offlineBody.TextXAlignment = 2,Enum.TextXAlignment.Center
-
--- The 3x button: rainbow, the tripled amount in big text, and a Robux price tag on its corner.
+-- Welcome Back: a notification-like popup (UI.RewardPopup) over the blurred game. The clock and
+-- bolt break out of its corner, the Power earned counts up under a bolt on a turning sunburst,
+-- one small line says how long the player was away (and, at the Level Cap, that a Rebirth is
+-- ready), and Claim! closes it (the reward was already added at login). Below the cap there may
+-- be a rainbow 3x button beside it that buys the reward twice more for Robux, up to the rest of
+-- the run (the server grants it from the receipt; see PlayerData.ClaimOfflineTriple); without an
+-- offer Claim! stands alone, centred.
 local triple = Config.OfflineTriple
-local tripleButton = UI.Button(offlinePanel,"Triple","")
-tripleButton.TextSize = 34
-UI.SetButton(tripleButton,"",true,true)
-local tripleFace = tripleButton.Visual:FindFirstChildOfClass("UIGradient")
-tripleFace.Rotation = 0
-tripleFace.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(190, 60, 255)), ColorSequenceKeypoint.new(.2, Color3.fromRGB(60, 120, 255)),
- ColorSequenceKeypoint.new(.4, Color3.fromRGB(40, 220, 255)), ColorSequenceKeypoint.new(.6, Color3.fromRGB(90, 230, 70)),
- ColorSequenceKeypoint.new(.8, Color3.fromRGB(255, 220, 40)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 60, 70))})
-local priceTag = UI.Label(tripleButton,"Price","",24,UI.Showcase.Value)
-priceTag.AnchorPoint, priceTag.Position, priceTag.Size = Vector2.new(1, .5), UDim2.new(1, 8, 0, 0), UDim2.fromOffset(90, 30)
-priceTag.TextXAlignment, priceTag.ZIndex = Enum.TextXAlignment.Right, 6
-priceTag.Text = triple.productId > 0 and triple.robuxPrice and ("R$ " .. UI.Number(triple.robuxPrice)) or "SOON"
-local claim = UI.Button(offlinePanel,"Continue","Claim!")
-claim.TextSize = 32
-UI.SetButton(claim,"Claim!",true,true)
-claim.Activated:Connect(Interfaces.CloseAll)
-local function layoutOfflineButtons()
- local offered = Player:GetAttribute("OfflineTripleAvailable") == true
- tripleButton.Visible = offered
- if offered then
-  tripleButton.Position, tripleButton.Size = UDim2.new(0,16,1,-80),UDim2.new(.58,-24,0,64)
-  claim.Position, claim.Size = UDim2.new(.58,4,1,-76),UDim2.new(.42,-20,0,56)
+local offlinePopup = UI.RewardPopup("OfflineTrainingGui", {title = "Welcome Back!",
+ subtitle = "You trained while you were offline:", icon = UI.ClockIcon, picture = UI.Icons.Power, suffix = " POWER"})
+local offlineEarned, offlineVisible = 0, false
+local function layoutOffer()
+ if Player:GetAttribute("OfflineTripleAvailable") == true then
+  -- The server's total with the 3x: the run cap can hold it below three times the reward.
+  offlinePopup.setOffer("+" .. UI.Number(Player:GetAttribute("OfflineTriplePower") or offlineEarned),
+   triple.productId > 0 and triple.robuxPrice or nil)
  else
-  claim.Position, claim.Size = UDim2.new(0,16,1,-76),UDim2.new(1,-32,0,56)
+  offlinePopup.setOffer(nil)
  end
 end
-tripleButton.Activated:Connect(function()
+offlinePopup.claim.Activated:Connect(Interfaces.CloseAll)
+offlinePopup.offer.Activated:Connect(function()
  if Player:GetAttribute("OfflineTripleAvailable") ~= true then return end
  if triple.productId <= 0 then
   UI.Notify("The 3x offline reward is coming soon!")
@@ -333,24 +301,38 @@ tripleButton.Activated:Connect(function()
  end
  MarketplaceService:PromptProductPurchase(Player, triple.productId)
 end)
--- Bought: the server adds the extra Power, sets the new total and withdraws the offer. Show it.
-local offlineEarned = 0
+-- Bought: the server adds the extra Power, sets the new total and withdraws the offer. Count up
+-- to it and celebrate (the 3x button goes away); if the popup was already closed, say so.
+local offlineShown = false
 Player:GetAttributeChangedSignal("OfflineTripleAvailable"):Connect(function()
- if Player:GetAttribute("OfflineTripleAvailable") == false and offlineEarned > 0 and offlineGui.Scrim.Visible then
-  offlineAmount.Text = "+" .. UI.Number(Player:GetAttribute("OfflineTriplePower") or offlineEarned) .. " POWER"
-  GameAudio.Play("OfflineReward")
+ local total = Player:GetAttribute("OfflineTriplePower") or offlineEarned
+ if Player:GetAttribute("OfflineTripleAvailable") == false and offlineShown and total > offlineEarned then
+  if offlineVisible then
+   GameAudio.Play("Purchase")
+   offlinePopup.countTo(total, 1.2, offlinePopup.celebrate)
+  else
+   UI.Notify("3x offline Training: +" .. UI.Number(total - offlineEarned) .. " more Power!", "rewardClaimed")
+  end
  end
- layoutOfflineButtons()
+ layoutOffer()
 end)
 Interfaces.Register("Offline",function(visible)
- if visible then layoutOfflineButtons() end
- showOffline(visible)
+ offlineVisible = visible
+ if visible then layoutOffer() end
+ offlinePopup.show(visible)
 end)
+
+-- "Away 3h 12m" (the time that counted, at most MaximumOfflineSeconds).
+local function awayText(seconds)
+ local hours, minutes = math.floor(seconds / 3600), math.floor(seconds % 3600 / 60)
+ local text = "Away " .. (hours > 0 and hours .. "h " .. minutes .. "m" or minutes .. "m")
+ return seconds >= Config.MaximumOfflineSeconds and text .. " (max)" or text
+end
 
 -- The base reward was added at login (Claim! only closes the screen). This display runs once for
 -- this player session, not per respawn.
-local offlineCaptured, offlineShown, offlinePending = false, false, false
-local offlineMessage, offlineHealthConnection
+local offlineCaptured, offlinePending = false, false
+local offlineLines, offlineHealthConnection
 local function offlineNotice()
  if offlineShown or not Player:GetAttribute("DataLoaded") then return end
  if not offlineCaptured then
@@ -358,22 +340,15 @@ local function offlineNotice()
   offlineCaptured = true
   local amount, seconds = Player:GetAttribute("OfflinePowerEarned") or 0, Player:GetAttribute("OfflineSeconds") or 0
   if seconds < Config.OfflineNoticeMinimumSeconds then return end
-  local ground = Config.Get(Player:GetAttribute("OfflineTrainingGround"))
-  local oldLevel, newLevel = Player:GetAttribute("OfflineOldLevel"),Player:GetAttribute("OfflineNewLevel")
+  local newLevel = Player:GetAttribute("OfflineNewLevel")
   local capped = newLevel and newLevel >= Player:GetAttribute("LevelCap")
   offlineEarned = amount
-  offlineAmount.Text = "+" .. UI.Number(amount) .. " POWER"
-  -- The server's total with the 3x: the run cap can hold it below three times the reward.
-  tripleButton.Text = "+" .. UI.Number(Player:GetAttribute("OfflineTriplePower") or amount)
-  offlineMessage = (ground and ground.displayName or "Training")
-   .. " | " .. math.floor(seconds/3600) .. "h " .. math.floor(seconds%3600/60) .. "m trained"
-
-   .. (oldLevel and newLevel and newLevel > oldLevel and "\nLEVEL UP! " .. UI.Number(oldLevel) .. " → " .. UI.Number(newLevel) or "")
-   .. (capped and "\nMAX LEVEL REACHED - REBIRTH AVAILABLE" or "")
+  offlineLines = {awayText(seconds)}
+  if capped then table.insert(offlineLines, {text = "MAX LEVEL - REBIRTH AVAILABLE", color = UI.Colors.Gold}) end
  end
  local character = Player.Character
  local humanoid = character and character:FindFirstChildOfClass("Humanoid")
- if not offlineMessage or offlinePending or not character or not character.Parent or not humanoid or humanoid.Health <= 0 then return end
+ if not offlineLines or offlinePending or not character or not character.Parent or not humanoid or humanoid.Health <= 0 then return end
  offlinePending = true
  task.delay(1,function()
   offlinePending = false
@@ -382,10 +357,12 @@ local function offlineNotice()
   if not Player:GetAttribute("DataLoaded") or not currentCharacter or not currentCharacter.Parent
    or not currentHumanoid or currentHumanoid.Health <= 0 then return end
   if not Interfaces.CanOpen() or Interfaces.IsOpen() then return end
-  offlineBody.Text = offlineMessage
   offlineShown = true
+  offlinePopup.setDetails(offlineLines)
+  offlinePopup.setAmount(0)
   Interfaces.Open("Offline")
   GameAudio.Play("OfflineReward")
+  offlinePopup.countTo(offlineEarned, .9)
   if offlineHealthConnection then offlineHealthConnection:Disconnect() offlineHealthConnection = nil end
  end)
 end

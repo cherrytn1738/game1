@@ -14,7 +14,7 @@ server confirms.
 | Auto Bat | Game pass | 25 Robux | Bats automatically at the plate, ON/OFF | `MonetizationConfig.AutoBat` |
 | Cosmic Rift (+ Time Machine Lab, Quantum Lab) | Game pass | 500 Robux | Training Grounds | `TrainingConfig` (`gamePassId`) |
 | Dragon's Lair | Game pass | 1000 Robux | Training Ground in every World: 15x / 45x / 150x / 500x in Worlds 1-4 | `TrainingConfig` (`gamePassId`, `worldMultipliers`) |
-| Welcome Back 3x | Developer product | not priced yet | Offline reward x3, up to the rest of the run | `TrainingConfig.OfflineTriple` (`productId`, `robuxPrice`) |
+| Welcome Back 3x | Developer product | 10 Robux | Offline reward x3, up to the rest of the run (never offered at the Level Cap) | `TrainingConfig.OfflineTriple` (`productId`, `robuxPrice`) |
 | Starter Pack | Game pass (once) | 39 Robux | +10K Power, +1 Rebirth, 1 Power Punch, Catastrophe Bat | `MonetizationConfig.StarterPack` |
 | Tiny / Small / Medium / Large Cash Pack | Developer product | 25 / 59 / 115 / 229 Robux | Cash worth 15 / 50 / 125 / 300 normal hits | `MonetizationConfig.CashProducts` |
 | Boost Bundle | Developer product | 95 Robux | 2 Power Punch + 2 Cash Splash | `MonetizationConfig.JuiceProducts` |
@@ -35,7 +35,8 @@ loads (`GetProductInfo`); Roblox charges the price set on the Creator Dashboard.
    `CashProducts`, and the Boost Bundle (95), Power Punch (39) and Cash Splash (39) into
    `JuiceProducts`.
 5. (Already pending: the Training Ground passes in `TrainingConfig`, Cosmic Rift's at 500 and
-   Dragon's Lair's at 1000, and the Welcome Back 3x product's `productId` and `robuxPrice`.)
+   Dragon's Lair's at 1000, and the Welcome Back 3x developer product at 10 Robux: paste its id into
+   `OfflineTriple.productId`; `robuxPrice` is already 10.)
 6. Create twelve multiplier developer products, one per tier: Power tiers 1-5 (129 / 169 / 219 /
    279 / 359) and Cash tiers 1-7 (129 / 159 / 199 / 249 / 309 / 389 / 489), and paste each id into
    its tier's `developerProductId` in `MonetizationConfig.Multipliers` (in tier order; a tier
@@ -254,6 +255,20 @@ Claude can take, crop and upload all five through Studio MCP while Studio is in 
 - The same path serves the Welcome Back 3x (`PlayerData.ClaimOfflineTriple`), the Shop's
   developer products (`PlayerData.ClaimProduct`: Power, Cash packs and juices) and the multiplier
   tiers (`PlayerData.ClaimMultiplier`).
+
+## Welcome Back 3x
+
+- **What it is:** a 10 Robux developer product (`TrainingConfig.OfflineTriple`, `productId` 0
+  until created; the popup's price badge reads SOON until then). It adds this login's offline
+  reward twice more (3x in all), up to all the Power the player needed for the Level Cap at
+  login, never past the cap. It can be bought once per login.
+- **When it is offered:** only when this login had an offline reward below the Level Cap
+  (`OfflineTripleAvailable`). At the cap, offline Training still earns Power (the whole time
+  away, up to 8 hours, building up above the cap until the next Rebirth resets it), so Welcome
+  Back shows an amount. There is no run left to fill, though, so the 3x is never offered there,
+  and a 3x receipt at the cap is left for Roblox to retry.
+- **On the popup:** a bought 3x counts the amount up to the new total and celebrates, and the 3x
+  button goes away.
 
 ## Auto Bat
 

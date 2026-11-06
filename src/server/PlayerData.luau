@@ -1353,20 +1353,23 @@ local function loadPlayer(player)
    offlineGround = bestGround.id
    local progression = Progression.Normalize(data, false)
    -- Offline Training uses the Training base (the same at every Level) at the best ground (in the
-   -- World it is best in), and fills at most part of the Power still needed for the Level Cap
-   -- (TrainingConfig.OfflineRunShare).
+   -- World it is best in), and below the Level Cap fills at most part of the Power still needed
+   -- for it (TrainingConfig.OfflineRunShare). At the cap it builds up like Training at the cap
+   -- does, held only by the offline time limit (and MaxPower); a Rebirth resets it as usual.
    local baseAmount, seconds = Training.GetOfflineReward(data.LastLogoutTime, os.time(), offlineGround,
     Progression.TrainingBase, bestWorld)
    local remaining = Progression.GetPowerToLevelCap(progression)
+   local atCap = progression.Level >= progression.LevelCap
+   local limit = if atCap then Progression.MaxPower - progression.Power else Training.GetOfflinePowerLimit(remaining)
    -- The purchased Power multiplier applies offline too (juices never do).
    local boost = Monetization.GetMultiplier("Power", data[MULTIPLIER_FIELDS.Power])
-   local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBall, boost,
-    Training.GetOfflinePowerLimit(remaining))
+   local granted, result = grantProgression(progression, baseAmount, "OfflineTraining", data.EquippedBall, boost, limit)
    if not granted then rejection = "invalid offline reward configuration" return nil end
    for field, value in progression do data[field] = value end
    offlineResult, offlineSeconds = result, seconds
    offlineBase, offlineBall, offlineBoost = baseAmount, data.EquippedBall, boost
-   offlineTripleExtra = Training.GetOfflineTripleExtra(result.powerGranted, remaining)
+   -- The 3x fills the rest of the run, so at the cap it is never offered.
+   offlineTripleExtra = if atCap then 0 else Training.GetOfflineTripleExtra(result.powerGranted, remaining)
   end
   -- Reward and timestamp consumption commit WITH the session claim. A response-loss
   -- retry sees our session ID and cannot apply the reward a second time.
@@ -1433,7 +1436,8 @@ local function loadPlayer(player)
  player:SetAttribute("OfflineNewLevel", offlineResult and offlineResult.newLevel or session.progression.Level)
  -- Welcome Back's 3x offer (ClaimOfflineTriple): this login's offline reward, for adding it
  -- twice more, up to limit (the rest of the run at login). Offered whenever there was a reward
- -- (at the Level Cap there is none). OfflineTriplePower is the total with the 3x, for its button.
+ -- below the Level Cap, never at the cap (where offline Power only builds up until the next
+ -- Rebirth). OfflineTriplePower is the total with the 3x, for its button.
  local tripleEligible = offlinePower > 0 and offlineTripleExtra ~= nil and offlineTripleExtra > 0
  session.offlineTriple = tripleEligible and {baseAmount = offlineBase, ballId = offlineBall, boost = offlineBoost,
   limit = offlineTripleExtra, power = offlinePower} or nil

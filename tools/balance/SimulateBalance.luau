@@ -596,14 +596,16 @@ return function(sources, options)
   end
   return s.time - start
  end
- -- Offline Power for a return, as the server grants it: the time-based reward, held to the run
- -- cap (a share of the Power left to the Level Cap). Returns that, the time-based reward, and
- -- the Power left before the return.
+ -- Offline Power for a return, as the server grants it: the time-based reward, held below the
+ -- Level Cap to the run cap (a share of the Power left to it); at the cap, all of it (it only
+ -- builds up there until the Rebirth resets it). Returns that, the time-based reward, and the
+ -- Power left before the return.
  local function offlinePower(s, seconds)
   local base = Training.GetOfflineReward(1, 1 + seconds, bestGround(s).id, P.TrainingBase, s.groundWorld)
   -- The purchased Power multiplier applies offline; juices never do.
   local timed = P.GetPowerGrant(base, s.rebirths, ballMultiplier(s), s.powerBoost)
   local remaining = P.GetPowerToLevelCap({Level = s.level, Power = s.power, LevelCap = cap(s)})
+  if s.level >= cap(s) then return math.min(timed, P.MaxPower - s.power), timed, remaining end
   return math.min(timed, Training.GetOfflinePowerLimit(remaining)), timed, remaining
  end
  -- Casual returning player: one active session a day; Offline Training (granted once on

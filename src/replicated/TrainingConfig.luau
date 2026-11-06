@@ -172,16 +172,19 @@ local Training = {
  OfflineTrainingEnabled = true,
  MaximumOfflineSeconds = 8 * 60 * 60,
  OfflinePowerRateMultiplier = 0.25,
- -- One return's offline Power is at most this share of the Power the player still needs for their
- -- Level Cap, so offline Training helps but never finishes a run by itself.
+ -- Below the Level Cap, one return's offline Power is at most this share of the Power the player
+ -- still needs for their Level Cap, so offline Training helps but never finishes a run by itself.
+ -- At the cap there is no run left to fill: offline Power builds up there like Training does at
+ -- the cap (up to MaxPower), held only by MaximumOfflineSeconds, and a Rebirth resets it to 0.
  OfflineRunShare = 0.5,
- OfflineNoticeMinimumSeconds = 60,
+ -- Welcome Back shows only after at least this long away.
+ OfflineNoticeMinimumSeconds = 5 * 60,
  -- Welcome Back's "3x" offer: a Robux developer product that adds the offline reward twice more
  -- (multiplier 3 in all), once per login, up to runShare of the Power the player needed for their
- -- Level Cap at login (all of it: the 3x can finish the run but never go past the cap).
- -- productId 0 = not created yet (the button shows SOON); robuxPrice is the price shown on the
- -- button (nil until decided).
- OfflineTriple = {productId = 0, robuxPrice = nil, multiplier = 3, runShare = 1},
+ -- Level Cap at login (all of it: the 3x can finish the run but never go past the cap; at the cap
+ -- it is never offered). productId 0 = not created yet (the price badge shows SOON); robuxPrice is
+ -- the price shown on the badge.
+ OfflineTriple = {productId = 0, robuxPrice = 10, multiplier = 3, runShare = 1},
  PlateSize = Vector3.new(5, 0.1, 5),
  PitchOffset = Vector3.new(3, 3, -24),
  ContactOffset = Vector3.new(3, 3, 0),

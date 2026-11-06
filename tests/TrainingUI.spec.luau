@@ -35,7 +35,7 @@ return function(sources)
   attributes[name]=value
   self:GetAttributeChangedSignal(name):Fire()
  end
- player.Character={FindFirstChildOfClass=function() return {Health=100} end}
+ player.Character={Parent={},FindFirstChildOfClass=function() return {Health=100} end}
  local buttons,requests,labels,teleports,menus={},{},{},{},{}
  local UI={Colors={},Icons={},Showcase={},Number=tostring,Compact=tostring,Notify=function() end,CardState=function() end}
  function UI.Badge() return object("Badge") end
@@ -43,6 +43,19 @@ return function(sources)
  function UI.Menu(name)
   menus[name]=object("Menu")
   return menus[name],object("Panel"),function() end
+ end
+ -- The Welcome Back popup: records what the client shows on it.
+ local popups,delayed={},{}
+ function UI.RewardPopup(name)
+  local popup={claim=object("Claim"),offer=object("Offer"),shown=false,celebrated=0}
+  function popup.show(visible) popup.shown=visible end
+  function popup.setDetails(lines) popup.lines=lines end
+  function popup.setOffer(text,price) popup.offerText,popup.offerPrice=text,price end
+  function popup.setAmount(value) popup.amount=value end
+  function popup.countTo(value,_,onDone) popup.amount=value if onDone then onDone() end end
+  function popup.celebrate() popup.celebrated+=1 end
+  popups[name]=popup
+  return popup
  end
  function UI.Scroll(_,name) return object(name) end
  function UI.Surface(_,name) return object(name) end
@@ -63,7 +76,10 @@ return function(sources)
  function UI.SetButton(button,text,enabled)
   button.Text,button.Active=text,enabled
  end
- local Interfaces={CloseAll=function() end,Register=function() end,Changed=signal(),IsOpen=function() return false end}
+ local registered={}
+ local Interfaces={CloseAll=function() end,Changed=signal(),IsOpen=function() return false end}
+ function Interfaces.Register(name,show) registered[name]=show show(false) end
+ function Interfaces.Open(name) registered[name](true) end
  function Interfaces.CanOpen()
   return attributes.DataLoaded and not attributes.TrainingActive and not attributes.BattingActive
    and not attributes.HitActive and not attributes.WorldTraveling
@@ -92,7 +108,7 @@ return function(sources)
   game={GetService=function(_,name) return assert(services[name],name) end},
   script={Parent={UICommon="UICommon",HubInterfaces="HubInterfaces"}},
   require=function(name) return assert(modules[name],name) end,
-  task={defer=function() end,spawn=function() end,delay=function() end},
+  task={defer=function() end,spawn=function() end,delay=function(_,callback) table.insert(delayed,callback) end},
   Instance={new=function(className) return object(className) end},
  },{__index=getfenv()})
  local client=compile(sources.TrainingClient)
@@ -159,19 +175,43 @@ return function(sources)
  check(buttons.time_machine_lab.Active and buttons.time_machine_lab.Text == "GO","the shared pass opens both of its grounds")
  player:SetAttribute("Rebirths",2)
  check(buttons.enchanted_grove.Active and buttons.enchanted_grove.Text == "GO","Rebirth unlock refreshes the menu")
- -- Welcome Back: the 3x button shows the server's total with the 3x, not three times the reward,
- -- and after the claim the window shows the total the server really added.
- check(labels["Summary.Power"].Text == "+8740 POWER" and buttons["Panel.Triple"].Text == "+17481",
-  "the 3x button shows the server's capped total, not three times the reward")
- menus.OfflineTrainingGui.Scrim.Visible=true
+ -- Welcome Back (it opens a second after the data loads): the amount counts up to the login's
+ -- reward, one line says how long the player was away, and the 3x button shows the server's
+ -- total with the 3x (not three times the reward), with SOON while its product id is 0.
+ local function openWelcomeBack()
+  local queued=delayed
+  delayed={}
+  for _,callback in queued do callback() end
+  return popups.OfflineTrainingGui
+ end
+ local welcome=openWelcomeBack()
+ check(welcome.shown and welcome.amount==8740 and welcome.offerText=="+17481" and welcome.offerPrice==nil,
+  "the 3x button shows the server's capped total, not three times the reward, and SOON without a product")
+ check(#welcome.lines==1 and welcome.lines[1]=="Away 8h 0m (max)","one small line says how long the player was away")
+ -- Bought: the amount counts up to the server's new total, it celebrates and the 3x goes away.
  player:SetAttribute("OfflineTriplePower",14481)
  player:SetAttribute("OfflineTripleAvailable",false)
- check(labels["Summary.Power"].Text == "+14481 POWER","after the 3x the window shows the server's new total")
- -- A return at the Level Cap adds nothing and has no 3x offer, but its notice still shows.
- attributes.OfflinePowerEarned,attributes.OfflineTriplePower,attributes.OfflineTripleAvailable=0,0,false
- local again=compile(sources.TrainingClient)
- setfenv(again,environment)
- again()
- check(labels["Summary.Power"].Text == "+0 POWER","a capped return keeps its Welcome Back notice")
+ check(welcome.amount==14481 and welcome.celebrated==1 and welcome.offerText==nil,
+  "after the 3x the popup counts up to the server's new total, celebrates and hides the 3x")
+ local function rerun(changes)
+  for name,value in changes do attributes[name]=value end
+  local again=compile(sources.TrainingClient)
+  setfenv(again,environment)
+  again()
+  return openWelcomeBack()
+ end
+ -- With a product id the badge shows the Robux price.
+ trainingConfig.OfflineTriple.productId=777
+ local priced=rerun({OfflineSeconds=3*3600+12*60,OfflinePowerEarned=500,OfflineTriplePower=1500,OfflineTripleAvailable=true})
+ trainingConfig.OfflineTriple.productId=0
+ check(priced.shown and priced.offerPrice==10 and priced.lines[1]=="Away 3h 12m","the price badge shows 10 Robux once the product exists")
+ -- At the Level Cap offline Power still shows; there is no 3x, and a short line says to Rebirth.
+ local capped=rerun({OfflineSeconds=2*3600,OfflinePowerEarned=5000,OfflineTriplePower=5000,OfflineTripleAvailable=false,
+  OfflineNewLevel=20,LevelCap=20})
+ check(capped.shown and capped.amount==5000 and capped.offerText==nil and #capped.lines==2
+  and capped.lines[2].text=="MAX LEVEL - REBIRTH AVAILABLE","at the Level Cap: the Power earned, no 3x and the Rebirth line")
+ -- Under five minutes away there is no Welcome Back.
+ local short=rerun({OfflineSeconds=299,OfflinePowerEarned=40,OfflineNewLevel=4})
+ check(not short.shown and short.amount==nil,"no Welcome Back under five minutes away")
  return {passed=passed}
 end

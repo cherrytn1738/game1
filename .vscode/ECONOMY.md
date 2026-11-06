@@ -34,9 +34,10 @@ Power gain and batting Cash, never the distance.
 - **Hit Power** = Training base × 0.37 × seconds in play (rounded) × Ball × (Rebirths + 1) ×
   purchased Power × Power juice. No ground.
 - **Offline Power** = 25% of the best usable ground's Training rate (no Level term), for up to
-  8 hours, × the saved Ball × (Rebirths + 1) × purchased Power (never a juice), held to half the
-  Power still needed for the Level Cap (the run cap). Welcome Back's 3x product adds it twice
-  more, up to all of it.
+  8 hours, × the saved Ball × (Rebirths + 1) × purchased Power (never a juice), held below the
+  Level Cap to half the Power still needed for it (the run cap). Welcome Back's 3x product adds it
+  twice more, up to all of it. At the Level Cap there is no run cap: the whole reward builds up
+  above the cap (up to `MaxPower`), no 3x is offered, and the next Rebirth resets it to 0.
 - **Hit Cash** = `(World start pay + World multiplier × (distance / 80)^1.5)` × section (1, 1.15,
   1.35) × Bat × purchased Cash × Cash juice, rounded, at least $1. World 1 has no start pay and
   multiplier 1 (an early hit pays $1); see Cash below for the later Worlds.
@@ -496,8 +497,14 @@ Welcome Back's 3x claim adds the granted reward twice more, up to all of the Pow
 `3x total = min(3 × granted, Power left to the Level Cap)`
 
 So a normal return never reaches the Level Cap, repeated returns take half of what is left each
-time (50%, 75%, 87.5%, ...), and a return at the cap adds nothing and offers no 3x (Power still
-banks there from Training). The 3x can finish the run but never makes a Rebirth automatic.
+time (50%, 75%, 87.5%, ...), and the 3x can finish the run but never makes a Rebirth automatic.
+
+**At the Level Cap** there is no run left to share, so the run cap does not apply: a return earns
+the whole time-based reward (8 h at most), which builds up above the cap the way Training's does
+there (`Progression.Advance`, up to `MaxPower`), so Welcome Back can show what the player made.
+It is worth nothing to progression: the next Rebirth resets Power to 0 and nothing carries into
+the next run. The 3x is never offered at the cap. So none of the simulator's results change
+(its players Rebirth on reaching the cap).
 
 Share of the run left, granted / with the 3x (best free ground, the Ball the active player has in
 that run; "Training" is the active Training time from there, at the same ground and Ball):
@@ -714,7 +721,8 @@ Training seconds, or longer timers.
   start pay is a big step up).
 - **Offline run cap:** a return fills at most half the run left (the 3x up to all of it), so
   8 hours away is worth about 1-19 minutes of active Training. Raise `OfflineRunShare` if returns
-  feel stingy; the cap, not the 8-hour limit, is what binds now.
+  feel stingy; the cap, not the 8-hour limit, is what binds now. (At the Level Cap a return earns
+  the full time-based reward instead, which the next Rebirth resets.)
 - **Hit distance is noisy** (see Hit physics): every launch Level has a measured speed, but the
   early arc (speeds under ~200), which now also opens every World and every run, varies from hit
   to hit (up to ~40%), and the measurements come from one Studio session (a speed can land
